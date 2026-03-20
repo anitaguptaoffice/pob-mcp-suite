@@ -88,27 +88,55 @@ function ShowCursor(doShow) end
 function IsKeyDown(keyName) end
 function Copy(text) end
 function Paste() end
-function Deflate(data)
-	-- TODO: Might need this
-	return ""
-end
-function Inflate(data)
-	-- TODO: And this
-	return ""
+do
+	local ffi = require("ffi")
+	ffi.cdef[[
+		unsigned long compressBound(unsigned long sourceLen);
+		int compress(uint8_t *dest, unsigned long *destLen,
+		             const uint8_t *source, unsigned long sourceLen);
+		int uncompress(uint8_t *dest, unsigned long *destLen,
+		               const uint8_t *source, unsigned long sourceLen);
+	]]
+	local zlib = ffi.load("z")
+
+	function Deflate(data)
+		if not data or #data == 0 then return "" end
+		local sourceLen = #data
+		local destLen = ffi.new("unsigned long[1]", zlib.compressBound(sourceLen))
+		local dest = ffi.new("uint8_t[?]", destLen[0])
+		local ret = zlib.compress(dest, destLen, data, sourceLen)
+		if ret ~= 0 then return nil end
+		return ffi.string(dest, destLen[0])
+	end
+
+	function Inflate(data)
+		if not data or #data == 0 then return nil end
+		local sourceLen = #data
+		for mult = 4, 256, 4 do
+			local destLen = ffi.new("unsigned long[1]", sourceLen * mult)
+			local dest = ffi.new("uint8_t[?]", destLen[0])
+			local ret = zlib.uncompress(dest, destLen, data, sourceLen)
+			if ret == 0 then return ffi.string(dest, destLen[0])
+			elseif ret ~= -5 then return nil end  -- -5 = Z_BUF_ERROR, retry with larger buffer
+		end
+		return nil
+	end
 end
 function GetTime()
 	return 0
 end
 function GetScriptPath()
-	return ""
+	return "."
 end
 function GetRuntimePath()
-	return ""
+	return "."
 end
 function GetUserPath()
 	return ""
 end
-function MakeDir(path) end
+function MakeDir(path)
+	os.execute("mkdir -p " .. path)
+end
 function RemoveDir(path) end
 function SetWorkDir(path) end
 function GetWorkDir()
