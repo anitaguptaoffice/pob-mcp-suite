@@ -424,6 +424,19 @@ Implicits: 1
 {variant:4}Reflects 1000 to 10000 Physical Damage to Attackers on Block
 {variant:2,3}10% of Damage you Reflect to Enemies when Hit is gained as Life
 ]],
+[[
+Cowards' Wail
+Ezomyte Tower Shield
+Requires Level 64, 159 Str
+Implicits: 1
++(30-40) to maximum Life
+(120-240)% increased Armour
++(5-10)% Chance to Block
+Totems which would be killed by Enemies become Spectral Totems for 8 seconds instead
+Skills used by Spectral Totems deal (40-50)% less Damage
+Maximum (3-5) Spectral Totems
+Unwavering Stance
+]],
 -- Shield: Energy Shield
 [[
 Apep's Slumber
@@ -481,13 +494,18 @@ Variant: Fire and Lightning Damage (Current)
 Variant: Energy Shield and Life (Current)
 Variant: Armour during Soul Gain Prevention (Current)
 Variant: Level of Socketed Support Gems (Current)
+Variant: Maximum Number of Spectres (Current)
+Variant: Spectre Max Resistances (Current)
+Variant: Spectre Additional Projectiles (Current)
+Variant: Spectre Flat Crit (Current)
+Variant: Spectre Increased AoE (Current)
 {variant:1,2,3,4,5,6,7,8,9,10,11,12}(30-50)% increased Spell Damage
 (180-220)% increased Energy Shield
 Spectres have (50-100)% increased maximum Life
 Gain Arcane Surge when you deal a Critical Strike
 Your Raised Spectres also gain Arcane Surge when you do
 {variant:1,2,3,4,5,6,7,8,9,10,11,12}(40-50)% increased Critical Strike Chance for Spells per Raised Spectre
-{variant:13,14,15,16,17,18}(50-100)% increased Critical Strike Chance for Spells per Raised Spectre
+{variant:13,14,15,16,17,18,19,20,21,22,23}(50-100)% increased Critical Strike Chance for Spells per Raised Spectre
 {variant:1}{crafted}Adds (3-12) to (5-16) Fire Damage
 {variant:1}{crafted}Adds (3-12) to (5-16) Cold Damage
 {variant:2}{crafted}Adds (3-12) to (5-16) Cold Damage
@@ -509,6 +527,11 @@ Your Raised Spectres also gain Arcane Surge when you do
 {variant:11,17}+(3201-4000) to Armour during Soul Gain Prevention
 {variant:12,18}+2 to Level of Socketed Support Gems
 {variant:12,18}+(5-8)% to Quality of Socketed Support Gems
+{variant:19}+1 to maximum number of Spectres
+{variant:20}Raised Spectres have +(5-10)% to all maximum Resistances
+{variant:21}Raised Spectres fire 2 additional Projectiles
+{variant:22}Raised Spectres have +(3-5)% to Critical Strike Chance
+{variant:23}Raised Spectres have (30-50)% increased Area of Effect
 ]],[[
 Brinerot Flag
 Tarnished Spirit Shield
@@ -858,6 +881,19 @@ Implicits: 1
 {variant:1}Curse Skills have 25% increased Skill Effect Duration
 {variant:2}Curse Skills have 100% increased Skill Effect Duration
 ]],
+[[
+Bitter Instinct
+Spiny Round Shield
+Source: Drops from unique{Uber Incarnation of Neglect} in normal{Moment of Loneliness}
+Requires Level 68, 85 Str, 85 Dex
+Implicits: 1
+60% increased Block Recovery
+(170-250)% increased Armour and Evasion
+Reflects (200-300) Physical Damage to Melee Attackers
+Retaliation Skills deal (50-100)% increased Damage
+Damaging Retaliation Skills become Usable every 4 seconds
+Retaliation Skills become Usable for (50-100)% longer
+]],
 -- Shield: Armour/Energy Shield
 [[
 Aegis Aurora
@@ -1034,8 +1070,7 @@ Implicits: 2
 The Unshattered Will
 Archon Kite Shield
 League: Harbinger
-Source: Created from item parts obtained from Boss in The Beachhead
-Upgrade: Upgrades to unique{The Immortal Will} via currency{Specularity Scroll}
+Source: No longer obtainable
 Implicits: 1
 +12% to all Elemental Resistances
 Grants Summon Harbinger of Focus Skill
@@ -1048,7 +1083,6 @@ Channelling Skills deal (50-70)% increased Damage
 The Immortal Will
 Archon Kite Shield
 League: Harvest
-Source: Upgraded from unique{The Unshattered Will} via currency{Specularity Scroll}
 Implicits: 1
 +12% to all Elemental Resistances
 Grants Summon Greater Harbinger of Focus Skill

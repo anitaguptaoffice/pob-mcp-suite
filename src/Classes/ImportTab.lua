@@ -70,7 +70,7 @@ local ImportTabClass = newClass("ImportTab", "ControlHost", "Control", function(
 	end
 	self.controls.accountNameGo.tooltipFunc = function(tooltip)
 		tooltip:Clear()
-		if not self.controls.accountName.buf:match("[#%-]%d%d%d%d$") then
+		if not self.controls.accountName.buf:match("[#%-]%d%d%d%d$") and self.controls.accountName.buf ~= "" then
 			tooltip:AddLine(16, "^7Missing discriminator e.g. " .. self.controls.accountName.buf .. "#1234")
 		end
 	end
@@ -97,7 +97,7 @@ local ImportTabClass = newClass("ImportTab", "ControlHost", "Control", function(
 
 	self.controls.accountNameMissingDiscriminator = new("LabelControl", {"TOPLEFT",self.controls.accountName,"BOTTOMLEFT"}, {0, 8, 0, 16}, "^1Missing discriminator e.g. #1234")
 	self.controls.accountNameMissingDiscriminator.shown = function()
-		return not self.controls.accountName.buf:match("[#%-]%d%d%d%d$")
+		return not self.controls.accountName.buf:match("[#%-]%d%d%d%d$") and self.controls.accountName.buf ~= ""
 	end
 
 	self.controls.accountNameUnicode = new("LabelControl", {"TOPLEFT",self.controls.accountRealm,"BOTTOMLEFT"}, {0, 34, 0, 14}, "^7Note: if the account name contains non-ASCII characters it must be pasted into the textbox,\nnot typed manually.")
@@ -542,7 +542,7 @@ function ImportTabClass:BuildCharacterList(league)
 					elseif (charClass == "Juggernaut" or charClass == "Berserker" or charClass == "Chieftain" or
 						charClass == "Antiquarian" or charClass == "Behemoth" or charClass == "Ancestral Commander") then
 						classColor = colorCodes["MARAUDER"]
-					elseif (charClass == "Ascendant" or charClass == "Scavenger") then
+					elseif (charClass == "Ascendant" or charClass == "Reliquarian" or charClass == "Scavenger") then
 						classColor = colorCodes["SCION"]
 					end
 				end
@@ -815,7 +815,8 @@ function ImportTabClass:ImportItemsAndSkills(json)
 end
 
 local rarityMap = { [0] = "NORMAL", "MAGIC", "RARE", "UNIQUE", [9] = "RELIC", [10] = "RELIC" }
-local slotMap = { ["Weapon"] = "Weapon 1", ["Offhand"] = "Weapon 2", ["Weapon2"] = "Weapon 1 Swap", ["Offhand2"] = "Weapon 2 Swap", ["Helm"] = "Helmet", ["BodyArmour"] = "Body Armour", ["Gloves"] = "Gloves", ["Boots"] = "Boots", ["Amulet"] = "Amulet", ["Ring"] = "Ring 1", ["Ring2"] = "Ring 2", ["Ring3"] = "Ring 3", ["Belt"] = "Belt" }
+local slotMap = { ["Weapon"] = "Weapon 1", ["Offhand"] = "Weapon 2", ["Weapon2"] = "Weapon 1 Swap", ["Offhand2"] = "Weapon 2 Swap", ["Helm"] = "Helmet", ["BodyArmour"] = "Body Armour", ["Gloves"] = "Gloves", ["Boots"] = "Boots", 
+				  ["Amulet"] = "Amulet", ["Ring"] = "Ring 1", ["Ring2"] = "Ring 2", ["Ring3"] = "Ring 3", ["Belt"] = "Belt",  ["BrequelGrafts"] = "Graft 1", ["BrequelGrafts2"] = "Graft 2", }
 
 function ImportTabClass:ImportItem(itemData, slotName)
 	if not slotName then
@@ -1032,6 +1033,14 @@ function ImportTabClass:ImportItem(itemData, slotName)
 			end
 		end
 	end
+	if itemData.mutatedMods then
+		for _, line in ipairs(itemData.mutatedMods) do
+			for line in line:gmatch("[^\n]+") do
+				local modList, extra = modLib.parseMod(line)
+				t_insert(item.explicitModLines, { line = line, extra = extra, mods = modList or { }, mutated = true })
+			end
+		end
+	end
 	-- Sometimes flavour text has actual mods that PoB cares about
 	-- Right now, the only known one is "This item can be anointed by Cassia"
 	if itemData.flavourText then
@@ -1055,6 +1064,23 @@ function ImportTabClass:ImportItem(itemData, slotName)
 				end
 			end
 		end
+	end
+	if itemData.foilVariation or itemData.isRelic then
+		local foilVariants = {
+			"Amethyst",
+			"Verdant",
+			"Ruby",
+			"Cobalt",
+			"Sunset",
+			"Aureate",
+			"Celestial Quartz",
+			"Celestial Ruby",
+			"Celestial Emerald",
+			"Celestial Aureate",
+			"Celestial Pearl",
+			"Celestial Amethyst",
+		}
+		item.foilType = foilVariants[itemData.foilVariation] or "Rainbow"
 	end
 
 	-- Add and equip the new item
@@ -1117,7 +1143,7 @@ function ImportTabClass:ImportSocketedItems(item, socketedItems, slotName)
 					itemSocketGroupList[groupID] = { label = "", enabled = true, gemList = { }, slot = slotName }
 				end
 				local socketGroup = itemSocketGroupList[groupID]
-				if not socketedItem.support and socketGroup.gemList[1] and socketGroup.gemList[1].support and item.title ~= "Dialla's Malefaction" then
+				if not socketedItem.support and socketGroup.gemList[1] and socketGroup.gemList[1].support and not (item.title and item.title:match("Dialla's Malefaction")) then
 					-- If the first gemInstance is a support gemInstance, put the first active gemInstance before it
 					t_insert(socketGroup.gemList, 1, gemInstance)
 				else

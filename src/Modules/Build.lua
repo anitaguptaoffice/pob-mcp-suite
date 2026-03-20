@@ -68,6 +68,7 @@ function buildMode:Init(dbFileName, buildName, buildXML, convertBuild, importLin
 	if not buildName then
 		main:SetMode("LIST")
 	end
+	self.saveAsSortMode = "NAME"
 
 	-- Load build file
 	self.xmlSectionList = { }
@@ -251,6 +252,13 @@ function buildMode:Init(dbFileName, buildName, buildXML, convertBuild, importLin
 					self.spec:AddUndoState()
 					self.spec:SetWindowTitleWithBuildClass()
 					self.buildFlag = true					
+				end, "Connect Path", function()
+					if self.spec:ConnectToClass(value.classId) then
+						self.spec:SelectClass(value.classId)
+						self.spec:AddUndoState()
+						self.spec:SetWindowTitleWithBuildClass()
+						self.buildFlag = true
+					end
 				end)
 			end
 		end
@@ -1303,10 +1311,14 @@ function buildMode:OpenSaveAsPopup()
 			end
 		end)
 	end)
-	controls.folder = new("FolderListControl", nil, {0, 115, 450, 100}, self.dbFileSubPath, function(subPath)
+
+	controls.folder = new("FolderListControl", nil, {0, 115, 450, 400}, self.dbFileSubPath, function(subPath)
 		updateBuildName()
 	end)
-	controls.save = new("ButtonControl", nil, {-45, 225, 80, 20}, "Save", function()
+	controls.folder.sortMode = self.saveAsSortMode
+	controls.folder:SortList()
+
+	controls.save = new("ButtonControl", nil, {-45, 525, 80, 20}, "Save", function()
 		main:ClosePopup()
 		self.dbFileName = newFileName
 		self.buildName = newBuildName
@@ -1314,7 +1326,7 @@ function buildMode:OpenSaveAsPopup()
 		self:SaveDBFile()
 		self.spec:SetWindowTitleWithBuildClass()
 	end)
-	controls.close = new("ButtonControl", nil, {45, 225, 80, 20}, "Cancel", function()
+	controls.close = new("ButtonControl", nil, {45, 525, 80, 20}, "Cancel", function()
 		main:ClosePopup()
 		self.actionOnSave = nil
 	end)
@@ -1326,7 +1338,18 @@ function buildMode:OpenSaveAsPopup()
 		controls.save.enabled = false
 	end
 
-	main:OpenPopup(470, 255, self.dbFileName and "Save As" or "Save", controls, "save", "edit", "close")
+	controls.buildSortMode = new("DropDownControl", { "TOPRIGHT", nil, "TOPRIGHT" }, { -10, 70, 120, 18 }, {
+		{ label = "Sort By Name", mode = "NAME" },
+		{ label = "Sort By Last Edited", mode = "EDITED" },
+	}, function(index, value)
+		self.saveAsSortMode = value.mode
+		controls.folder.sortMode = value.mode
+		controls.folder:SortList()
+	end)
+	controls.buildSortMode.tooltipText = "Sort folders by name or date modified."
+	controls.buildSortMode:SelByValue(self.saveAsSortMode, "mode")
+
+	main:OpenPopup(470, 555, self.dbFileName and "Save As" or "Save", controls, "save", "edit", "close")
 end
 
 -- Open the spectre library popup
@@ -1535,7 +1558,10 @@ function buildMode:FormatStat(statData, statVal, overCapStatVal, colorOverride)
 	end
 	
 	local valStr = s_format("%"..statData.fmt, val)
-	valStr:gsub("%.", main.decimalSeparator)
+	local number, suffix = valStr:match("^([%+%-]?%d+%.%d+)(%D*)$")
+	if number then
+		valStr = number:gsub("0+$", ""):gsub("%.$", "") .. suffix
+	end
 	valStr = color .. formatNumSep(valStr)
 
 	if overCapStatVal and overCapStatVal > 0 then
@@ -1625,7 +1651,7 @@ function buildMode:AddDisplayStatList(statList, actor)
 			end
 		end
 	end
-	for pool, warningFlag in pairs({["Life"] = "LifeCostWarning", ["Mana"] = "ManaCostWarning", ["Rage"] = "RageCostWarning", ["Energy Shield"] = "ESCostWarning"}) do
+	for pool, warningFlag in pairs({["Life"] = "LifeCostWarningList", ["Mana"] = "ManaCostWarningList", ["Rage"] = "RageCostWarningList", ["Energy Shield"] = "ESCostWarningList"}) do
 		if actor.output[warningFlag] then
 			local line = "You do not have enough "..(actor.output.EnergyShieldProtectsMana and pool == "Mana" and "Energy Shield and Mana" or pool).." to use: "
 			for _, skill in ipairs(actor.output[warningFlag]) do
@@ -1635,7 +1661,7 @@ function buildMode:AddDisplayStatList(statList, actor)
 			InsertIfNew(self.controls.warnings.lines, line)
 		end
 	end
-	for pool, warningFlag in pairs({["Unreserved life"] = "LifePercentCostPercentCostWarning", ["Unreserved Mana"] = "ManaPercentCostPercentCostWarning"}) do
+	for pool, warningFlag in pairs({["Unreserved life"] = "LifePercentCostPercentCostWarningList", ["Unreserved Mana"] = "ManaPercentCostPercentCostWarningList"}) do
 		if actor.output[warningFlag] then
 			local line = "You do not have enough ".. pool .."% to use: "
 			for _, skill in ipairs(actor.output[warningFlag]) do
@@ -1737,6 +1763,10 @@ function buildMode:CompareStatList(tooltip, statList, actor, baseOutput, compare
 				local color = ((statData.lowerIsBetter and diff < 0) or (not statData.lowerIsBetter and diff > 0)) and colorCodes.POSITIVE or colorCodes.NEGATIVE
 				local val = diff * ((statData.pc or statData.mod) and 100 or 1)
 				local valStr = s_format("%+"..statData.fmt, val) -- Can't use self:FormatStat, because it doesn't have %+. Adding that would have complicated a simple function
+				local number, suffix = valStr:match("^([%+%-]?%d+%.%d+)(%D*)$")
+				if number then
+					valStr = number:gsub("0+$", ""):gsub("%.$", "") .. suffix
+				end
 
 				valStr = formatNumSep(valStr)
 
@@ -1807,7 +1837,7 @@ do
 			if int and (int > 14 or int > self.calcsTab.mainOutput.Int) then
 				t_insert(req, s_format("%s%d ^x7F7F7FInt", main:StatColor(int, intBase, self.calcsTab.mainOutput.Int), int))
 			end
-		end	
+		end
 		if req[1] then
 			local fontSizeBig = main.showFlavourText and 18 or 16
 			tooltip:AddLine(fontSizeBig, "^x7F7F7FRequires "..table.concat(req, "^x7F7F7F, "), "FONTIN SC")
@@ -1820,11 +1850,11 @@ end
 function buildMode:LoadDB(xmlText, fileName)
 	-- Parse the XML
 	local dbXML, errMsg = common.xml.ParseXML(xmlText)
-	if not dbXML then
-		launch:ShowErrMsg("^1Error loading '%s': %s", fileName, errMsg)
+	if errMsg and errMsg:match(".*file returns nil") then
+		main:OpenCloudErrorPopup(fileName)
 		return true
-	elseif #dbXML == 0 then
-		main:OpenMessagePopup("Error", "Build file is empty, or error parsing xml.\n\n"..fileName)
+	elseif errMsg then
+		launch:ShowErrMsg("^1"..errMsg)
 		return true
 	elseif dbXML[1].elem ~= "PathOfBuilding" then
 		launch:ShowErrMsg("^1Error parsing '%s': 'PathOfBuilding' root element missing", fileName)

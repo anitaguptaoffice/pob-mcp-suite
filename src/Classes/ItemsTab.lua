@@ -30,7 +30,7 @@ local socketDropList = {
 	{ label = colorCodes.SCION.."W", color = "W" }
 }
 
-local baseSlots = { "Weapon 1", "Weapon 2", "Helmet", "Body Armour", "Gloves", "Boots", "Amulet", "Ring 1", "Ring 2", "Ring 3", "Belt", "Flask 1", "Flask 2", "Flask 3", "Flask 4", "Flask 5" }
+local baseSlots = { "Weapon 1", "Weapon 2", "Helmet", "Body Armour", "Gloves", "Boots", "Amulet", "Ring 1", "Ring 2", "Ring 3", "Belt", "Graft 1", "Graft 2", "Flask 1", "Flask 2", "Flask 3", "Flask 4", "Flask 5" }
 
 local influenceInfo = itemLib.influenceInfo.all
 
@@ -56,6 +56,9 @@ for _, entry in pairs(data.flavourText) do
 	end
 end
 
+local function isAnointable(item)
+	return (item.canBeAnointed or item.base.type == "Amulet")
+end
 
 local ItemsTabClass = newClass("ItemsTab", "UndoHandler", "ControlHost", "Control", function(self, build)
 	self.UndoHandler()
@@ -141,6 +144,10 @@ local ItemsTabClass = newClass("ItemsTab", "UndoHandler", "ControlHost", "Contro
 					return not abyssal.inactive and self.activeItemSet.useSecondWeaponSet
 				end
 				swapSlot.abyssalSocketList[i] = abyssal
+			end
+		elseif slotName == "Graft 1" or slotName == "Graft 2" then
+			slot.shown = function()
+				return self.build.spec.treeVersion:find("3_27")
 			end
 		elseif slotName == "Ring 3" then
 			slot.shown = function()
@@ -438,7 +445,7 @@ holding Shift will put it in the second.]])
 	self.controls.displayItemAddSocket.shown = function()
 		return #self.displayItem.sockets < self.displayItem.selectableSocketCount + self.displayItem.abyssalSocketCount
 	end
-	
+
 	-- Section: Enchant / Anoint / Corrupt
 	self.controls.displayItemSectionEnchant = new("Control", {"TOPLEFT",self.controls.displayItemSectionSockets,"BOTTOMLEFT"}, {0, 0, 0, function()
 		return (self.controls.displayItemEnchant:IsShown() or self.controls.displayItemEnchant2:IsShown() or self.controls.displayItemAnoint:IsShown() or self.controls.displayItemAnoint2:IsShown() or self.controls.displayItemCorrupt:IsShown() ) and 28 or 0
@@ -459,14 +466,14 @@ holding Shift will put it in the second.]])
 		self:AnointDisplayItem(1)
 	end)
 	self.controls.displayItemAnoint.shown = function()
-		return self.displayItem and (self.displayItem.base.type == "Amulet" or self.displayItem.canBeAnointed)
+		return self.displayItem and isAnointable(self.displayItem)
 	end
 	self.controls.displayItemAnoint2 = new("ButtonControl", {"TOPLEFT",self.controls.displayItemAnoint,"TOPRIGHT",true}, {8, 0, 100, 20}, "Anoint 2...", function()
 		self:AnointDisplayItem(2)
 	end)
 	self.controls.displayItemAnoint2.shown = function()
 		return self.displayItem and
-			(self.displayItem.base.type == "Amulet" or self.displayItem.canBeAnointed) and
+			isAnointable(self.displayItem) and
 			self.displayItem.canHaveTwoEnchants and
 			#self.displayItem.enchantModLines > 0
 	end
@@ -475,7 +482,7 @@ holding Shift will put it in the second.]])
 	end)
 	self.controls.displayItemAnoint3.shown = function()
 		return self.displayItem and
-			(self.displayItem.base.type == "Amulet" or self.displayItem.canBeAnointed) and
+			isAnointable(self.displayItem) and
 			self.displayItem.canHaveThreeEnchants and
 			#self.displayItem.enchantModLines > 1
 	end
@@ -484,7 +491,7 @@ holding Shift will put it in the second.]])
 	end)
 	self.controls.displayItemAnoint4.shown = function()
 		return self.displayItem and
-			(self.displayItem.base.type == "Amulet" or self.displayItem.canBeAnointed) and
+			isAnointable(self.displayItem) and
 			self.displayItem.canHaveFourEnchants and
 			#self.displayItem.enchantModLines > 2
 	end
@@ -507,7 +514,7 @@ holding Shift will put it in the second.]])
 	end)
 	self.controls.displayItemAddImplicit.shown = function()
 		return self.displayItem and
-			self.displayItem.type ~= "Tincture" and (self.displayItem.corruptible or ((self.displayItem.type ~= "Flask" and self.displayItem.type ~= "Jewel") and
+			self.displayItem.type ~= "Tincture" and self.displayItem.type ~= "Graft" and (self.displayItem.corruptible or ((self.displayItem.type ~= "Flask" and self.displayItem.type ~= "Jewel") and
 			(self.displayItem.rarity == "NORMAL" or self.displayItem.rarity == "MAGIC" or self.displayItem.rarity == "RARE"))) and 
 			not self.displayItem.implicitsCannotBeChanged
 	end
@@ -565,7 +572,7 @@ holding Shift will put it in the second.]])
 	end})
 	self.controls.displayItemQuality = new("LabelControl", {"TOPLEFT",self.controls.displayItemSectionQuality,"TOPRIGHT"}, {-4, 0, 0, 16}, "^7Quality:")
 	self.controls.displayItemQuality.shown = function()
-		return self.displayItem and self.displayItem.quality and (self.displayItem.base.type ~= "Amulet" or self.displayItem.base.type ~= "Belt" or self.displayItem.base.type ~= "Jewel" or self.displayItem.base.type ~= "Quiver" or self.displayItem.base.type ~= "Ring")
+		return self.displayItem and self.displayItem.quality and (self.displayItem.base.type ~= "Amulet" or self.displayItem.base.type ~= "Belt" or self.displayItem.base.type ~= "Jewel" or self.displayItem.base.type ~= "Quiver" or self.displayItem.base.type ~= "Ring" or self.displayItem.type ~= "Graft")
 	end
 
 	self.controls.displayItemQualityEdit = new("EditControl", {"LEFT",self.controls.displayItemQuality,"RIGHT"}, {2, 0, 60, 20}, nil, nil, "%D", 2, function(buf)
@@ -574,7 +581,7 @@ holding Shift will put it in the second.]])
 		self:UpdateDisplayItemTooltip()
 	end)
 	self.controls.displayItemQualityEdit.shown = function()
-		return self.displayItem and self.displayItem.quality and (self.displayItem.base.type ~= "Amulet" or self.displayItem.base.type ~= "Belt" or self.displayItem.base.type ~= "Jewel" or self.displayItem.base.type ~= "Quiver" or self.displayItem.base.type ~= "Ring")
+		return self.displayItem and self.displayItem.quality and (self.displayItem.base.type ~= "Amulet" or self.displayItem.base.type ~= "Belt" or self.displayItem.base.type ~= "Jewel" or self.displayItem.base.type ~= "Quiver" or self.displayItem.base.type ~= "Ring" or self.displayItem.type ~= "Graft")
 	end
 
 	-- Section: Catalysts
@@ -852,6 +859,7 @@ holding Shift will put it in the second.]])
 				tooltip:Clear()
 			elseif tooltip:CheckForUpdate(val, modList) then
 				local index, range = slider:GetDivVal(val)
+				range = verifyRange(range, index, drop)
 				local modId = modList[index]
 				local mod = self.displayItem.affixes[modId]
 				for _, line in ipairs(mod) do
@@ -907,13 +915,21 @@ holding Shift will put it in the second.]])
 
 	-- Section: Modifier Range
 	self.controls.displayItemSectionRange = new("Control", {"TOPLEFT",self.controls.displayItemSectionCustom,"BOTTOMLEFT"}, {0, 0, 0, function()
-		return self.displayItem.rangeLineList[1] and 28 or 0
+		if not self.displayItem or not self.displayItem.rangeLineList[1] then
+			return 0
+		end
+		if main.showAllItemAffixes and self.displayItem.rarity == "UNIQUE" then
+			local count = #self.displayItem.rangeLineList
+			return count * 22 + 4
+		else
+			return 28
+		end
 	end})
 	self.controls.displayItemRangeLine = new("DropDownControl", {"TOPLEFT",self.controls.displayItemSectionRange,"TOPLEFT"}, {0, 0, 350, 18}, nil, function(index, value)
 		self.controls.displayItemRangeSlider.val = self.displayItem.rangeLineList[index].range
 	end)
 	self.controls.displayItemRangeLine.shown = function()
-		return self.displayItem and self.displayItem.rangeLineList[1] ~= nil
+		return self.displayItem and self.displayItem.rangeLineList[1] ~= nil and not (main.showAllItemAffixes and self.displayItem.rarity == "UNIQUE")
 	end
 	self.controls.displayItemRangeSlider = new("SliderControl", {"LEFT",self.controls.displayItemRangeLine,"RIGHT"}, {8, 0, 100, 18}, function(val)
 		self.displayItem.rangeLineList[self.controls.displayItemRangeLine.selIndex].range = val
@@ -921,6 +937,34 @@ holding Shift will put it in the second.]])
 		self:UpdateDisplayItemTooltip()
 		self:UpdateCustomControls()
 	end)
+
+	for i = 1, 20 do
+		local baseControl = i == 1 and self.controls.displayItemSectionRange or self.controls["displayItemStackedRangeSlider"..(i-1)]
+
+		self.controls["displayItemStackedRangeSlider"..i] = new("SliderControl", {"TOPLEFT",baseControl,"TOPLEFT"}, {0, function()
+			return i == 1 and 2 or 22
+		end, 100, 18}, function(val)
+			if self.displayItem and self.displayItem.rangeLineList[i] then
+				self.displayItem.rangeLineList[i].range = val
+				self.displayItem:BuildAndParseRaw()
+				self:UpdateDisplayItemTooltip()
+				self:UpdateCustomControls()
+			end
+		end)
+		self.controls["displayItemStackedRangeLine"..i] = new("LabelControl", {"LEFT",self.controls["displayItemStackedRangeSlider"..i],"RIGHT"}, {8, -2, 350, 14}, function()
+			if self.displayItem and self.displayItem.rangeLineList[i] then
+				return "^7" .. self.displayItem.rangeLineList[i].line
+			end
+			return ""
+		end)
+		self.controls["displayItemStackedRangeSlider"..i].shown = function()
+			return main.showAllItemAffixes and self.displayItem and self.displayItem.rarity == "UNIQUE" and self.displayItem.rangeLineList[i] ~= nil
+		end
+
+		self.controls["displayItemStackedRangeLine"..i].shown = function()
+			return self.controls["displayItemStackedRangeSlider"..i]:IsShown()
+		end
+	end
 
 	-- Tooltip anchor
 	self.controls.displayItemTooltipAnchor = new("Control", {"TOPLEFT",self.controls.displayItemSectionRange,"BOTTOMLEFT"})
@@ -1270,6 +1314,14 @@ function ItemsTabClass:Draw(viewPort, inputEvents)
 
 	self:UpdateSockets()
 
+	if main.portraitMode then
+		self.controls.itemList:SetAnchor("TOPRIGHT", self.lastSlot, "BOTTOMRIGHT", 0, 40)
+	else
+		self.controls.itemList:SetAnchor("TOPLEFT", self.controls.setManage, "TOPRIGHT", 20, 20)
+	end
+	self.controls.craftDisplayItem:SetAnchor("TOPLEFT", main.portraitMode and self.controls.setManage or self.controls.itemList, "TOPRIGHT", 20, main.portraitMode and 0 or -20)
+	self.anchorDisplayItem:SetAnchor("TOPLEFT", main.portraitMode and self.controls.setManage or self.controls.itemList, "TOPRIGHT", 20, main.portraitMode and 0)
+
 	self:DrawControls(viewPort)
 	if self.controls.scrollBarH:IsShown() then
 		self.controls.scrollBarH:Draw(viewPort)
@@ -1386,10 +1438,6 @@ function ItemsTabClass:UpdateSockets()
 	for index, nodeId in ipairs(activeSocketList) do
 		self.sockets[nodeId].label = "Socket #"..index
 		self.lastSlot = self.sockets[nodeId]
-	end
-
-	if main.portraitMode then
-		self.controls.itemList:SetAnchor("TOPRIGHT",self.lastSlot,"BOTTOMRIGHT", 0, 40)
 	end
 end
 
@@ -1537,10 +1585,44 @@ function ItemsTabClass:DeleteItem(item, deferUndoState)
 	end
 end
 
+local function copyAnointsAndEldritchImplicits(newItem, activeItemSet, items)
+	local newItemType = newItem.base.type
+	if activeItemSet[newItemType] then
+		local currentItem = activeItemSet[newItemType].selItemId and items[activeItemSet[newItemType].selItemId]
+		-- if you don't have an equipped item that matches the type of the newItem, no need to do anything
+		if currentItem then
+			-- if the new item is anointable and does not have an anoint and your current respective item does, apply that anoint to the new item
+			if isAnointable(newItem) and #newItem.enchantModLines == 0 and activeItemSet[newItemType].selItemId > 0 then
+				local currentAnoint = currentItem.enchantModLines
+				if currentAnoint and #currentAnoint == 1 then -- skip if amulet has more than one anoint e.g. Stranglegasp
+					newItem.enchantModLines = currentAnoint
+				end
+			end
+			-- if the new item is a non-corrupted Normal, Magic, or Rare Helmet, Body Armour, Gloves, or Boots and does not have any influence
+			-- and your current respective item is Eater and/or Exarch, apply those implicits and influence to the new item
+			local eldritchBaseTypes = { "Helmet", "Body Armour", "Gloves", "Boots" }
+			local eldritchRarities = { "NORMAL", "MAGIC", "RARE" }
+			for _, influence in ipairs(itemLib.influenceInfo.default) do
+				if newItem[influence.key] then
+					return
+				end
+			end
+			if main.migrateEldritchImplicits and isValueInTable(eldritchBaseTypes, newItem.base.type) and isValueInTable(eldritchRarities, newItem.rarity)
+				and #newItem.implicitModLines == 0 and not newItem.corrupted and (currentItem.cleansing or currentItem.tangle) and currentItem.implicitModLines then
+					newItem.implicitModLines = currentItem.implicitModLines
+					newItem.tangle = currentItem.tangle
+					newItem.cleansing = currentItem.cleansing
+			end
+			newItem:BuildAndParseRaw()
+		end
+	end
+end
+
 -- Attempt to create a new item from the given item raw text and sets it as the new display item
 function ItemsTabClass:CreateDisplayItemFromRaw(itemRaw, normalise)
 	local newItem = new("Item", itemRaw)
 	if newItem.base then
+		copyAnointsAndEldritchImplicits(newItem, self.activeItemSet, self.items)
 		if normalise then
 			newItem:NormaliseQuality()
 			newItem:BuildModList()
@@ -1734,10 +1816,17 @@ function ItemsTabClass:UpdateAffixControl(control, item, type, outputTable, outp
 			extraTags[skill.tag] = true
 		end
 	end
+	local selAffix = item[outputTable][outputIndex] and item[outputTable][outputIndex].modId
 	local affixList = { }
+	local retainedAffixes = { }
 	for modId, mod in pairs(item.affixes) do
-		if mod.type == type and not excludeGroups[mod.group] and item:GetModSpawnWeight(mod, extraTags) > 0 and not item:CheckIfModIsDelve(mod) then
-			t_insert(affixList, modId)
+		if mod.type == type and not excludeGroups[mod.group] and not item:CheckIfModIsDelve(mod) then
+			if item:GetModSpawnWeight(mod, extraTags) > 0 then
+				t_insert(affixList, modId)
+			elseif modId == selAffix then
+				t_insert(affixList, modId)
+				retainedAffixes[modId] = true
+			end
 		end
 	end
 	table.sort(affixList, function(a, b)
@@ -1752,7 +1841,10 @@ function ItemsTabClass:UpdateAffixControl(control, item, type, outputTable, outp
 				return modA.statOrder[i] < modB.statOrder[i]
 			end
 		end
-		return modA.level > modB.level
+		if modA.level ~= modB.level then
+			return modA.level < modB.level
+		end
+		return a < b
 	end)
 	control.selIndex = 1
 	control.list = { "None" }
@@ -1769,7 +1861,9 @@ function ItemsTabClass:UpdateAffixControl(control, item, type, outputTable, outp
 			end
 			local modString = table.concat(mod, "/")
 			local label = modString
-			if item.type == "Flask" then
+			if retainedAffixes[modId] then
+				label = "^8[Retained] " .. modString
+			elseif item.type == "Flask" then
 				label = mod.affix .. "   ^8[" .. modString .. "]"
 			end
 			control.list[i + 1] = {
@@ -1796,7 +1890,7 @@ function ItemsTabClass:UpdateAffixControl(control, item, type, outputTable, outp
 			if selAffix == modId then
 				control.selIndex = #control.list
 			end
-			t_insert(lastSeries.modList, 1, modId)
+			t_insert(lastSeries.modList, modId)
 			if #lastSeries.modList == 2 then
 				lastSeries.label = lastSeries.label:gsub("%(%-?[%d%.]+%-%-?[%d%.]+%)","#"):gsub("%-?%d+%.?%d*","#")
 				lastSeries.haveRange = true
@@ -1867,8 +1961,11 @@ end
 function ItemsTabClass:UpdateDisplayItemRangeLines()
 	if self.displayItem and self.displayItem.rangeLineList[1] then
 		wipeTable(self.controls.displayItemRangeLine.list)
-		for _, modLine in ipairs(self.displayItem.rangeLineList) do
+		for i, modLine in ipairs(self.displayItem.rangeLineList) do
 			t_insert(self.controls.displayItemRangeLine.list, modLine.line)
+			if self.controls["displayItemStackedRangeSlider"..i] then
+				self.controls["displayItemStackedRangeSlider"..i].val = modLine.range
+			end
 		end
 		self.controls.displayItemRangeLine.selIndex = 1
 		self.controls.displayItemRangeSlider.val = self.displayItem.rangeLineList[1].range
@@ -1996,7 +2093,7 @@ function ItemsTabClass:CraftItem()
 		item.implicitModLines = { }
 		item.explicitModLines = { }
 		item.crucibleModLines = { }
-		if base.base.type == "Amulet" or base.base.type == "Belt" or base.base.type == "Jewel" or base.base.type == "Quiver" or base.base.type == "Ring" then
+		if base.base.type == "Amulet" or base.base.type == "Belt" or base.base.type == "Jewel" or base.base.type == "Quiver" or base.base.type == "Ring" or base.base.type == "Graft" then
 			item.quality = nil
 		else
 			item.quality = 0
@@ -2730,11 +2827,11 @@ function ItemsTabClass:AddCustomModifierToDisplayItem()
 			end)
 		end
 	end
-	if self.displayItem.type ~= "Tincture"  then
+	if self.displayItem.type ~= "Tincture" and self.displayItem.type ~= "Graft" then
 		if self.displayItem.type ~= "Jewel" then
 			t_insert(sourceList, { label = "Crafting Bench", sourceId = "MASTER" })
 		end
-		if self.displayItem.type ~= "Jewel" and self.displayItem.type ~= "Flask" then
+		if self.displayItem.type ~= "Jewel" and self.displayItem.type ~= "Flask" and self.displayItem.type ~= "Graft" then
 			t_insert(sourceList, { label = "Essence", sourceId = "ESSENCE" })
 			t_insert(sourceList, { label = "Veiled", sourceId = "VEILED"})
 			t_insert(sourceList, { label = "Beastcraft", sourceId = "BEASTCRAFT" })
@@ -2742,7 +2839,7 @@ function ItemsTabClass:AddCustomModifierToDisplayItem()
 		if self.displayItem.type == "Helmet" or self.displayItem.type == "Body Armour" or self.displayItem.type == "Gloves" or self.displayItem.type == "Boots" then
 			t_insert(sourceList, { label = "Necropolis", sourceId = "NECROPOLIS"})
 		end
-		if not self.displayItem.clusterJewel and self.displayItem.type ~= "Flask" then
+		if not self.displayItem.clusterJewel and self.displayItem.type ~= "Flask" and self.displayItem.type ~= "Graft" then
 			t_insert(sourceList, { label = "Delve", sourceId = "DELVE"})
 		end
 		if not self.displayItem.crafted then
@@ -3080,7 +3177,7 @@ function ItemsTabClass:AddImplicitToDisplayItem()
 			t_insert(sourceList, { label = "Eater of Worlds", sourceId = "EATER" })
 		end
 	end
-	if self.displayItem.type ~= "Flask" and self.displayItem.type ~= "Jewel" then
+	if self.displayItem.type ~= "Flask" and self.displayItem.type ~= "Jewel" and self.displayItem.type ~= "Graft" then
 		--t_insert(sourceList, { label = "Synth", sourceId = "SYNTHESIS" }) -- synth removed until we get proper support for where the mods go
 		t_insert(sourceList, { label = "Delve", sourceId = "DelveImplicit" })
 	end
@@ -3217,16 +3314,21 @@ function ItemsTabClass:SetTooltipHeaderInfluence(tooltip, item)
 		end
 	end
 
-	if item.title and item.title:find("Replica") then
-		addInfluence("Experimented")
 	-- Eater and Exarch combo takes priority over fractured icon.
-	elseif item.cleansing and item.tangle then
+	if item.cleansing and item.tangle then
 		addInfluence("Exarch")
 		addInfluence("Eater")
 	else
 		-- Dual influence with fracture will show fractured icon and highest priority influence.
 		if item.fractured then
 			addInfluence("Fractured")
+		end
+		-- Replica Eternity Shroud has Experimented icon and Shaper icon on the right.
+		if item.title and item.title:find("Replica") then
+			addInfluence("Experimented")
+		end
+		if item.foulborn then
+			addInfluence("Foulborn")
 		end
 		if item.veiled then
 			addInfluence("Veiled")
@@ -3335,7 +3437,7 @@ function ItemsTabClass:AddItemTooltip(tooltip, item, slot, dbMode)
 	if base.weapon then
 		-- Weapon-specific info
 		local weaponData = item.weaponData[slotNum]
-		tooltip:AddLine(fontSizeBig, s_format("^x7F7F7F%s", self.build.data.weaponTypeInfo[base.type].label or base.type), "FONTIN SC")
+		tooltip:AddLine(fontSizeBig, s_format("^x7F7F7F%s", self.build.data.weaponTypeInfo[base.type].label or base.subType or base.type), "FONTIN SC")
 		if item.quality > 0 then
 			tooltip:AddLine(fontSizeBig, s_format("^x7F7F7FQuality: "..colorCodes.MAGIC.."+%d%%", item.quality), "FONTIN SC")
 		end
@@ -3579,11 +3681,18 @@ function ItemsTabClass:AddItemTooltip(tooltip, item, slot, dbMode)
 	end
 
 	-- Show flavour text:
-	if (item.rarity == "UNIQUE" or item.rarity == "RELIC" or item.baseName == "Grasping Mail") and main.showFlavourText == true then
-		local flavourTable = flavourLookup[item.baseName == "Grasping Mail" and item.baseName or item.title]
+	if (item.rarity == "UNIQUE" or item.rarity == "RELIC" or item.base.flavourText) and main.showFlavourText then
+		local flavour = nil
+		local flavourTable = nil
+
+		if item.base.flavourText then
+			flavour = item.base.flavourText
+		else
+			flavourTable = flavourLookup[item.title:gsub("^Foulborn%s+", "")]
+		end
+
 		if flavourTable then
-			local flavour = nil
-			if item.title == "Grand Spectrum" then
+			if (item.title and item.title:match("Grand Spectrum")) then
 				local selectedFlavourId = nil
 				for _, lineEntry in ipairs(tooltip.lines or {}) do
 					local lineText = lineEntry.text or ""
@@ -3616,7 +3725,7 @@ function ItemsTabClass:AddItemTooltip(tooltip, item, slot, dbMode)
 						break
 					end
 				end
-				if selectedFlavourId then
+				if selectedFlavourId and flavourTable[selectedFlavourId] then
 					flavour = flavourTable[selectedFlavourId]
 				end
 			else
@@ -3625,13 +3734,13 @@ function ItemsTabClass:AddItemTooltip(tooltip, item, slot, dbMode)
 					break
 				end
 			end
+		end
 
-			if flavour then
-				for _, line in ipairs(flavour) do
-					tooltip:AddLine(fontSizeBig, colorCodes.UNIQUE .. line, "FONTIN SC ITALIC")
-				end
-				tooltip:AddSeparator(14)
+		if flavour then
+			for _, line in ipairs(flavour) do
+				tooltip:AddLine(fontSizeBig, colorCodes.UNIQUE .. line, "FONTIN SC ITALIC")
 			end
+			tooltip:AddSeparator(14)
 		end
 	end
 
@@ -3883,7 +3992,7 @@ function ItemsTabClass:AddItemTooltip(tooltip, item, slot, dbMode)
 		-- Build sorted list of slots to compare with
 		local compareSlots = { }
 		for slotName, slot in pairs(self.slots) do
-			if self:IsItemValidForSlot(item, slotName) and not slot.inactive and (not slot.weaponSet or slot.weaponSet == (self.activeItemSet.useSecondWeaponSet and 2 or 1)) then
+			if self:IsItemValidForSlot(item, slotName) and not slot.inactive and (not slot.weaponSet or slot.weaponSet == (self.activeItemSet.useSecondWeaponSet and 2 or 1)) and slot.shown() then
 				t_insert(compareSlots, slot)
 			end
 		end

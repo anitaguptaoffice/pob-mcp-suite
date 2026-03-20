@@ -201,6 +201,18 @@ Requires Level 47, 68 Str
 10% chance to Knock Enemies Back on hit
 (30-50)% increased Projectile Damage
 ]],
+[[
+The Caged Mammoth
+Antique Gauntlets
+Source: Drops from unique{Uber Incarnation of Fear} in normal{Moment of Trauma}
+Requires Level 64, 58 Str
+Adds (6-10) to (16-22) Physical Damage to Attacks
+(8-16)% increased Attack Speed
+(80-120)% increased Armour
+Lose (1-3) Rage per second
+5% less Damage taken per 5 Rage, up to a maximum of 30%
+Maximum Rage is Halved
+]],
 -- Gloves: Evasion
 [[
 Great Old One's Tentacles
@@ -298,6 +310,19 @@ Adds (6-10) to (33-38) Lightning Damage
 (60-120)% increased Evasion Rating
 Critical Strikes do not inherently apply non-Damaging Ailments
 Inflict non-Damaging Ailments as though dealing (100-200)% more Damage
+]],
+[[
+Hand of the Lords
+Carnal Mitts
+Source: Drops from unique{It That Was Esh} and unique{It That Was Tul} in normal{Hive Colony}
+Requires Level 68, 195 Dex, 195 Int
+You cannot Cast Socketed Hex Curse Skills
+Inflict Socketed Hexes on Enemies that trigger your Traps
+Grants Level 30 Will of the Lords Skill
+400% increased Attribute Requirements
+(120-160)% increased Evasion and Energy Shield
+(6-12)% increased Trap Throwing Speed
+Can have up to (3-5) additional Traps placed at a time
 ]],
 -- Gloves: Energy Shield
 [[
@@ -656,14 +681,17 @@ Command of the Pit
 Riveted Gloves
 League: Delve
 Source: Drops from unique{Kurgal, the Blackblooded}
+Variant: Pre 3.27.0 One Abyssal Socket
+Variant: Pre 3.27.0 Two Abyssal Sockets
 Variant: One Abyssal Socket
 Variant: Two Abyssal Sockets
 Requires Level 37, 29 Str, 29 Int
-{variant:1}Has 1 Abyssal Socket
-{variant:2}Has 2 Abyssal Sockets
+{variant:1,3}Has 1 Abyssal Socket
+{variant:2,4}Has 2 Abyssal Sockets
 (6-10)% increased Cast Speed
 (4-6)% increased maximum Life
-With a Ghastly Eye Jewel Socketed, Minions have +1000 to Accuracy Rating
+{variant:1,2}With a Ghastly Eye Jewel Socketed, Minions have +1000 to Accuracy Rating
+{variant:3,4}With a Ghastly Eye Jewel Socketed, Minions have 25% chance to gain Unholy Might on Hit with Spells
 With a Hypnotic Eye Jewel Socketed, gain Arcane Surge on Hit with Spells
 ]],[[
 The Hand of Phrecia
@@ -767,20 +795,21 @@ Shaper Item
 Source: Drops from unique{The Shaper}
 Variant: Pre 2.6.0
 Variant: Pre 3.10.0
+Variant: Pre 3.28.0
 Variant: Current
 Requires Level 66, 51 Str, 51 Int
 (80-120)% increased Armour and Energy Shield
-{variant:1}+2 Accuracy Rating per 2 Intelligence
+{variant:1,4}+2 Accuracy Rating per 2 Intelligence
 {variant:2,3}+4 Accuracy Rating per 2 Intelligence
 +1 Life per 4 Dexterity
-{variant:1,3}+1 Mana per 4 Strength
+{variant:1,3,4}+1 Mana per 4 Strength
 {variant:2}+2 Mana per 4 Strength
-{variant:1,3}1% increased Energy Shield per 10 Strength
+{variant:1,3,4}1% increased Energy Shield per 10 Strength
 {variant:2}2% increased Energy Shield per 10 Strength
 {variant:1}1% increased Evasion Rating per 10 Intelligence
-{variant:2,3}2% increased Evasion Rating per 10 Intelligence
+{variant:2,3,4}2% increased Evasion Rating per 10 Intelligence
 {variant:1}1% increased Melee Physical Damage per 10 Dexterity
-{variant:2,3}2% increased Melee Physical Damage per 10 Dexterity
+{variant:2,3,4}2% increased Melee Physical Damage per 10 Dexterity
 ]],[[
 Southbound
 Soldier Gloves
@@ -842,13 +871,15 @@ Chaos Skills have 20% chance to Ignite
 ]],[[
 Hand of Heresy
 Martyr Gloves
-Source: Drops from unique{Mercenary} after winning a duel
 League: Mercenaries of Trarthus
+Variant: Pre 3.28.0
+Variant: Current
 Requires Level 77, 70 Str, 70 Int
 (40-80)% increased Armour and Energy Shield
 (15-25)% increased Life Regeneration rate
 15% increased Area of Effect of Aura Skills
 Excommunicate Enemies on Melee Hit for 3 seconds
+{variant:2}+(0.8-1.6)% to Critical Strike Chance against Excommunicated Enemies
 ]],
 -- Gloves: Evasion/Energy Shield
 [[
