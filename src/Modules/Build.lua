@@ -182,9 +182,9 @@ function buildMode:Init(dbFileName, buildName, buildXML, convertBuild, importLin
 		local x, y = control:GetPos()
 		local width, height = control:GetSize()
 		SetDrawColor(1, 1, 1)
-		DrawImage(nil, x, y, width, height)
+		DrawImage(nil, x, y, width + 2, height)
 		SetDrawColor(0, 0, 0)
-		DrawImage(nil, x + 1, y + 1, width - 2, height - 2)
+		DrawImage(nil, x + 1, y + 1, width, height - 2)
 		SetDrawColor(1, 1, 1)
 		DrawString(x + 4, y + 2, "LEFT", 16, "FIXED", control.str)
 		if control:IsMouseInBounds() then
@@ -195,14 +195,14 @@ function buildMode:Init(dbFileName, buildName, buildXML, convertBuild, importLin
 			SetDrawLayer(nil, 0)
 		end
 	end
-	self.controls.levelScalingButton = new("ButtonControl", {"LEFT",self.controls.pointDisplay,"RIGHT"}, {12, 0, 50, 20}, self.characterLevelAutoMode and "Auto" or "Manual", function()
+	self.controls.levelScalingButton = new("ButtonControl", {"LEFT",self.controls.pointDisplay,"RIGHT"}, {10, 0, 50, 20}, self.characterLevelAutoMode and "Auto" or "Manual", function()
 		self.characterLevelAutoMode = not self.characterLevelAutoMode
 		self.controls.levelScalingButton.label = self.characterLevelAutoMode and "Auto" or "Manual"
 		self.configTab:BuildModList()
 		self.modFlag = true
 		self.buildFlag = true
 	end)
-	self.controls.characterLevel = new("EditControl", {"LEFT",self.controls.levelScalingButton,"RIGHT"}, {8, 0, 106, 20}, "", "Level", "%D", 3, function(buf)
+	self.controls.characterLevel = new("EditControl", {"LEFT",self.controls.levelScalingButton,"RIGHT"}, {5, 0, 106, 20}, "", "Level", "%D", 3, function(buf)
 		self.characterLevel = m_min(m_max(tonumber(buf) or 1, 1), 100)
 		self.configTab:BuildModList()
 		self.modFlag = true
@@ -239,7 +239,7 @@ function buildMode:Init(dbFileName, buildName, buildXML, convertBuild, importLin
 			end
 		end
 	end
-	self.controls.classDrop = new("DropDownControl", {"LEFT",self.controls.characterLevel,"RIGHT"}, {8, 0, 100, 20}, nil, function(index, value)
+	self.controls.classDrop = new("DropDownControl", {"LEFT",self.controls.characterLevel,"RIGHT"}, {5, 0, 85, 20}, nil, function(index, value)
 		if value.classId ~= self.spec.curClassId then
 			if self.spec:CountAllocNodes() == 0 or self.spec:IsClassConnected(value.classId) then
 				self.spec:SelectClass(value.classId)
@@ -263,28 +263,7 @@ function buildMode:Init(dbFileName, buildName, buildXML, convertBuild, importLin
 			end
 		end
 	end)
-	self.controls.ascendDrop = new("DropDownControl", {"LEFT",self.controls.classDrop,"RIGHT"}, {8, 0, 120, 20}, nil, function(index, value)
-		self.spec:SelectAscendClass(value.ascendClassId)
-		self.spec:AddUndoState()
-		self.spec:SetWindowTitleWithBuildClass()
-		self.buildFlag = true
-	end)
-	self.controls.secondaryAscendDrop = new("DropDownControl", {"LEFT",self.controls.ascendDrop,"RIGHT"}, {8, 0, 160, 20}, {
-		{ label = "None", ascendClassId = 0 },
-	}, function(index, value)
-		if not value or not self.spec then
-			return
-		end
-		self.spec:SelectSecondaryAscendClass(value.ascendClassId)
-		self.spec:AddUndoState()
-		self.spec:SetWindowTitleWithBuildClass()
-		self.buildFlag = true
-	end)
-	self.controls.secondaryAscendDrop.enableDroppedWidth = true
-	self.controls.secondaryAscendDrop.maxDroppedWidth = 360
-	local initialSecondarySelection = (self.spec and self.spec.curSecondaryAscendClassId) or 0
-	self.controls.secondaryAscendDrop:SelByValue(initialSecondarySelection, "ascendClassId")
-	self.controls.buildLoadouts = new("DropDownControl", {"LEFT",self.controls.secondaryAscendDrop,"RIGHT"}, {8, 0, 190, 20}, {}, function(index, value)
+	self.controls.buildLoadouts = new("DropDownControl", {"LEFT",self.controls.classDrop,"RIGHT"}, {5, 0, 190, 20}, {}, function(index, value)
 		if value == "^7^7Loadouts:" or value == "^7^7-----" then
 			self.controls.buildLoadouts:SetSel(1)
 			return
@@ -455,6 +434,10 @@ function buildMode:Init(dbFileName, buildName, buildXML, convertBuild, importLin
 		self.viewMode = "PARTY"
 	end)
 	self.controls.modeParty.locked = function() return self.viewMode == "PARTY" end
+	self.controls.modeCompare = new("ButtonControl", {"LEFT",self.controls.modeParty,"RIGHT"}, {4, 0, 72, 20}, "Compare", function()
+		self.viewMode = "COMPARE"
+	end)
+	self.controls.modeCompare.locked = function() return self.viewMode == "COMPARE" end
 	-- Skills
 	self.controls.mainSkillLabel = new("LabelControl", {"TOPLEFT",self.anchorSideBar,"TOPLEFT"}, {0, 80, 300, 16}, "^7Main Skill:")
 	self.controls.mainSocketGroup = new("DropDownControl", {"TOPLEFT",self.controls.mainSkillLabel,"BOTTOMLEFT"}, {0, 2, 300, 18}, nil, function(index, value)
@@ -589,6 +572,7 @@ function buildMode:Init(dbFileName, buildName, buildXML, convertBuild, importLin
 	self.treeTab = new("TreeTab", self)
 	self.skillsTab = new("SkillsTab", self)
 	self.calcsTab = new("CalcsTab", self)
+	self.compareTab = new("CompareTab", self)
 
 	-- Load sections from the build file
 	self.savers = {
@@ -1113,44 +1097,6 @@ function buildMode:OnFrame(inputEvents)
 	self:ProcessControlsInput(inputEvents, main.viewPort)
 
 	self.controls.classDrop:SelByValue(self.spec.curClassId, "classId")
-	self.controls.ascendDrop.list = self.controls.classDrop:GetSelValueByKey("ascendancies")
-	self.controls.ascendDrop:SelByValue(self.spec.curAscendClassId, "ascendClassId")
-	self.controls.ascendDrop:CheckDroppedWidth(true)
-	local secondaryDrop = self.controls.secondaryAscendDrop
-	if secondaryDrop then
-		local legacyAlternateAscendancyIds = {
-			Warden = true,
-			Warlock = true,
-			Primalist = true,
-		}
-		local entries = {
-			{ label = "None", ascendClassId = 0 },
-		}
-		local selection = (self.spec and self.spec.curSecondaryAscendClassId) or 0
-		if self.spec and self.spec.tree then
-			local altAscendancies = self.spec.tree.alternate_ascendancies
-			if altAscendancies then
-				local sortable = { }
-				for ascendClassId, ascendClass in pairs(altAscendancies) do
-					if ascendClass and ascendClass.id then
-						if not legacyAlternateAscendancyIds[ascendClass.id] or ascendClassId == selection then
-							t_insert(sortable, { label = ascendClass.name, ascendClassId = ascendClassId })
-						end
-					end
-				end
-				t_sort(sortable, function(a, b)
-					return a.label < b.label
-				end)
-				for _, entry in ipairs(sortable) do
-					t_insert(entries, entry)
-				end
-			end
-		end
-		secondaryDrop:SetList(entries)
-		secondaryDrop:SelByValue(selection, "ascendClassId")
-		secondaryDrop:CheckDroppedWidth(true)
-		secondaryDrop.enabled = self.spec ~= nil and #entries > 1
-	end
 
 	if self.buildFlag then
 		-- Wipe Global Cache
@@ -1202,6 +1148,8 @@ function buildMode:OnFrame(inputEvents)
 		self.itemsTab:Draw(tabViewPort, inputEvents)
 	elseif self.viewMode == "CALCS" then
 		self.calcsTab:Draw(tabViewPort, inputEvents)
+	elseif self.viewMode == "COMPARE" then
+		self.compareTab:Draw(tabViewPort, inputEvents)
 	end
 
 	self.unsaved = self.modFlag or self.notesTab.modFlag or self.partyTab.modFlag or self.configTab.modFlag or self.treeTab.modFlag or self.treeTab.searchFlag or self.spec.modFlag or self.skillsTab.modFlag or self.itemsTab.modFlag or self.calcsTab.modFlag
@@ -1220,6 +1168,7 @@ function buildMode:OnFrame(inputEvents)
 	DrawImage(nil, 0, 32, sideBarWidth - 4, main.screenH - 32)
 	SetDrawColor(0.85, 0.85, 0.85)
 	DrawImage(nil, sideBarWidth - 4, 32, 4, main.screenH - 32)
+
 
 	self:DrawControls(main.viewPort)
 end

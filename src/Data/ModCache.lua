@@ -8263,8 +8263,7 @@ c["Debuffs on you expire 100% faster"]={{[1]={flags=0,keywordFlags=0,name="SelfD
 c["Debuffs on you expire 15% faster"]={{[1]={flags=0,keywordFlags=0,name="SelfDebuffExpirationRate",type="BASE",value=15}},nil}
 c["Debuffs on you expire 18% faster"]={{[1]={flags=0,keywordFlags=0,name="SelfDebuffExpirationRate",type="BASE",value=18}},nil}
 c["Debuffs on you expire 20% faster"]={{[1]={flags=0,keywordFlags=0,name="SelfDebuffExpirationRate",type="BASE",value=20}},nil}
-c["Debuffs on you expire 20% faster while affected by Haste"]={nil,"Debuffs on you expire 20% faster while affected by Haste "}
-c["Debuffs on you expire 20% faster while affected by Haste You gain Onslaught for 4 seconds on Kill while affected by Haste"]={nil,"Debuffs on you expire 20% faster while affected by Haste You gain Onslaught for 4 seconds on Kill while affected by Haste "}
+c["Debuffs on you expire 20% faster while affected by Haste"]={{[1]={[1]={type="Condition",var="AffectedByHaste"},flags=0,keywordFlags=0,name="SelfDebuffExpirationRate",type="BASE",value=20}},nil}
 c["Debuffs on you expire 30% faster"]={{[1]={flags=0,keywordFlags=0,name="SelfDebuffExpirationRate",type="BASE",value=30}},nil}
 c["Debuffs on you expire 90% faster"]={{[1]={flags=0,keywordFlags=0,name="SelfDebuffExpirationRate",type="BASE",value=90}},nil}
 c["Defences are Zero"]={{[1]={flags=0,keywordFlags=0,name="Armour",type="MORE",value=-100},[2]={flags=0,keywordFlags=0,name="EnergyShield",type="MORE",value=-100},[3]={flags=0,keywordFlags=0,name="Evasion",type="MORE",value=-100},[4]={flags=0,keywordFlags=0,name="Ward",type="MORE",value=-100}},nil}
@@ -8539,7 +8538,7 @@ c["Exposure you inflict applies an extra -6% to the affected Resistance"]={{[1]=
 c["Exposure you inflict applies at least -18% to the affected Resistance"]={{[1]={flags=0,keywordFlags=0,name="ExposureMin",type="OVERRIDE",value=-18}},nil}
 c["Extra gore"]={{},nil}
 c["Far Shot"]={{[1]={flags=0,keywordFlags=0,name="FarShot",type="FLAG",value=true}},nil}
-c["Final Repeat of Attack Skills deals 60% more Damage"]={{[1]={flags=1,keywordFlags=0,name="RepeatFinalDamage",type="MORE",value=60}},nil}
+c["Final Repeat of Attack Skills deals 60% more Damage"]={{[1]={flags=0,keywordFlags=65536,name="RepeatFinalDamage",type="MORE",value=60}},nil}
 c["Final Repeat of Spells has 40% increased Area of Effect"]={{[1]={[1]={neg=true,type="Condition",var="CastOnFrostbolt"},[2]={type="Condition",varList={[1]="averageRepeat",[2]="alwaysFinalRepeat"}},flags=2,keywordFlags=0,name="RepeatFinalAreaOfEffect",type="INC",value=40}},nil}
 c["Fire Exposure you inflict applies an extra -5% to Fire Resistance"]={{[1]={flags=0,keywordFlags=0,name="ExtraFireExposure",type="BASE",value=-5}},nil}
 c["Fire Resistance is 75%"]={{[1]={flags=0,keywordFlags=0,name="FireResist",type="OVERRIDE",value=75}},nil}
@@ -8798,6 +8797,7 @@ c["Gain 30% of Physical Damage as Extra Cold Damage"]={{[1]={flags=0,keywordFlag
 c["Gain 30% of Physical Damage as Extra Cold Damage during effect"]={{[1]={[1]={type="Condition",var="UsingFlask"},flags=0,keywordFlags=0,name="PhysicalDamageGainAsCold",type="BASE",value=30}},nil}
 c["Gain 30% of Physical Damage as Extra Cold Damage if you've used a Sapphire Flask Recently"]={{[1]={[1]={type="Condition",var="UsedSapphireFlaskRecently"},flags=0,keywordFlags=0,name="PhysicalDamageGainAsCold",type="BASE",value=30}},nil}
 c["Gain 30% of Physical Damage as Extra Fire Damage"]={{[1]={flags=0,keywordFlags=0,name="PhysicalDamageGainAsFire",type="BASE",value=30}},nil}
+c["Gain 30% of Physical Damage as Extra Fire Damage if you've used a Ruby Flask Recently"]={{[1]={[1]={type="Condition",var="UsedRubyFlaskRecently"},flags=0,keywordFlags=0,name="PhysicalDamageGainAsFire",type="BASE",value=30}},nil}
 c["Gain 30% of Physical Damage as Extra Lightning Damage"]={{[1]={flags=0,keywordFlags=0,name="PhysicalDamageGainAsLightning",type="BASE",value=30}},nil}
 c["Gain 30% of Physical Damage as Extra Lightning Damage if you've used a Topaz Flask Recently"]={{[1]={[1]={type="Condition",var="UsedTopazFlaskRecently"},flags=0,keywordFlags=0,name="PhysicalDamageGainAsLightning",type="BASE",value=30}},nil}
 c["Gain 300 Life per Ignited Enemy Killed"]={{[1]={[1]={actor="enemy",type="ActorCondition",var="Ignited"},flags=0,keywordFlags=0,name="LifeOnKill",type="BASE",value=300}},nil}
@@ -8819,6 +8819,7 @@ c["Gain 40% of Physical Attack Damage as Extra Fire Damage"]={{[1]={flags=1,keyw
 c["Gain 40% of Physical Damage as Extra Chaos Damage"]={{[1]={flags=0,keywordFlags=0,name="PhysicalDamageGainAsChaos",type="BASE",value=40}},nil}
 c["Gain 40% of Physical Damage as Extra Cold Damage if you've used a Sapphire Flask Recently"]={{[1]={[1]={type="Condition",var="UsedSapphireFlaskRecently"},flags=0,keywordFlags=0,name="PhysicalDamageGainAsCold",type="BASE",value=40}},nil}
 c["Gain 40% of Physical Damage as Extra Damage of a random Element while you are Ignited"]={{[1]={[1]={type="Condition",var="Ignited"},flags=0,keywordFlags=0,name="PhysicalDamageGainAsRandom",type="BASE",value=40}},nil}
+c["Gain 40% of Physical Damage as Extra Fire Damage if you've used a Ruby Flask Recently"]={{[1]={[1]={type="Condition",var="UsedRubyFlaskRecently"},flags=0,keywordFlags=0,name="PhysicalDamageGainAsFire",type="BASE",value=40}},nil}
 c["Gain 40% of Physical Damage as Extra Lightning Damage if you've used a Topaz Flask Recently"]={{[1]={[1]={type="Condition",var="UsedTopazFlaskRecently"},flags=0,keywordFlags=0,name="PhysicalDamageGainAsLightning",type="BASE",value=40}},nil}
 c["Gain 40% of Physical Damage as a Random Element if you've cast Elemental Weakness in the past 10 seconds"]={{[1]={[1]={type="Condition",var="SelfCastElementalWeakness"},flags=0,keywordFlags=0,name="PhysicalDamageGainAsRandom",type="BASE",value=40}},nil}
 c["Gain 5 Life for each Ignited Enemy hit with Attacks"]={{[1]={[1]={actor="enemy",type="ActorCondition",var="Ignited"},flags=5,keywordFlags=0,name="LifeOnHit",type="BASE",value=5}},nil}
@@ -9384,16 +9385,13 @@ c["Immune to Elemental Ailments while affected by Glorious Madness"]={{[1]={[1]=
 c["Immune to Elemental Ailments while on Consecrated Ground if you have at least 150 Devotion"]={{[1]={[1]={type="Condition",var="OnConsecratedGround"},[2]={stat="Devotion",threshold=150,type="StatThreshold"},flags=0,keywordFlags=0,name="ElementalAilmentImmune",type="FLAG",value=true}},nil}
 c["Immune to Exposure if you've cast Elemental Weakness in the past 10 seconds"]={{[1]={[1]={type="Condition",var="SelfCastElementalWeakness"},flags=0,keywordFlags=0,name="ExposureImmune",type="FLAG",value=true}},nil}
 c["Immune to Freeze and Chill while Ignited"]={{[1]={[1]={type="Condition",var="Ignited"},flags=0,keywordFlags=0,name="FreezeImmune",type="FLAG",value=true},[2]={[1]={type="Condition",var="Ignited"},flags=0,keywordFlags=0,name="ChillImmune",type="FLAG",value=true}},nil}
-c["Immune to Freeze while affected by Purity of Ice"]={nil,"Immune to Freeze while affected by Purity of Ice "}
-c["Immune to Freeze while affected by Purity of Ice 10% of Physical Damage from Hits taken as Cold Damage while affected by Purity of Ice"]={nil,"Immune to Freeze while affected by Purity of Ice 10% of Physical Damage from Hits taken as Cold Damage while affected by Purity of Ice "}
+c["Immune to Freeze while affected by Purity of Ice"]={{[1]={[1]={type="Condition",var="AffectedByPurityofIce"},flags=0,keywordFlags=0,name="FreezeImmune",type="FLAG",value=true}},nil}
 c["Immune to Ignite and Shock"]={{[1]={flags=0,keywordFlags=0,name="IgniteImmune",type="FLAG",value=true},[2]={flags=0,keywordFlags=0,name="ShockImmune",type="FLAG",value=true}},nil}
-c["Immune to Ignite while affected by Purity of Fire"]={nil,"Immune to Ignite while affected by Purity of Fire "}
-c["Immune to Ignite while affected by Purity of Fire 10% of Physical Damage from Hits taken as Fire Damage while affected by Purity of Fire"]={nil,"Immune to Ignite while affected by Purity of Fire 10% of Physical Damage from Hits taken as Fire Damage while affected by Purity of Fire "}
+c["Immune to Ignite while affected by Purity of Fire"]={{[1]={[1]={type="Condition",var="AffectedByPurityofFire"},flags=0,keywordFlags=0,name="IgniteImmune",type="FLAG",value=true}},nil}
 c["Immune to Poison if Equipped Helmet has higher Evasion Rating than Armour"]={{[1]={[1]={type="Condition",var="HelmetEvasionHigherThanArmour"},flags=0,keywordFlags=0,name="PoisonImmune",type="FLAG",value=true}},nil}
 c["Immune to Reflected Damage if you've cast Punishment in the past 10 seconds"]={nil,"Immune to Reflected Damage if you've cast Punishment in the past 10 seconds "}
 c["Immune to Reflected Damage if you've cast Punishment in the past 10 seconds Intimidate Enemies on Hit if you've cast Punishment in the past 10 seconds"]={nil,"Immune to Reflected Damage if you've cast Punishment in the past 10 seconds Intimidate Enemies on Hit if you've cast Punishment in the past 10 seconds "}
-c["Immune to Shock while affected by Purity of Lightning"]={nil,"Immune to Shock while affected by Purity of Lightning "}
-c["Immune to Shock while affected by Purity of Lightning 10% of Physical Damage from Hits taken as Lightning Damage while affected by Purity of Lightning"]={nil,"Immune to Shock while affected by Purity of Lightning 10% of Physical Damage from Hits taken as Lightning Damage while affected by Purity of Lightning "}
+c["Immune to Shock while affected by Purity of Lightning"]={{[1]={[1]={type="Condition",var="AffectedByPurityofLightning"},flags=0,keywordFlags=0,name="ShockImmune",type="FLAG",value=true}},nil}
 c["Immunity to Freeze, Chill, Curses and Stuns during Effect"]={{[1]={[1]={type="Condition",var="UsingFlask"},flags=0,keywordFlags=0,name="FreezeImmune",type="FLAG",value=true},[2]={[1]={type="Condition",var="UsingFlask"},flags=0,keywordFlags=0,name="ChillImmune",type="FLAG",value=true},[3]={[1]={type="Condition",var="UsingFlask"},flags=0,keywordFlags=0,name="CurseImmune",type="FLAG",value=true},[4]={[1]={type="Condition",var="UsingFlask"},flags=0,keywordFlags=0,name="StunImmune",type="FLAG",value=true}},nil}
 c["Impale Damage dealt to Enemies Impaled by you Overwhelms 10% Physical Damage Reduction"]={{[1]={flags=0,keywordFlags=0,name="EnemyImpalePhysicalDamageReduction",type="BASE",value=-10}},nil}
 c["Impale Damage dealt to Enemies Impaled by you ignores Enemy Physical Damage Reduction"]={{[1]={flags=0,keywordFlags=0,name="IgnoreEnemyImpalePhysicalDamageReduction",type="FLAG",value=true}},nil}
@@ -10213,7 +10211,7 @@ c["Non-Damaging Elemental Ailments you inflict spread to nearby enemies within 2
 c["Non-Damaging Elemental Ailments you inflict spread to nearby enemies within 2 metres Non-Damaging Elemental Ailments you inflict have 100% more Effect"]={nil,"Non-Damaging Elemental Ailments you inflict spread to nearby enemies within 2 metres Non-Damaging Elemental Ailments you inflict have 100% more Effect "}
 c["Non-Exerted Attacks deal no Damage"]={nil,"Non-Exerted Attacks deal no Damage "}
 c["Non-Instant Warcries ignore their Cooldown when Used"]={{[1]={[1]={neg=true,skillType=74,type="SkillType"},flags=0,keywordFlags=4,name="CooldownRecovery",type="OVERRIDE",value=0}},nil}
-c["Non-Travel Attack Skills Repeat an additional Time"]={{[1]={[1]={type="Condition",varList={[1]="averageRepeat",[2]="alwaysFinalRepeat"}},flags=1,keywordFlags=0,name="RepeatCount",type="BASE",value=1}},nil}
+c["Non-Travel Attack Skills Repeat an additional Time"]={{[1]={[1]={neg=true,skillType=90,type="SkillType"},[2]={type="Condition",varList={[1]="averageRepeat",[2]="alwaysFinalRepeat"}},flags=0,keywordFlags=65536,name="RepeatCount",type="BASE",value=1}},nil}
 c["Non-Unique Jewels cause Small and Notable Passive Skills in a Large Radius to"]={nil,"Non-Unique Jewels cause Small and Notable Passive Skills in a Large Radius to "}
 c["Non-Unique Utility Flasks you Use apply to Linked Targets"]={{[1]={flags=0,keywordFlags=0,name="ExtraLinkEffect",type="LIST",value={mod={[1]={effectType="Global",type="GlobalEffect",unscalable=true},flags=0,keywordFlags=0,name="ParentNonUniqueFlasksAppliedToYou",type="FLAG",value=true}}}},nil}
 c["Non-Vaal Strike Skills target 1 additional nearby Enemy"]={{[1]={[1]={skillType=25,type="SkillType"},[2]={neg=true,skillType=42,type="SkillType"},flags=0,keywordFlags=0,name="AdditionalStrikeTarget",type="BASE",value=1}},nil}
@@ -12245,8 +12243,7 @@ c["Triggers Level 20 Summon Arbalists when Equipped"]={{[1]={flags=0,keywordFlag
 c["Triggers Level 20 Summon Triggerbots when Allocated"]={{[1]={flags=0,keywordFlags=0,name="HaveTriggerBots",type="FLAG",value=true}},nil}
 c["Triggers Level 7 Abberath's Fury when Equipped"]={{[1]={flags=0,keywordFlags=0,name="ExtraSkill",type="LIST",value={level=7,skillId="RepeatingShockwave",triggered=true}}},nil}
 c["Unaffected by Bleeding"]={{[1]={flags=0,keywordFlags=0,name="SelfBleedEffect",type="MORE",value=-100}},nil}
-c["Unaffected by Bleeding while affected by Malevolence"]={nil,"Unaffected by Bleeding while affected by Malevolence "}
-c["Unaffected by Bleeding while affected by Malevolence Unaffected by Poison while affected by Malevolence"]={nil,"Unaffected by Bleeding while affected by Malevolence Unaffected by Poison while affected by Malevolence "}
+c["Unaffected by Bleeding while affected by Malevolence"]={{[1]={[1]={type="Condition",var="AffectedByMalevolence"},[2]={effectType="Global",type="GlobalEffect",unscalable=true},flags=0,keywordFlags=0,name="SelfBleedEffect",type="MORE",value=-100}},nil}
 c["Unaffected by Burning Ground"]={nil,"Unaffected by Burning Ground "}
 c["Unaffected by Burning Ground while affected by Purity of Fire"]={nil,"Unaffected by Burning Ground while affected by Purity of Fire "}
 c["Unaffected by Burning Ground while affected by Purity of Fire Unaffected by Flammability while affected by Purity of Fire"]={nil,"Unaffected by Burning Ground while affected by Purity of Fire Unaffected by Flammability while affected by Purity of Fire "}
@@ -12256,27 +12253,21 @@ c["Unaffected by Chill while Leeching Mana"]={{[1]={[1]={type="Condition",var="L
 c["Unaffected by Chilled Ground"]={nil,"Unaffected by Chilled Ground "}
 c["Unaffected by Chilled Ground while affected by Purity of Ice"]={nil,"Unaffected by Chilled Ground while affected by Purity of Ice "}
 c["Unaffected by Chilled Ground while affected by Purity of Ice Unaffected by Frostbite while affected by Purity of Ice"]={nil,"Unaffected by Chilled Ground while affected by Purity of Ice Unaffected by Frostbite while affected by Purity of Ice "}
-c["Unaffected by Conductivity while affected by Purity of Lightning"]={nil,"Unaffected by Conductivity while affected by Purity of Lightning "}
-c["Unaffected by Conductivity while affected by Purity of Lightning Unaffected by Shocked Ground while affected by Purity of Lightning"]={nil,"Unaffected by Conductivity while affected by Purity of Lightning Unaffected by Shocked Ground while affected by Purity of Lightning "}
+c["Unaffected by Conductivity while affected by Purity of Lightning"]={{[1]={[1]={skillName="Conductivity",type="SkillName"},[2]={type="Condition",var="AffectedByPurityofLightning"},[3]={effectType="Global",type="GlobalEffect",unscalable=true},flags=0,keywordFlags=0,name="CurseEffectOnSelf",type="MORE",value=-100}},nil}
 c["Unaffected by Curses"]={{[1]={[1]={effectType="Global",type="GlobalEffect",unscalable=true},flags=0,keywordFlags=0,name="CurseEffectOnSelf",type="MORE",value=-100}},nil}
 c["Unaffected by Curses while affected by Zealotry"]={{[1]={[1]={type="Condition",var="AffectedByZealotry"},[2]={effectType="Global",type="GlobalEffect",unscalable=true},flags=0,keywordFlags=0,name="CurseEffectOnSelf",type="MORE",value=-100}},nil}
 c["Unaffected by Damaging Ailments"]={{[1]={flags=0,keywordFlags=0,name="SelfBleedEffect",type="MORE",value=-100},[2]={flags=0,keywordFlags=0,name="SelfIgniteEffect",type="MORE",value=-100},[3]={flags=0,keywordFlags=0,name="SelfPoisonEffect",type="MORE",value=-100}},nil}
 c["Unaffected by Desecrated Ground"]={nil,"Unaffected by Desecrated Ground "}
-c["Unaffected by Elemental Weakness while affected by Purity of Elements"]={nil,"Unaffected by Elemental Weakness while affected by Purity of Elements "}
-c["Unaffected by Elemental Weakness while affected by Purity of Elements 20% of Cold and Lightning Damage taken as Fire Damage while affected by Purity of Fire"]={nil,"Unaffected by Elemental Weakness while affected by Purity of Elements 20% of Cold and Lightning Damage taken as Fire Damage while affected by Purity of Fire "}
-c["Unaffected by Enfeeble while affected by Grace"]={nil,"Unaffected by Enfeeble while affected by Grace "}
-c["Unaffected by Enfeeble while affected by Grace +8% chance to Suppress Spell Damage while affected by Haste"]={nil,"Unaffected by Enfeeble while affected by Grace +8% chance to Suppress Spell Damage while affected by Haste "}
-c["Unaffected by Flammability while affected by Purity of Fire"]={nil,"Unaffected by Flammability while affected by Purity of Fire "}
-c["Unaffected by Flammability while affected by Purity of Fire 20% of Fire and Lightning Damage taken as Cold Damage while affected by Purity of Ice"]={nil,"Unaffected by Flammability while affected by Purity of Fire 20% of Fire and Lightning Damage taken as Cold Damage while affected by Purity of Ice "}
-c["Unaffected by Frostbite while affected by Purity of Ice"]={nil,"Unaffected by Frostbite while affected by Purity of Ice "}
-c["Unaffected by Frostbite while affected by Purity of Ice 20% of Fire and Cold Damage taken as Lightning Damage while"]={nil,"Unaffected by Frostbite while affected by Purity of Ice 20% of Fire and Cold Damage taken as Lightning Damage while "}
+c["Unaffected by Elemental Weakness while affected by Purity of Elements"]={{[1]={[1]={skillName="Elemental Weakness",type="SkillName"},[2]={type="Condition",var="AffectedByPurityofElements"},[3]={effectType="Global",type="GlobalEffect",unscalable=true},flags=0,keywordFlags=0,name="CurseEffectOnSelf",type="MORE",value=-100}},nil}
+c["Unaffected by Enfeeble while affected by Grace"]={{[1]={[1]={skillName="Enfeeble",type="SkillName"},[2]={type="Condition",var="AffectedByGrace"},[3]={effectType="Global",type="GlobalEffect",unscalable=true},flags=0,keywordFlags=0,name="CurseEffectOnSelf",type="MORE",value=-100}},nil}
+c["Unaffected by Flammability while affected by Purity of Fire"]={{[1]={[1]={skillName="Flammability",type="SkillName"},[2]={type="Condition",var="AffectedByPurityofFire"},[3]={effectType="Global",type="GlobalEffect",unscalable=true},flags=0,keywordFlags=0,name="CurseEffectOnSelf",type="MORE",value=-100}},nil}
+c["Unaffected by Frostbite while affected by Purity of Ice"]={{[1]={[1]={skillName="Frostbite",type="SkillName"},[2]={type="Condition",var="AffectedByPurityofIce"},[3]={effectType="Global",type="GlobalEffect",unscalable=true},flags=0,keywordFlags=0,name="CurseEffectOnSelf",type="MORE",value=-100}},nil}
 c["Unaffected by Ignite"]={{[1]={flags=0,keywordFlags=0,name="SelfIgniteEffect",type="MORE",value=-100}},nil}
 c["Unaffected by Ignite if 2 Warlord Items are Equipped"]={{[1]={[1]={threshold=2,type="MultiplierThreshold",var="WarlordItem"},flags=0,keywordFlags=0,name="SelfIgniteEffect",type="MORE",value=-100}},nil}
 c["Unaffected by Ignite or Shock if Maximum Life and Maximum Mana are within 500"]={nil,"Unaffected by Ignite or Shock if Maximum Life and Maximum Mana are within 500 "}
 c["Unaffected by Poison"]={{[1]={flags=0,keywordFlags=0,name="SelfPoisonEffect",type="MORE",value=-100}},nil}
 c["Unaffected by Poison if 2 Hunter Items are Equipped"]={{[1]={[1]={threshold=2,type="MultiplierThreshold",var="HunterItem"},flags=0,keywordFlags=0,name="SelfPoisonEffect",type="MORE",value=-100}},nil}
-c["Unaffected by Poison while affected by Malevolence"]={nil,"Unaffected by Poison while affected by Malevolence "}
-c["Unaffected by Poison while affected by Malevolence Damaging Ailments you inflict deal Damage 15% faster while affected by Malevolence"]={nil,"Unaffected by Poison while affected by Malevolence Damaging Ailments you inflict deal Damage 15% faster while affected by Malevolence "}
+c["Unaffected by Poison while affected by Malevolence"]={{[1]={[1]={type="Condition",var="AffectedByMalevolence"},[2]={effectType="Global",type="GlobalEffect",unscalable=true},flags=0,keywordFlags=0,name="SelfPoisonEffect",type="MORE",value=-100}},nil}
 c["Unaffected by Shock"]={{[1]={flags=0,keywordFlags=0,name="SelfShockEffect",type="MORE",value=-100}},nil}
 c["Unaffected by Shock if 2 Crusader Items are Equipped"]={{[1]={[1]={threshold=2,type="MultiplierThreshold",var="CrusaderItem"},flags=0,keywordFlags=0,name="SelfShockEffect",type="MORE",value=-100}},nil}
 c["Unaffected by Shock while Leeching Energy Shield"]={{[1]={[1]={type="Condition",var="LeechingEnergyShield"},flags=0,keywordFlags=0,name="SelfShockEffect",type="MORE",value=-100}},nil}
@@ -12285,10 +12276,8 @@ c["Unaffected by Shocked Ground while affected by Purity of Lightning"]={nil,"Un
 c["Unaffected by Shocked Ground while affected by Purity of Lightning 1.5% of Damage leeched as Life while affected by Vitality"]={nil,"Unaffected by Shocked Ground while affected by Purity of Lightning 1.5% of Damage leeched as Life while affected by Vitality "}
 c["Unaffected by Shocked Ground while affected by Purity of Lightning 2% of Damage leeched as Life while affected by Vitality"]={nil,"Unaffected by Shocked Ground while affected by Purity of Lightning 2% of Damage leeched as Life while affected by Vitality "}
 c["Unaffected by Temporal Chains"]={{[1]={[1]={skillName="Temporal Chains",type="SkillName"},[2]={effectType="Global",type="GlobalEffect",unscalable=true},flags=0,keywordFlags=0,name="CurseEffectOnSelf",type="MORE",value=-100}},nil}
-c["Unaffected by Temporal Chains while affected by Haste"]={nil,"Unaffected by Temporal Chains while affected by Haste "}
-c["Unaffected by Temporal Chains while affected by Haste Adds 70 to 104 Cold Damage while affected by Hatred"]={{[1]={[1]={includeTransfigured=true,skillName="Temporal Chains",type="SkillName"},flags=0,keywordFlags=0,name="ColdMin",type="BASE",value=70},[2]={[1]={includeTransfigured=true,skillName="Temporal Chains",type="SkillName"},flags=0,keywordFlags=0,name="ColdMax",type="BASE",value=104}},"Unaffected bywhile affected by Haste  while affected by Hatred "}
-c["Unaffected by Vulnerability while affected by Determination"]={nil,"Unaffected by Vulnerability while affected by Determination "}
-c["Unaffected by Vulnerability while affected by Determination +8% Chance to Block Spell Damage while affected by Discipline"]={nil,"Unaffected by Vulnerability while affected by Determination +8% Chance to Block Spell Damage while affected by Discipline "}
+c["Unaffected by Temporal Chains while affected by Haste"]={{[1]={[1]={skillName="Temporal Chains",type="SkillName"},[2]={type="Condition",var="AffectedByHaste"},[3]={effectType="Global",type="GlobalEffect",unscalable=true},flags=0,keywordFlags=0,name="CurseEffectOnSelf",type="MORE",value=-100}},nil}
+c["Unaffected by Vulnerability while affected by Determination"]={{[1]={[1]={skillName="Vulnerability",type="SkillName"},[2]={type="Condition",var="AffectedByDetermination"},[3]={effectType="Global",type="GlobalEffect",unscalable=true},flags=0,keywordFlags=0,name="CurseEffectOnSelf",type="MORE",value=-100}},nil}
 c["Unattached Brands gain 20% increased Brand Attachment Range per"]={nil,"Unattached Brands gain 20% increased Brand Attachment Range per "}
 c["Unattached Brands gain 20% increased Brand Attachment Range per second, up to a maximum of 100%"]={nil,"Unattached Brands gain 20% increased Brand Attachment Range per second, up to a maximum of 100% "}
 c["Unholy Might"]={{[1]={flags=0,keywordFlags=0,name="Condition:UnholyMight",type="FLAG",value=true},[2]={flags=0,keywordFlags=0,name="Condition:CanWither",type="FLAG",value=true}},nil}
@@ -12768,8 +12757,7 @@ c["Your Fire Damage can Poison"]={{[1]={flags=0,keywordFlags=0,name="FireCanPois
 c["Your Fire Damage can Shock but not Ignite"]={{[1]={flags=0,keywordFlags=0,name="FireCanShock",type="FLAG",value=true},[2]={flags=0,keywordFlags=0,name="FireCannotIgnite",type="FLAG",value=true}},nil}
 c["Your Hexes can affect Hexproof Enemies"]={{[1]={flags=0,keywordFlags=0,name="CursesIgnoreHexproof",type="FLAG",value=true}},nil}
 c["Your Hexes have infinite Duration"]={{[1]={[1]={skillType=79,type="SkillType"},flags=0,keywordFlags=0,name="Duration",type="BASE",value=math.huge}},nil}
-c["Your Hits Intimidate Enemies for 4 seconds while you are using Pride"]={nil,"Your Hits Intimidate Enemies for 4 seconds while you are using Pride "}
-c["Your Hits Intimidate Enemies for 4 seconds while you are using Pride +50% to Chaos Resistance while affected by Purity of Elements"]={nil,"Your Hits Intimidate Enemies for 4 seconds while you are using Pride +50% to Chaos Resistance while affected by Purity of Elements "}
+c["Your Hits Intimidate Enemies for 4 seconds while you are using Pride"]={{[1]={[1]={type="Condition",var="AffectedByPride"},flags=0,keywordFlags=0,name="EnemyModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="Condition:Intimidated",type="FLAG",value=true}}}},nil}
 c["Your Hits always inflict Freeze, Shock and Ignite while Unbound"]={{[1]={[1]={type="Condition",var="Unbound"},flags=0,keywordFlags=0,name="EnemyFreezeChance",type="BASE",value=100},[2]={[1]={type="Condition",var="Unbound"},flags=0,keywordFlags=0,name="EnemyShockChance",type="BASE",value=100},[3]={[1]={type="Condition",var="Unbound"},flags=0,keywordFlags=0,name="EnemyIgniteChance",type="BASE",value=100}},nil}
 c["Your Hits are always Critical Strikes"]={{[1]={flags=0,keywordFlags=0,name="CritChance",type="OVERRIDE",value=100}},nil}
 c["Your Hits can only Kill Frozen Enemies"]={nil,"Your Hits can only Kill Frozen Enemies "}
