@@ -36,6 +36,8 @@ jobs:
       - run: npm ci
       - run: npm run build
 
+      - uses: docker/setup-qemu-action@v3
+
       - uses: docker/setup-buildx-action@v3
 
       - name: Build image
@@ -54,6 +56,22 @@ jobs:
             "${IMAGE_NAME}:ci" \
             /opt/pob-mcp/scripts/mcp-smoke.mjs node /opt/pob-mcp/build/index.js
 
+      - name: Prepare image tags
+        if: github.event_name != 'pull_request'
+        id: tags
+        run: |
+          {
+            echo "tags<<EOF"
+            echo "${IMAGE_NAME}:${GITHUB_SHA}"
+            if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+              echo "${IMAGE_NAME}:${GITHUB_REF_NAME}"
+            fi
+            if [ "${GITHUB_REF_NAME}" = "main" ]; then
+              echo "${IMAGE_NAME}:latest"
+            fi
+            echo "EOF"
+          } >> "${GITHUB_OUTPUT}"
+
       - name: Login to GHCR
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
@@ -62,24 +80,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Tag image
+      - name: Publish multi-arch image
         if: github.event_name != 'pull_request'
-        run: |
-          docker tag "${IMAGE_NAME}:ci" "${IMAGE_NAME}:${GITHUB_SHA}"
-          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
-            docker tag "${IMAGE_NAME}:ci" "${IMAGE_NAME}:${GITHUB_REF_NAME}"
-          fi
-          if [ "${GITHUB_REF_NAME}" = "main" ]; then
-            docker tag "${IMAGE_NAME}:ci" "${IMAGE_NAME}:latest"
-          fi
-
-      - name: Push image
-        if: github.event_name != 'pull_request'
-        run: |
-          docker push "${IMAGE_NAME}:${GITHUB_SHA}"
-          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
-            docker push "${IMAGE_NAME}:${GITHUB_REF_NAME}"
-          fi
-          if [ "${GITHUB_REF_NAME}" = "main" ]; then
-            docker push "${IMAGE_NAME}:latest"
-          fi
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          build-args: |
+            POB_REF=${{ env.POB_REF }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
