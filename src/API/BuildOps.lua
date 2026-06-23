@@ -67,8 +67,11 @@ function M.get_tree()
   local out = {
     treeVersion = spec.treeVersion,
     classId = tonumber(spec.curClassId) or 0,
+    className = spec.curClass and spec.curClass.name or nil,
     ascendClassId = tonumber(spec.curAscendClassId) or 0,
+    ascendClassName = spec.curAscendClass and spec.curAscendClass.name or nil,
     secondaryAscendClassId = tonumber(spec.curSecondaryAscendClassId or 0) or 0,
+    secondaryAscendClassName = spec.curSecondaryAscendClass and spec.curSecondaryAscendClass.name or nil,
     nodes = {},
     masteryEffects = {},
   }
@@ -140,12 +143,17 @@ end
 -- Basic build info
 function M.get_build_info()
   if not build then return nil, 'build not initialized' end
+  local tree = nil
+  if build.spec then
+    tree = M.get_tree()
+  end
   local info = {
     name = build.buildName,
     level = build.characterLevel,
-    className = build and build.buildClassName or (build.Build and build.Build.className) or nil,
-    ascendClassName = build and build.buildAscendName or (build.Build and build.Build.ascendClassName) or nil,
-    treeVersion = build.targetVersion or (build.spec and build.spec.treeVersion) or nil,
+    className = (tree and tree.className) or build.buildClassName or (build.Build and build.Build.className) or nil,
+    ascendClassName = (tree and tree.ascendClassName) or build.buildAscendName or (build.Build and build.Build.ascendClassName) or nil,
+    secondaryAscendClassName = tree and tree.secondaryAscendClassName or nil,
+    treeVersion = (tree and tree.treeVersion) or build.targetVersion or nil,
   }
   return info
 end
