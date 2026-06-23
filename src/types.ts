@@ -187,7 +187,9 @@ export interface TreeAnalysisResult {
   pathingEfficiency: string;
   buildVersion?: string;
   treeVersion: string;
+  ascendancyName?: string;
   versionMismatch: boolean;
+  passivePointEstimateReliable?: boolean;
   invalidNodeIds: string[];
   optimizationSuggestions?: OptimizationSuggestion[];
 }

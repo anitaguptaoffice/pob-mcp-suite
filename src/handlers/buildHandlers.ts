@@ -467,9 +467,15 @@ function formatTreeAnalysis(analysis: TreeAnalysisResult): string {
   }
 
   lines.push(`\nTree Version: ${analysis.treeVersion}`);
-  lines.push(`Total Points: ${analysis.totalPoints} / ${analysis.availablePoints} available`);
+  const passivePointEstimateReliable = analysis.passivePointEstimateReliable ?? true;
+  if (passivePointEstimateReliable) {
+    lines.push(`Total Points: ${analysis.totalPoints} / ${analysis.availablePoints} available`);
+  } else {
+    lines.push(`Raw Non-Ascendancy Nodes: ${analysis.totalPoints}`);
+    lines.push('Passive point legality is not inferred for alternate trees; use PoB or the official tree link for spent-passive counts.');
+  }
 
-  if (analysis.totalPoints > analysis.availablePoints) {
+  if (passivePointEstimateReliable && analysis.totalPoints > analysis.availablePoints) {
     lines.push(
       '\nWARNING: This build has more points allocated than available at this level.',
       'This is not possible in the actual game.'
@@ -479,7 +485,7 @@ function formatTreeAnalysis(analysis: TreeAnalysisResult): string {
   // Ascendancy nodes (separate from regular keystones/notables)
   const ascendancyNodes = analysis.allocatedNodes.filter(n => n.ascendancyName);
   if (ascendancyNodes.length > 0) {
-    const ascendancyName = ascendancyNodes[0].ascendancyName;
+    const ascendancyName = analysis.ascendancyName || ascendancyNodes[0].ascendancyName;
     lines.push(`\n=== Ascendancy: ${ascendancyName} (${ascendancyNodes.length} points) ===`);
     for (const node of ascendancyNodes) {
       let line = `- ${node.name}`;

@@ -775,6 +775,7 @@ export class TreeService {
       // Calculate points (exclude ascendancy nodes - they use separate point pool)
       const nonAscendancyNodes = allocatedNodes.filter(node => !node.ascendancyName);
       const points = this.calculatePassivePoints(build, nonAscendancyNodes.length);
+      const passivePointEstimateReliable = !treeVersion.includes("_alternate");
 
       // Detect archetype
       const { archetype, confidence } = this.detectArchetype(keystones, notables);
@@ -836,7 +837,9 @@ export class TreeService {
         pathingEfficiency,
         buildVersion,
         treeVersion: treeDataVersion,
+        ascendancyName: build.Build?.ascendClassName,
         versionMismatch,
+        passivePointEstimateReliable,
         invalidNodeIds: [],
         optimizationSuggestions,
       };

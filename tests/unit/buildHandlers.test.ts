@@ -34,6 +34,9 @@ describe('BuildHandlers', () => {
         validateBuild: jest.fn(),
         formatValidation: jest.fn(),
       } as any,
+      pobDirectory: '/tmp/builds',
+      getLuaClient: jest.fn(() => null),
+      ensureLuaClient: jest.fn(async () => undefined),
     };
   });
 
@@ -167,6 +170,42 @@ describe('BuildHandlers', () => {
       expect(result.content[0].text).toContain('WARNING');
       expect(result.content[0].text).toContain('version 3_25');
       expect(result.content[0].text).toContain('version 3_28');
+    });
+
+    it('should not mark alternate tree raw node counts as impossible passive points', async () => {
+      mockBuildService.readBuild.mockResolvedValue(mockBuild);
+      mockBuildService.generateBuildSummary.mockReturnValue('=== Build Summary ===');
+      mockTreeService.analyzePassiveTree.mockResolvedValue({
+        treeVersion: '3_28_alternate',
+        buildVersion: '3_28_alternate',
+        versionMismatch: false,
+        ascendancyName: 'Ancestral Commander',
+        totalPoints: 118,
+        availablePoints: 115,
+        allocatedNodes: [
+          { skill: 1, name: 'Ancestral Endurance', ascendancyName: 'Juggernaut' },
+        ],
+        keystones: [],
+        notables: [],
+        jewels: [],
+        normalNodes: [],
+        invalidNodeIds: [],
+        archetype: 'unknown',
+        archetypeConfidence: 'low',
+        pathingEfficiency: 'good',
+        optimizationSuggestions: [],
+        passivePointEstimateReliable: false,
+      });
+
+      const result = await handleAnalyzeBuild(context, 'alternate.xml');
+      const text = result.content[0].text;
+
+      expect(text).toContain('Tree Version: 3_28_alternate');
+      expect(text).toContain('Raw Non-Ascendancy Nodes: 118');
+      expect(text).toContain('=== Ascendancy: Ancestral Commander');
+      expect(text).not.toContain('=== Ascendancy: Juggernaut');
+      expect(text).not.toContain('more points allocated than available');
+      expect(text).not.toContain('not possible in the actual game');
     });
 
     it('should show optimization suggestions', async () => {
