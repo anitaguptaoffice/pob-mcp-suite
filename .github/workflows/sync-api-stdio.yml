@@ -9,6 +9,11 @@ on:
         description: "Upstream PathOfBuildingCommunity ref to merge"
         required: false
         default: "dev"
+      force:
+        description: "Run smoke and downstream publishing even when upstream did not change"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -33,6 +38,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends luajit zlib1g
 
+      - name: Capture current api-stdio commit
+        id: before
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Merge upstream
         env:
           UPSTREAM_REF: ${{ inputs.upstream_ref || 'dev' }}
@@ -41,7 +50,24 @@ jobs:
           git fetch upstream "${UPSTREAM_REF}"
           git merge --no-edit "upstream/${UPSTREAM_REF}"
 
+      - name: Decide whether to publish
+        id: publish
+        env:
+          BEFORE_SHA: ${{ steps.before.outputs.sha }}
+          FORCE: ${{ inputs.force || 'false' }}
+        run: |
+          AFTER_SHA="$(git rev-parse HEAD)"
+          echo "after_sha=${AFTER_SHA}" >> "$GITHUB_OUTPUT"
+          if [ "${BEFORE_SHA}" = "${AFTER_SHA}" ] && [ "${FORCE}" != "true" ]; then
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+            echo "No upstream changes and force=false; skipping smoke and downstream dispatch."
+          else
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+            echo "Publishing because upstream changed or force=true."
+          fi
+
       - name: Smoke api-stdio bridge
+        if: steps.publish.outputs.should_publish == 'true'
         run: |
           cd src
           {
@@ -54,6 +80,7 @@ jobs:
           } | POB_API_STDIO=1 luajit HeadlessWrapper.lua
 
       - name: Collect version metadata
+        if: steps.publish.outputs.should_publish == 'true'
         id: meta
         run: |
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
@@ -84,9 +111,11 @@ jobs:
           PY
 
       - name: Push api-stdio branch
+        if: steps.publish.outputs.should_publish == 'true'
         run: git push origin HEAD:api-stdio
 
       - name: Push PoB tag
+        if: steps.publish.outputs.should_publish == 'true'
         env:
           POB_TAG: ${{ steps.meta.outputs.pob_tag }}
         run: |
@@ -98,6 +127,7 @@ jobs:
           fi
 
       - name: Trigger pob-mcp image build
+        if: steps.publish.outputs.should_publish == 'true'
         env:
           GH_TOKEN: ${{ secrets.PATH_CHAIN_TOKEN }}
           POB_TAG: ${{ steps.meta.outputs.pob_tag }}
