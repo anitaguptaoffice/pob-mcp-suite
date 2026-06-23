@@ -244,7 +244,7 @@ describe('BuildService', () => {
     it('should return single spec directly', () => {
       const build = {
         Tree: {
-          Spec: { nodes: '1,2,3', treeVersion: '3_26' },
+          Spec: { nodes: '1,2,3', treeVersion: '3_28' },
         },
       };
 
@@ -258,8 +258,8 @@ describe('BuildService', () => {
         Tree: {
           activeSpec: '1', // 1-indexed
           Spec: [
-            { nodes: '1,2,3', treeVersion: '3_26' },
-            { nodes: '4,5,6', treeVersion: '3_26' },
+            { nodes: '1,2,3', treeVersion: '3_28' },
+            { nodes: '4,5,6', treeVersion: '3_28' },
           ],
         },
       };
@@ -272,8 +272,8 @@ describe('BuildService', () => {
       const build = {
         Tree: {
           Spec: [
-            { nodes: '1,2,3', treeVersion: '3_26' },
-            { nodes: '4,5,6', treeVersion: '3_26' },
+            { nodes: '1,2,3', treeVersion: '3_28' },
+            { nodes: '4,5,6', treeVersion: '3_28' },
           ],
         },
       };
@@ -329,12 +329,12 @@ describe('BuildService', () => {
     it('should extract version from tree URL', () => {
       const build = {
         Tree: {
-          Spec: { URL: 'https://pobb.in/abcd?version=3_26' },
+          Spec: { URL: 'https://pobb.in/abcd?version=3_28' },
         },
       };
 
       const version = buildService.extractBuildVersion(build);
-      expect(version).toBe('3_26');
+      expect(version).toBe('3_28');
     });
 
     it('should extract version from treeVersion field', () => {
@@ -352,14 +352,14 @@ describe('BuildService', () => {
       const build = {
         Tree: {
           Spec: {
-            URL: 'https://pobb.in/abcd?version=3_26',
+            URL: 'https://pobb.in/abcd?version=3_28',
             treeVersion: '3_25',
           },
         },
       };
 
       const version = buildService.extractBuildVersion(build);
-      expect(version).toBe('3_26');
+      expect(version).toBe('3_28');
     });
 
     it('should return "Unknown" for build without version info', () => {

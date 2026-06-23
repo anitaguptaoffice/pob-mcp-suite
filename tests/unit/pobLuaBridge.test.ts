@@ -238,13 +238,13 @@ describe('PoBLuaApiClient', () => {
         secondaryAscendClassId: 2,
         nodes: [1, 2, 3],
         masteryEffects: { 100: 200 },
-        treeVersion: '3_26',
+        treeVersion: '3_28',
       });
 
       const lastRequest = mockProcess.getLastRequest();
       expect(lastRequest?.params?.secondaryAscendClassId).toBe(2);
       expect(lastRequest?.params?.masteryEffects).toEqual({ 100: 200 });
-      expect(lastRequest?.params?.treeVersion).toBe('3_26');
+      expect(lastRequest?.params?.treeVersion).toBe('3_28');
     });
   });
 

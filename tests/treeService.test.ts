@@ -270,7 +270,7 @@ describe('TreeService', () => {
           ['100', { skill: 100, name: 'Node 1' }],
           ['200', { skill: 200, name: 'Node 2' }],
         ]),
-        version: '3_26',
+        version: '3_28',
       };
 
       const result = await treeService.mapNodesToDetails(['100', '200'], treeData);
@@ -286,7 +286,7 @@ describe('TreeService', () => {
         nodes: new Map([
           ['100', { skill: 100, name: 'Node 1' }],
         ]),
-        version: '3_26',
+        version: '3_28',
       };
 
       const result = await treeService.mapNodesToDetails(['100', '65536', '70000'], treeData);
@@ -301,7 +301,7 @@ describe('TreeService', () => {
         nodes: new Map([
           ['100', { skill: 100, name: 'Node 1' }],
         ]),
-        version: '3_26',
+        version: '3_28',
       };
 
       const result = await treeService.mapNodesToDetails(['100', '999'], treeData);
@@ -314,7 +314,7 @@ describe('TreeService', () => {
     it('should handle empty node list', async () => {
       const treeData: PassiveTreeData = {
         nodes: new Map(),
-        version: '3_26',
+        version: '3_28',
       };
 
       const result = await treeService.mapNodesToDetails([], treeData);
@@ -329,22 +329,22 @@ describe('TreeService', () => {
       // Manually add to cache
       const treeData: PassiveTreeData = {
         nodes: new Map(),
-        version: '3_26',
+        version: '3_28',
       };
-      (treeService as any).treeDataCache.set('3_26', {
+      (treeService as any).treeDataCache.set('3_28', {
         data: treeData,
         timestamp: Date.now(),
       });
 
-      await treeService.refreshTreeData('3_26');
+      await treeService.refreshTreeData('3_28');
 
-      expect((treeService as any).treeDataCache.has('3_26')).toBe(false);
+      expect((treeService as any).treeDataCache.has('3_28')).toBe(false);
     });
 
     it('should clear all versions when no version specified', async () => {
       // Add multiple versions
       (treeService as any).treeDataCache.set('3_25', { data: {}, timestamp: Date.now() });
-      (treeService as any).treeDataCache.set('3_26', { data: {}, timestamp: Date.now() });
+      (treeService as any).treeDataCache.set('3_28', { data: {}, timestamp: Date.now() });
 
       await treeService.refreshTreeData();
 
@@ -361,7 +361,7 @@ describe('TreeService', () => {
           ['3', { skill: 3, out: ['4'] }],
           ['4', { skill: 4, out: [] }],
         ]),
-        version: '3_26',
+        version: '3_28',
       };
 
       const allocatedNodes = new Set(['1', '2']);
@@ -380,7 +380,7 @@ describe('TreeService', () => {
           ['3', { skill: 3, out: ['4'] }],
           ['4', { skill: 4, out: [] }],
         ]),
-        version: '3_26',
+        version: '3_28',
       };
 
       const allocatedNodes = new Set(['1', '2']);
@@ -395,7 +395,7 @@ describe('TreeService', () => {
           ['1', { skill: 1, out: ['2'] }],
           ['2', { skill: 2, out: [] }],
         ]),
-        version: '3_26',
+        version: '3_28',
       };
 
       const allocatedNodes = new Set(['1', '2']);

@@ -78,8 +78,8 @@ describe('BuildHandlers', () => {
       mockBuildService.readBuild.mockResolvedValue(mockBuild);
       mockBuildService.generateBuildSummary.mockReturnValue('=== Build Summary ===\nClass: Ranger');
       mockTreeService.analyzePassiveTree.mockResolvedValue({
-        treeVersion: '3_26',
-        buildVersion: '3_26',
+        treeVersion: '3_28',
+        buildVersion: '3_28',
         versionMismatch: false,
         totalPoints: 95,
         availablePoints: 100,
@@ -145,7 +145,7 @@ describe('BuildHandlers', () => {
       mockBuildService.readBuild.mockResolvedValue(mockBuild);
       mockBuildService.generateBuildSummary.mockReturnValue('=== Build Summary ===');
       mockTreeService.analyzePassiveTree.mockResolvedValue({
-        treeVersion: '3_26',
+        treeVersion: '3_28',
         buildVersion: '3_25',
         versionMismatch: true,
         totalPoints: 95,
@@ -166,15 +166,15 @@ describe('BuildHandlers', () => {
 
       expect(result.content[0].text).toContain('WARNING');
       expect(result.content[0].text).toContain('version 3_25');
-      expect(result.content[0].text).toContain('version 3_26');
+      expect(result.content[0].text).toContain('version 3_28');
     });
 
     it('should show optimization suggestions', async () => {
       mockBuildService.readBuild.mockResolvedValue(mockBuild);
       mockBuildService.generateBuildSummary.mockReturnValue('=== Build Summary ===');
       mockTreeService.analyzePassiveTree.mockResolvedValue({
-        treeVersion: '3_26',
-        buildVersion: '3_26',
+        treeVersion: '3_28',
+        buildVersion: '3_28',
         versionMismatch: false,
         totalPoints: 95,
         availablePoints: 100,

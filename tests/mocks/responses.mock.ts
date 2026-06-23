@@ -28,7 +28,7 @@ export const MOCK_RESPONSES = {
   get_tree: {
     ok: true,
     tree: {
-      treeVersion: '3_26',
+      treeVersion: '3_28',
       classId: 2,
       ascendClassId: 1,
       secondaryAscendClassId: 0,
@@ -136,7 +136,7 @@ export const MOCK_RESPONSES = {
       level: 90,
       className: 'Ranger',
       ascendClassName: 'Deadeye',
-      treeVersion: '3_26',
+      treeVersion: '3_28',
     },
   },
   set_level: { ok: true },
@@ -177,7 +177,7 @@ export const MOCK_ERROR_RESPONSES = {
 // Sample build XML for testing
 export const SAMPLE_BUILD_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <PathOfBuilding>
-  <Build level="90" targetVersion="3_26" bandit="None" className="Ranger" ascendClassName="Deadeye">
+  <Build level="90" targetVersion="3_28" bandit="None" className="Ranger" ascendClassName="Deadeye">
     <PlayerStat stat="Life" value="5000"/>
     <PlayerStat stat="TotalDPS" value="1000000"/>
     <PlayerStat stat="CritChance" value="75"/>

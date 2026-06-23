@@ -190,7 +190,7 @@ class PoBMCPServer {
   }
 
   // Tree Data Fetching
-  private async getTreeData(version: string = "3_26"): Promise<PassiveTreeData> {
+  private async getTreeData(version: string = "3_28"): Promise<PassiveTreeData> {
     // Delegate to TreeService
     return await this.treeService.getTreeData(version);
   }
