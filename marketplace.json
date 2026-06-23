@@ -1,7 +1,7 @@
 {
-  "name": "personal",
+  "name": "pob-mcp-market",
   "interface": {
-    "displayName": "Personal"
+    "displayName": "PoB MCP Market"
   },
   "plugins": [
     {
