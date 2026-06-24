@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 DOCKERFILE="${PLUGIN_DIR}/assets/docker/Dockerfile"
 
-IMAGE="${POB_DOCKER_IMAGE:-ghcr.io/anitaguptaoffice/pob-mcp:latest}"
+IMAGE="${POB_DOCKER_IMAGE:-ghcr.io/anitaguptaoffice/pob-mcp-suite:latest}"
 BUILDS_DIR="${POB_BUILDS_DIR:-${HOME}/Documents/Path of Building/Builds}"
 POB_MCP_REPO="${POB_MCP_REPO:-https://github.com/anitaguptaoffice/pob-mcp.git}"
 POB_REPO="${POB_REPO:-https://github.com/anitaguptaoffice/PathOfBuilding.git}"

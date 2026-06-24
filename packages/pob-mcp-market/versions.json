@@ -1,6 +1,6 @@
 {
   "plugin": "0.1.0",
-  "image": "ghcr.io/anitaguptaoffice/pob-mcp:pob-110a49c",
+  "image": "ghcr.io/anitaguptaoffice/pob-mcp-suite:pob-110a49c",
   "pobMcp": "c002137cfa329bed8f624c669729040e518e79f7",
   "pathOfBuilding": "api-stdio-110a49c",
   "pobVersion": "2.65.0",

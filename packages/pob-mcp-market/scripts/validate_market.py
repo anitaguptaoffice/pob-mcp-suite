@@ -23,8 +23,8 @@ def main():
     if marketplace != codex_marketplace:
         raise SystemExit("marketplace.json and .agents/plugins/marketplace.json must match")
 
-    if not versions["image"].startswith("ghcr.io/anitaguptaoffice/pob-mcp:"):
-        raise SystemExit("versions.json image must point at ghcr.io/anitaguptaoffice/pob-mcp")
+    if not versions["image"].startswith("ghcr.io/anitaguptaoffice/pob-mcp-suite:"):
+        raise SystemExit("versions.json image must point at ghcr.io/anitaguptaoffice/pob-mcp-suite")
 
     for plugin in marketplace.get("plugins", []):
         source = plugin.get("source", {})

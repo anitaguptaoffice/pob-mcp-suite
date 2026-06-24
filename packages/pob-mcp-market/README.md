@@ -21,7 +21,7 @@ pob-docker-mcp/scripts/pob-mcp-docker.sh
 By default the script pulls:
 
 ```text
-ghcr.io/anitaguptaoffice/pob-mcp:latest
+ghcr.io/anitaguptaoffice/pob-mcp-suite:latest
 ```
 
 Set `POB_DOCKER_IMAGE` to pin a release tag. Set `POB_DOCKER_BUILD=1` only when developing the image locally from the plugin Dockerfile.

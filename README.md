@@ -23,5 +23,5 @@ docker run --rm --entrypoint node -e POB_LUA_ENABLED=true -e POE_TRADE_ENABLED=f
 
 - Root CI validates the MCP package and Codex plugin package.
 - Root Docker workflow builds the image from `vendor/PathOfBuilding` and `packages/pob-mcp`.
-- The Codex plugin continues to run `ghcr.io/anitaguptaoffice/pob-mcp:latest` by default.
+- The Codex plugin continues to run `ghcr.io/anitaguptaoffice/pob-mcp-suite:latest` by default.
 - Existing standalone repositories can remain online during migration, but new changes should land here first.

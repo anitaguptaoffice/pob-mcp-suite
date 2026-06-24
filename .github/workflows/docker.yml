@@ -14,7 +14,7 @@ permissions:
   packages: write
 
 env:
-  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/pob-mcp
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/pob-mcp-suite
 
 jobs:
   build-test-image:

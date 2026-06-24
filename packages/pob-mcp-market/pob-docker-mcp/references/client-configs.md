@@ -14,7 +14,7 @@ Replace `/ABS/PATH/TO/pob-docker-mcp` with the installed plugin path.
       "args": [],
       "env": {
         "POB_BUILDS_DIR": "/Users/YOU/Documents/Path of Building/Builds",
-        "POB_DOCKER_IMAGE": "ghcr.io/anitaguptaoffice/pob-mcp:latest",
+        "POB_DOCKER_IMAGE": "ghcr.io/anitaguptaoffice/pob-mcp-suite:latest",
         "POB_LUA_ENABLED": "true",
         "POE_TRADE_ENABLED": "false"
       }
@@ -44,7 +44,7 @@ Use an MCP server entry equivalent to:
   "args": [],
   "env": {
     "POB_BUILDS_DIR": "/Users/YOU/Documents/Path of Building/Builds",
-    "POB_DOCKER_IMAGE": "ghcr.io/anitaguptaoffice/pob-mcp:latest",
+    "POB_DOCKER_IMAGE": "ghcr.io/anitaguptaoffice/pob-mcp-suite:latest",
     "POB_LUA_ENABLED": "true"
   }
 }
@@ -54,7 +54,7 @@ Use an MCP server entry equivalent to:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `POB_DOCKER_IMAGE` | `ghcr.io/anitaguptaoffice/pob-mcp:latest` | Docker image tag to run |
+| `POB_DOCKER_IMAGE` | `ghcr.io/anitaguptaoffice/pob-mcp-suite:latest` | Docker image tag to run |
 | `POB_DOCKER_BUILD` | `0` | Set to `1` to build the development Dockerfile locally instead of pulling |
 | `POB_BUILDS_DIR` | `~/Documents/Path of Building/Builds` | Host builds directory mounted to `/builds` |
 | `POB_MCP_REPO` | `https://github.com/anitaguptaoffice/pob-mcp.git` | pob-mcp source |

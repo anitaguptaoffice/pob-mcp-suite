@@ -112,7 +112,7 @@ Use mutation and export tools only after summarizing the intended change:
 **LuaJIT startup failure in container:** pull the latest image or pin a known-good tag:
 
 ```bash
-POB_DOCKER_IMAGE=ghcr.io/anitaguptaoffice/pob-mcp:latest ./scripts/pob-mcp-docker.sh
+POB_DOCKER_IMAGE=ghcr.io/anitaguptaoffice/pob-mcp-suite:latest ./scripts/pob-mcp-docker.sh
 ```
 
 **PoB data version mismatch:** prefer the latest published image from the `pob-mcp` repository after `api-stdio` is synced.
