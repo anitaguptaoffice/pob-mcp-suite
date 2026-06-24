@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "pob": {
+      "command": "/ABS/PATH/TO/pob-docker-mcp/scripts/pob-mcp-docker.sh",
+      "args": [],
+      "env": {
+        "POB_BUILDS_DIR": "/Users/YOU/Documents/Path of Building/Builds",
+        "POB_LUA_ENABLED": "true",
+        "POE_TRADE_ENABLED": "false"
+      }
+    }
+  }
+}

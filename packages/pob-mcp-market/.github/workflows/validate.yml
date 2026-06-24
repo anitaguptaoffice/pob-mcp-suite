@@ -1,0 +1,59 @@
+name: Validate
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  repository_dispatch:
+    types:
+      - pob-mcp-published
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PATH_CHAIN_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Update versions
+        if: github.event_name == 'repository_dispatch' && github.event.action == 'pob-mcp-published'
+        env:
+          IMAGE: ${{ github.event.client_payload.image }}
+          IMAGE_DIGEST: ${{ github.event.client_payload.image_digest }}
+          POB_MCP_REF: ${{ github.event.client_payload.pob_mcp_ref }}
+          POB_TAG: ${{ github.event.client_payload.pob_tag }}
+          POB_SHA: ${{ github.event.client_payload.pob_sha }}
+          SHORT_SHA: ${{ github.event.client_payload.short_sha }}
+          POB_VERSION: ${{ github.event.client_payload.pob_version }}
+          TREE_VERSION: ${{ github.event.client_payload.tree_version }}
+        run: python3 scripts/update_versions.py
+
+      - name: Validate marketplace structure
+        run: python3 scripts/validate_market.py
+
+      - name: Shell syntax
+        run: |
+          bash -n pob-docker-mcp/scripts/pob-mcp-docker.sh
+          bash -n pob-docker-mcp/scripts/smoke-test.sh
+
+      - name: Docker smoke
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'repository_dispatch'
+        run: pob-docker-mcp/scripts/smoke-test.sh
+
+      - name: Commit version update
+        if: github.event_name == 'repository_dispatch' && github.event.action == 'pob-mcp-published'
+        run: |
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add versions.json
+          if git diff --cached --quiet; then
+            echo "versions.json unchanged"
+          else
+            git commit -m "chore: update pob mcp version ${SHORT_SHA}"
+            git push origin HEAD:main
+          fi

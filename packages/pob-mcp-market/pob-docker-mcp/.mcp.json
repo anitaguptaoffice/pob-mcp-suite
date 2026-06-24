@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "pob": {
+      "command": "./scripts/pob-mcp-docker.sh",
+      "args": [],
+      "env": {
+        "POB_DOCKER_IMAGE": "ghcr.io/anitaguptaoffice/pob-mcp:latest",
+        "POB_BUILDS_DIR": "${HOME}/Documents/Path of Building/Builds",
+        "POB_LUA_ENABLED": "true",
+        "POE_TRADE_ENABLED": "false"
+      }
+    }
+  }
+}

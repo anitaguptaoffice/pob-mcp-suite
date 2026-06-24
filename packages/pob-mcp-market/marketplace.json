@@ -1,0 +1,20 @@
+{
+  "name": "pob-mcp-market",
+  "interface": {
+    "displayName": "PoB MCP Market"
+  },
+  "plugins": [
+    {
+      "name": "pob-docker-mcp",
+      "source": {
+        "source": "local",
+        "path": "./pob-docker-mcp"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
