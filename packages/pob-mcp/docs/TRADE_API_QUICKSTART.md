@@ -1,5 +1,9 @@
 # Trade API Quick Start Guide
 
+> Agent-facing trade workflows now live in
+> `packages/pob-mcp-market/pob-docker-mcp/references/trade-tools.md`.
+> Keep this file for MCP implementation details and tool behavior notes.
+
 ## Overview
 
 The Trade API integration enables Claude to search the Path of Exile trade site for items, check prices, and make upgrade recommendations based on your build requirements.

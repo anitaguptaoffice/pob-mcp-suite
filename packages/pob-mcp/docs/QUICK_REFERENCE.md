@@ -1,5 +1,9 @@
 # PoB MCP Server Quick Reference
 
+> Agent-facing tool selection workflows now live in
+> `packages/pob-mcp-market/pob-docker-mcp/references/tool-workflows.md`.
+> Keep this file for MCP tool inventory and implementation notes.
+
 ## Environment Variables Cheat Sheet
 
 ### Required

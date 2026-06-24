@@ -1,5 +1,9 @@
 # Path of Building MCP Server - Quick Start
 
+> Agent-facing Codex plugin setup now lives in
+> `packages/pob-mcp-market/pob-docker-mcp/references/client-configs.md`.
+> Keep this file for local MCP server development and manual Claude Desktop setup.
+
 🎮 **Analyze your Path of Exile builds with Claude!**
 
 ## What You've Built

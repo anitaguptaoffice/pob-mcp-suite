@@ -1,5 +1,9 @@
 # PoB MCP Server Testing Guide
 
+> Agent-facing troubleshooting and verification workflows now live in
+> `packages/pob-mcp-market/pob-docker-mcp/references/troubleshooting.md`.
+> Keep this file for MCP server implementation test coverage and manual regression cases.
+
 This guide provides comprehensive test cases for all features of the Path of Building MCP server, with special focus on Phase 3 features (Lua bridge integration).
 
 ## Prerequisites

@@ -1,5 +1,9 @@
 # Quick Start Guide: suggest_optimal_nodes
 
+> Agent-facing node recommendation workflows now live in
+> `packages/pob-mcp-market/pob-docker-mcp/references/tree-optimization.md`.
+> Keep this file for MCP implementation details and tool behavior notes.
+
 ## What It Does
 
 Intelligently analyzes your build and recommends the **best passive tree nodes** to allocate based on your goal. Uses actual PoB calculations to rank nodes by efficiency (stat gain per point spent).

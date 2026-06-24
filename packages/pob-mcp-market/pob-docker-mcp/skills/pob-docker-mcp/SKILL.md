@@ -48,7 +48,12 @@ The command pulls the published Docker image on first run, then runs `pob-mcp-se
    - `export_build`
 6. Explain changes in PoB terms: DPS, effective hit pool, resistances, ailment mitigation, tree pathing, gem links, flask uptime, and cost.
 
-For detailed tool selection, verification, and known edge cases, read `../../references/tool-workflows.md`.
+For detailed tool selection, verification, and known edge cases, read the relevant reference:
+
+- `../../references/tool-workflows.md` for source-of-truth, build intake, mutation, and alternate tree rules.
+- `../../references/tree-optimization.md` for passive tree recommendations and reallocation.
+- `../../references/trade-tools.md` for trade searches, price checks, and gear upgrades.
+- `../../references/troubleshooting.md` for Docker, Lua bridge, pobb.in, and mismatch triage.
 
 ## Tool Trust Model
 

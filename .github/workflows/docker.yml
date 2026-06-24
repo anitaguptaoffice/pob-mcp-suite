@@ -6,7 +6,21 @@ on:
       - main
     tags:
       - "v*"
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - "packages/pob-mcp/**"
+      - "vendor/PathOfBuilding/**"
+      - "scripts/collect-metadata.py"
+      - ".github/workflows/docker.yml"
   pull_request:
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - "packages/pob-mcp/**"
+      - "vendor/PathOfBuilding/**"
+      - "scripts/collect-metadata.py"
+      - ".github/workflows/docker.yml"
   workflow_dispatch:
 
 permissions:

@@ -75,6 +75,29 @@ function request(method, params = {}) {
   });
 }
 
+function readText(result) {
+  return (result.content ?? [])
+    .filter((entry) => entry.type === "text" && typeof entry.text === "string")
+    .map((entry) => entry.text)
+    .join("\n");
+}
+
+async function callTool(name, args = {}) {
+  const result = await request("tools/call", {
+    name,
+    arguments: args,
+  });
+
+  const text = readText(result);
+  if (result.isError) {
+    throw new Error(`${name} failed: ${text || JSON.stringify(result)}`);
+  }
+  if (/failed|error|exception/i.test(text)) {
+    throw new Error(`${name} returned error-like output: ${text}`);
+  }
+  return result;
+}
+
 try {
   await request("initialize", {
     protocolVersion: "2024-11-05",
@@ -90,18 +113,9 @@ try {
     }
   }
 
-  await request("tools/call", {
-    name: "lua_new_build",
-    arguments: { className: "Witch", ascendancy: "None" },
-  });
-  await request("tools/call", {
-    name: "lua_get_build_info",
-    arguments: {},
-  });
-  await request("tools/call", {
-    name: "lua_get_stats",
-    arguments: { category: "defense" },
-  });
+  await callTool("lua_new_build", { className: "Witch", ascendancy: "None" });
+  await callTool("lua_get_build_info");
+  await callTool("lua_get_stats", { category: "defense" });
 
   console.log("pob-mcp smoke passed");
 } finally {

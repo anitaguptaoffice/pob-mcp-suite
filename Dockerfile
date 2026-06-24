@@ -14,7 +14,10 @@ RUN apt-get update \
     zlib1g \
   && rm -rf /var/lib/apt/lists/*
 
-COPY vendor/PathOfBuilding /opt/PathOfBuilding
+COPY vendor/PathOfBuilding/src /opt/PathOfBuilding/src
+COPY vendor/PathOfBuilding/runtime /opt/PathOfBuilding/runtime
+COPY vendor/PathOfBuilding/manifest.xml /opt/PathOfBuilding/manifest.xml
+COPY vendor/PathOfBuilding/LICENSE.md /opt/PathOfBuilding/LICENSE.md
 
 WORKDIR /opt/pob-mcp
 

@@ -4,7 +4,17 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "package.json"
+      - "packages/pob-mcp/**"
+      - "packages/pob-mcp-market/**"
+      - ".github/workflows/ci.yml"
   pull_request:
+    paths:
+      - "package.json"
+      - "packages/pob-mcp/**"
+      - "packages/pob-mcp-market/**"
+      - ".github/workflows/ci.yml"
   workflow_dispatch:
 
 jobs:

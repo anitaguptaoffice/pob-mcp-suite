@@ -5,3 +5,13 @@
 **/coverage
 **/.DS_Store
 packages/pob-mcp-market
+
+vendor/PathOfBuilding/**
+!vendor/
+!vendor/PathOfBuilding/
+!vendor/PathOfBuilding/src/
+!vendor/PathOfBuilding/src/**
+!vendor/PathOfBuilding/runtime/
+!vendor/PathOfBuilding/runtime/**
+!vendor/PathOfBuilding/manifest.xml
+!vendor/PathOfBuilding/LICENSE.md

@@ -1,5 +1,9 @@
 # Tree Optimizer Guide
 
+> Agent-facing tree optimization workflows now live in
+> `packages/pob-mcp-market/pob-docker-mcp/references/tree-optimization.md`.
+> Keep this file for MCP implementation details and tool behavior notes.
+
 ## Overview
 
 The `optimize_tree` tool is a powerful passive tree optimizer that can both **add** and **remove** nodes to find the best overall allocation for your build goal.
