@@ -65,7 +65,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.PATH_CHAIN_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Publish multi-arch image
         if: github.event_name != 'pull_request'
