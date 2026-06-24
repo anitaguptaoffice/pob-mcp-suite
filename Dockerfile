@@ -14,11 +14,6 @@ RUN apt-get update \
     zlib1g \
   && rm -rf /var/lib/apt/lists/*
 
-COPY vendor/PathOfBuilding/src /opt/PathOfBuilding/src
-COPY vendor/PathOfBuilding/runtime /opt/PathOfBuilding/runtime
-COPY vendor/PathOfBuilding/manifest.xml /opt/PathOfBuilding/manifest.xml
-COPY vendor/PathOfBuilding/LICENSE.md /opt/PathOfBuilding/LICENSE.md
-
 WORKDIR /opt/pob-mcp
 
 COPY packages/pob-mcp/package.json packages/pob-mcp/package-lock.json ./
@@ -29,6 +24,11 @@ COPY packages/pob-mcp/src ./src
 COPY packages/pob-mcp/scripts ./scripts
 RUN npm run build \
   && npm prune --omit=dev
+
+COPY vendor/PathOfBuilding/src /opt/PathOfBuilding/src
+COPY vendor/PathOfBuilding/runtime /opt/PathOfBuilding/runtime
+COPY vendor/PathOfBuilding/manifest.xml /opt/PathOfBuilding/manifest.xml
+COPY vendor/PathOfBuilding/LICENSE.md /opt/PathOfBuilding/LICENSE.md
 
 RUN mkdir -p /builds
 
