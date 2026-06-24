@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: packages/pob-mcp/package-lock.json
+
+      - name: Install MCP dependencies
+        run: npm --prefix packages/pob-mcp ci
+
+      - name: Build MCP
+        run: npm run build
+
+      - name: Focused MCP tests
+        run: npm run test:focused
+
+      - name: Validate Codex plugin marketplace
+        run: npm run validate:market
+
+      - name: Shell syntax
+        run: npm run validate:shell

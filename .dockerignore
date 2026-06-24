@@ -1,0 +1,7 @@
+.git
+**/.git
+**/node_modules
+**/build
+**/coverage
+**/.DS_Store
+packages/pob-mcp-market

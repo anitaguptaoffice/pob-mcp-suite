@@ -1,0 +1,77 @@
+name: Docker
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/pob-mcp
+
+jobs:
+  build-test-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Collect metadata
+        id: meta
+        run: python3 scripts/collect-metadata.py >> "$GITHUB_OUTPUT"
+
+      - name: Build image
+        run: docker build -t "${IMAGE_NAME}:ci" .
+
+      - name: Smoke image
+        run: |
+          docker run --rm \
+            --entrypoint node \
+            -e POB_LUA_ENABLED=true \
+            -e POE_TRADE_ENABLED=false \
+            "${IMAGE_NAME}:ci" \
+            /opt/pob-mcp/scripts/mcp-smoke.mjs node /opt/pob-mcp/build/index.js
+
+      - name: Prepare image tags
+        if: github.event_name != 'pull_request'
+        id: tags
+        run: |
+          {
+            echo "tags<<EOF"
+            echo "${IMAGE_NAME}:${GITHUB_SHA}"
+            echo "${IMAGE_NAME}:pob-${{ steps.meta.outputs.short_sha }}"
+            if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+              echo "${IMAGE_NAME}:${GITHUB_REF_NAME}"
+            fi
+            if [ "${GITHUB_REF_NAME}" = "main" ]; then
+              echo "${IMAGE_NAME}:latest"
+            fi
+            echo "EOF"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Login to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish multi-arch image
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}

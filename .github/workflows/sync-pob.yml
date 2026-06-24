@@ -1,0 +1,49 @@
+name: Sync PathOfBuilding Vendor
+
+on:
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+    inputs:
+      upstream_ref:
+        description: "Upstream PathOfBuildingCommunity ref to merge"
+        required: false
+        default: "dev"
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.PATH_CHAIN_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+
+      - name: Add upstream PoB remote
+        run: git remote add pob-upstream https://github.com/PathOfBuildingCommunity/PathOfBuilding.git
+
+      - name: Fetch upstream PoB
+        env:
+          UPSTREAM_REF: ${{ inputs.upstream_ref || 'dev' }}
+        run: git fetch pob-upstream "${UPSTREAM_REF}"
+
+      - name: Merge upstream into vendor subtree
+        env:
+          UPSTREAM_REF: ${{ inputs.upstream_ref || 'dev' }}
+        run: git subtree pull --prefix=vendor/PathOfBuilding pob-upstream "${UPSTREAM_REF}" -m "chore: sync PathOfBuilding ${UPSTREAM_REF}"
+
+      - name: Push changes
+        run: |
+          if git diff --quiet HEAD origin/main; then
+            echo "No vendor changes to push"
+          else
+            git push origin HEAD:main
+          fi
