@@ -1,0 +1,146 @@
+name: Sync api-stdio
+
+on:
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+    inputs:
+      upstream_ref:
+        description: "Upstream PathOfBuildingCommunity ref to merge"
+        required: false
+        default: "dev"
+      force:
+        description: "Run smoke and downstream publishing even when upstream did not change"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: api-stdio
+          fetch-depth: 0
+          token: ${{ secrets.PATH_CHAIN_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+
+      - name: Install LuaJIT
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends luajit zlib1g
+
+      - name: Capture current api-stdio commit
+        id: before
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Merge upstream
+        env:
+          UPSTREAM_REF: ${{ inputs.upstream_ref || 'dev' }}
+        run: |
+          git remote add upstream https://github.com/PathOfBuildingCommunity/PathOfBuilding.git
+          git fetch upstream "${UPSTREAM_REF}"
+          git merge --no-edit "upstream/${UPSTREAM_REF}"
+
+      - name: Decide whether to publish
+        id: publish
+        env:
+          BEFORE_SHA: ${{ steps.before.outputs.sha }}
+          FORCE: ${{ inputs.force || 'false' }}
+        run: |
+          AFTER_SHA="$(git rev-parse HEAD)"
+          echo "after_sha=${AFTER_SHA}" >> "$GITHUB_OUTPUT"
+          if [ "${BEFORE_SHA}" = "${AFTER_SHA}" ] && [ "${FORCE}" != "true" ]; then
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+            echo "No upstream changes and force=false; skipping smoke and downstream dispatch."
+          else
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+            echo "Publishing because upstream changed or force=true."
+          fi
+
+      - name: Smoke api-stdio bridge
+        if: steps.publish.outputs.should_publish == 'true'
+        run: |
+          cd src
+          {
+            printf '%s\n' '{"action":"ping"}'
+            printf '%s\n' '{"action":"version"}'
+            printf '%s\n' '{"action":"new_build","params":{"className":"Witch","ascendancy":"None"}}'
+            printf '%s\n' '{"action":"get_build_info"}'
+            printf '%s\n' '{"action":"get_stats","params":{"category":"defense"}}'
+            printf '%s\n' '{"action":"quit"}'
+          } | POB_API_STDIO=1 luajit HeadlessWrapper.lua
+
+      - name: Collect version metadata
+        if: steps.publish.outputs.should_publish == 'true'
+        id: meta
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import os
+          import re
+          import subprocess
+          from pathlib import Path
+
+          sha = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+          short = sha[:7]
+          manifest = Path("manifest.xml").read_text(encoding="utf-8")
+          version = re.search(r'<Version number="([^"]+)"', manifest).group(1)
+          tree_versions = []
+          for path in Path("src/TreeData").glob("3_*"):
+              name = path.name
+              if name.endswith("_alternate") or "_ruthless" in name:
+                  continue
+              parts = name.split("_")
+              if len(parts) == 2 and all(part.isdigit() for part in parts):
+                  tree_versions.append((int(parts[0]), int(parts[1]), name))
+          tree = sorted(tree_versions)[-1][2]
+
+          print(f"pob_sha={sha}")
+          print(f"short_sha={short}")
+          print(f"pob_tag=api-stdio-{short}")
+          print(f"pob_version={version}")
+          print(f"tree_version={tree}")
+          PY
+
+      - name: Push api-stdio branch
+        if: steps.publish.outputs.should_publish == 'true'
+        run: git push origin HEAD:api-stdio
+
+      - name: Push PoB tag
+        if: steps.publish.outputs.should_publish == 'true'
+        env:
+          POB_TAG: ${{ steps.meta.outputs.pob_tag }}
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/${POB_TAG}" >/dev/null 2>&1; then
+            echo "Tag ${POB_TAG} already exists"
+          else
+            git tag "${POB_TAG}"
+            git push origin "${POB_TAG}"
+          fi
+
+      - name: Trigger pob-mcp image build
+        if: steps.publish.outputs.should_publish == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.PATH_CHAIN_TOKEN }}
+          POB_TAG: ${{ steps.meta.outputs.pob_tag }}
+          POB_SHA: ${{ steps.meta.outputs.pob_sha }}
+          SHORT_SHA: ${{ steps.meta.outputs.short_sha }}
+          POB_VERSION: ${{ steps.meta.outputs.pob_version }}
+          TREE_VERSION: ${{ steps.meta.outputs.tree_version }}
+        run: |
+          gh api repos/anitaguptaoffice/pob-mcp/dispatches \
+            -f event_type=pob-updated \
+            -f client_payload[pob_ref]="${POB_TAG}" \
+            -f client_payload[pob_tag]="${POB_TAG}" \
+            -f client_payload[pob_sha]="${POB_SHA}" \
+            -f client_payload[short_sha]="${SHORT_SHA}" \
+            -f client_payload[pob_version]="${POB_VERSION}" \
+            -f client_payload[tree_version]="${TREE_VERSION}"
