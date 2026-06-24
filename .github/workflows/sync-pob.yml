@@ -9,6 +9,11 @@ on:
         description: "Upstream PathOfBuildingCommunity ref to merge"
         required: false
         default: "dev"
+      dry_run:
+        description: "Fetch and merge-check without pushing changes"
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -38,9 +43,14 @@ jobs:
       - name: Merge upstream into vendor subtree
         env:
           UPSTREAM_REF: ${{ inputs.upstream_ref || 'dev' }}
-        run: git subtree pull --prefix=vendor/PathOfBuilding pob-upstream "${UPSTREAM_REF}" -m "chore: sync PathOfBuilding ${UPSTREAM_REF}"
+        run: |
+          git subtree pull \
+            --prefix=vendor/PathOfBuilding \
+            pob-upstream "${UPSTREAM_REF}" \
+            -m "chore: sync PathOfBuilding ${UPSTREAM_REF}"
 
       - name: Push changes
+        if: ${{ github.event_name == 'schedule' || inputs.dry_run == false }}
         run: |
           if git diff --quiet HEAD origin/main; then
             echo "No vendor changes to push"
