@@ -51,7 +51,6 @@ jobs:
           load: true
           tags: ${{ env.IMAGE_NAME }}:ci
           cache-from: type=gha,scope=pob-mcp-suite
-          cache-to: type=gha,scope=pob-mcp-suite,mode=max
 
       - name: Smoke image
         run: |
