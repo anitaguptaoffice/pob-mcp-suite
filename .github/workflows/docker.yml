@@ -36,6 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          fetch-depth: 0
           token: ${{ secrets.PATH_CHAIN_TOKEN || secrets.GITHUB_TOKEN }}
 
       - uses: docker/setup-qemu-action@v4

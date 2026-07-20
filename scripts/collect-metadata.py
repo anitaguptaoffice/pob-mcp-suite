@@ -15,6 +15,9 @@ def output(name: str, value: str) -> None:
 
 
 def path_of_building_sha() -> str:
+    if git("rev-parse", "--is-shallow-repository") == "true":
+        raise SystemExit("full git history is required to identify the upstream PoB commit")
+
     commit = git("log", "-1", "--format=%H", "--", "vendor/PathOfBuilding")
     parents = git("show", "-s", "--format=%P", commit).split()
     if len(parents) > 1:
