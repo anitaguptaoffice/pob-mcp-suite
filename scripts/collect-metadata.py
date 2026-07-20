@@ -15,11 +15,16 @@ def output(name: str, value: str) -> None:
 
 
 def path_of_building_sha() -> str:
-    message = git("log", "-1", "--format=%B", "--", "vendor/PathOfBuilding")
+    commit = git("log", "-1", "--format=%H", "--", "vendor/PathOfBuilding")
+    parents = git("show", "-s", "--format=%P", commit).split()
+    if len(parents) > 1:
+        return parents[-1]
+
+    message = git("show", "-s", "--format=%B", commit)
     match = re.search(r"commit '([0-9a-f]{7,40})'", message)
     if match:
         return match.group(1)
-    return git("rev-parse", "HEAD")
+    return commit
 
 
 def latest_tree_version() -> str:

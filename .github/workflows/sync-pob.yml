@@ -16,7 +16,12 @@ on:
         default: true
 
 permissions:
+  actions: write
   contents: write
+
+concurrency:
+  group: sync-pathofbuilding-vendor
+  cancel-in-progress: false
 
 jobs:
   sync:
@@ -49,11 +54,23 @@ jobs:
             pob-upstream "${UPSTREAM_REF}" \
             -m "chore: sync PathOfBuilding ${UPSTREAM_REF}"
 
-      - name: Push changes
-        if: ${{ github.event_name == 'schedule' || inputs.dry_run == false }}
+      - name: Detect vendor changes
+        id: changes
         run: |
-          if git diff --quiet HEAD origin/main; then
-            echo "No vendor changes to push"
+          if git diff --quiet origin/main HEAD -- vendor/PathOfBuilding; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No vendor changes detected"
           else
-            git push origin HEAD:main
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Vendor changes detected"
           fi
+
+      - name: Push changes
+        if: ${{ steps.changes.outputs.changed == 'true' && (github.event_name == 'schedule' || inputs.dry_run == false) }}
+        run: git push origin HEAD:main
+
+      - name: Trigger Docker publish
+        if: ${{ steps.changes.outputs.changed == 'true' && (github.event_name == 'schedule' || inputs.dry_run == false) }}
+        env:
+          GH_TOKEN: ${{ secrets.PATH_CHAIN_TOKEN || secrets.GITHUB_TOKEN }}
+        run: gh workflow run docker.yml --repo "${GITHUB_REPOSITORY}" --ref main
