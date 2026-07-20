@@ -1,5 +1,5 @@
 {
-  "plugin": "0.1.0",
+  "plugin": "0.1.0+codex.20260720145127",
   "image": "ghcr.io/anitaguptaoffice/pob-mcp-suite:pob-556eed5",
   "pobMcp": "556eed5c7c0c6ccbf69a2cbec4edaf59ae5e752a",
   "pathOfBuilding": "vendor-556eed5",

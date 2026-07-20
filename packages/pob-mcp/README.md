@@ -150,13 +150,12 @@ sudo apt-get install luajit
 # Windows: download from https://luajit.org/ and add to PATH
 ```
 
-#### 2. Clone PathOfBuilding
+#### 2. Clone the Suite
 ```bash
-git clone https://github.com/ianderse/PathOfBuilding.git
-cd PathOfBuilding
-git checkout api-stdio
+git clone https://github.com/anitaguptaoffice/pob-mcp-suite.git
+cd pob-mcp-suite
 ```
-Note the full path to the `src/` directory — that's your `POB_FORK_PATH`.
+Use the full path to `vendor/PathOfBuilding/src` as `POB_FORK_PATH`.
 
 #### 3. Verify
 ```bash
@@ -424,7 +423,7 @@ ls "$POB_FORK_PATH/Modules/"              # must exist
 **Stats don't match PoB GUI**
 - Check bandit/pantheon/enemy settings with `get_config`
 - Ensure the correct tree spec is active in the XML
-- Make sure your PathOfBuilding fork is on the `api-stdio` branch and up to date
+- Make sure your `pob-mcp-suite` checkout is current and `POB_FORK_PATH` points to `vendor/PathOfBuilding/src`
 
 **Bridge becomes unresponsive**
 ```

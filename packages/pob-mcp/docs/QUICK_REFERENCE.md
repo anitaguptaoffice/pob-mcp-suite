@@ -421,7 +421,7 @@ Use these when asking for build planning help:
 
 ### Enable Lua Bridge (Optional)
 - [ ] Install LuaJIT
-- [ ] Clone PathOfBuilding (api-stdio branch)
+- [ ] Clone `pob-mcp-suite` and use `vendor/PathOfBuilding/src`
 - [ ] Add POB_LUA_ENABLED=true to config
 - [ ] Add POB_FORK_PATH to config
 - [ ] Restart Claude Desktop

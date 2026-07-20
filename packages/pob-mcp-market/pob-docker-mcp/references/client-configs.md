@@ -55,10 +55,7 @@ Use an MCP server entry equivalent to:
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `POB_DOCKER_IMAGE` | `ghcr.io/anitaguptaoffice/pob-mcp-suite:latest` | Docker image tag to run |
-| `POB_DOCKER_BUILD` | `0` | Set to `1` to build the development Dockerfile locally instead of pulling |
 | `POB_BUILDS_DIR` | `~/Documents/Path of Building/Builds` | Host builds directory mounted to `/builds` |
-| `POB_MCP_REPO` | `https://github.com/anitaguptaoffice/pob-mcp.git` | pob-mcp source |
-| `POB_MCP_REF` | `main` | pob-mcp branch/tag |
-| `POB_REPO` | `https://github.com/anitaguptaoffice/PathOfBuilding.git` | PoB api-stdio source |
-| `POB_REF` | `api-stdio` | PoB branch/tag |
 | `POE_TRADE_ENABLED` | `false` | Enable live trade API tools |
+
+For image development, clone `https://github.com/anitaguptaoffice/pob-mcp-suite` and build the root Dockerfile. The installed plugin intentionally consumes published suite images only.
