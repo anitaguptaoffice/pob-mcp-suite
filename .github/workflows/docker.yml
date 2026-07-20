@@ -24,7 +24,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 env:
@@ -35,6 +35,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.PATH_CHAIN_TOKEN || secrets.GITHUB_TOKEN }}
 
       - uses: docker/setup-qemu-action@v4
 
@@ -87,6 +89,7 @@ jobs:
           password: ${{ secrets.PATH_CHAIN_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Publish multi-arch image
+        id: publish
         if: github.event_name != 'pull_request'
         uses: docker/build-push-action@v7
         with:
@@ -96,3 +99,36 @@ jobs:
           tags: ${{ steps.tags.outputs.tags }}
           cache-from: type=gha,scope=pob-mcp-suite
           cache-to: type=gha,scope=pob-mcp-suite,mode=max
+
+      - name: Update bundled marketplace versions
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          IMAGE: ${{ env.IMAGE_NAME }}:pob-${{ steps.meta.outputs.short_sha }}
+          IMAGE_DIGEST: ${{ steps.publish.outputs.digest }}
+          POB_MCP_REF: ${{ steps.meta.outputs.suite_sha }}
+          POB_TAG: ${{ steps.meta.outputs.pob_tag }}
+          POB_SHA: ${{ steps.meta.outputs.pob_sha }}
+          SHORT_SHA: ${{ steps.meta.outputs.short_sha }}
+          POB_VERSION: ${{ steps.meta.outputs.pob_version }}
+          TREE_VERSION: ${{ steps.meta.outputs.tree_version }}
+        run: python3 packages/pob-mcp-market/scripts/update_versions.py
+
+      - name: Validate bundled marketplace
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: |
+          python3 packages/pob-mcp-market/scripts/validate_market.py
+          bash -n packages/pob-mcp-market/pob-docker-mcp/scripts/pob-mcp-docker.sh
+          bash -n packages/pob-mcp-market/pob-docker-mcp/scripts/smoke-test.sh
+
+      - name: Commit bundled marketplace version
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: |
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add packages/pob-mcp-market/versions.json
+          if git diff --cached --quiet; then
+            echo "Marketplace version is already current"
+          else
+            git commit -m "chore: update bundled PoB MCP version ${{ steps.meta.outputs.short_sha }}"
+            git push origin HEAD:main
+          fi
