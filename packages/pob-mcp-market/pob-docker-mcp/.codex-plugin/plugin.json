@@ -1,6 +1,6 @@
 {
   "name": "pob-docker-mcp",
-  "version": "0.1.0",
+  "version": "0.1.0+codex.20260720145127",
   "description": "One-command Docker runtime for Path of Building MCP plus a PoB build analysis skill.",
   "author": {
     "name": "anitaguptaoffice"
@@ -9,7 +9,7 @@
   "interface": {
     "displayName": "PoB Docker MCP",
     "shortDescription": "Run Path of Building MCP from Docker and use it from agent CLIs.",
-    "longDescription": "PoB Docker MCP provides a one-command Docker stdio MCP server for Path of Building, bundling pob-mcp with the api-stdio PathOfBuilding fork. It also includes a skill for using the MCP server to inspect, compare, and improve Path of Building builds.",
+    "longDescription": "PoB Docker MCP provides a one-command Docker stdio MCP server built from the pob-mcp-suite monorepo, including its vendored Path of Building Lua bridge. It also includes a skill for inspecting, comparing, and improving Path of Building builds.",
     "developerName": "anitaguptaoffice",
     "category": "Productivity",
     "capabilities": [

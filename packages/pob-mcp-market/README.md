@@ -1,14 +1,15 @@
 # PoB MCP Market
 
-This repository packages the Path of Building MCP Docker runtime as a Codex plugin and client configuration bundle.
+This package contains the Path of Building MCP Codex plugin and client configuration bundle inside the `pob-mcp-suite` monorepo.
 
-## Repositories
+## Monorepo Sources
 
-| Repository | Responsibility |
+| Path | Responsibility |
 | --- | --- |
-| `anitaguptaoffice/PathOfBuilding` | Maintains the `api-stdio` Path of Building fork used by the MCP Lua bridge. |
-| `anitaguptaoffice/pob-mcp` | Maintains the MCP server source, Docker image, and GHCR publishing workflow. |
-| `anitaguptaoffice/pob-mcp-market` | Maintains marketplace metadata, plugin files, skills, and client setup scripts. |
+| `vendor/PathOfBuilding` | Vendored Path of Building runtime with the stdio Lua bridge. |
+| `packages/pob-mcp` | MCP server source. |
+| `packages/pob-mcp-market` | Marketplace metadata, plugin files, skills, and client scripts. |
+| `.github/workflows` | The only active CI, sync, and Docker publishing workflows. |
 
 ## Runtime
 
@@ -24,7 +25,7 @@ By default the script pulls:
 ghcr.io/anitaguptaoffice/pob-mcp-suite:latest
 ```
 
-Set `POB_DOCKER_IMAGE` to pin a release tag. Set `POB_DOCKER_BUILD=1` only when developing the image locally from the plugin Dockerfile.
+Set `POB_DOCKER_IMAGE` to pin a release tag. For image development, clone the monorepo and build its root Dockerfile; the installed plugin consumes published suite images only.
 
 ## Validation
 

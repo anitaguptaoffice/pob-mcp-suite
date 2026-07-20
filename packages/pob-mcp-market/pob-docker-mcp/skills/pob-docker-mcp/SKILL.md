@@ -120,7 +120,7 @@ Use mutation and export tools only after summarizing the intended change:
 POB_DOCKER_IMAGE=ghcr.io/anitaguptaoffice/pob-mcp-suite:latest ./scripts/pob-mcp-docker.sh
 ```
 
-**PoB data version mismatch:** prefer the latest published image from the `pob-mcp` repository after `api-stdio` is synced.
+**PoB data version mismatch:** pull the latest image published by `pob-mcp-suite` after its vendored Path of Building tree is synced.
 
 **Plugin docs vs skills:** Markdown under `references/` is supporting documentation. Codex only auto-triggers skills from `skills/*/SKILL.md`; references are read when the skill points to them or when the task requires them.
 

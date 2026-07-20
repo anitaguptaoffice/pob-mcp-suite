@@ -4,7 +4,7 @@ This monorepo contains the complete Path of Building MCP delivery chain:
 
 | Path | Responsibility |
 | --- | --- |
-| `vendor/PathOfBuilding` | Vendored `api-stdio` Path of Building fork used by the Lua bridge. |
+| `vendor/PathOfBuilding` | Vendored Path of Building runtime with the stdio Lua bridge. |
 | `packages/pob-mcp` | TypeScript MCP server and Docker runtime source. |
 | `packages/pob-mcp-market` | Codex plugin, skill, marketplace metadata, and client wrapper scripts. |
 
@@ -24,4 +24,4 @@ docker run --rm --entrypoint node -e POB_LUA_ENABLED=true -e POE_TRADE_ENABLED=f
 - Root CI validates the MCP package and Codex plugin package.
 - Root Docker workflow builds the image from `vendor/PathOfBuilding` and `packages/pob-mcp`.
 - The Codex plugin continues to run `ghcr.io/anitaguptaoffice/pob-mcp-suite:latest` by default.
-- Existing standalone repositories can remain online during migration, but new changes should land here first.
+- Previous standalone repositories are legacy references; active source, plugin, sync, and publishing changes belong in this monorepo.
