@@ -705,7 +705,7 @@ local function doActorMisc(env, actor)
 		if modDB:Flag(nil, "Fanaticism") and actor.mainSkill and actor.mainSkill.skillFlags.selfCast then
 			local effect = m_floor(75 * (1 + modDB:Sum("INC", nil, "BuffEffectOnSelf") / 100))
 			modDB:NewMod("Speed", "MORE", effect, "Fanaticism", ModFlag.Cast)
-			modDB:NewMod("Cost", "INC", -effect, "Fanaticism", ModFlag.Cast)
+			modDB:NewMod("Cost", "MORE", -effect, "Fanaticism", ModFlag.Cast)
 			modDB:NewMod("AreaOfEffect", "INC", effect, "Fanaticism", ModFlag.Cast)
 		end
 		if modDB:Flag(nil, "UnholyMight") then
@@ -800,7 +800,7 @@ local function doActorMisc(env, actor)
 			modDB:NewMod("ChaosDamage", "MORE", -100, "Excommunicated")
 		end
 		if modDB:Flag(nil, "Blind") and not modDB:Flag(nil, "CannotBeBlinded") then
-			if not modDB:Flag(nil, "IgnoreBlindHitChance") then
+			if not modDB:Flag(nil, "UnaffectedByBlind") then
 				local effect = 1 + modDB:Sum("INC", nil, "BlindEffect", "BuffEffectOnSelf") / 100
 				-- Override Blind effect if set.
 				if modDB:Override(nil, "BlindEffect") then
