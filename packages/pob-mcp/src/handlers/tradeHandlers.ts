@@ -40,8 +40,12 @@ export async function handleSearchTradeItems(
     max_price?: number;
     price_currency?: string;
     online_only?: boolean;
+    item_rarity?: 'normal' | 'magic' | 'rare' | 'unique' | 'any';
     rarity?: 'normal' | 'magic' | 'rare' | 'unique' | 'any';
     min_links?: number;
+    corrupted?: boolean;
+    identified?: boolean;
+    mods?: Array<{ stat_id: string; min?: number; max?: number }>;
     stats?: Array<{ id: string; min?: number; max?: number }>;
     sort?: 'price_asc' | 'price_desc';
     limit?: number;
@@ -61,12 +65,20 @@ export async function handleSearchTradeItems(
       max_price,
       price_currency = 'chaos',
       online_only = true,
+      item_rarity,
       rarity,
       min_links,
+      corrupted,
+      identified,
+      mods,
       stats,
       sort = 'price_asc',
       limit = 5,
     } = args;
+    const normalizedRarity = item_rarity ?? rarity;
+    const normalizedStats = mods
+      ? mods.map(mod => ({ id: mod.stat_id, min: mod.min, max: mod.max }))
+      : stats;
 
     // Build the query
     const builder = new TradeQueryBuilder();
@@ -79,16 +91,24 @@ export async function handleSearchTradeItems(
       builder.withType(item_type);
     }
 
-    if (rarity) {
-      builder.withRarity(rarity);
+    if (normalizedRarity) {
+      builder.withRarity(normalizedRarity);
     }
 
     if (min_links) {
       builder.withLinks(min_links);
     }
 
-    if (stats && stats.length > 0) {
-      builder.withStats(stats);
+    if (corrupted !== undefined) {
+      builder.withCorrupted(corrupted);
+    }
+
+    if (identified !== undefined) {
+      builder.withIdentified(identified);
+    }
+
+    if (normalizedStats && normalizedStats.length > 0) {
+      builder.withStats(normalizedStats);
     }
 
     builder.applyOptions({

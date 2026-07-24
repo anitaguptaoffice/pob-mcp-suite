@@ -162,6 +162,7 @@ export class TradeQueryBuilder {
     this.query.query.filters.trade_filters.filters.price = {
       min,
       max,
+      option: currency,
     };
 
     return this;
@@ -183,6 +184,48 @@ export class TradeQueryBuilder {
 
     this.query.query.filters.type_filters.filters.rarity = {
       option: rarity,
+    };
+
+    return this;
+  }
+
+  /**
+   * Filter by corruption status.
+   */
+  withCorrupted(corrupted: boolean): this {
+    if (!this.query.query.filters) {
+      this.query.query.filters = {};
+    }
+    if (!this.query.query.filters.misc_filters) {
+      this.query.query.filters.misc_filters = {};
+    }
+    if (!this.query.query.filters.misc_filters.filters) {
+      this.query.query.filters.misc_filters.filters = {};
+    }
+
+    this.query.query.filters.misc_filters.filters.corrupted = {
+      option: corrupted ? 'true' : 'false',
+    };
+
+    return this;
+  }
+
+  /**
+   * Filter by identification status.
+   */
+  withIdentified(identified: boolean): this {
+    if (!this.query.query.filters) {
+      this.query.query.filters = {};
+    }
+    if (!this.query.query.filters.misc_filters) {
+      this.query.query.filters.misc_filters = {};
+    }
+    if (!this.query.query.filters.misc_filters.filters) {
+      this.query.query.filters.misc_filters.filters = {};
+    }
+
+    this.query.query.filters.misc_filters.filters.identified = {
+      option: identified ? 'true' : 'false',
     };
 
     return this;
@@ -517,10 +560,8 @@ export class TradeQueryBuilder {
    * Apply common search options
    */
   applyOptions(options: SearchOptions): this {
-    if (options.onlineOnly !== false) {
-      // Use 'available' status to get both instant buyout AND in-person trade items
-      this.withOnlineStatus('available');
-    }
+    // Use 'available' for tradeable listings, or 'any' when offline sellers are requested.
+    this.withOnlineStatus(options.onlineOnly === false ? 'any' : 'available');
 
     // Note: We intentionally do NOT set sale_type filter here.
     // By omitting it, we search for ALL items (both priced instant-buyout items AND unpriced negotiable items).

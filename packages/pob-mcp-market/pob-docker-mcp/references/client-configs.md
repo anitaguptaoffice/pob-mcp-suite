@@ -16,7 +16,7 @@ Replace `/ABS/PATH/TO/pob-docker-mcp` with the installed plugin path.
         "POB_BUILDS_DIR": "/Users/YOU/Documents/Path of Building/Builds",
         "POB_DOCKER_IMAGE": "ghcr.io/anitaguptaoffice/pob-mcp-suite:latest",
         "POB_LUA_ENABLED": "true",
-        "POE_TRADE_ENABLED": "false"
+        "POE_TRADE_ENABLED": "true"
       }
     }
   }
@@ -56,6 +56,6 @@ Use an MCP server entry equivalent to:
 | --- | --- | --- |
 | `POB_DOCKER_IMAGE` | `ghcr.io/anitaguptaoffice/pob-mcp-suite:latest` | Docker image tag to run |
 | `POB_BUILDS_DIR` | `~/Documents/Path of Building/Builds` | Host builds directory mounted to `/builds` |
-| `POE_TRADE_ENABLED` | `false` | Enable live trade API tools |
+| `POE_TRADE_ENABLED` | `false` in the wrapper, `true` in the bundled Codex plugin | Enable live trade API tools |
 
 For image development, clone `https://github.com/anitaguptaoffice/pob-mcp-suite` and build the root Dockerfile. The installed plugin intentionally consumes published suite images only.

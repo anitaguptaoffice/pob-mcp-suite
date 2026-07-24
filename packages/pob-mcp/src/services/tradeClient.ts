@@ -103,7 +103,7 @@ export class TradeApiClient {
       this.makeRequest<FetchResult>('GET', url)
     );
 
-    const items = result.result || [];
+    const items = (result.result || []).map(normalizeItemListing);
     this.putInCache(cacheKey, items, this.defaultCacheTTL);
     return items;
   }
@@ -284,4 +284,53 @@ export class TradeApiClient {
       expiresAt: now + ttl,
     });
   }
+}
+
+/**
+ * Normalize mod payloads at the API boundary.
+ *
+ * The trade fetch endpoint historically returned mod arrays as strings, but
+ * newer payloads can contain structured objects. Downstream analyzers operate
+ * on display text, so convert either representation to a stable string here.
+ */
+export function normalizeItemListing(listing: ItemListing): ItemListing {
+  const item = listing.item;
+  const modFields = [
+    'implicitMods',
+    'explicitMods',
+    'craftedMods',
+    'enchantMods',
+    'fracturedMods',
+    'utilityMods',
+  ] as const;
+
+  for (const field of modFields) {
+    const mods = item[field] as unknown;
+    if (Array.isArray(mods)) {
+      item[field] = mods.map(normalizeModText);
+    }
+  }
+
+  return listing;
+}
+
+function normalizeModText(mod: unknown): string {
+  if (typeof mod === 'string') {
+    return mod;
+  }
+
+  if (mod && typeof mod === 'object') {
+    const structured = mod as Record<string, unknown>;
+    for (const key of ['text', 'description', 'name']) {
+      if (typeof structured[key] === 'string' && structured[key]) {
+        return structured[key];
+      }
+    }
+
+    if (Array.isArray(structured.mods)) {
+      return structured.mods.map(normalizeModText).filter(Boolean).join(', ');
+    }
+  }
+
+  return String(mod ?? '');
 }

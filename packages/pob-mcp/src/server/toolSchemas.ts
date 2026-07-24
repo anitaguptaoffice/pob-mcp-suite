@@ -1321,6 +1321,11 @@ export function getTradeToolSchemas(): any[] {
           item_rarity: {
             type: "string",
             description: "Item rarity filter: 'unique', 'rare', 'magic', 'normal'",
+            enum: ["unique", "rare", "magic", "normal", "any"],
+          },
+          online_only: {
+            type: "boolean",
+            description: "Only return listings from online sellers (default: true)",
           },
           min_links: {
             type: "number",
@@ -1350,6 +1355,13 @@ export function getTradeToolSchemas(): any[] {
           limit: {
             type: "number",
             description: "Maximum results (default: 5, max: 10)",
+            minimum: 1,
+            maximum: 10,
+          },
+          sort: {
+            type: "string",
+            description: "Sort results by listing price",
+            enum: ["price_asc", "price_desc"],
           },
         },
         required: ["league"],

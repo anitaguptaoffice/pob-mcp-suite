@@ -6,7 +6,7 @@
       "env": {
         "POB_BUILDS_DIR": "/Users/YOU/Documents/Path of Building/Builds",
         "POB_LUA_ENABLED": "true",
-        "POE_TRADE_ENABLED": "false"
+        "POE_TRADE_ENABLED": "true"
       }
     }
   }
