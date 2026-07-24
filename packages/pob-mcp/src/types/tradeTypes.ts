@@ -24,11 +24,23 @@ export interface StatFilterGroup {
 }
 
 export interface TradeFilters {
+  misc_filters?: {
+    filters?: {
+      corrupted?: {
+        option?: 'true' | 'false';
+      };
+      identified?: {
+        option?: 'true' | 'false';
+      };
+    };
+    disabled?: boolean;
+  };
   trade_filters?: {
     filters?: {
       price?: {
         min?: number;
         max?: number;
+        option?: string;
       };
       indexed?: {
         option?: string; // e.g., "1day", "3days", "1week"
