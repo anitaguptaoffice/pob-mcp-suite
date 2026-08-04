@@ -4,6 +4,7 @@ import {
   ItemRequirements,
   ResistanceRequirements,
   SearchOptions,
+  TradeStatus,
 } from '../types/tradeTypes.js';
 
 /**
@@ -116,7 +117,7 @@ export class TradeQueryBuilder {
    * - 'onlineleague': Only shows items from sellers online in the same league
    * - 'any': Shows all items regardless of seller status
    */
-  withOnlineStatus(status: 'available' | 'online' | 'onlineleague' | 'any'): this {
+  withOnlineStatus(status: TradeStatus): this {
     this.query.query.status = { option: status };
     return this;
   }
@@ -416,6 +417,28 @@ export class TradeQueryBuilder {
   }
 
   /**
+   * Add pre-grouped stat requirements without flattening their boolean logic.
+   *
+   * Use one count/or group per semantic requirement when equivalent trade
+   * stats can come from different sources, such as explicit and fractured.
+   */
+  withStatGroups(groups: StatFilterGroup[]): this {
+    if (!this.query.query.stats) {
+      this.query.query.stats = [];
+    }
+
+    this.query.query.stats.push(...groups.map(group => ({
+      ...group,
+      filters: group.filters.map(filter => ({
+        ...filter,
+        value: filter.value ? { ...filter.value } : undefined,
+      })),
+      value: group.value ? { ...group.value } : undefined,
+    })));
+    return this;
+  }
+
+  /**
    * Add resistance requirements
    * Uses pseudo stats for total resistances
    */
@@ -560,8 +583,8 @@ export class TradeQueryBuilder {
    * Apply common search options
    */
   applyOptions(options: SearchOptions): this {
-    // Use 'available' for tradeable listings, or 'any' when offline sellers are requested.
-    this.withOnlineStatus(options.onlineOnly === false ? 'any' : 'available');
+    // An explicit status wins over the legacy onlineOnly convenience flag.
+    this.withOnlineStatus(options.status ?? (options.onlineOnly === false ? 'any' : 'available'));
 
     // Note: We intentionally do NOT set sale_type filter here.
     // By omitting it, we search for ALL items (both priced instant-buyout items AND unpriced negotiable items).

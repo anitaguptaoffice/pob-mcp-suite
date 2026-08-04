@@ -23,6 +23,8 @@ export interface StatFilterGroup {
   disabled?: boolean;
 }
 
+export type TradeStatus = 'available' | 'securable' | 'online' | 'onlineleague' | 'any';
+
 export interface TradeFilters {
   misc_filters?: {
     filters?: {
@@ -174,7 +176,7 @@ export interface TradeFilters {
 export interface TradeQuery {
   query: {
     status?: {
-      option: 'available' | 'online' | 'onlineleague' | 'any';
+      option: TradeStatus;
     };
     name?: string;
     type?: string;
@@ -510,6 +512,7 @@ export interface CacheEntry<T> {
 
 export interface SearchOptions {
   league: string;
+  status?: TradeStatus;
   onlineOnly?: boolean;
   minPrice?: number;
   maxPrice?: number;

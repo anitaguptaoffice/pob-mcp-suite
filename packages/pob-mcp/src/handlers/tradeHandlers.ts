@@ -3,7 +3,15 @@ import { TradeApiClient } from '../services/tradeClient.js';
 import { TradeQueryBuilder } from '../services/tradeQueryBuilder.js';
 import { StatMapper } from '../services/statMapper.js';
 import { ItemRecommendationEngine, UpgradeContext } from '../services/itemRecommendationEngine.js';
-import { ItemListing, SearchOptions, ItemRecommendation, ResistanceRequirements, BudgetConstraints } from '../types/tradeTypes.js';
+import {
+  ItemListing,
+  SearchOptions,
+  ItemRecommendation,
+  ResistanceRequirements,
+  BudgetConstraints,
+  StatFilterGroup,
+  TradeStatus,
+} from '../types/tradeTypes.js';
 import { CostBenefitAnalyzer } from '../services/costBenefitAnalyzer.js';
 import { PoeNinjaClient } from '../services/poeNinjaClient.js';
 
@@ -27,6 +35,94 @@ function getTradeItemUrl(league: string, searchId: string, itemId: string): stri
   return `https://www.pathofexile.com/trade/search/${encodeURIComponent(league)}/${searchId}#${itemId}`;
 }
 
+type PublicStatGroup = {
+  type: 'and' | 'or' | 'not' | 'count' | 'weight';
+  filters: Array<{ stat_id: string; min?: number; max?: number }>;
+  min?: number;
+  max?: number;
+};
+
+function normalizeStatGroups(groups: PublicStatGroup[] = []): StatFilterGroup[] {
+  return groups.map(group => ({
+    type: group.type,
+    filters: group.filters.map(filter => ({
+      id: filter.stat_id,
+      value: {
+        min: filter.min,
+        max: filter.max,
+      },
+    })),
+    value: group.min === undefined && group.max === undefined
+      ? undefined
+      : { min: group.min, max: group.max },
+  }));
+}
+
+async function auditStatSourceCoverage(
+  tradeClient: TradeApiClient,
+  groups: StatFilterGroup[] | undefined,
+  itemName?: string,
+): Promise<string[]> {
+  if (itemName || !groups?.length || typeof tradeClient.getStats !== 'function') {
+    return [];
+  }
+
+  try {
+    const statData = await tradeClient.getStats();
+    const entries = statData.result.flatMap(category => category.entries ?? []);
+    const byId = new Map(entries.map(entry => [entry.id, entry]));
+    const byText = new Map<string, typeof entries>();
+
+    for (const entry of entries) {
+      const siblings = byText.get(entry.text) ?? [];
+      siblings.push(entry);
+      byText.set(entry.text, siblings);
+    }
+
+    const warnings = new Set<string>();
+    const compatibleSources = new Set(['explicit', 'implicit', 'fractured', 'crafted']);
+
+    for (const group of groups) {
+      const groupIds = new Set(group.filters.map(filter => filter.id));
+      const filtersByText = new Map<string, string[]>();
+
+      for (const filter of group.filters) {
+        const definition = byId.get(filter.id);
+        if (!definition || !compatibleSources.has(definition.type)) continue;
+        const ids = filtersByText.get(definition.text) ?? [];
+        ids.push(filter.id);
+        filtersByText.set(definition.text, ids);
+      }
+
+      for (const [text, ids] of filtersByText) {
+        if (group.type === 'and' && ids.length > 1) {
+          warnings.add(`"${text}" has equivalent source variants joined with AND; use a separate count/or group for this requirement.`);
+        }
+
+        if (!ids.some(id => id.startsWith('explicit.'))) continue;
+        const missingSources = (byText.get(text) ?? [])
+          .filter(entry => compatibleSources.has(entry.type) && !groupIds.has(entry.id))
+          .map(entry => entry.type);
+
+        if (missingSources.length > 0) {
+          const uniqueSources = [...new Set(missingSources)].sort();
+          warnings.add(`"${text}" only covers selected stat sources; official data also exposes ${uniqueSources.join(', ')}. Add compatible variants to this requirement's count/or group when searching non-unique items.`);
+        }
+      }
+    }
+
+    return [...warnings];
+  } catch {
+    // Source auditing is advisory and must not make a valid trade search fail.
+    return [];
+  }
+}
+
+function formatSourceWarnings(warnings: string[]): string {
+  if (warnings.length === 0) return '';
+  return `⚠️ Stat source coverage warnings:\n${warnings.map(warning => `- ${warning}`).join('\n')}\n\n`;
+}
+
 /**
  * Search the Path of Exile trade site for items
  */
@@ -39,6 +135,7 @@ export async function handleSearchTradeItems(
     min_price?: number;
     max_price?: number;
     price_currency?: string;
+    status?: TradeStatus;
     online_only?: boolean;
     item_rarity?: 'normal' | 'magic' | 'rare' | 'unique' | 'any';
     rarity?: 'normal' | 'magic' | 'rare' | 'unique' | 'any';
@@ -47,6 +144,8 @@ export async function handleSearchTradeItems(
     identified?: boolean;
     mods?: Array<{ stat_id: string; min?: number; max?: number }>;
     stats?: Array<{ id: string; min?: number; max?: number }>;
+    stat_groups?: PublicStatGroup[];
+    audit_sources?: boolean;
     sort?: 'price_asc' | 'price_desc';
     limit?: number;
   }
@@ -64,6 +163,7 @@ export async function handleSearchTradeItems(
       min_price,
       max_price,
       price_currency = 'chaos',
+      status,
       online_only = true,
       item_rarity,
       rarity,
@@ -72,6 +172,8 @@ export async function handleSearchTradeItems(
       identified,
       mods,
       stats,
+      stat_groups,
+      audit_sources = true,
       sort = 'price_asc',
       limit = 5,
     } = args;
@@ -111,8 +213,13 @@ export async function handleSearchTradeItems(
       builder.withStats(normalizedStats);
     }
 
+    if (stat_groups && stat_groups.length > 0) {
+      builder.withStatGroups(normalizeStatGroups(stat_groups));
+    }
+
     builder.applyOptions({
       league,
+      status,
       onlineOnly: online_only,
       minPrice: min_price,
       maxPrice: max_price,
@@ -122,6 +229,10 @@ export async function handleSearchTradeItems(
     });
 
     const query = builder.build();
+    const sourceWarnings = audit_sources
+      ? await auditStatSourceCoverage(context.tradeClient, query.query.stats, item_name)
+      : [];
+    const sourceWarningText = formatSourceWarnings(sourceWarnings);
 
     // Execute search
     const searchResult = await context.tradeClient.searchItems(league, query);
@@ -131,7 +242,7 @@ export async function handleSearchTradeItems(
         content: [
           {
             type: 'text',
-            text: `No items found matching your search criteria in ${league} league.`,
+            text: `${sourceWarningText}No items found matching your search criteria in ${league} league.`,
           },
         ],
       };
@@ -148,7 +259,7 @@ export async function handleSearchTradeItems(
       content: [
         {
           type: 'text',
-          text: output,
+          text: `${sourceWarningText}${output}`,
         },
       ],
     };
@@ -492,6 +603,7 @@ export async function handleSearchStats(
   args: {
     query: string;
     limit?: number;
+    official_sources?: boolean;
   }
 ): Promise<{
   content: Array<{
@@ -500,7 +612,42 @@ export async function handleSearchStats(
   }>;
 }> {
   return wrapHandler('search stats', async () => {
-    const { query, limit = 10 } = args;
+    const { query, limit = 10, official_sources = true } = args;
+
+    if (official_sources) {
+      try {
+        const statData = await context.tradeClient.getStats();
+        const entries = statData.result.flatMap(category => category.entries ?? []);
+        const normalizedQuery = query.trim().toLowerCase();
+        const terms = normalizedQuery.split(/\s+/).filter(Boolean);
+        const matchingTexts = [...new Set(entries
+          .map(entry => entry.text)
+          .filter(text => terms.every(term => text.toLowerCase().includes(term))))]
+          .sort((left, right) => {
+            const leftText = left.toLowerCase();
+            const rightText = right.toLowerCase();
+            const leftRank = leftText === normalizedQuery ? 0 : leftText.startsWith(normalizedQuery) ? 1 : 2;
+            const rightRank = rightText === normalizedQuery ? 0 : rightText.startsWith(normalizedQuery) ? 1 : 2;
+            return leftRank - rightRank || left.localeCompare(right);
+          })
+          .slice(0, limit);
+
+        if (matchingTexts.length > 0) {
+          let output = `=== Official Trade Stat Sources for "${query}" ===\n\n`;
+          for (const text of matchingTexts) {
+            output += `${text}\n`;
+            for (const entry of entries.filter(candidate => candidate.text === text)) {
+              output += `- ${entry.type}: ${entry.id}\n`;
+            }
+            output += '\n';
+          }
+          output += 'Use a Pseudo stat when it matches the intended total. Otherwise put compatible source variants for one requirement in the same count/or group; keep separate mandatory requirements in separate groups.';
+          return { content: [{ type: 'text', text: output }] };
+        }
+      } catch {
+        // Fall back to the static PoB mapping when official stat data is unavailable.
+      }
+    }
 
     if (!context.statMapper) {
       return {
@@ -550,7 +697,7 @@ export async function handleSearchStats(
       output += '\n';
     }
 
-    output += `\nTo use in searches, reference the Trade ID in the stats parameter.`;
+    output += `\nTo use in searches, reference the Trade ID in mods or stat_groups.`;
 
     return {
       content: [

@@ -1,5 +1,5 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { handleSearchTradeItems } from '../../src/handlers/tradeHandlers';
+import { handleSearchStats, handleSearchTradeItems } from '../../src/handlers/tradeHandlers';
 import { normalizeItemListing } from '../../src/services/tradeClient';
 
 function makeListing() {
@@ -128,6 +128,123 @@ describe('search_trade_items schema contract', () => {
     const query = searchItems.mock.calls[0][1] as any;
     expect(query.query.filters.type_filters.filters.rarity.option).toBe('rare');
     expect(query.query.stats[0].filters[0].id).toBe('pseudo.pseudo_total_life');
+  });
+
+  it('preserves independent source-aware stat groups and securable status', async () => {
+    const searchItems = jest.fn<(league: string, query: any) => Promise<any>>(async () => ({
+      id: 'query-source-aware',
+      complexity: 1,
+      total: 0,
+      result: [],
+    }));
+    const getStats = jest.fn(async () => ({ result: [] }));
+
+    await handleSearchTradeItems(
+      {
+        tradeClient: { searchItems, getStats } as any,
+      },
+      {
+        league: 'Allflame',
+        status: 'securable',
+        corrupted: true,
+        stat_groups: [
+          {
+            type: 'and',
+            filters: [{ stat_id: 'implicit.stat_3676141501', min: 2 }],
+          },
+          {
+            type: 'count',
+            min: 1,
+            filters: [
+              { stat_id: 'explicit.stat_4061558269', min: 3 },
+              { stat_id: 'fractured.stat_4061558269', min: 3 },
+            ],
+          },
+        ],
+      },
+    );
+
+    const query = searchItems.mock.calls[0][1] as any;
+    expect(query.query.status).toEqual({ option: 'securable' });
+    expect(query.query.stats).toEqual([
+      {
+        type: 'and',
+        filters: [{
+          id: 'implicit.stat_3676141501',
+          value: { min: 2 },
+        }],
+      },
+      {
+        type: 'count',
+        value: { min: 1 },
+        filters: [
+          {
+            id: 'explicit.stat_4061558269',
+            value: { min: 3 },
+          },
+          {
+            id: 'fractured.stat_4061558269',
+            value: { min: 3 },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('warns when a non-unique flat Explicit filter omits official source variants', async () => {
+    const searchItems = jest.fn<(league: string, query: any) => Promise<any>>(async () => ({
+      id: 'query-narrow',
+      complexity: 1,
+      total: 0,
+      result: [],
+    }));
+    const getStats = jest.fn(async () => ({
+      result: [{
+        label: 'Explicit',
+        entries: [
+          { id: 'explicit.stat_4061558269', text: '+#% Chance to Block Attack Damage while holding a Shield', type: 'explicit' },
+          { id: 'fractured.stat_4061558269', text: '+#% Chance to Block Attack Damage while holding a Shield', type: 'fractured' },
+        ],
+      }],
+    }));
+
+    const result = await handleSearchTradeItems(
+      {
+        tradeClient: { searchItems, getStats } as any,
+      },
+      {
+        league: 'Allflame',
+        item_type: 'Jewel',
+        mods: [{ stat_id: 'explicit.stat_4061558269', min: 3 }],
+      },
+    );
+
+    expect(result.content[0].text).toContain('Stat source coverage warnings');
+    expect(result.content[0].text).toContain('fractured');
+    expect(result.content[0].text).toContain('count/or group');
+  });
+});
+
+describe('search_stats official source discovery', () => {
+  it('groups identical text by official stat source', async () => {
+    const getStats = jest.fn(async () => ({
+      result: [{
+        label: 'Stats',
+        entries: [
+          { id: 'explicit.stat_1085167979', text: '1 Added Passive Skill is Blanketed Snow', type: 'explicit' },
+          { id: 'fractured.stat_1085167979', text: '1 Added Passive Skill is Blanketed Snow', type: 'fractured' },
+        ],
+      }],
+    }));
+
+    const result = await handleSearchStats(
+      { tradeClient: { getStats } as any },
+      { query: 'Blanketed Snow' },
+    );
+
+    expect(result.content[0].text).toContain('Official Trade Stat Sources');
+    expect(result.content[0].text).toContain('explicit.stat_1085167979');
+    expect(result.content[0].text).toContain('fractured.stat_1085167979');
   });
 });
 

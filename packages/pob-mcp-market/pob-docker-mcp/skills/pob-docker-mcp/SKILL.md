@@ -102,6 +102,9 @@ Use mutation and export tools only after summarizing the intended change:
 - Before suggesting tree edits, check current tree version and allocated nodes.
 - Before mutating a build, summarize the intended change and prefer snapshot/export tools when available.
 - Treat trade and poe.ninja data as live external data; if the MCP has trade disabled, state that price guidance is approximate.
+- Before building a non-unique item search, use `search_stats` with `official_sources=true`. Do not assume an `explicit.stat_*` filter also matches identically worded `Implicit`, `Fractured`, `Crafted`, or `Enchant` stats.
+- Prefer a suitable `Pseudo` total when one exists. Otherwise put compatible source variants for one semantic requirement in one `count`/`or` group, and keep separate mandatory requirements in separate groups. Do not mechanically add every same-text source to named unique searches.
+- Use `status=securable` when the user asks for instant-buyout or immediately purchasable listings.
 - If the Docker runtime is unavailable, ask the user to start Docker and rerun the MCP command.
 - For `*_alternate` tree versions, do not infer build legality from static passive point counts alone. Use PoB/Lua or the official tree link as the source of truth.
 - If `analyze_build` and Lua disagree on class, ascendancy, tree version, or calculated stats, report the discrepancy and prefer Lua.
