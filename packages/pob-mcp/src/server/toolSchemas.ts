@@ -1318,6 +1318,11 @@ export function getTradeToolSchemas(): any[] {
             type: "string",
             description: "Currency for price filter (default: 'chaos'). Options: 'chaos', 'divine', 'exalted'",
           },
+          status: {
+            type: "string",
+            description: "Official trade listing status. Use 'securable' for instant-buyout listings. Overrides online_only when provided.",
+            enum: ["available", "securable", "online", "onlineleague", "any"],
+          },
           item_rarity: {
             type: "string",
             description: "Item rarity filter: 'unique', 'rare', 'magic', 'normal'",
@@ -1350,7 +1355,47 @@ export function getTradeToolSchemas(): any[] {
               },
               required: ["stat_id"],
             },
-            description: "List of stat filters with min/max values",
+            description: "Legacy flat list of stat filters. All entries are joined with AND. Use stat_groups for source alternatives or other boolean logic.",
+          },
+          stat_groups: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                type: {
+                  type: "string",
+                  enum: ["and", "or", "not", "count", "weight"],
+                  description: "Boolean/stat aggregation mode for this independent requirement group",
+                },
+                min: {
+                  type: "number",
+                  description: "Minimum number of matching filters for count groups, or minimum total for weight groups",
+                },
+                max: {
+                  type: "number",
+                  description: "Optional maximum match/weight value",
+                },
+                filters: {
+                  type: "array",
+                  minItems: 1,
+                  items: {
+                    type: "object",
+                    properties: {
+                      stat_id: { type: "string" },
+                      min: { type: "number" },
+                      max: { type: "number" },
+                    },
+                    required: ["stat_id"],
+                  },
+                },
+              },
+              required: ["type", "filters"],
+            },
+            description: "Independent stat groups. For one requirement that may come from Explicit or Fractured, use a count group with min=1 and both stat IDs. Put each mandatory semantic requirement in its own group.",
+          },
+          audit_sources: {
+            type: "boolean",
+            description: "Warn when a non-unique item search uses Explicit stats while official data exposes omitted source variants (default: true)",
           },
           limit: {
             type: "number",
@@ -1415,6 +1460,10 @@ export function getTradeToolSchemas(): any[] {
           limit: {
             type: "number",
             description: "Maximum results to return (default: 10)",
+          },
+          official_sources: {
+            type: "boolean",
+            description: "Return source-specific IDs from the official stat API, grouped by identical stat text (default: true)",
           },
         },
         required: ["query"],
