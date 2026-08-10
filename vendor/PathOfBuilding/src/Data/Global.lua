@@ -17,6 +17,7 @@ colorCodes = {
 	CUSTOM = "^x5CF0BB",
 	SOURCE = "^x88FFFF",
 	UNSUPPORTED = "^xF05050",
+	DISABLED = "^x7F7F7F",
 	WARNING = "^xFF9922",
 	TIP = "^x80A080",
 	FIRE = "^xB97123",
@@ -60,6 +61,7 @@ colorCodes = {
 	SPLITPERSONALITY = "^xFFD62A",
 	VESTIGIAL = "^xCBA5F1",
 	INTANGIBILITY = "^x9BF4BD",
+	MEMORY = "^xBFE2FA",
 }
 colorCodes.STRENGTH = colorCodes.MARAUDER
 colorCodes.DEXTERITY = colorCodes.RANGER
@@ -350,7 +352,7 @@ SkillType = {
 	Pact = 135,
 }
 
-GlobalCache = { 
+GlobalCache = {
 	cachedData = { MAIN = {}, CALCS = {}, CALCULATOR = {} },
 }
 

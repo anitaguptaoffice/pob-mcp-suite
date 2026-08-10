@@ -270,6 +270,9 @@ function itemLib.applyRange(line, range, valueScalar, baseValueScalar)
 					elseif format == "milliseconds_to_seconds_2dp" then
 						precision = 1000
 						displayPrecision = 2
+					elseif format == "locations_to_metres" then
+						precision = 10
+						displayPrecision = 1
 					elseif format == "milliseconds_to_seconds_2dp_if_required" then
 						precision = 1000
 						displayPrecision = 2
@@ -357,6 +360,9 @@ function itemLib.formatModLine(modLine, dbMode)
 		modLine.valueScalar, modLine.corruptedRange) or modLine.line
 	if line:match("^%+?0%%? ") or (line:match(" %+?0%%? ") and not line:match("0 to [1-9]")) or line:match(" 0%-0 ") or line:match(" 0 to 0 ") then -- Hack to hide 0-value modifiers
 		return
+	end
+	if modLine.disabled then
+		return colorCodes.DISABLED .. line
 	end
 	local colorCode
 	if modLine.extra then
