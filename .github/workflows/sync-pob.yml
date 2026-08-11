@@ -54,6 +54,32 @@ jobs:
             pob-upstream "${UPSTREAM_REF}" \
             -m "chore: sync PathOfBuilding ${UPSTREAM_REF}"
 
+      - name: Verify Elegant Hubris lookup table
+        id: elegant_hubris
+        env:
+          LOOKUP_TABLE: vendor/PathOfBuilding/src/Data/TimelessJewelData/ElegantHubris.zip
+        run: |
+          test -s "${LOOKUP_TABLE}"
+          unzip -tq "${LOOKUP_TABLE}"
+          echo "sha256=$(sha256sum "${LOOKUP_TABLE}" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          if git diff --quiet origin/main HEAD -- "${LOOKUP_TABLE}"; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Summarize Timeless Jewel data
+        env:
+          TABLE_SHA256: ${{ steps.elegant_hubris.outputs.sha256 }}
+          TABLE_CHANGED: ${{ steps.elegant_hubris.outputs.changed }}
+        run: |
+          {
+            echo "## Path of Building vendor sync"
+            echo
+            echo "- ElegantHubris.zip SHA-256: \`${TABLE_SHA256}\`"
+            echo "- ElegantHubris.zip changed: \`${TABLE_CHANGED}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Detect vendor changes
         id: changes
         run: |

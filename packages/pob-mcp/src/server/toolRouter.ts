@@ -33,6 +33,7 @@ import { handlePlanLeveling } from "../handlers/levelingHandlers.js";
 import { handleCheckBossReadiness } from "../handlers/bossReadinessHandlers.js";
 import { handleSuggestWatchersEye } from "../handlers/jewelAdvisorHandlers.js";
 import { handleSuggestCrafting } from "../handlers/craftingAdvisorHandler.js";
+import { handleFindTimelessJewelSeeds } from "../handlers/timelessJewelHandlers.js";
 
 export interface ToolRouterDependencies {
   toolGate: ToolGate;
@@ -74,6 +75,8 @@ export async function routeToolCall(
   const skillGemContext = deps.contextBuilder.buildSkillGemContext();
 
   switch (name) {
+    case "find_timeless_jewel_seeds":
+      return await handleFindTimelessJewelSeeds(deps.getLuaClient(), args as any);
     case "list_builds":
       return await handleListBuilds(handlerContext);
 
