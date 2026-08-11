@@ -1,12 +1,12 @@
 {
   "plugin": "0.1.0+codex.20260720145127",
-  "image": "ghcr.io/anitaguptaoffice/pob-mcp-suite:pob-32d4c87",
-  "pobMcp": "a5a4dae04076daaa3527385bb5c3e612ad015418",
-  "pathOfBuilding": "vendor-32d4c87",
+  "image": "ghcr.io/anitaguptaoffice/pob-mcp-suite:pob-bc10a5a",
+  "pobMcp": "964dd5dd1eca557d0e92d4d051ecb9b0c1d9448a",
+  "pathOfBuilding": "vendor-bc10a5a",
   "pobVersion": "2.67.2",
   "treeVersion": "3_29",
-  "imageDigest": "sha256:46eb4fedac5800cfacc9ab6d27b38632c937f9056309dd7e41ddccfcbdc439f0",
-  "pathOfBuildingCommit": "32d4c87bf7888bf82c01d9e544f3bbb30f01f267",
-  "pathOfBuildingShortCommit": "32d4c87",
-  "updatedAt": "2026-08-10T04:25:38Z"
+  "imageDigest": "sha256:3efd9d9071d061656bcf9edf464ffa6e1544d84fce87983044e462a12842400d",
+  "pathOfBuildingCommit": "bc10a5a615bf25299028b06e4246c13dead7f4ba",
+  "pathOfBuildingShortCommit": "bc10a5a",
+  "updatedAt": "2026-08-11T18:15:17Z"
 }
