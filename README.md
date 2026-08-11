@@ -25,3 +25,7 @@ docker run --rm --entrypoint node -e POB_LUA_ENABLED=true -e POE_TRADE_ENABLED=f
 - Root Docker workflow builds the image from `vendor/PathOfBuilding` and `packages/pob-mcp`.
 - The Codex plugin continues to run `ghcr.io/anitaguptaoffice/pob-mcp-suite:latest` by default.
 - Previous standalone repositories are legacy references; active source, plugin, sync, and publishing changes belong in this monorepo.
+
+## Vendor Synchronization
+
+`.github/workflows/sync-pob.yml` syncs the Path of Building Community `dev` branch every Monday. After merging the vendor subtree, it validates `src/Data/TimelessJewelData/ElegantHubris.zip` with `unzip -tq`, records its SHA-256 and whether it changed in the workflow summary, then publishes a fresh Docker image when the vendor changed. This keeps the native Timeless Jewel seed lookup table aligned with the bundled PoB version.
