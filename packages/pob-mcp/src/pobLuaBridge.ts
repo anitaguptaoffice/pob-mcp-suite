@@ -406,6 +406,12 @@ async setTree(params: {
     return res.results;
   }
 
+  async findTimelessJewelSeeds(params: { socketNodeId: number; desired: string[]; limit?: number; seeds?: number[]; historicFigure?: string; keystoneNodeId?: number; requiredSourceNodeIds?: number[] }): Promise<any> {
+    const res = await this.send({ action: "find_timeless_jewel_seeds", params });
+    if (!res.ok) throw new Error(res.error || "find_timeless_jewel_seeds failed");
+    return res.results;
+  }
+
   async updateTreeDelta(params: { addNodes?: number[]; removeNodes?: number[]; classId?: number; ascendClassId?: number; secondaryAscendClassId?: number; treeVersion?: string; }): Promise<{ tree: any; autoPathedNodes?: number[]; skippedAscendancyNodes?: number[] }> {
     const res = await this.send({ action: "update_tree_delta", params });
     if (!res.ok) throw new Error(res.error || "update_tree_delta failed");

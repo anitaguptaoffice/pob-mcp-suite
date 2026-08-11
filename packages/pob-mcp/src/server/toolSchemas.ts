@@ -1782,5 +1782,22 @@ export function getPoeNinjaToolSchemas(): any[] {
         required: ["league", "currency_chain"],
       },
     },
+    {
+      name: "find_timeless_jewel_seeds",
+      description: "Enumerate Elegant Hubris seeds with Path of Building's native lookup table for a socket in the loaded build. desired_node_ids are PoB legion node ids to score.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          socket_node_id: { type: "number", description: "Passive-tree jewel socket node id" },
+          desired_node_ids: { type: "array", description: "PoB legion node ids to match", items: { type: "string" } },
+          limit: { type: "number", description: "Maximum ranked seeds to return (default 20, maximum 100)" },
+          seeds: { type: "array", description: "Optional explicit seed numbers to inspect instead of enumerating the whole range", items: { type: "number" } },
+          historic_figure: { type: "string", description: "Optional historic figure for a fixed Timeless Keystone; Caspiro grants Supreme Ostentation" },
+          keystone_node_id: { type: "number", description: "Original Keystone node used by the build, required with historic_figure when scoring the fixed Keystone" },
+          required_source_node_ids: { type: "array", description: "Optional original passive nodes on which at least one seed-dependent effect must occur", items: { type: "number" } },
+        },
+        required: ["socket_node_id", "desired_node_ids"],
+      },
+    },
   ];
 }
