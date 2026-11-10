@@ -110,7 +110,9 @@ export class TradeApiClient {
       return all;
     }
 
-    const cacheKey = `fetch:${itemIds.join(',')}`;
+    // The fetch endpoint is query-dependent; do not reuse a response from
+    // a different search context just because the item IDs coincide.
+    const cacheKey = `fetch:${JSON.stringify([itemIds, queryId ?? null])}`;
     const cached = this.getFromCache<ItemListing[]>(cacheKey);
     if (cached) {
       return cached;
@@ -118,7 +120,7 @@ export class TradeApiClient {
 
     const idsParam = itemIds.join(',');
     const url = queryId
-      ? `${this.baseUrl}/fetch/${idsParam}?query=${queryId}`
+      ? `${this.baseUrl}/fetch/${idsParam}?query=${encodeURIComponent(queryId)}`
       : `${this.baseUrl}/fetch/${idsParam}`;
 
     const result = await this.limiter.schedule(() =>

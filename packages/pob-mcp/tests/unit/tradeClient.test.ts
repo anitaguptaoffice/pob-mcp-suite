@@ -29,6 +29,20 @@ describe('TradeApiClient.fetchItems batching', () => {
     expect(items.map((i) => (i as { id: string }).id)).toEqual(ids);
   });
 
+  it('isolates cached item details by search query', async () => {
+    const client = new TradeApiClient({ requestsPerSecond: 1000 });
+    const shim = client as unknown as MakeRequestShim;
+    const spy = jest.spyOn(shim, 'makeRequest').mockImplementation(async (_method: string, url: string) => ({
+      result: [{ id: 'a', context: new URL(url).searchParams.get('query') }],
+    }));
+    const first = await client.fetchItems(['a'], 'first');
+    const second = await client.fetchItems(['a'], 'second');
+    await client.fetchItems(['a'], 'first');
+    expect(spy).toHaveBeenCalledTimes(2);
+    expect((first[0] as unknown as { context: string }).context).toBe('first');
+    expect((second[0] as unknown as { context: string }).context).toBe('second');
+  });
+
   it('passes short lists through as a single request', async () => {
     const client = new TradeApiClient({ requestsPerSecond: 1000 });
     const shim = client as unknown as MakeRequestShim;

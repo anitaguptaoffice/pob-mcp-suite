@@ -23,6 +23,7 @@ describe('comparable trade prices', () => {
     ]);
     expect(report.totalMatches).toBe(20);
     expect(report.searchUrl).toContain('/Standard/abc');
+    expect(report.warnings.join(' ')).toContain('可能来自缓存');
   });
 
   it('refuses an unspecified search instead of pricing unrelated items', async () => {
