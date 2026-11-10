@@ -91,6 +91,9 @@ describe('resolveAffixes', () => {
     const result = resolveAffixes(['+99% to Chaos Resistance'], entries);
 
     expect(result.affixes[0].minItemLevel).toBeNull();
+    expect(result.openPrefixes).toBeNull();
+    expect(result.openSuffixes).toBeNull();
+    expect(result.warnings.join(' ')).toContain('Wording-only matches');
   });
 
   it('makes open slots unknown when an explicit line has no matching affix', () => {

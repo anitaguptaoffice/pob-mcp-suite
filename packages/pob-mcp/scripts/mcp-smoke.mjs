@@ -108,7 +108,7 @@ try {
 
   const tools = await request("tools/list");
   const names = new Set((tools.tools ?? []).map((tool) => tool.name));
-  for (const required of ["lua_new_build", "lua_get_build_info", "lua_get_stats", "compare_equipment_candidate"]) {
+  for (const required of ["lua_new_build", "lua_get_build_info", "lua_get_stats", "compare_equipment_candidate", "inspect_item_affix_weight"]) {
     if (!names.has(required)) {
       throw new Error(`Required tool missing: ${required}`);
     }
@@ -117,6 +117,8 @@ try {
   await callTool("lua_new_build", { className: "Witch", ascendancy: "None" });
   await callTool("lua_get_build_info");
   await callTool("lua_get_stats", { category: "defense" });
+  const weight = JSON.parse(readText(await callTool('inspect_item_affix_weight', { mod_id: 'AddedPhysicalDamage7', item_text: 'Rarity: RARE\nWeight Test\nCitrine Amulet\nItem Level: 1\nImplicits: 0' })));
+  if (weight.weight !== 1000 || weight.itemLevelAllows !== false) throw new Error('PoB affix weight MCP result is incomplete');
 
   const jewel = await callTool("find_timeless_jewel_seeds", {
     socket_node_id: 60735,

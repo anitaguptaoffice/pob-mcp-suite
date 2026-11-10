@@ -61,9 +61,17 @@ interface TierQuery {
   affixType?: AffixSlot;
   /** Base tags from `weightKey`, e.g. "ring" or "int_armour". Matches any of them. */
   slotTags?: string[];
+  /** Caller-confirmed complete item tag set, including default. */
+  itemTags?: string[];
   maxItemLevel?: number;
   includeUnobtainable?: boolean;
   limit: number;
+}
+
+/** Mirrors PoB's first matching base spawn rule; does not apply multiplier or crafting mechanics. */
+export function firstMatchingSpawnRule(entry: ModEntry, itemTags: string[]): { tag: string; weight: number } | undefined {
+  const tags = new Set(itemTags);
+  return entry.weightRules.find(rule => tags.has(rule.tag));
 }
 
 interface TierResult {
@@ -89,7 +97,8 @@ export function findAffixTiers(query: TierQuery): TierResult {
     .filter((entry) => !query.affixType || entry.type === query.affixType)
     .filter((entry) => query.includeUnobtainable || entry.obtainable)
     .filter((entry) => query.maxItemLevel === undefined || entry.level <= query.maxItemLevel)
-    .filter((entry) => !query.slotTags?.length || entry.slotTags.some((tag) => query.slotTags?.includes(tag)));
+    .filter((entry) => !query.slotTags?.length || entry.slotTags.some((tag) => query.slotTags?.includes(tag)))
+    .filter((entry) => !query.itemTags || query.includeUnobtainable || (firstMatchingSpawnRule(entry, query.itemTags)?.weight ?? 0) > 0);
 
   const grouped = matched.reduce((groups, entry) => {
     const key = `${entry.type}:${entry.group}`;

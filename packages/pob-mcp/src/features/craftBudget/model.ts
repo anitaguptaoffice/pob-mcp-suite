@@ -20,8 +20,8 @@ export function compareCraftBudget(scenarios: CraftScenario[], buyChaos?: number
     return { ...scenario, expectedAttempts, expectedChaos, attempts50, attempts90, chaos50, chaos90 };
   });
   return { currency: 'chaos', buyChaos, scenarios: results, model: 'independent_attempts', warnings: [
-    '概率和单次成本由调用方提供，并非此工具计算或验证的游戏数据。',
-    '假设每次尝试独立、成功概率和成本不变，失败后可按相同成本继续；不包含底材、残值、额外步骤或价格波动。',
-    '平均成本不是预算上限；50% 和 90% 只表示在对应次数内至少成功一次的理论概率。',
+    'Probability and cost per attempt are supplied by the caller, not calculated or verified by this tool.',
+    'Assumes independent attempts, constant success probability and cost, and retries at the same cost; excludes base items, residual value, additional steps, and price changes.',
+    'Expected cost is not a budget ceiling; 50% and 90% refer to theoretical probabilities of at least one success within the stated attempts.',
   ] };
 }

@@ -883,6 +883,12 @@ async setTree(params: {
     return res.result as { items: EquippedItem[]; skills: SkillsOutput };
   }
 
+  async getItemAffixWeight(modId: string, itemText: string): Promise<{ modId: string; base: string; weight: number; itemLevel?: number; requiredItemLevel?: number; affixType?: string; affixGroup?: string }> {
+    const res = await this.send({ action: 'get_item_affix_weight', params: { modId, itemText } });
+    if (!res.ok) throw new Error(res.error || 'get_item_affix_weight failed');
+    return res.result as { modId: string; base: string; weight: number; itemLevel?: number; requiredItemLevel?: number; affixType?: string; affixGroup?: string };
+  }
+
   async getMasteryOptions(): Promise<MasteryOptions> {
     const res = await this.send({ action: "get_mastery_options" });
     if (!res.ok) throw new Error(res.error || "get_mastery_options failed");

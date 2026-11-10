@@ -33,7 +33,7 @@ withPoB('affix tools', () => {
     const text = textOf(await handleFindAffixTiers({ search: 'Chaos Resistance', affix_type: 'Suffix', slot_tags: ['ring'], max_results: 1 }));
 
     expect(text).toContain('ilvl 81 "of Bameth" +(31-35)% to Chaos Resistance');
-    expect(text).toContain('rolls on: armour, ring, amulet, belt, quiver');
+    expect(text).toContain('positive-weight tags: armour, ring, amulet, belt, quiver');
   });
 
   it('points at the base tag vocabulary when a slot filter matches nothing', async () => {
@@ -45,7 +45,7 @@ withPoB('affix tools', () => {
   it('separates the crafts an item level locks out from the ones it can take', async () => {
     const text = textOf(await handleListCraftableMods({ item_class: 'Body Armour', item_level: 45, affix_type: 'Suffix', search: 'Fire Resistance' }));
 
-    expect(text).toMatch(/Available \(2\):[\s\S]*\+\(21-28\)% to Fire Resistance/);
+    expect(text).toMatch(/Within item level \(2\):[\s\S]*\+\(21-28\)% to Fire Resistance/);
     expect(text).toMatch(/Locked by item level[\s\S]*\+\(29-35\)% to Fire Resistance/);
   });
 });

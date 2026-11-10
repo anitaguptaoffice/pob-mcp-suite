@@ -263,7 +263,7 @@ export function getToolSchemas(): ToolSchema[] {
     },
     {
       name: "find_affix_tiers",
-      description: "Look up every tier of a rollable affix in Path of Building's ModExplicit table (ModItem on older installs): prefix or suffix, minimum item level, the value range per entry, and the base tags it can roll on. Displays affix names and item levels without inventing T1/T2 labels from filtered result order. Use it to price an affix before pricing an item, since a top-tier rare suffix often replaces a costly unique built around the same stat. LIMITS: slot filtering uses PoB's base tags, not slot names. Body armour bases carry str_armour / dex_armour / int_armour and their hybrids; influenced variants add a suffix like _elder or _shaper; a plain 'armour' tag exists too and does not cover the attribute-specific ones. Pass several tags when unsure. Mods whose spawn weights are all zero are excluded unless include_unobtainable is set.",
+      description: "Look up PoB affix tier data and positive-weight tags. slot_tags is a broad any-tag filter, not proof an item can roll a mod. A caller-confirmed complete item_tags set can evaluate the first matching base spawn rule; this does not account for multipliers, crafting mechanics, item state or mod conflicts and is not a probability.",
       inputSchema: {
         type: "object",
         properties: {
@@ -279,15 +279,17 @@ export function getToolSchemas(): ToolSchema[] {
           slot_tags: {
             type: "array",
             items: { type: "string" },
-            description: "PoB base tags the mod must be able to roll on, matched exactly, any one of them. Examples: 'ring', 'amulet', 'belt', 'int_armour', 'body_armour', 'bow'.",
+            description: "Broad filter: match any positive-weight tag. This does not verify eligibility for a particular item.",
           },
+          item_tags: { type: "array", items: { type: "string" }, description: "Complete independently verified item tag set including default; evaluates the first matching base spawn rule. Do not combine with slot_tags." },
+          item_tags_complete: { type: "boolean", description: "Must be true when supplying item_tags; incomplete tags can yield a wrong rule." },
           max_item_level: {
             type: "number",
             description: "Drop tiers the item level cannot reach.",
           },
           include_unobtainable: {
             type: "boolean",
-            description: "Include mods with no non-zero spawn weight. They exist in the data but nothing can roll them. Default false.",
+            description: "Include zero-weight or non-matching base spawn rules. A zero base weight does not by itself prove a modifier cannot be forced by a special mechanic. Default false.",
             default: false,
           },
           max_results: {
@@ -307,6 +309,14 @@ export function getToolSchemas(): ToolSchema[] {
  */
 export function getLuaToolSchemas(): ToolSchema[] {
   return [
+    {
+      name: "inspect_item_affix_weight",
+      description: "Use PoB's GetModSpawnWeight on a caller-provided item and PoB explicit modifier ID. Returns its item-data spawn weight and item-level context, not crafting probability or proof of eligibility. Requires a loaded PoB engine.",
+      inputSchema: { type: "object", properties: {
+        mod_id: { type: "string", description: "PoB explicit modifier ID, e.g. from find_affix_tiers." },
+        item_text: { type: "string", description: "Complete PoB-compatible item text, up to 10 KB." },
+      }, required: ["mod_id", "item_text"] },
+    },
     {
       name: "compare_equipment_candidate",
       description: "Use the current live PoB build and item-preview calculator to compare one candidate item without equipping it. Returns player/minion damage and defense stats separately. Does not validate item legality or price; excludes jewels, flasks and swap slots.",

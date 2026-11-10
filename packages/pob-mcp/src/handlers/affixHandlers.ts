@@ -8,7 +8,7 @@
 import type { AffixSlot } from "../services/modDataStore.js";
 import { loadAllMods } from "../services/modDataStore.js";
 import { resolveAffixes } from "../services/affixMatcher.js";
-import { findAffixTiers, findCraftableMods } from "../services/affixQuery.js";
+import { findAffixTiers, findCraftableMods, firstMatchingSpawnRule } from "../services/affixQuery.js";
 import { wrapHandler } from "../utils/errorHandling.js";
 
 const text = (lines: string[]) => ({ content: [{ type: "text" as const, text: lines.join("\n") }] });
@@ -86,13 +86,14 @@ export async function handleListCraftableMods(args: {
     return text([
       `=== Bench Crafts for ${args.item_class} at item level ${args.item_level} ===`,
       "",
+      "PoB table candidates only: this does not verify craft unlocks, existing affix conflicts, special item rules or the current game version.",
       "A craft occupies a slot of its own type, so a prefix craft cannot fill an open suffix.",
       "",
-      `Available (${result.mods.length}):`,
+      `Within item level (${result.mods.length}):`,
       ...render(result.mods),
       "",
       ...(result.lockedByItemLevel.length
-        ? [`Locked by item level (${result.lockedByItemLevel.length}), listed so you can say what a higher base would buy:`, ...render(result.lockedByItemLevel)]
+        ? [`Locked by item level (${result.lockedByItemLevel.length}); availability is not verified:`, ...render(result.lockedByItemLevel)]
         : []),
     ]);
   });
@@ -102,17 +103,25 @@ export async function handleFindAffixTiers(args: {
   search: string;
   affix_type?: string;
   slot_tags?: string[];
+  item_tags?: string[];
+  item_tags_complete?: boolean;
   max_item_level?: number;
   include_unobtainable?: boolean;
   max_results?: number;
 }) {
   return wrapHandler("find affix tiers", async () => {
     if (!args.search) throw new Error("search was empty. Pass the stat wording you need, e.g. 'Chaos Resistance'.");
+    if (args.item_tags !== undefined && (!Array.isArray(args.item_tags) || args.item_tags.length < 1 || args.item_tags.length > 128 ||
+      args.item_tags.some(tag => typeof tag !== 'string' || !/^[a-z0-9_]+$/.test(tag)) || !args.item_tags.includes('default') || args.item_tags_complete !== true || args.slot_tags?.length)) {
+      throw new Error('item_tags must be a confirmed complete tag set including default; do not combine it with slot_tags');
+    }
+    if (args.item_tags_complete === true && args.item_tags === undefined) throw new Error('item_tags_complete requires item_tags');
 
     const result = findAffixTiers({
       search: args.search,
       affixType: affixType(args.affix_type),
       slotTags: args.slot_tags,
+      itemTags: args.item_tags,
       maxItemLevel: args.max_item_level,
       includeUnobtainable: args.include_unobtainable ?? false,
       limit: args.max_results ?? 10,
@@ -123,7 +132,7 @@ export async function handleFindAffixTiers(args: {
         ? result.knownSlotTags.filter((tag) => args.slot_tags?.some((wanted) => tag.includes(wanted.toLowerCase())))
         : [];
       return text([
-        `No rollable affix matched "${args.search}"${args.slot_tags?.length ? ` on ${args.slot_tags.join(", ")}` : ""}.`,
+        `No affix data matched "${args.search}"${args.slot_tags?.length ? ` for positive-weight tags ${args.slot_tags.join(", ")}` : ""}.`,
         ...(suggestions.length ? ["", `Related base tags in the data: ${suggestions.join(", ")}`] : []),
         "",
         "Base tags are PoB's own vocabulary, not slot names. Body armour bases carry str_armour / dex_armour / int_armour and their hybrids; influenced variants add a suffix such as _elder.",
@@ -134,9 +143,10 @@ export async function handleFindAffixTiers(args: {
       `${group.type} — ${group.group}`,
       ...group.tiers.map(
         (tier) =>
-          `  ilvl ${tier.level} "${tier.affix}" ${tier.statLines.join(" / ")}` +
+          `  ilvl ${tier.level} "${tier.affix}" ${tier.statLines.join(" / ")} [id: ${tier.id}]` +
           `${tier.statLines.length > 1 ? " (hybrid: one affix)" : ""}` +
-          `\n      rolls on: ${tier.slotTags.length ? tier.slotTags.join(", ") : "nothing (every spawn weight is zero)"}`
+          `\n      positive-weight tags: ${tier.slotTags.length ? tier.slotTags.join(", ") : "none"}` +
+          (args.item_tags ? `\n      first matching base spawn rule: ${(() => { const rule = firstMatchingSpawnRule(tier, args.item_tags!); return rule ? `${rule.tag} = ${rule.weight}` : 'none (base weight 0)'; })()}` : '')
       ),
       "",
     ]);
@@ -146,6 +156,8 @@ export async function handleFindAffixTiers(args: {
       "",
       `${result.groups.length} of ${result.totalGroups} matching affix groups. ilvl is the minimum item level.`,
       'Entries are ordered by required item level. T1/T2 labels are not inferred from result order; these tables provide no authoritative tier-number field.',
+      'Positive-weight tags are not proof an item can roll a modifier: earlier matching zero-weight rules, multipliers, influence, item state, mod conflicts and crafting method can change eligibility. Base rules are not probabilities.',
+      ...(args.item_tags ? ['First-match results depend on the caller-supplied complete tag set; modifiers and crafting mechanics are not validated.'] : []),
       "",
       ...body,
     ]);

@@ -6,7 +6,7 @@ describe('craft budget model', () => {
     const report = compareCraftBudget([{ name: 'example', successProbability: 0.1, chaosPerAttempt: 2, probabilitySource: 'verified fixture' }], 30);
     expect(report.scenarios[0]).toMatchObject({ expectedAttempts: 10, expectedChaos: 20, attempts50: 7, attempts90: 22, chaos50: 14, chaos90: 44 });
     expect(report.buyChaos).toBe(30);
-    expect(report.warnings.join(' ')).toContain('并非此工具计算或验证');
+    expect(report.warnings.join(' ')).toContain('not calculated or verified by this tool');
   });
 
   it('does not invent odds and handles certainty', () => {

@@ -39,6 +39,7 @@ Uses an **unmodified [PathOfBuildingCommunity](https://github.com/PathOfBuilding
 - **Anointment Ranking**: Simulate every anointable notable through PoB's live calculator and rank by DPS/EHP impact
 
 ### Item & Skill Management (Lua Bridge)
+- **Affix weights**: `inspect_item_affix_weight` queries PoB's spawn weight for a supplied item and modifier ID. It reports item-level eligibility separately; weight is not a success probability or proof that a crafting method can produce the modifier.
 - **Items**: Add items from PoE clipboard text, view all equipped gear
 - **Flasks**: Toggle flasks active/inactive with immediate stat feedback
 - **Skills**: Full gem management — create socket groups, add/remove/level/quality gems

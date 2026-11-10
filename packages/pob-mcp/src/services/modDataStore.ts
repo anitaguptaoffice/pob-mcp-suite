@@ -32,6 +32,8 @@ export interface ModEntry {
   slotTags: string[];
   /** Every ModExplicit base tag listed, including the zero-weight ones. */
   allSlotTags: string[];
+  /** Ordered base spawn rules; the first matching tag determines the base weight. */
+  weightRules: Array<{ tag: string; weight: number }>;
   /** ModMaster item classes the bench can apply this to. Empty for explicit mods. */
   itemClasses: string[];
   /** False when every spawn weight is zero, so nothing can roll it. */
@@ -171,7 +173,9 @@ function projectEntry(table: LuaTable, id: string, source: ModEntry["source"]): 
   }
 
   const allSlotTags = strings(table.fields.get("weightKey"));
-  const slotTags = positiveTags(allSlotTags, numbers(table.fields.get("weightVal")));
+  const weights = numbers(table.fields.get("weightVal"));
+  if (allSlotTags.length !== weights.length) throw new Error(`${id}: mismatched spawn weight tags and values`);
+  const slotTags = positiveTags(allSlotTags, weights);
 
   return {
     id,
@@ -184,6 +188,7 @@ function projectEntry(table: LuaTable, id: string, source: ModEntry["source"]): 
     modTags: strings(table.fields.get("modTags")),
     slotTags,
     allSlotTags,
+    weightRules: allSlotTags.map((tag, index) => ({ tag, weight: weights[index] })),
     itemClasses: keysOf(table.fields.get("types")),
     obtainable: source === "master" || slotTags.length > 0,
   };

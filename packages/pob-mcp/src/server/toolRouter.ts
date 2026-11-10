@@ -44,6 +44,7 @@ import { handleFindItemUpgrades as handleFindItemUpgradesNew } from "../handlers
 import { compareItem } from "../features/itemComparison/tool.js";
 import { compareTradeListing } from "../features/itemComparison/tradeListing.js";
 import { compareTradeListingsSnapshot } from "../features/itemComparison/isolatedTradeBatch.js";
+import { inspectItemAffixWeight } from "../features/affixWeight/tool.js";
 import { handleClassifyItemAffixes, handleListCraftableMods, handleFindAffixTiers } from "../handlers/affixHandlers.js";
 
 export interface ToolRouterDependencies {
@@ -631,6 +632,14 @@ export async function routeToolCall(
       const client = deps.getLuaClient();
       if (!client) throw new Error('PoB Lua bridge not available');
       const result = await compareItem(client, args ?? {});
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    }
+
+    case "inspect_item_affix_weight": {
+      await deps.ensureLuaClient();
+      const client = deps.getLuaClient();
+      if (!client) throw new Error('PoB Lua bridge not available');
+      const result = await inspectItemAffixWeight(client, args ?? {});
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
     }
 

@@ -849,6 +849,26 @@ function M.item_comparison_snapshot()
   return result
 end
 
+-- Delegate base/influence tag weighting to PoB; crafting mechanics are separate.
+function M.get_item_affix_weight(params)
+  if not build or not build.data or not build.data.itemMods then return nil, 'build data not initialized' end
+  if type(params) ~= 'table' or type(params.modId) ~= 'string' or #params.modId == 0 or #params.modId > 200 or
+     type(params.itemText) ~= 'string' or #params.itemText == 0 or #params.itemText > MAX_ITEM_TEXT_LENGTH then return nil, 'invalid mod ID or item text' end
+  local ok, result = pcall(function()
+    local mods = build.data.itemMods.Explicit or build.data.itemMods.Item
+    local mod = mods and mods[params.modId]
+    if not mod then error('modifier ID not found in PoB item data') end
+    local item = new('Item'):Item(params.itemText)
+    if not item or not item.base or not item.baseName then error('item could not be parsed') end
+    local weight = item:GetModSpawnWeight(mod)
+    if type(weight) ~= 'number' or weight ~= weight or weight == math.huge or weight == -math.huge then error('invalid spawn weight') end
+    return { modId = params.modId, base = item.baseName, weight = weight, itemLevel = item.itemLevel,
+      requiredItemLevel = mod.level, affixType = mod.type, affixGroup = mod.group }
+  end)
+  if not ok then return nil, 'PoB item affix weight failed: ' .. tostring(result) end
+  return result
+end
+
 -- Non-destructive item comparison using PoB's own item tooltip calculator.
 function M.compare_item(params)
   if not build or not build.itemsTab or not build.calcsTab then return nil, 'build not initialized' end

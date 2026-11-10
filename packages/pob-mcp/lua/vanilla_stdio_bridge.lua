@@ -316,6 +316,7 @@ end
 handlers.calc_with = op(BuildOps.calc_with, 'output')
 handlers.compare_item = op(BuildOps.compare_item, 'result')
 handlers.item_comparison_snapshot = op(BuildOps.item_comparison_snapshot, 'result')
+handlers.get_item_affix_weight = op(BuildOps.get_item_affix_weight, 'result')
 handlers.export_build_xml = op(BuildOps.export_build_xml, 'xml')
 handlers.add_item_text = op(BuildOps.add_item_text, 'item')
 handlers.create_socket_group = op(BuildOps.create_socket_group, 'socketGroup')

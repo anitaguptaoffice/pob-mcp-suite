@@ -206,7 +206,8 @@ export function resolveAffixes(rawLines: string[], entries: ModEntry[]): AffixRe
   ];
   const unmatched = lines.filter((_line, lineIndex) => !claimed.has(lineIndex));
   const ambiguous = affixes.some((affix) => affix.alternatives.length > 0);
-  const countsCertain = unmatched.length === 0 && !ambiguous && overflow.length === 0;
+  const outOfRange = affixes.some((affix) => affix.valuesOutOfRange);
+  const countsCertain = unmatched.length === 0 && !ambiguous && !outOfRange && overflow.length === 0;
 
   return {
     affixes,
@@ -219,6 +220,7 @@ export function resolveAffixes(rawLines: string[], entries: ModEntry[]): AffixRe
       ...overflow,
       ...(unmatched.length ? ['Unmatched explicit lines may occupy prefix or suffix slots, including several lines from one hybrid. Open slots are unknown.'] : []),
       ...(ambiguous ? ['Multiple affix readings are possible. Open slots are unknown.'] : []),
+      ...(outOfRange ? ['Wording-only matches are not verified affixes. Open slots are unknown.'] : []),
     ],
   };
 }

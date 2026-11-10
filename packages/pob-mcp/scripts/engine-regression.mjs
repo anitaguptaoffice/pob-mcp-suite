@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { PoBLuaApiClient } from '../build/pobLuaBridge.js';
+import { parseModFile } from '../build/services/modDataStore.js';
+import { firstMatchingSpawnRule } from '../build/services/affixQuery.js';
 import { formatLoadStats } from '../build/handlers/luaHandlers.js';
 import { handleFindItemUpgrades } from '../build/handlers/itemShoppingHandler.js';
 
@@ -22,6 +25,20 @@ try {
   assert.equal(eventInfo.ascendClassName, 'Ancestral Commander', `event build metadata lost: ${JSON.stringify(eventInfo)}`);
   await client.newBuild({ className: 'Witch' });
   await client.setTree({ classId: 3, ascendClassId: 0, nodes: [], treeVersion: '3_29' });
+  const ruleItemsBefore = await client.getItems();
+  const amuletWeight = await client.getItemAffixWeight('AddedPhysicalDamage7', 'Rarity: RARE\nWeight Test\nCitrine Amulet\nItem Level: 1\nImplicits: 0');
+  const ringWeight = await client.getItemAffixWeight('AddedPhysicalDamage7', 'Rarity: RARE\nWeight Test\nGold Ring\nItem Level: 86\nImplicits: 0');
+  assert.equal(amuletWeight.weight, 1000, 'PoB amulet spawn weight changed');
+  assert.equal(ringWeight.weight, 0, 'PoB ring zero-weight rule changed');
+  const modData = await readFile(join(process.env.POB_PATH || process.env.POB_FORK_PATH || '/opt/PathOfBuilding/src', 'Data/ModExplicit.lua'), 'utf8');
+  const ruleMod = parseModFile(modData, 'explicit').find(mod => mod.id === 'AddedPhysicalDamage7');
+  assert.ok(ruleMod, 'expected modifier missing from PoB data');
+  assert.equal(firstMatchingSpawnRule(ruleMod, ['amulet', 'default'])?.weight, amuletWeight.weight, 'parsed amulet rule disagrees with PoB');
+  assert.equal(firstMatchingSpawnRule(ruleMod, ['ring', 'default'])?.weight, ringWeight.weight, 'parsed ring rule disagrees with PoB');
+  assert.equal(amuletWeight.itemLevel, 1);
+  assert.equal(amuletWeight.requiredItemLevel, 52);
+  await assert.rejects(() => client.getItemAffixWeight('NotARealMod', 'Rarity: RARE\nTest\nCitrine Amulet'), /not found/);
+  assert.deepEqual(await client.getItems(), ruleItemsBefore, 'affix weight inspection changed live equipment');
   const info = await client.getBuildInfo();
   assert.equal(info.className, 'Witch', `class metadata lost: ${JSON.stringify(info)}`);
   const masterySearch = await client.searchNodes({ keyword: 'mastery', nodeType: 'mastery', maxResults: 100, includeAllocated: false });
