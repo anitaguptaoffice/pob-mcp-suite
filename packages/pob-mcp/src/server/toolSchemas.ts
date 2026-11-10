@@ -938,7 +938,7 @@ export function getLuaToolSchemas(): ToolSchema[] {
     },
     {
       name: "add_multiple_items",
-      description: "Add multiple items at once (efficient bulk operation)",
+      description: "Add items sequentially. Input format is checked first; if an item fails, execution stops and reports completed items and unattempted items. This operation is not atomic; inspect the build before retrying.",
       inputSchema: {
         type: "object",
         properties: {
@@ -950,7 +950,7 @@ export function getLuaToolSchemas(): ToolSchema[] {
                 item_text: { type: "string" },
                 slot_name: { type: "string" },
               },
-              required: ["item_text", "slot_name"],
+              required: ["item_text"],
             },
             description: "Array of items to add",
           },

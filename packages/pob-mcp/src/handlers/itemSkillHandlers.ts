@@ -723,22 +723,35 @@ export async function handleAddMultipleItems(
       throw new Error('Lua client not initialized. Use lua_start first.');
     }
 
-    if (!items || items.length === 0) {
+    if (!Array.isArray(items) || items.length === 0) {
       throw new Error('items array cannot be empty');
+    }
+    if (items.some(item => !item || typeof item.item_text !== 'string' || !item.item_text.trim() ||
+      Buffer.byteLength(item.item_text, 'utf8') > 10240 ||
+      (item.slot_name !== undefined && (typeof item.slot_name !== 'string' || !item.slot_name.trim())))) {
+      throw new Error('every item must have valid item_text (up to 10 KB) and an optional non-empty slot_name; no items were added');
     }
 
     const addedItems: string[] = [];
-    for (const item of items) {
-      if (!item.item_text || item.item_text.trim().length === 0) {
-        throw new Error('item_text cannot be empty');
+    for (const [index, item] of items.entries()) {
+      try {
+        const result = await luaClient.addItem(item.item_text, item.slot_name);
+        addedItems.push(`  ${index + 1}. id=${result.id} ${result.name || 'Unknown'} -> ${result.slot || 'Not equipped'}`);
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        const text = [
+          `Batch stopped at item ${index + 1} of ${items.length}: ${reason}`,
+          `Completed before failure: ${addedItems.length}. These items remain in the build:`,
+          ...(addedItems.length ? addedItems : ['  none']),
+          `Items not attempted: ${items.length - index - 1}.`,
+          'The failing item may have changed the build if the engine failed after mutation. Inspect the build before retrying; do not retry completed items blindly.',
+        ].join('\n');
+        return { isError: true, content: [{ type: 'text' as const, text }] };
       }
-
-      const result = await luaClient.addItem(item.item_text, item.slot_name);
-      addedItems.push(`${result.name || 'Unknown'} → ${result.slot || 'Not equipped'}`);
     }
 
     let text = `✅ Added ${addedItems.length} item${addedItems.length > 1 ? 's' : ''}:\n`;
-    text += addedItems.map(i => `  - ${i}`).join('\n');
+    text += addedItems.join('\n');
 
     return {
       content: [

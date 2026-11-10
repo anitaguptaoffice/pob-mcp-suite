@@ -34,6 +34,16 @@ try {
 
   await call('lua_start');
   await call('lua_new_build', { class_name: 'Witch' });
+  const partialBatch = await request('tools/call', { name: 'add_multiple_items', arguments: { items: [
+    { item_text: 'Rarity: RARE\nBatch Test\nGold Ring\nItem Level: 86\nImplicits: 0', slot_name: 'Ring 1' },
+    { item_text: 'Rarity: RARE\nBatch Test 2\nGold Ring\nItem Level: 86\nImplicits: 0', slot_name: 'Not A Slot' },
+    { item_text: 'Rarity: RARE\nBatch Test 3\nGold Ring\nItem Level: 86\nImplicits: 0', slot_name: 'Ring 2' },
+  ] } });
+  const partialText = partialBatch.result?.content?.[0]?.text ?? '';
+  if (!partialBatch.result?.isError || !partialText.includes('Completed before failure: 1') || !partialText.includes('Items not attempted: 1') || !partialText.includes('Ring 1')) {
+    throw new Error(`batch partial state was not reported: ${JSON.stringify(partialBatch)}`);
+  }
+  await call('lua_new_build', { class_name: 'Witch' });
   await call('create_socket_group', { label: 'Smoke Gems', slot: 'Body Armour' });
   const beforeInvalidGem = await call('get_skill_setup');
   const invalidGem = await request('tools/call', { name: 'add_gem', arguments: { group_index: 1, gem_name: 'Not A Real Gem' } });
