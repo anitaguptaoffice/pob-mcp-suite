@@ -19,7 +19,7 @@ try {
   await client.start();
   if (!await client.ping()) throw new Error('adapter did not respond to ping');
   const capabilities = await client.getCapabilities();
-  for (const action of ['get_capabilities', 'get_items', 'get_skills', 'set_tree', 'generate_weighted_trade_query',
+  for (const action of ['get_capabilities', 'get_items', 'get_skills', 'get_cost_snapshot', 'set_tree', 'generate_weighted_trade_query',
     'add_gem', 'set_config', 'save_build', 'search_nodes', 'get_mastery_options', 'calc_with',
     'create_spec', 'delete_spec', 'rename_spec', 'set_socket_group_enabled', 'set_gem_enabled',
     'get_ailments']) {

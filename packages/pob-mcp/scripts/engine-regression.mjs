@@ -94,6 +94,9 @@ try {
   await client.loadBuildXml(xml, 'regression-fixture');
   const fixtureTree = await client.getTree();
   const fixtureStats = await client.getStats(['Life', 'EnergyShield', 'TotalDPS', 'CombinedDPS', 'TotalEHP']);
+  const costSnapshot = await client.getCostSnapshot();
+  assert.deepEqual(costSnapshot.items, await client.getItems(), 'cost snapshot equipment differs from live build');
+  assert.deepEqual(costSnapshot.skills, await client.getSkills(), 'cost snapshot skills differ from live build');
   const beforeItems = await client.getItems();
   const amuletText = xml.match(/<Item id="2">([\s\S]*?)<\/Item>/)?.[1]?.trim();
   assert.ok(amuletText?.includes('+46 to maximum Life'), 'amulet fixture changed');

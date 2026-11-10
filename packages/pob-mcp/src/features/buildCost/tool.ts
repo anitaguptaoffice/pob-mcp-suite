@@ -18,10 +18,8 @@ export async function handleEstimateBuildCost(
   await ensureClient();
   const client = getClient();
   if (!client) throw new Error('Lua bridge not active. Load a build first.');
-  // Sequential: the Lua bridge accepts one request at a time. Fail explicitly
-  // rather than interpreting an unavailable section as an empty build.
-  const items = await client.getItems();
-  const skills = await client.getSkills();
+  // One bridge request ensures equipment and skills come from the same state.
+  const { items, skills } = await client.getCostSnapshot();
   if (!Array.isArray(items) || !Array.isArray(skills?.groups) || skills.groups.some(group => !Array.isArray(group.gems))) {
     throw new Error('The loaded build did not provide complete item and skill-group data.');
   }

@@ -877,6 +877,12 @@ async setTree(params: {
     return res.result as { xml: string; baseline: Record<string, number> };
   }
 
+  async getCostSnapshot(): Promise<{ items: EquippedItem[]; skills: SkillsOutput }> {
+    const res = await this.send({ action: 'get_cost_snapshot' });
+    if (!res.ok) throw new Error(res.error || 'get_cost_snapshot failed');
+    return res.result as { items: EquippedItem[]; skills: SkillsOutput };
+  }
+
   async getMasteryOptions(): Promise<MasteryOptions> {
     const res = await this.send({ action: "get_mastery_options" });
     if (!res.ok) throw new Error(res.error || "get_mastery_options failed");

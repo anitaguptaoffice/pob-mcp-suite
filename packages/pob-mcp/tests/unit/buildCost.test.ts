@@ -1,12 +1,20 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { estimateBuildCost, matchGem, matchUnique } from '../../src/features/buildCost/estimate.js';
 import { NinjaPrices, type PriceCategory } from '../../src/features/buildCost/ninjaPrices.js';
+import { handleEstimateBuildCost } from '../../src/features/buildCost/tool.js';
 
 const unique = { slot: 'Helmet', id: 1, rarity: 'UNIQUE', name: 'Example', baseName: 'Circlet', raw: 'Rarity: UNIQUE\nExample\nCirclet' };
 const line = { name: 'Example', baseType: 'Circlet', chaosValue: 12, listingCount: 15 };
 const source = { get: async (_league: string, category: PriceCategory) => ({ fetchedAt: '2026-01-01T00:00:00.000Z', lines: category === 'UniqueArmour' ? [line] : [] }) };
 
 describe('build cost matching', () => {
+  it('reads items and skills in one bridge snapshot', async () => {
+    const getCostSnapshot = jest.fn(async () => ({ items: [unique], skills: { groups: [] } }));
+    const result = await handleEstimateBuildCost(() => ({ getCostSnapshot } as never), async () => {}, source, { league: 'Standard' });
+    expect(getCostSnapshot).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(result.content[0].text).estimatedSubtotal).toBe(12);
+  });
+
   it('excludes disabled gems and skill groups from the subtotal', async () => {
     const gem = { name: 'Vortex', level: 20, quality: 0, enabled: true };
     const market = { get: async () => ({ fetchedAt: '2026-01-01', lines: [{ name: 'Vortex', gemLevel: 20, chaosValue: 10 }] }) };
@@ -22,6 +30,14 @@ describe('build cost matching', () => {
     expect(matchUnique({ ...unique, raw: unique.raw + '\nCorrupted' }, [line]).line).toBeUndefined();
     expect(matchUnique({ ...unique, name: 'Elegant Hubris' }, [{ ...line, name: 'Elegant Hubris' }]).line).toBeUndefined();
     expect(matchUnique(unique, [line, { ...line, links: 6 }]).line).toBeUndefined();
+  });
+
+  it('does not apply a generic unique price to linked or specially modified actual items', () => {
+    expect(matchUnique({ ...unique, raw: `${unique.raw}\nSockets: R-R-R-R-R-R` }, [line]).line).toBeUndefined();
+    expect(matchUnique({ ...unique, raw: `${unique.raw}\nSockets: R-R-R-R-R B` }, [line]).line).toBeUndefined();
+    expect(matchUnique({ ...unique, raw: `${unique.raw}\n{crafted}Allocates Test` }, [line]).line).toBeUndefined();
+    expect(matchUnique({ ...unique, raw: `${unique.raw}\n{enchant}Special effect` }, [line]).line).toBeUndefined();
+    expect(matchUnique({ ...unique, raw: `${unique.raw}\nSockets: R-R-R-R B-B` }, [line]).line?.chaosValue).toBe(12);
   });
 
   it('does not silently select a cheaper corrupted gem with the same level and quality', () => {
@@ -98,5 +114,17 @@ describe('ninja cache', () => {
     now = 600_001;
     await prices.get('Standard', 'UniqueArmour');
     expect(fetcher).toHaveBeenCalledTimes(3);
+  });
+
+  it('evicts least-recently-used successful entries instead of growing without bound', async () => {
+    const fetcher = jest.fn(async () => new Response(JSON.stringify({ lines: [line] }), { status: 200 }));
+    const prices = new NinjaPrices(fetcher as unknown as typeof fetch, () => 0);
+    for (let i = 0; i < 100; i++) await prices.get(`League ${i}`, 'UniqueArmour');
+    await prices.get('League 0', 'UniqueArmour');
+    await prices.get('League 100', 'UniqueArmour');
+    await prices.get('League 0', 'UniqueArmour');
+    expect(fetcher).toHaveBeenCalledTimes(101);
+    await prices.get('League 1', 'UniqueArmour');
+    expect(fetcher).toHaveBeenCalledTimes(102);
   });
 });

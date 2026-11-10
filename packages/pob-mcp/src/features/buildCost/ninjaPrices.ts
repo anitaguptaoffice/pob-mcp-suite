@@ -18,6 +18,7 @@ export interface PriceSnapshot { lines: PriceLine[]; fetchedAt: string }
 
 /** Independently cache each league/category; never cache failures as empty prices. */
 export class NinjaPrices {
+  private static readonly maxCacheEntries = 100;
   private readonly cache = new Map<string, { until: number; snapshot: PriceSnapshot }>();
   private readonly pending = new Map<string, Promise<PriceSnapshot>>();
   constructor(private readonly fetcher: typeof fetch = fetch, private readonly now: () => number = Date.now) {}
@@ -25,11 +26,17 @@ export class NinjaPrices {
   async get(league: string, category: PriceCategory): Promise<PriceSnapshot> {
     const key = JSON.stringify([league, category]);
     const cached = this.cache.get(key);
-    if (cached && cached.until > this.now()) return cached.snapshot;
+    if (cached && cached.until > this.now()) {
+      this.cache.delete(key);
+      this.cache.set(key, cached);
+      return cached.snapshot;
+    }
+    if (cached) this.cache.delete(key);
     const pending = this.pending.get(key);
     if (pending) return pending;
     const request = this.load(league, category).then(snapshot => {
       this.cache.set(key, { until: this.now() + 10 * 60_000, snapshot });
+      while (this.cache.size > NinjaPrices.maxCacheEntries) this.cache.delete(this.cache.keys().next().value!);
       return snapshot;
     }).finally(() => this.pending.delete(key));
     this.pending.set(key, request);

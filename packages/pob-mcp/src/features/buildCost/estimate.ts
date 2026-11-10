@@ -26,6 +26,13 @@ export function matchUnique(item: CostItem, lines: PriceLine[]): { line?: PriceL
   if (/\bcorrupted\b|\bmirrored\b|\bsynthesised item\b|\bfractured item\b/i.test(item.raw)) {
     return { reason: '腐化或特殊物品需按实际词缀交易查询' };
   }
+  const sockets = /^Sockets:\s*(.+)$/im.exec(item.raw)?.[1];
+  if (sockets && sockets.trim().split(/\s+/).some(group => group.split('-').filter(Boolean).length >= 5)) {
+    return { reason: 'The item has five or six linked sockets; the generic unique price does not establish the price of that link configuration.' };
+  }
+  if (/\{(?:crafted|enchant|fractured|synthesis|crucible|scourge|eater|exarch)(?::[^}]*)?\}/i.test(item.raw)) {
+    return { reason: 'The item has crafted, enchanted, or special modifiers and requires a separate price check.' };
+  }
   const found = lines.filter(line => normalize(line.name) === normalize(item.name) && normalize(line.baseType) === normalize(item.baseName) && validPrice(line));
   if (found.length !== 1 || found[0].variant || found[0].links || found[0].corrupted ||
       (found[0].explicitModifiers ?? []).filter(mod => mod.optional).length > 0) {

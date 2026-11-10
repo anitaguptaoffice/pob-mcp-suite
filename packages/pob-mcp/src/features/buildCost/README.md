@@ -5,3 +5,5 @@
 Matching principles were informed by [poe-ninja-build-cost](https://github.com/yaredmax/poe-ninja-build-cost/tree/06ef03e92855d61e5917f730887f4dcf5e40a9e2), an MIT-licensed project. No source files are copied. Only the [documented poe.ninja economy endpoints](https://poe.ninja/docs/api) are used. A client-side cache limits requests; the source recommends a shared backend for applications serving many users.
 
 Unknown and ambiguous prices are omitted from the reference subtotal. The report never claims completeness: it does not yet value rare equipment, all jewel slots, tattoos, crafting materials, or other elements absent from the supplied build data. A comparable trade search and a crafting simulator are separate concerns and must not silently become part of the economy adapter.
+
+Equipment and skill groups are captured by one Lua request. Uniques with five or more linked sockets, special crafted/enchant flags, corruption or ambiguous market variants remain unpriced rather than inheriting a generic quote. The per-category cache is bounded and retains the actual source fetch time on cache hits.

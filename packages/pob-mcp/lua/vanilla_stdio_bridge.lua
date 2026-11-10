@@ -299,6 +299,13 @@ handlers.remove_gem = op(BuildOps.remove_gem)
 handlers.get_tree = op(BuildOps.get_tree, 'tree')
 handlers.get_items = op(BuildOps.get_items, 'items')
 handlers.get_skills = op(BuildOps.get_skills, 'skills')
+handlers.get_cost_snapshot = function()
+  local skills, skillErr = BuildOps.get_skills()
+  if not skills then return { ok = false, error = skillErr or 'skills unavailable' } end
+  local items, itemErr = BuildOps.get_items()
+  if not items then return { ok = false, error = itemErr or 'equipment unavailable' } end
+  return { ok = true, result = { items = items, skills = skills } }
+end
 handlers.get_compatible_supports = op(BuildOps.get_compatible_supports, 'result')
 handlers.get_build_info = op(BuildOps.get_build_info, 'info')
 handlers.get_config = function()
