@@ -98,7 +98,7 @@ acceptance work to perform during migration, not claims of completed tests.
 | `compare_equipment_candidate` | `foundation_preview_item` previews an item against an isolated snapshot; legacy callers require migration. | `trade-preview-live.mjs` checks real PoB baseline and candidate metrics; mutation tests reject changed observations and preserve unsupported-slot and legality limitations. |
 | `plan_leveling` | Build-aware leveling-guide feature. | Preserve class, ascendancy and skill inputs; identify unverified advice. |
 | `find_item_upgrades` | Equipment context query; no verified upgrade recommendation is currently promised. | Slot and current defense context are accurate; no invented market or gain result. |
-| `analyze_defenses` | Snapshot defense analysis feature. | Report missing layers as unknown and handle one-life builds correctly. |
+| `analyze_defenses` | `inspect_snapshot_defenses` groups raw PoB defensive metrics; `check_snapshot_issues` supplies a separate partial heuristic scan. The legacy score and broad recommendations are not reproduced. | `snapshotDefenses.test.ts` distinguishes one-life builds, true zero and unknown; `foundation-defenses.mjs` compares a real one-life build with native PoB output. Legacy callers and remaining analysis coverage remain. |
 | `suggest_optimal_nodes` | Heuristic node-suggestion feature over versioned tree data. | Do not claim gain, reachability or optimality when not calculated. |
 | `optimize_tree` | Versioned nearby-node suggestion feature. | Candidate bounds and lack of recalculated optimum remain explicit. |
 | `analyze_items` | Snapshot item-analysis feature. | Report exact active set and distinguish observation from suggested improvements. |

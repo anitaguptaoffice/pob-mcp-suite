@@ -39,6 +39,13 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   them together without establishing what PoB already includes.
 - Evaluation `selection` and `config` overrides apply only to that calculation;
   they do not change the snapshot. Compare results under the same settings.
+- Use `inspect_snapshot_defenses` for grouped PoB health pools, resistances,
+  avoidance, mitigation and recovery. It returns saved calculation context and
+  per-metric availability. Unknown values are not zero; 1 life does not imply
+  a broken build when energy shield is the primary pool. Effective hit pool,
+  maximum hit and recovery answer different questions, and all depend on PoB's
+  configured conditions. `check_snapshot_issues` is a separate partial heuristic
+  scan, not a complete defense score or survival guarantee.
 - Use `inspect_snapshot_ailments` to inspect player non-damaging ailment effects
   under the saved skill and enemy configuration. `appliedEffect` is what PoB
   credits; `calculatedEffect` is a separate estimate, not an uptime guarantee.

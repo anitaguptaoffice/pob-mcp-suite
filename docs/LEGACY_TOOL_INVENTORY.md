@@ -80,7 +80,7 @@ Generated from registered schema groups in the current build. Most entries are p
 
 ## getOptimizationToolSchemas
 
-- `analyze_defenses` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `analyze_defenses` — target: analysis and optimization; replacement: `inspect_snapshot_defenses` and `check_snapshot_issues`; status: partially migrated (legacy heuristic scoring and callers remain); skill references: no exact name found in packaged skill Markdown.
 - `suggest_optimal_nodes` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: `references/tool-workflows.md`, `references/tree-optimization.md`, `skills/pob-docker-mcp/SKILL.md`.
 - `optimize_tree` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: `references/tree-optimization.md`, `skills/pob-docker-mcp/SKILL.md`.
 - `analyze_items` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.

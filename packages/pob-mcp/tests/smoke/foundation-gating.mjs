@@ -53,6 +53,7 @@ try {
   assert.ok(!tools.result.tools.some(t => t.name === 'inspect_snapshot_skill_groups'));
   assert.ok(!tools.result.tools.some(t => t.name === 'derive_snapshot_enemy_config'));
   assert.ok(!tools.result.tools.some(t => t.name === 'inspect_snapshot_ailments'));
+  assert.ok(!tools.result.tools.some(t => t.name === 'inspect_snapshot_defenses'));
   assert.ok(!tools.result.tools.some(t => t.name === 'compare_snapshot_gem_setups'));
   assert.ok(!tools.result.tools.some(t => t.name === 'submit_snapshot_gem_setups' || t.name === 'summarize_snapshot_gem_setups'));
   assert.ok(!tools.result.tools.some(t => t.name === 'rank_snapshot_supports'));
@@ -95,6 +96,7 @@ try {
   for (const name of ['classify_modifier_lines', 'query_bench_modifiers', 'query_modifier_tiers']) assert.equal(foundationOnly.result.tools.filter(t => t.name === name).length, 1);
   assert.ok(foundationOnly.result.tools.some(t => t.name === 'foundation_import_build'));
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'inspect_snapshot_ailments').length, 1);
+  assert.equal(foundationOnly.result.tools.filter(t => t.name === 'inspect_snapshot_defenses').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_read_notes').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_notes').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_selection').length, 1);
