@@ -23,7 +23,7 @@ export interface HandlerContext {
   pobDirectory: string;
   getLuaClient: () => PoBLuaApiClient | null;
   ensureLuaClient: () => Promise<void>;
-  createComparisonClient?: () => Promise<{ client: PoBLuaApiClient; close: () => Promise<void> }>;
+  createIsolatedLuaClient?: () => Promise<{ client: PoBLuaApiClient; close: () => Promise<void> }>;
 }
 
 /**
@@ -123,7 +123,7 @@ export interface ContextDependencies {
   getLuaClient: () => PoBLuaApiClient | null;
   ensureLuaClient: () => Promise<void>;
   stopLuaClient: () => Promise<void>;
-  createComparisonClient?: () => Promise<{ client: PoBLuaApiClient; close: () => Promise<void> }>;
+  createIsolatedLuaClient?: () => Promise<{ client: PoBLuaApiClient; close: () => Promise<void> }>;
 }
 
 /**
@@ -143,7 +143,7 @@ export class ContextBuilder {
       pobDirectory: this.deps.pobDirectory,
       getLuaClient: this.deps.getLuaClient,
       ensureLuaClient: this.deps.ensureLuaClient,
-      createComparisonClient: this.deps.createComparisonClient,
+      createIsolatedLuaClient: this.deps.createIsolatedLuaClient,
     };
   }
 

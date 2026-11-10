@@ -332,7 +332,7 @@ describe('BuildHandlers', () => {
         mockBuildService.readBuild.mockResolvedValueOnce(build1).mockResolvedValueOnce(build2);
         const loadBuildXml = jest.fn();
         context.getLuaClient = () => ({ getBuildInfo: async () => ({ name }), loadBuildXml }) as unknown as ReturnType<typeof context.getLuaClient>;
-        context.createComparisonClient = async () => { throw new Error('unavailable'); };
+        context.createIsolatedLuaClient = async () => { throw new Error('unavailable'); };
         const result = await handleCompareBuilds(context, 'build1.xml', 'build2.xml');
         expect(loadBuildXml).not.toHaveBeenCalled();
         expect(result.content[0].text).toContain('XML / saved stats');
@@ -343,7 +343,7 @@ describe('BuildHandlers', () => {
     it('closes the isolated engine after a failed comparison', async () => {
       mockBuildService.readBuild.mockResolvedValueOnce(build1).mockResolvedValueOnce(build2);
       const close = jest.fn(async () => undefined);
-      context.createComparisonClient = async () => ({ client: { loadBuildXml: async () => { throw new Error('failed'); } } as any, close });
+      context.createIsolatedLuaClient = async () => ({ client: { loadBuildXml: async () => { throw new Error('failed'); } } as any, close });
       const result = await handleCompareBuilds(context, 'build1.xml', 'build2.xml');
       expect(close).toHaveBeenCalledTimes(1);
       expect(result.content[0].text).toContain('XML / saved stats');
@@ -355,7 +355,7 @@ describe('BuildHandlers', () => {
       let requestedFields: string[] | undefined;
       const statsFor = (dps: number) => ({ Life: 4000, CombinedDPS: dps, CritChance: 50 });
       let call = 0;
-      context.createComparisonClient = async () => ({ close: async () => undefined, client: ({
+      context.createIsolatedLuaClient = async () => ({ close: async () => undefined, client: ({
         loadBuildXml: async () => ({ ok: true }),
         listSpecs: async () => ({ specs: [] }),
         listItemSets: async () => ({ itemSets: [] }),
@@ -375,7 +375,7 @@ describe('BuildHandlers', () => {
 
     it('compares poison-inclusive minion damage separately and does not rank missing values', async () => {
       let call = 0;
-      context.createComparisonClient = async () => ({ close: async () => undefined, client: ({
+      context.createIsolatedLuaClient = async () => ({ close: async () => undefined, client: ({
         loadBuildXml: async () => ({}),
         listSpecs: async () => ({ specs: [] }), listItemSets: async () => ({ itemSets: [] }),
         getStats: async () => call++ === 0 ? { MinionCombinedDPS: 300, MinionTotalDPS: 200, Life: 0 } : { MinionCombinedDPS: 500, MinionTotalDPS: 200 },

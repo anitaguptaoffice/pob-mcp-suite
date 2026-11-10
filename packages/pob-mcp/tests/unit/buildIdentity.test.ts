@@ -53,6 +53,35 @@ describe('analyze_build state isolation', () => {
     expect(textOf(result)).toContain('requested saved file');
   });
 
+  it('analyzes another saved build in isolation and preserves the current bridge', async () => {
+    const f = fixture('different');
+    const close = jest.fn(async () => undefined);
+    const isolatedClient = {
+      loadBuildXml: jest.fn(async () => ({})),
+      getStats: jest.fn(async (_fields: string[]) => ({ Life: 6000, MinionCombinedDPS: 250, EnergyShield: 0 })),
+      listSpecs: async () => ({ specs: [] }), listItemSets: async () => ({ itemSets: [] }),
+    };
+    f.context.createIsolatedLuaClient = async () => ({ client: isolatedClient as any, close });
+    const result = await handleAnalyzeBuild(f.context, 'target');
+    expect(f.client.loadBuildXml).not.toHaveBeenCalled();
+    expect(isolatedClient.loadBuildXml).toHaveBeenCalled();
+    expect(isolatedClient.getStats.mock.calls[0][0]).toContain('MinionCombinedDPS');
+    expect(textOf(result)).toContain('Minion Combined DPS: 250');
+    expect(textOf(result)).toContain('Energy Shield: 0');
+    expect(textOf(result)).toContain('isolated engine');
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes the isolated bridge when loading the requested file fails', async () => {
+    const f = fixture('different');
+    const close = jest.fn(async () => undefined);
+    f.context.createIsolatedLuaClient = async () => ({ client: { loadBuildXml: async () => { throw new Error('failed'); } } as any, close });
+    const result = await handleAnalyzeBuild(f.context, 'target');
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(textOf(result)).toContain('requested saved file');
+    expect(f.client.loadBuildXml).not.toHaveBeenCalled();
+  });
+
   it('does not use the item-set ID as a skill-set ID', async () => {
     const f = fixture('target', path.join(directory, 'target.xml'));
     await handleAnalyzeBuild(f.context, 'target');

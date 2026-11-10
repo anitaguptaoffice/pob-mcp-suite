@@ -11,6 +11,7 @@ import { smokePoBSrc } from './pobSource.mjs';
 smokePoBSrc();
 const buildsDir = await mkdtemp(join(tmpdir(), 'pob-mcp-full-'));
 await cp(resolve('example-build.xml'), join(buildsDir, 'example.xml'));
+await cp(resolve('example-build.xml'), join(buildsDir, 'other.xml'));
 const { child, request, notify } = startMcpServer({ POB_DIRECTORY: buildsDir });
 const call = async (name, args = {}) => {
   const response = await request('tools/call', { name, arguments: args });
@@ -53,6 +54,10 @@ try {
   await call('set_character_level', { level: 89 });
   const changed = await call('lua_get_build_snapshot');
   if (!changed.includes('Level 89')) throw new Error(`snapshot did not reflect level edit: ${changed}`);
+  const otherAnalysis = await call('analyze_build', { build_name: 'other.xml' });
+  if (!otherAnalysis.includes('Live Calculated Stats') || !otherAnalysis.includes('isolated engine')) throw new Error(`isolated live analysis failed: ${otherAnalysis}`);
+  const afterAnalysis = await call('lua_get_build_snapshot');
+  if (!afterAnalysis.includes('Level 89')) throw new Error(`analysis overwrote unsaved changes: ${afterAnalysis}`);
   const comparison = await call('compare_builds', { build1: 'example.xml', build2: 'example.xml' });
   if (!comparison.includes('Build Comparison (Live Stats)') || !comparison.includes('isolated engine')) throw new Error(`isolated live comparison failed: ${comparison}`);
   const afterComparison = await call('lua_get_build_snapshot');

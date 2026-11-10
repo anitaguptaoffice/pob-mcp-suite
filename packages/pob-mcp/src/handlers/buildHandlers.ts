@@ -29,84 +29,73 @@ export async function handleAnalyzeBuild(context: HandlerContext, buildName: str
   return wrapHandler('analyze build', async () => {
   const build = await context.buildService.readBuild(buildName);
 
-  // Try to get live Lua stats — only load from file if no build is loaded.
-  // If the same build is already loaded, preserve current spec/item set selection.
-  // Never replace a *different* in-memory build (data-loss risk).
+  // Use current live selections only for the same build. A separate bridge
+  // analyzes other saved builds without replacing the user's unsaved work.
   let luaStats: StatsExport | null = null;
   let luaSkipped = false;
+  let analyzedInIsolation = false;
   let luaActiveSpecIndex: number | null = null;
   let luaActiveItemSetId: string | null = null;
   const specContextLines: string[] = [];
+  let isolated: Awaited<ReturnType<NonNullable<HandlerContext['createIsolatedLuaClient']>>> | undefined;
   try {
     await context.ensureLuaClient();
-    const luaClient = context.getLuaClient();
-
+    let luaClient = context.getLuaClient();
+    let sameBuild = false;
     if (luaClient) {
-      let shouldLoad = true;
       try {
         const info = await luaClient.getBuildInfo();
-        const loadedName: string = info?.name ?? '';
-        // Strip .xml suffix for comparison since PoB may omit it
-        const requested = buildName.replace(/\.xml$/i, '');
-        const loaded    = loadedName.replace(/\.xml$/i, '');
-        if (loaded) {
-          const sourcePath = luaClient.getLoadedFilePath?.();
-          const sameBuild = sourcePath
-            ? sourcePath === resolveBuildFile(buildName, context.pobDirectory)
-            : loaded === requested;
-          if (!sameBuild) {
-            // A different build is in memory — skip loading to avoid destroying unsaved work
-            shouldLoad = false;
-            luaSkipped = true;
-          } else {
-            // Same build already loaded — preserve current spec/item set selection
-            shouldLoad = false;
-          }
-        } else {
-          shouldLoad = false;
-          luaSkipped = true;
-        }
-      } catch (e) {
-        noteIgnoredError("cannot verify current build — preserve bridge state", e);
-        shouldLoad = false;
-        luaSkipped = true;
-      }
-
-      if (shouldLoad) {
+        const loaded = (info?.name ?? '').replace(/\.xml$/i, '');
+        const sourcePath = luaClient.getLoadedFilePath?.();
+        sameBuild = sourcePath
+          ? sourcePath === resolveBuildFile(buildName, context.pobDirectory)
+          : Boolean(loaded) && loaded === buildName.replace(/\.xml$/i, '');
+      } catch (e) { noteIgnoredError('cannot verify current build — use isolated bridge', e); }
+    }
+    if (!sameBuild) {
+      isolated = await context.createIsolatedLuaClient?.();
+      luaClient = isolated?.client ?? null;
+      if (luaClient) {
         const buildPath = resolveBuildFile(buildName, context.pobDirectory);
         const buildXml = await fs.readFile(buildPath, 'utf-8');
-        await luaClient.loadBuildXml(buildXml, buildName.replace(/\.xml$/i, ""), buildPath);
-      }
-      if (!luaSkipped) {
-        try { luaStats = await luaClient.getStats(); } catch (e) { noteIgnoredError("live Lua stats after build load (context degraded, not wrong)", e); }
-
-        // Query active spec/item set for context and to guide tree analysis
-        try {
-          const specsResult = await luaClient.listSpecs();
-          const itemSetsResult = await luaClient.listItemSets();
-          const activeSpec = specsResult?.specs?.find(s => s.active);
-          const activeItemSet = itemSetsResult?.itemSets?.find(s => s.active);
-          if (activeSpec) luaActiveSpecIndex = activeSpec.index;
-          if (activeItemSet) luaActiveItemSetId = String(activeItemSet.id);
-          const numSpecs = specsResult?.specs?.length ?? 0;
-          const numSets = itemSetsResult?.itemSets?.length ?? 0;
-          if (numSpecs > 1 || numSets > 1) {
-            const parts: string[] = [];
-            if (activeSpec && numSpecs > 1) {
-              parts.push(`Spec ${activeSpec.index}/${numSpecs}: "${activeSpec.title}" (${activeSpec.nodeCount} nodes)`);
-            }
-            if (activeItemSet && numSets > 1) {
-              parts.push(`Item Set ${activeItemSet.id}/${numSets}: "${activeItemSet.title}"`);
-            }
-            if (parts.length > 0) {
-              specContextLines.push(`[Analyzing: ${parts.join(' | ')}]`);
-              specContextLines.push('Use select_spec / select_item_set to switch before re-analyzing.');
-            }
-          }
-        } catch (e) { noteIgnoredError('active spec/set header line (analysis unaffected)', e); }
+        await luaClient.loadBuildXml(buildXml, buildName.replace(/\.xml$/i, ''), buildPath);
+        analyzedInIsolation = true;
+      } else {
+        luaSkipped = true;
       }
     }
-  } catch (e) { noteIgnoredError("Continue with XML-only analysis", e); }
+    if (luaClient) {
+      try {
+        luaStats = await luaClient.getStats(['TotalDPS', 'CombinedDPS', 'MinionTotalDPS', 'MinionCombinedDPS', 'Life', 'EnergyShield', 'TotalEHP']);
+      } catch (e) { noteIgnoredError('live Lua stats unavailable', e); }
+      try {
+        const specsResult = await luaClient.listSpecs();
+        const itemSetsResult = await luaClient.listItemSets();
+        const activeSpec = specsResult?.specs?.find(s => s.active);
+        const activeItemSet = itemSetsResult?.itemSets?.find(s => s.active);
+        if (activeSpec) luaActiveSpecIndex = activeSpec.index;
+        if (activeItemSet) luaActiveItemSetId = String(activeItemSet.id);
+        const numSpecs = specsResult?.specs?.length ?? 0;
+        const numSets = itemSetsResult?.itemSets?.length ?? 0;
+        if (numSpecs > 1 || numSets > 1) {
+          const parts: string[] = [];
+          if (activeSpec && numSpecs > 1) parts.push(`Spec ${activeSpec.index}/${numSpecs}: "${activeSpec.title}" (${activeSpec.nodeCount} nodes)`);
+          if (activeItemSet && numSets > 1) parts.push(`Item Set ${activeItemSet.id}/${numSets}: "${activeItemSet.title}"`);
+          if (parts.length > 0) {
+            specContextLines.push(`[Analyzing: ${parts.join(' | ')}]`);
+            if (!analyzedInIsolation) specContextLines.push('Use select_spec / select_item_set to switch before re-analyzing.');
+          }
+        }
+      } catch (e) { noteIgnoredError('active spec/set header line (analysis unaffected)', e); }
+    }
+  } catch (e) {
+    luaSkipped = true;
+    noteIgnoredError('Continue with XML-only analysis', e);
+  } finally {
+    if (isolated) {
+      try { await isolated.close(); } catch (e) { noteIgnoredError('close isolated analysis bridge', e); }
+    }
+  }
 
   // Build an override object that reflects the Lua-selected spec/item set/skill set,
   // so generateBuildSummary and analyzePassiveTree read from the correct sets (not disk defaults).
@@ -129,21 +118,26 @@ export async function handleAnalyzeBuild(context: HandlerContext, buildName: str
     );
   }
 
+  if (analyzedInIsolation) summaryParts.push("\nLive stats were calculated from the saved build in an isolated engine; the current build was preserved.");
+
   // Show active spec/item set context when multiple exist
   if (specContextLines.length > 0) {
     summaryParts.push('\n' + specContextLines.join('\n'));
   }
 
-  // If we have Lua stats, add them
+  // Zero is a valid result; missing values are not zero.
   if (luaStats) {
+    const stat = (value: string | number | undefined) => toFiniteNumber(value) ?? 'N/A';
     summaryParts.push([
       '\n=== Live Calculated Stats (from Lua) ===',
       '',
-      `Total DPS: ${luaStats.TotalDPS || 'N/A'}`,
-      `Combined DPS: ${luaStats.CombinedDPS || 'N/A'}`,
-      `Life: ${luaStats.Life || 'N/A'}`,
-      `Energy Shield: ${luaStats.EnergyShield || 'N/A'}`,
-      `Effective Life Pool: ${luaStats.TotalEHP || 'N/A'}`,
+      `Total DPS: ${stat(luaStats.TotalDPS)}`,
+      `Combined DPS: ${stat(luaStats.CombinedDPS)}`,
+      `Minion Total DPS: ${stat(luaStats.MinionTotalDPS)}`,
+      `Minion Combined DPS: ${stat(luaStats.MinionCombinedDPS)}`,
+      `Life: ${stat(luaStats.Life)}`,
+      `Energy Shield: ${stat(luaStats.EnergyShield)}`,
+      `Effective Life Pool: ${stat(luaStats.TotalEHP)}`,
       '',
     ].join('\n'));
   }
@@ -280,9 +274,9 @@ export async function handleCompareBuilds(context: HandlerContext, build1Name: s
   let r1: Awaited<ReturnType<typeof loadEndgame>> | null = null;
   let r2: Awaited<ReturnType<typeof loadEndgame>> | null = null;
   let comparisonWarning = '独立计算引擎不可用；以下是保存的 XML 数据，可能不是当前实时计算结果。';
-  let isolated: Awaited<ReturnType<NonNullable<HandlerContext['createComparisonClient']>>> | undefined;
+  let isolated: Awaited<ReturnType<NonNullable<HandlerContext['createIsolatedLuaClient']>>> | undefined;
   try {
-    isolated = await context.createComparisonClient?.();
+    isolated = await context.createIsolatedLuaClient?.();
     if (isolated) {
       r1 = await loadEndgame(isolated.client, build1Name);
       r2 = await loadEndgame(isolated.client, build2Name);

@@ -157,7 +157,7 @@ class PoBMCPServer {
       getLuaClient: () => this.luaClientManager.getClient(),
       ensureLuaClient: () => this.luaClientManager.ensureClient(),
       stopLuaClient: () => this.luaClientManager.stopClient(),
-      createComparisonClient: async () => {
+      createIsolatedLuaClient: async () => {
         const manager = new LuaClientManager(luaEnabled);
         try {
           await manager.ensureClient();
