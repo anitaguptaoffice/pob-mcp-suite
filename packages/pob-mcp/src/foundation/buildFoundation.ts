@@ -9,6 +9,7 @@ import { validEnemyLevelSetting } from '../domain/configPreset.js';
 
 /** The adapter owns a disposable PoB instance; it must never share live state. */
 export interface BuildEngine {
+  inspectItemParse(itemText: string): Promise<unknown>;
   getClusterJewels(): Promise<unknown>;
   newBuild(): Promise<unknown>;
   getCapabilities(): ReturnType<PoBLuaApiClient['getCapabilities']>;
@@ -645,12 +646,16 @@ export class BuildFoundation {
   async deriveItem(id: string, slot: string, itemText: string, trial = false): Promise<SnapshotRecord> {
     if (typeof slot !== 'string' || !slot.trim() || slot.length > 100 || typeof itemText !== 'string' || !itemText.trim() || Buffer.byteLength(itemText, 'utf8') > 10240) throw new Error('Invalid item or slot');
     return this.derive(id, 'derived:item', async engine => {
+      const socket = /^Jewel (\d+)$/.exec(slot);
+      const beforeTree = socket ? normalizeObservation({ tree: await engine.getTree() }).tree as { nodes?: unknown } | undefined : undefined;
+      if (socket && (!beforeTree || !Array.isArray(beforeTree.nodes) || !beforeTree.nodes.includes(Number(socket[1])))) throw new Error('Requested jewel socket is not allocated');
       const before = normalizeObservation({ items: await engine.getItems() }).items;
       if (!Array.isArray(before) || before.filter(item => item.slot === slot).length !== 1) throw new Error('Requested item slot is unavailable');
       const added = await engine.addItem(itemText, slot);
       const after = normalizeObservation({ items: await engine.getItems() }).items;
       if (!Array.isArray(after) || added.slot !== slot || !Number.isSafeInteger(added.id) || added.id < 1 || after.filter(item => item.slot === slot && item.id === added.id).length !== 1) throw new Error('PoB did not equip the item in the requested slot');
       if (!isDeepStrictEqual(before.filter(item => item.slot !== slot), after.filter(item => item.slot !== slot))) throw new Error('Equipping the item changed other slots');
+      if (socket && !isDeepStrictEqual(beforeTree, normalizeObservation({ tree: await engine.getTree() }).tree)) throw new Error('Equipping the jewel changed the passive tree');
     }, trial);
   }
 

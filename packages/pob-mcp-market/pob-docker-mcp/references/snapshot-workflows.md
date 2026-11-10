@@ -146,6 +146,14 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   and Vaal-name matches are only candidates. The PoB table can include legacy
   variants. No ranking, current item availability or damage gain is established;
   verify explicit candidates in PoB and prices through official Trade separately.
+- To compare up to three explicit ordinary jewel item texts, use
+  `compare_snapshot_jewels` with an allocated `socket_node_id` and the exact PoB
+  `fields` to compare. It creates separate seven-day trial children and reports
+  PoB parse diagnostics for the equipped and candidate jewels. Inspect unparsed
+  lines, missing metrics, changed contexts and candidate errors before interpreting
+  deltas; a child ID can be returned even if its later comparison failed. Retain
+  a desired child explicitly. Cluster and unsupported jewel bases are excluded;
+  legality, aura uptime and item prices are not established.
 - For a saved local file without starting PoB, `inspect_local_cluster_jewels`
   reads its active tree spec, socket references and serialized item text. Check
   `socketDataAvailable`, `unresolvedSockets`, the file digest and warnings.

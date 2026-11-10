@@ -991,6 +991,32 @@ function M.get_item_affix_weight(params)
   return result
 end
 
+-- Item:BuildModList skips active lines with extra unparsed text.
+local function itemParseDiagnostics(target)
+  local unparsed = setmetatable({}, { __jsontype = 'array' })
+  if not target then return { available = false, unparsed = unparsed } end
+  for _, group in ipairs({ 'enchant', 'scourge', 'implicit', 'explicit', 'crucible', 'buff' }) do
+    for _, line in ipairs(target[group .. 'ModLines'] or {}) do
+      if line.extra and not line.disabled then
+        local okVariant, active
+        if group == 'buff' then okVariant, active = pcall(function() return target:CheckModLineVariant(line) end)
+        else okVariant, active = pcall(function() return target:GetModLineVariantCount(line) > 0 end) end
+        if not okVariant or active then
+          table.insert(unparsed, { group = group, line = line.line, extra = tostring(line.extra), active = okVariant and true or nil })
+        end
+      end
+    end
+  end
+  return { available = true, unparsed = unparsed }
+end
+
+function M.inspect_item_parse(params)
+  if type(params) ~= 'table' or type(params.itemText) ~= 'string' or #params.itemText == 0 or #params.itemText > MAX_ITEM_TEXT_LENGTH then return nil, 'invalid item text' end
+  local ok, item = pcall(function() return new('Item'):Item(params.itemText) end)
+  if not ok or not item or not item.base or not item.baseName then return nil, 'item could not be parsed' end
+  return { base = item.baseName, diagnostics = itemParseDiagnostics(item) }
+end
+
 -- Non-destructive item comparison using PoB's own item tooltip calculator.
 function M.compare_item(params)
   if not build or not build.itemsTab or not build.calcsTab then return nil, 'build not initialized' end
@@ -1010,30 +1036,10 @@ function M.compare_item(params)
     local before = calc({}, true)
     local after = calc({ repSlotName = slotName, repItem = item }, true)
     if type(before) ~= 'table' or type(after) ~= 'table' then error('calculator returned no stats') end
-    -- Item:BuildModList ignores lines with `extra` entirely, even if parseMod
-    -- produced some mods. Follow PoB's active-variant check and disclose those
-    -- lines rather than assuming the preview includes them.
-    local function parseDiagnostics(target)
-      local unparsed = setmetatable({}, { __jsontype = 'array' })
-      if not target then return { available = false, unparsed = unparsed } end
-      for _, group in ipairs({ 'enchant', 'scourge', 'implicit', 'explicit', 'crucible', 'buff' }) do
-        for _, line in ipairs(target[group .. 'ModLines'] or {}) do
-          if line.extra and not line.disabled then
-            local okVariant, active
-            if group == 'buff' then okVariant, active = pcall(function() return target:CheckModLineVariant(line) end)
-            else okVariant, active = pcall(function() return target:GetModLineVariantCount(line) > 0 end) end
-            if not okVariant or active then
-              table.insert(unparsed, { group = group, line = line.line, extra = tostring(line.extra), active = okVariant and true or nil })
-            end
-          end
-        end
-      end
-      return { available = true, unparsed = unparsed }
-    end
     local current = slot.selItemId and tab.items[slot.selItemId] or nil
     return { slot = slotName, candidate = { name = item.name, base = item.baseName, quality = item.quality },
       baseline = itemComparisonMetrics(before), candidateStats = itemComparisonMetrics(after),
-      parseDiagnostics = { current = parseDiagnostics(current), candidate = parseDiagnostics(item) } }
+      parseDiagnostics = { current = itemParseDiagnostics(current), candidate = itemParseDiagnostics(item) } }
   end)
   if not ok then return nil, 'item comparison failed: ' .. tostring(result) end
   return result

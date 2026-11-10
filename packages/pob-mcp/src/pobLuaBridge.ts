@@ -974,6 +974,12 @@ async setTree(params: {
     return res.result;
   }
 
+  async inspectItemParse(itemText: string): Promise<unknown> {
+    const res = await this.send({ action: 'inspect_item_parse', params: { itemText } });
+    if (!res.ok) throw new Error(res.error || 'inspect_item_parse failed');
+    return res.result;
+  }
+
   async evaluateAnointCandidates(params: { slot: string; focus?: 'dps' | 'defence' | 'both'; limit?: number; enchantSlot?: number; damageMetric?: 'CombinedDPS' | 'TotalDPS' | 'MinionCombinedDPS' | 'MinionTotalDPS' }): Promise<{
     candidates: Array<{ nodeId: number | string; name: string; dpsDelta: number; ehpDelta: number; score: number; recipe?: string[] }>;
     base: { CombinedDPS: number; TotalEHP: number; damageStat?: string; damageValue?: number; ehpAvailable?: boolean }; evaluated: number; skipped: number; slot: string; enchantSlot: number; selectedEnchant?: string; baseType: string; focus: string;

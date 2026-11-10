@@ -63,6 +63,7 @@ export async function openPoBEngine(options: PoBEngineOptions): Promise<BuildEng
     newBuild: () => client.newBuild({ className: 'Witch' }),
     getCapabilities: () => client.getCapabilities(),
     getClusterJewels: () => client.getClusterJewels(),
+    inspectItemParse: text => client.inspectItemParse(text),
     evaluateAnointCandidates: params => client.evaluateAnointCandidates(params),
     getBuildNotes: () => client.getBuildNotes(), setBuildNotes: notes => client.setBuildNotes(notes),
     queryTreePaths: params => client.queryTreePaths(params),

@@ -80,6 +80,7 @@ import { createClusterFileTool } from './features/clusterAnalysis/fileTool.js';
 import { readLocalBuild } from './foundation/localBuildFile.js';
 import { PoBWatchersEyeSource } from './adapters/watchersEye/pobSource.js';
 import { watchersEyeSchema, createWatchersEyeTool } from './features/watchersEye/tool.js';
+import { jewelComparisonSchema, createJewelComparisonTool } from './features/jewelComparison/tool.js';
 import { createModifierDataTools } from './features/modifierData/tools.js';
 import { PoBModifierData } from './adapters/modifierData/pobModifierData.js';
 import { LocalBuildFileCatalog } from './adapters/localBuild/fileCatalog.js';
@@ -179,6 +180,7 @@ class PoBMCPServer {
       engineStatusSchema(),
       clusterAnalysisSchema(),
       watchersEyeSchema(),
+      jewelComparisonSchema(),
       ...this.modifierFeatures.schemas(),
       ...this.buildFileCatalog.schemas(),
       ...this.configPresetCatalog.schemas(),
@@ -591,6 +593,7 @@ class PoBMCPServer {
       migrated.push(createEngineStatusTool(new PoBEngineStatusAdapter(engineLimiter)));
       migrated.push(createClusterAnalysisTool(foundation));
       migrated.push(createWatchersEyeTool(foundation, new PoBWatchersEyeSource()));
+      migrated.push(createJewelComparisonTool(foundation));
       if (trade) migrated.push(createTradePreviewTool(foundation, trade));
       this.foundationFeatures = new FeatureRegistry(migrated);
     }
