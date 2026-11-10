@@ -94,6 +94,22 @@ try {
   await client.loadBuildXml(xml, 'regression-fixture');
   const fixtureTree = await client.getTree();
   const fixtureStats = await client.getStats(['Life', 'EnergyShield', 'TotalDPS', 'CombinedDPS', 'TotalEHP']);
+  const beforeItems = await client.getItems();
+  const amuletText = xml.match(/<Item id="2">([\s\S]*?)<\/Item>/)?.[1]?.trim();
+  assert.ok(amuletText?.includes('+46 to maximum Life'), 'amulet fixture changed');
+  const candidateText = amuletText.replace('+46 to maximum Life', '+96 to maximum Life');
+  const itemPreview = await client.compareItem('Amulet', candidateText);
+  assert.ok(itemPreview.candidateStats.Life > itemPreview.baseline.Life, 'item preview did not change life');
+  assert.deepEqual(await client.getItems(), beforeItems, 'item preview changed equipped items');
+  assert.deepEqual(await client.getStats(['Life', 'EnergyShield', 'TotalDPS', 'CombinedDPS', 'TotalEHP']), fixtureStats, 'item preview changed live stats');
+  await assert.rejects(() => client.compareItem('Helmet', candidateText), /incompatible/);
+  assert.deepEqual(await client.getItems(), beforeItems, 'rejected item preview changed equipped items');
+  await client.addItem(candidateText, 'Amulet');
+  const itemEquipped = await client.getStats(['Life', 'EnergyShield', 'TotalDPS', 'CombinedDPS', 'TotalEHP']);
+  for (const key of ['Life', 'EnergyShield', 'TotalDPS', 'CombinedDPS', 'TotalEHP']) {
+    assert.ok(Math.abs(itemEquipped[key] - itemPreview.candidateStats[key]) < 0.01, `item preview ${key} disagrees with actual equipment`);
+  }
+  await client.loadBuildXml(xml, 'regression-fixture');
   const shoppingContext = await handleFindItemUpgrades({ getLuaClient: () => client }, { slot: 'Amulet' });
   assert.ok(shoppingContext.content[0].text.includes(`Life: ${fixtureStats.Life}`), 'shopping context does not match live PoB Life');
   assert.ok(shoppingContext.content[0].text.includes('Prices and candidate items have not been checked'), 'shopping context must disclose missing price data');
@@ -129,6 +145,15 @@ try {
   const afterAnointStats = await client.getStats(['Life', 'MinionTotalDPS', 'MinionCombinedDPS']);
   assert.deepEqual(afterAnointStats, originalAnointStats, 'anoint simulation changed calculated stats');
   assert.deepEqual(await client.getTree(), originalAnointTree, 'anoint simulation changed passive tree');
+  const minionItemText = `${amuletText}\nMinions deal 40% increased Damage`;
+  const minionPreview = await client.compareItem('Amulet', minionItemText);
+  assert.ok(minionPreview.baseline.MinionCombinedDPS > 0 && minionPreview.candidateStats.MinionCombinedDPS > minionPreview.baseline.MinionCombinedDPS, 'item preview must include poison-inclusive minion damage');
+  assert.deepEqual(itemIdentity(await client.getItems()), originalItems, 'minion item preview changed equipped items');
+  await client.addItem(minionItemText, 'Amulet');
+  const actualMinionItem = await client.getStats(['MinionTotalDPS', 'MinionCombinedDPS']);
+  for (const key of ['MinionTotalDPS', 'MinionCombinedDPS']) {
+    assert.ok(Math.abs(actualMinionItem[key] - minionPreview.candidateStats[key]) < 0.01, `minion item preview ${key} disagrees with actual equipment`);
+  }
   console.log(JSON.stringify({ spellDps: spell.TotalDPS, minionDps: minion.MinionTotalDPS, jewels: jewels.length }));
 } finally {
   await client.stop();

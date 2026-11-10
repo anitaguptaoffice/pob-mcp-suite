@@ -18,6 +18,7 @@ Trade tools are environment-gated.
 - Use `get_item_price` for simple price checks.
 - Use `find_item_upgrades`, `find_resistance_gear`, and `generate_shopping_list` only after loading or identifying the build.
 - Use `compare_trade_items` to display raw details of specific listings. It does not compare currencies or calculate PoB replacement benefits; evaluate those separately.
+- Use `compare_equipment_candidate` with a complete PoB-compatible item text and the exact active equipment slot to preview replacement stats without equipping it. It uses the live build and current configuration; it does not validate game legality, listing price, or item availability. Jewels, flasks and swap slots are not supported.
 
 ## Search Workflow
 
@@ -28,7 +29,7 @@ Trade tools are environment-gated.
 5. Keep searches bounded with price caps, listing status, rarity, links, and stat minimums. For this user, default to `status=securable` for instant-buyout listings; sellers may be offline. `available` also includes in-person trades, while `online` is in-person only.
 6. Prefer a small ranked shortlist over broad market dumps.
 7. If recommending an item, explain what it improves and what it may cost the build.
-8. Recalculate with Lua after applying pasted item text when possible.
+8. Preview a candidate with `compare_equipment_candidate` before applying it when possible; verify socket and requirement changes separately.
 
 ### Source-aware stat group example
 

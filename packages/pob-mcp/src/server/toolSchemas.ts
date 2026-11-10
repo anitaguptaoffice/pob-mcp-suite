@@ -308,6 +308,14 @@ export function getToolSchemas(): ToolSchema[] {
 export function getLuaToolSchemas(): ToolSchema[] {
   return [
     {
+      name: "compare_equipment_candidate",
+      description: "Use the current live PoB build and item-preview calculator to compare one candidate item without equipping it. Returns player/minion damage and defense stats separately. Does not validate item legality or price; excludes jewels, flasks and swap slots.",
+      inputSchema: { type: "object", properties: {
+        slot: { type: "string", description: "Exact active PoB equipment slot, e.g. Amulet." },
+        item_text: { type: "string", description: "Complete PoB-compatible item text, up to 10 KB." },
+      }, required: ["slot", "item_text"] },
+    },
+    {
       name: "lua_get_capabilities",
       description: "Report the active PoB bridge mode, adapter version, and supported actions.",
       inputSchema: { type: "object", properties: {} },

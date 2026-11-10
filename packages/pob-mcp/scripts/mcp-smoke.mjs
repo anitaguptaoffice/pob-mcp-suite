@@ -108,7 +108,7 @@ try {
 
   const tools = await request("tools/list");
   const names = new Set((tools.tools ?? []).map((tool) => tool.name));
-  for (const required of ["lua_new_build", "lua_get_build_info", "lua_get_stats"]) {
+  for (const required of ["lua_new_build", "lua_get_build_info", "lua_get_stats", "compare_equipment_candidate"]) {
     if (!names.has(required)) {
       throw new Error(`Required tool missing: ${required}`);
     }
@@ -130,6 +130,10 @@ try {
 
   const fixture = await readFile(new URL('../tests/fixtures/occ-vortex.xml', import.meta.url), 'utf8');
   await callTool('lua_load_build', { build_xml: fixture });
+  const amuletText = fixture.match(/<Item id="2">([\s\S]*?)<\/Item>/)?.[1]?.trim();
+  if (!amuletText) throw new Error('Item comparison fixture missing');
+  const comparison = JSON.parse(readText(await callTool('compare_equipment_candidate', { slot: 'Amulet', item_text: amuletText.replace('+46 to maximum Life', '+96 to maximum Life') })));
+  if (!(comparison.delta.Life > 0) || comparison.source !== 'current_live_pob') throw new Error('Item comparison MCP result is incomplete');
   const report = await request('tools/call', { name: 'export_build_summary', arguments: {} });
   const reportText = readText(report);
   if (report.isError || !reportText.includes('## 技能组') || !reportText.includes('Vortex') ||

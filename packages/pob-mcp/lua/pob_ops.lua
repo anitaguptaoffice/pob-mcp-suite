@@ -806,6 +806,43 @@ function M.get_compatible_supports(params)
     candidates = candidates, total = total, failed = failed }
 end
 
+-- Non-destructive item comparison using PoB's own item tooltip calculator.
+function M.compare_item(params)
+  if not build or not build.itemsTab or not build.calcsTab then return nil, 'build not initialized' end
+  if type(params) ~= 'table' or type(params.slot) ~= 'string' or type(params.itemText) ~= 'string' or #params.itemText == 0 or #params.itemText > MAX_ITEM_TEXT_LENGTH then return nil, 'invalid slot or item text' end
+  local tab, slotName = build.itemsTab, params.slot
+  local slot = tab.slots and tab.slots[slotName]
+  if not slot or slot.nodeId or slotName:find('Flask') or slotName:find('Swap') or slotName:find('Socket') then return nil, 'slot is not a supported equipment slot' end
+  local ok, result = pcall(function()
+    if slot.inactive or (slot.weaponSet and slot.weaponSet ~= (tab.activeItemSet.useSecondWeaponSet and 2 or 1)) or (type(slot.IsShown) == 'function' and not slot:IsShown()) then error('slot is inactive or hidden') end
+    local item = new('Item'):Item(params.itemText)
+    if not item or not item.base or not item.baseName then error('item could not be parsed') end
+    item:NormaliseQuality()
+    if not tab:IsItemValidForSlot(item, slotName) then error('item is incompatible with slot') end
+    local calc = build.calcsTab:GetMiscCalculator()
+    local before = calc({}, true)
+    local after = calc({ repSlotName = slotName, repItem = item }, true)
+    if type(before) ~= 'table' or type(after) ~= 'table' then error('calculator returned no stats') end
+    local function metrics(output)
+      local values = {}
+      for _, key in ipairs({ 'Life', 'EnergyShield', 'TotalEHP', 'FireResist', 'ColdResist', 'LightningResist', 'ChaosResist', 'TotalDPS', 'CombinedDPS', 'FullDPS' }) do
+        local n = output[key]
+        if type(n) == 'number' and n == n and n ~= math.huge and n ~= -math.huge then values[key] = n end
+      end
+      if type(output.Minion) == 'table' then
+        for _, key in ipairs({ 'TotalDPS', 'CombinedDPS' }) do
+          local n = output.Minion[key]
+          if type(n) == 'number' and n == n and n ~= math.huge and n ~= -math.huge then values['Minion' .. key] = n end
+        end
+      end
+      return values
+    end
+    return { slot = slotName, candidate = { name = item.name, base = item.baseName }, baseline = metrics(before), candidateStats = metrics(after) }
+  end)
+  if not ok then return nil, 'item comparison failed: ' .. tostring(result) end
+  return result
+end
+
 function M.set_main_selection(params)
   if not build or not build.skillsTab or not build.calcsTab then return nil, 'skills not initialized' end
   if type(params) ~= 'table' then return nil, 'invalid params' end

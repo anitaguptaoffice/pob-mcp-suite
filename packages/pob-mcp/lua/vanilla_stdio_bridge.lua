@@ -307,6 +307,7 @@ handlers.get_config = function()
   return { ok = true, config = cfg, labels = (BuildOps.get_config_labels()) }
 end
 handlers.calc_with = op(BuildOps.calc_with, 'output')
+handlers.compare_item = op(BuildOps.compare_item, 'result')
 handlers.export_build_xml = op(BuildOps.export_build_xml, 'xml')
 handlers.add_item_text = op(BuildOps.add_item_text, 'item')
 handlers.create_socket_group = op(BuildOps.create_socket_group, 'socketGroup')

@@ -41,6 +41,7 @@ import { handleSuggestWatchersEye } from "../handlers/jewelAdvisorHandlers.js";
 import { handleSuggestCrafting } from "../handlers/craftingAdvisorHandler.js";
 import { handleFindTimelessJewelSeeds } from "../handlers/timelessJewelHandlers.js";
 import { handleFindItemUpgrades as handleFindItemUpgradesNew } from "../handlers/itemShoppingHandler.js";
+import { compareItem } from "../features/itemComparison/tool.js";
 import { handleClassifyItemAffixes, handleListCraftableMods, handleFindAffixTiers } from "../handlers/affixHandlers.js";
 
 export interface ToolRouterDependencies {
@@ -621,6 +622,14 @@ export async function routeToolCall(
         { getLuaClient: deps.getLuaClient },
         args as Parameters<typeof handleFindItemUpgradesNew>[1]
       );
+    }
+
+    case "compare_equipment_candidate": {
+      await deps.ensureLuaClient();
+      const client = deps.getLuaClient();
+      if (!client) throw new Error('PoB Lua bridge not available');
+      const result = await compareItem(client, args ?? {});
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
     }
 
     case "find_resistance_gear": {
