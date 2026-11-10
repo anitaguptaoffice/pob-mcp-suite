@@ -46,6 +46,7 @@ try {
   assert.ok(!tools.result.tools.some(t => t.name === 'assess_snapshot_boss_reference'));
   assert.ok(!tools.result.tools.some(t => t.name === 'rank_snapshot_mastery_effects'));
   assert.ok(!tools.result.tools.some(t => t.name === 'discover_snapshot_mastery_effects'));
+  assert.ok(!tools.result.tools.some(t => t.name === 'submit_snapshot_mastery_ranking' || t.name === 'summarize_snapshot_mastery_ranking'));
   const hidden = await disabled.request('tools/call', { name: 'foundation_import_build', arguments: { xml: '<x/>', source: 'test' } });
   assert.equal(hidden.result.isError, true);
   disabled.child.stdin.end(); await once(disabled.child, 'exit');
@@ -95,6 +96,8 @@ try {
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'assess_snapshot_boss_reference').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'rank_snapshot_mastery_effects').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'discover_snapshot_mastery_effects').length, 1);
+  assert.equal(foundationOnly.result.tools.filter(t => t.name === 'submit_snapshot_mastery_ranking').length, 1);
+  assert.equal(foundationOnly.result.tools.filter(t => t.name === 'summarize_snapshot_mastery_ranking').length, 1);
   assert.ok(foundationOnly.result.tools.some(t => t.name === 'compare_craft_budget'));
   assert.ok(foundationOnly.result.tools.some(t => t.name === 'simulate_simple_annul'));
   assert.ok(!foundationOnly.result.tools.some(t => t.name === 'estimate_trade_comparable'));

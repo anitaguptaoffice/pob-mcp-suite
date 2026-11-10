@@ -55,7 +55,8 @@ import { createSnapshotBuildComparisonTool, snapshotBuildComparisonSchema } from
 import { createTreePathTools, treePathSchemas } from './features/treePaths/tool.js';
 import { buildIssuesSchema, createBuildIssuesTool } from './features/buildIssues/tool.js';
 import { bossReadinessSchema, createBossReadinessTool } from './features/bossReadiness/tool.js';
-import { masteryRankingSchema, createMasteryRankingTool, masteryDiscoverySchema, createMasteryDiscoveryTool } from './features/masteryRanking/tool.js';
+import { masteryRankingSchema, createMasteryRankingTool, masteryDiscoverySchema, createMasteryDiscoveryTool, rankMasteryEffects } from './features/masteryRanking/tool.js';
+import { masteryJobSchemas, createMasteryJobTools } from './features/masteryRanking/jobTools.js';
 import { createCurrencyReferenceTools, currencyReferenceSchemas } from './features/currencyReference/tools.js';
 import { createCurrencySpreadTool, currencySpreadSchema } from './features/currencySpread/tool.js';
 import { createTradePreviewTool, tradePreviewSchema } from './features/tradePreview/tool.js';
@@ -124,6 +125,7 @@ class PoBMCPServer {
       bossReadinessSchema(),
       masteryRankingSchema(),
       masteryDiscoverySchema(),
+      ...masteryJobSchemas(),
       ...currencyReferenceSchemas(),
       currencySpreadSchema(),
       tradePreviewSchema(),
@@ -482,7 +484,9 @@ class PoBMCPServer {
       }));
       const foundation = this.foundation;
       const economy = new PoeNinjaAdapter();
-      const migrated = [createSnapshotCostTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), createSnapshotBuildComparisonTool(foundation), ...createTreePathTools(foundation), createBuildIssuesTool(foundation), createBossReadinessTool(foundation), createMasteryRankingTool(foundation), createMasteryDiscoveryTool(foundation), createTimelessSearchTool(foundation), ...createCurrencyReferenceTools(economy), createCurrencySpreadTool(economy)];
+      this.foundationJobs = new JobRunner(jobs, input => foundation.evaluate(input.snapshotId, input.fields, input.options), 2,
+        input => rankMasteryEffects(foundation, { snapshot_id: input.snapshotId, node_id: input.nodeId, effect_ids: [input.effectId], metric: input.metric, direction: input.direction }));
+      const migrated = [createSnapshotCostTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), createSnapshotBuildComparisonTool(foundation), ...createTreePathTools(foundation), createBuildIssuesTool(foundation), createBossReadinessTool(foundation), createMasteryRankingTool(foundation), createMasteryDiscoveryTool(foundation), ...createMasteryJobTools(foundation, this.foundationJobs), createTimelessSearchTool(foundation), ...createCurrencyReferenceTools(economy), createCurrencySpreadTool(economy)];
       // Until the legacy Trade client is retired, do not run two independent
       // rate limiters in one service against the same official API.
       if (process.env.POE_TRADE_ENABLED === 'true' && !this.legacyEnabled()) {
@@ -492,7 +496,6 @@ class PoBMCPServer {
         migrated.push(createSourceComparableTool(trade), createTradeSearchTool(trade), createTradeItemPriceTool(trade), createTradePreviewTool(foundation, trade), createTradeListingComparisonTool(trade), createResistanceTradeTool(trade), createClusterTradeTool(trade), ...createTradeMetadataTools(trade));
       }
       this.foundationFeatures = new FeatureRegistry(migrated);
-      this.foundationJobs = new JobRunner(jobs, input => foundation.evaluate(input.snapshotId, input.fields, input.options));
     }
     // StatMapper is intentionally static-only: the trade API /stats dump keys
     // everything by hashed ID (no PoB names), so swapping it in at startup used

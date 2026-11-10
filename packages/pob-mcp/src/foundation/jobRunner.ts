@@ -2,6 +2,9 @@ import { JobStore, type JobRecord } from './jobStore.js';
 import { validateEvaluationOptions, type EvaluationOptions } from './buildFoundation.js';
 
 export interface EvaluationInput { snapshotId: string; fields: string[]; options?: EvaluationOptions }
+export interface MasteryEvaluationInput { kind: 'mastery'; snapshotId: string; nodeId: number; effectId: number; metric: string; direction: 'higher' | 'lower'; treeVersion: string | null; discoveryIdentity: BuildIdentity; includeCurrent: boolean; selected: boolean | null; totalDiscovered: number; totalMasteries: number }
+type BuildIdentity = { engineVersion: string | null; adapterVersion: string | null; dataVersion: string | null; runtimeVersion?: string | null; executableVersion?: string | null };
+type JobInput = EvaluationInput | MasteryEvaluationInput;
 
 /** One bounded runner; cancellation is cooperative between complete items. */
 export class JobRunner {
@@ -9,15 +12,32 @@ export class JobRunner {
   private closing = false;
   private reservations = 0;
   private readonly submissions = new Set<Promise<JobRecord>>();
-  constructor(private readonly store: JobStore, private readonly evaluate: (input: EvaluationInput) => Promise<unknown>, private readonly maxJobs = 2) {}
+  constructor(private readonly store: JobStore, private readonly evaluate: (input: EvaluationInput) => Promise<unknown>, private readonly maxJobs = 2,
+    private readonly evaluateMastery?: (input: MasteryEvaluationInput) => Promise<unknown>) {}
 
   async submit(inputs: EvaluationInput[]): Promise<JobRecord> {
     if (this.closing) throw new Error('Job runner is closing');
     if (!Array.isArray(inputs) || inputs.length < 1 || inputs.length > 100) throw new Error('Provide 1 to 100 evaluation items');
     for (const input of inputs) {
-      if (!input || !/^[a-f0-9]{64}$/.test(input.snapshotId) || !Array.isArray(input.fields) || input.fields.length < 1 || input.fields.length > 100 || input.fields.some(field => typeof field !== 'string' || !field.trim())) throw new Error('Invalid evaluation item');
+      if (!input || typeof input !== 'object' || Array.isArray(input) || 'kind' in input || !/^[a-f0-9]{64}$/.test(input.snapshotId) || !Array.isArray(input.fields) || input.fields.length < 1 || input.fields.length > 100 || input.fields.some(field => typeof field !== 'string' || !field.trim())) throw new Error('Invalid evaluation item');
       if (input.options !== undefined) validateEvaluationOptions(input.options);
     }
+    return this.submitValidated(inputs);
+  }
+
+  async submitMasteries(inputs: MasteryEvaluationInput[]): Promise<JobRecord> {
+    if (this.closing) throw new Error('Job runner is closing');
+    if (!this.evaluateMastery || !Array.isArray(inputs) || inputs.length < 1 || inputs.length > 1000) throw new Error('Provide 1 to 1000 mastery evaluations');
+    const positive = (value: unknown) => typeof value === 'number' && Number.isSafeInteger(value) && value > 0 && value <= 2147483647;
+    const validIdentity = (value: unknown): value is BuildIdentity => !!value && typeof value === 'object' && !Array.isArray(value) && ['engineVersion', 'adapterVersion', 'dataVersion', 'runtimeVersion', 'executableVersion'].every(key => {
+      const field = (value as Record<string, unknown>)[key]; return field === undefined || field === null || typeof field === 'string' && field.length > 0;
+    });
+    const first = inputs[0];
+    if (inputs.some(input => !input || input.kind !== 'mastery' || !/^[a-f0-9]{64}$/.test(input.snapshotId) || !positive(input.nodeId) || !positive(input.effectId) || typeof input.metric !== 'string' || !/^[A-Za-z][A-Za-z0-9_]{0,99}$/.test(input.metric) || !['higher', 'lower'].includes(input.direction) || (input.treeVersion !== null && (typeof input.treeVersion !== 'string' || !input.treeVersion)) || !validIdentity(input.discoveryIdentity) || typeof input.includeCurrent !== 'boolean' || ![true, false, null].includes(input.selected) || (input.selected === true && !input.includeCurrent) || !Number.isSafeInteger(input.totalDiscovered) || input.totalDiscovered < inputs.length || !Number.isSafeInteger(input.totalMasteries) || input.totalMasteries < 1 || input.snapshotId !== first.snapshotId || input.metric !== first.metric || input.direction !== first.direction || input.treeVersion !== first.treeVersion || input.includeCurrent !== first.includeCurrent || input.totalDiscovered !== first.totalDiscovered || input.totalMasteries !== first.totalMasteries || JSON.stringify(input.discoveryIdentity) !== JSON.stringify(first.discoveryIdentity)) || new Set(inputs.map(input => `${input.nodeId}:${input.effectId}`)).size !== inputs.length) throw new Error('Invalid mastery evaluations');
+    return this.submitValidated(inputs);
+  }
+
+  private async submitValidated(inputs: JobInput[]): Promise<JobRecord> {
     if (this.reservations >= this.maxJobs) throw new Error('Job runner is full');
     const frozenInputs = structuredClone(inputs);
     this.reservations++;
@@ -27,7 +47,7 @@ export class JobRunner {
     finally { this.submissions.delete(submission); }
   }
 
-  private async createAndStart(inputs: EvaluationInput[]): Promise<JobRecord> {
+  private async createAndStart(inputs: JobInput[]): Promise<JobRecord> {
     try {
       const job = await this.store.create(inputs.length, inputs);
       if (this.closing) { const cancelled = await this.store.requestCancel(job.id); this.reservations--; return cancelled; }
@@ -38,7 +58,7 @@ export class JobRunner {
     } catch (error) { this.reservations--; throw error; }
   }
 
-  private async run(id: string, inputs: EvaluationInput[]): Promise<void> {
+  private async run(id: string, inputs: JobInput[]): Promise<void> {
     try {
       if ((await this.store.get(id)).status !== 'queued') return;
       try { await this.store.start(id); }
@@ -47,7 +67,8 @@ export class JobRunner {
         const started = await this.store.startItem(id, index);
         if (started.status === 'cancel_requested') break;
         try {
-          const result = await this.evaluate(inputs[index]);
+          const input = inputs[index];
+          const result = 'kind' in input && input.kind === 'mastery' ? await this.evaluateMastery!(input) : await this.evaluate(input as EvaluationInput);
           await this.store.recordItem(id, index, { status: 'completed', result });
         } catch (error) {
           await this.store.recordItem(id, index, { status: 'failed', error: error instanceof Error ? error.message : String(error) });
