@@ -54,6 +54,7 @@ import { createSnapshotTreeComparisonTool, snapshotTreeComparisonSchema } from '
 import { createSnapshotBuildComparisonTool, snapshotBuildComparisonSchema } from './features/buildComparison/tool.js';
 import { createTreePathTools, treePathSchemas } from './features/treePaths/tool.js';
 import { buildIssuesSchema, createBuildIssuesTool } from './features/buildIssues/tool.js';
+import { bossReadinessSchema, createBossReadinessTool } from './features/bossReadiness/tool.js';
 import { createCurrencyReferenceTools, currencyReferenceSchemas } from './features/currencyReference/tools.js';
 import { createCurrencySpreadTool, currencySpreadSchema } from './features/currencySpread/tool.js';
 import { createTradePreviewTool, tradePreviewSchema } from './features/tradePreview/tool.js';
@@ -118,6 +119,7 @@ class PoBMCPServer {
       snapshotBuildComparisonSchema(),
       ...treePathSchemas(),
       buildIssuesSchema(),
+      bossReadinessSchema(),
       ...currencyReferenceSchemas(),
       currencySpreadSchema(),
       tradePreviewSchema(),
@@ -475,7 +477,7 @@ class PoBMCPServer {
       }));
       const foundation = this.foundation;
       const economy = new PoeNinjaAdapter();
-      const migrated = [createSnapshotCostTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), createSnapshotBuildComparisonTool(foundation), ...createTreePathTools(foundation), createBuildIssuesTool(foundation), createTimelessSearchTool(foundation), ...createCurrencyReferenceTools(economy), createCurrencySpreadTool(economy)];
+      const migrated = [createSnapshotCostTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), createSnapshotBuildComparisonTool(foundation), ...createTreePathTools(foundation), createBuildIssuesTool(foundation), createBossReadinessTool(foundation), createTimelessSearchTool(foundation), ...createCurrencyReferenceTools(economy), createCurrencySpreadTool(economy)];
       // Until the legacy Trade client is retired, do not run two independent
       // rate limiters in one service against the same official API.
       if (process.env.POE_TRADE_ENABLED === 'true' && !this.legacyEnabled()) {

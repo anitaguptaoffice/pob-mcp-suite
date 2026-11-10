@@ -17,7 +17,11 @@ try {
   await client.setConfig({ customMods: 'Minions have 100% chance to Poison on Hit' });
   const expected = await client.getStats(['Life', 'EnergyShield', 'FireResist', 'MissingFireResist', 'MinionTotalDPS', 'MinionCombinedDPS']);
   assert.ok(expected.MinionCombinedDPS > expected.MinionTotalDPS && expected.MinionTotalDPS > 0);
-  const { xml } = await client.unchangedItemsSnapshot(); await client.stop();
+  const { xml } = await client.unchangedItemsSnapshot();
+  const configured = await client.setConfig({ enemyIsBoss: 'Uber' });
+  assert.equal(configured.applied.enemyIsBoss, 'Uber');
+  const expectedUber = await client.getStats(['MinionCombinedDPS']);
+  await client.stop();
   const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
   child = mcp.child; child.stderr.on('data', () => {}); const exited = once(child, 'exit');
   await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'issues-smoke', version: '1' } });
@@ -34,6 +38,14 @@ try {
   assert.match(scan.context.config.customMods, /100% chance to Poison/);
   assert.ok(!scan.issues.some(issue => issue.code === 'zero_damage'));
   assert.ok(!scan.issues.some(issue => issue.code === 'empty_gear_slot' && issue.evidence.slot === 'Ring 3'));
+  const reference = await call('assess_snapshot_boss_reference', { snapshot_id: parent.id, boss: 'uber_exarch', enemy_mode: 'encounter', damage_metric: 'MinionCombinedDPS' });
+  assert.equal(reference.enemyConfiguration.actual, 'Uber');
+  assert.equal(reference.enemyConfiguration.matches, true);
+  assert.equal(reference.reference.difficulty, 'uber');
+  assert.equal(reference.selectedDamageMetric, 'MinionCombinedDPS');
+  assert.equal(reference.metrics.MinionCombinedDPS.value, expectedUber.MinionCombinedDPS);
+  const savedAfter = await call('foundation_evaluate', { snapshot_id: parent.id, fields: ['MinionCombinedDPS'] });
+  assert.equal(savedAfter.stats.MinionCombinedDPS, expected.MinionCombinedDPS);
   assert.equal((await call('foundation_export_build', { snapshot_id: parent.id })).xml, xml);
   child.stdin.end(); assert.equal((await exited)[0], 0);
   console.log('foundation issue scan passed');

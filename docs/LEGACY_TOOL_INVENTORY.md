@@ -11,7 +11,7 @@ Generated from registered schema groups in the current build. Most entries are p
 - `analyze_build_cluster_jewels` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
 - `analyze_cluster_jewels` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
 - `suggest_watchers_eye` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
-- `check_boss_readiness` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `check_boss_readiness` — target: analysis and optimization; replacement: `assess_snapshot_boss_reference`; status: partially migrated (legacy callers remain; thresholds are unverified heuristics, not readiness guarantees); skill references: no exact name found in packaged skill Markdown.
 - `suggest_crafting` — target: crafting and item data; replacement: item data/crafting module; status: not migrated; skill references: `skills/pob-crafting/SKILL.md`.
 
 ## getConfigToolSchemas
