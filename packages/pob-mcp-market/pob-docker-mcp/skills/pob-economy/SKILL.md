@@ -16,4 +16,11 @@ Use Simplified Chinese for user-facing answers and verified Simplified Chinese g
 
 The poe.ninja source covers public economy data only. Do not call its internal builds/profile endpoints. Prices and availability change; respect source limits and caching. If data or a rate is unavailable, say so instead of estimating zero.
 
+For currency reference values, use `reference_currency_rates` when advertised,
+otherwise `get_currency_rates`. For a reference conversion chain, use
+`simulate_reference_currency_chain` when advertised, otherwise
+`calculate_trading_profit`. A reference-price round trip is not an executable
+arbitrage profit; report source time and missing steps, and check live prices,
+spreads and fees before any trading recommendation.
+
 Trade search is optional and only advertised when `POE_TRADE_ENABLED=true` in the MCP server's environment; the Docker wrapper defaults it to `false`. Explain that the MCP server must be restarted after changing the setting. Public reference-price and craft-budget tools do not require a trade session cookie.
