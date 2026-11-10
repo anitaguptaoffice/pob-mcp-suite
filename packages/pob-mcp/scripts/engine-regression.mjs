@@ -113,6 +113,8 @@ try {
   }
   await assert.rejects(() => client.setGemLevel({ groupIndex: 1, gemIndex: 1, level: 1.5 }), /invalid level/);
   await assert.rejects(() => client.setGemQuality({ groupIndex: 1, gemIndex: 1, quality: 0.5 }), /invalid quality/);
+  await assert.rejects(() => client.addGem({ groupIndex: 1, gemName: 'Arc', qualityId: 'Anomalous' }), /unsupported quality type/);
+  await assert.rejects(() => client.setGemQuality({ groupIndex: 1, gemIndex: 1, quality: 30, qualityId: 'Divergent' }), /unsupported quality type/);
   assert.deepEqual(await client.getSkills(), beforeInvalidGems, 'invalid gem parameters changed skill state');
   await client.setGemQuality({ groupIndex: 1, gemIndex: 1, quality: 30 });
   assert.equal((await client.getSkills()).groups[0].gems[0].quality, 30, 'PoB simulation quality was not retained');

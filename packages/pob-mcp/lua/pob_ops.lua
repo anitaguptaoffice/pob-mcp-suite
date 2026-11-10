@@ -1148,6 +1148,7 @@ function M.add_gem(params)
   if params.level ~= nil and not validInteger(params.level, 1, 40) then return nil, 'invalid level (must be an integer from 1 to 40)' end
   if params.quality ~= nil and not validInteger(params.quality, 0, 99) then return nil, 'invalid quality (must be an integer from 0 to 99)' end
   if params.count ~= nil and not validInteger(params.count, 1, 10000) then return nil, 'invalid count (must be a positive integer up to 10000)' end
+  if params.qualityId ~= nil and params.qualityId ~= 'Default' then return nil, 'unsupported quality type; only Default is verified for this PoB adapter' end
 
   local skillSetId = build.skillsTab.activeSkillSetId or 1
   local skillSet = build.skillsTab.skillSets[skillSetId]
@@ -1270,6 +1271,7 @@ function M.set_gem_quality(params)
   if not gemInstance then return nil, 'gem not found' end
 
   if not quality or quality < 0 or quality > 99 or quality ~= math.floor(quality) then return nil, 'invalid quality (must be an integer from 0 to 99)' end
+  if params.qualityId ~= nil and params.qualityId ~= 'Default' then return nil, 'unsupported quality type; only Default is verified for this PoB adapter' end
 
   gemInstance.quality = quality
   if params.qualityId then

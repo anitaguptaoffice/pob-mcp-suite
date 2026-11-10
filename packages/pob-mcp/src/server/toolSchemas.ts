@@ -769,7 +769,7 @@ export function getLuaToolSchemas(): ToolSchema[] {
           },
           quality_type: {
             type: "string",
-            description: "Type: 'Default', 'Anomalous', 'Divergent', 'Phantasmal' (optional)",
+            description: "Only 'Default' is verified for this PoB adapter; omitted means Default.",
           },
           enabled: {
             type: "boolean",
@@ -821,7 +821,7 @@ export function getLuaToolSchemas(): ToolSchema[] {
           },
           quality_type: {
             type: "string",
-            description: "Type: 'Default', 'Anomalous', 'Divergent', 'Phantasmal' (optional)",
+            description: "Only 'Default' is verified for this PoB adapter; omit to leave any existing field unchanged.",
           },
         },
         required: ["group_index", "gem_index", "quality"],

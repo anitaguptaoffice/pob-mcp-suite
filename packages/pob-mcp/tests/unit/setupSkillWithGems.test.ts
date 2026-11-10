@@ -9,6 +9,9 @@ describe('skill group setup', () => {
     await expect(handleSetupSkillWithGems({ getLuaClient: () => client, ensureLuaClient: async () => {} },
       [{ name: 'Arc' }, { name: '' }])).rejects.toThrow('no socket group was created');
     expect(createSocketGroup).not.toHaveBeenCalled();
+    await expect(handleSetupSkillWithGems({ getLuaClient: () => client, ensureLuaClient: async () => {} },
+      [{ name: 'Arc', quality_id: 'Anomalous' }])).rejects.toThrow('no socket group was created');
+    expect(createSocketGroup).not.toHaveBeenCalled();
   });
 
   it('reports the created group and partial additions when a gem fails', async () => {

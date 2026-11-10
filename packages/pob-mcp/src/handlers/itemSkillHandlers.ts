@@ -667,7 +667,7 @@ export async function handleSetupSkillWithGems(
     if (gems.some(gem => !gem || typeof gem.name !== 'string' || !gem.name.trim() ||
       (gem.level !== undefined && (!Number.isInteger(gem.level) || gem.level < 1 || gem.level > 40)) ||
       (gem.quality !== undefined && (!Number.isInteger(gem.quality) || gem.quality < 0 || gem.quality > 99)) ||
-      (gem.quality_id !== undefined && (typeof gem.quality_id !== 'string' || !gem.quality_id.trim())) ||
+      (gem.quality_id !== undefined && gem.quality_id !== 'Default') ||
       (gem.enabled !== undefined && typeof gem.enabled !== 'boolean'))) {
       throw new Error('invalid gem input; no socket group was created');
     }
