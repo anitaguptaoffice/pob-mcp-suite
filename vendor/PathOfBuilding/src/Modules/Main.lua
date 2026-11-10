@@ -302,7 +302,6 @@ the "Releases" section of the GitHub page.]])
 			end
 		end
 	end
-
 end
 
 function main:DetectUnicodeSupport()
@@ -340,7 +339,7 @@ function main:SaveModCache()
 				out:write("end)();(function()\n")
 				count = 0
 			else
-				count = count + 1
+				count += 1
 			end
 		end
 	end

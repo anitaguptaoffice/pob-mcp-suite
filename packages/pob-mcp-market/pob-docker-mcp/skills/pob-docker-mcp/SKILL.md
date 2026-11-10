@@ -129,4 +129,6 @@ POB_DOCKER_IMAGE=ghcr.io/anitaguptaoffice/pob-mcp-suite:latest ./scripts/pob-mcp
 
 ## Response Style
 
+Use Simplified Chinese for user-facing answers and established Simplified Chinese names for game concepts. When a name is uncertain, check the appropriate game and version on https://poedb.tw/cn/; do not invent translations. Retain original names or IDs where they help disambiguate, and explain jargon for beginners. Keep tool names and other machine-facing identifiers unchanged.
+
 Keep answers build-focused. Lead with the concrete finding, then list the exact PoB changes to try. When results depend on budget, ask for the budget before recommending market purchases.

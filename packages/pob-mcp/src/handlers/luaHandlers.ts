@@ -1,11 +1,13 @@
-import type { PoBLuaApiClient } from "../pobLuaBridge.js";
+import type { AilmentReport, PoBLuaApiClient } from "../pobLuaBridge.js";
+import { noteIgnoredError } from '../utils/errorHandling.js';
 import { handleGetBuildIssues } from "./buildGoalsHandlers.js";
 import fs from "fs/promises";
-import path from "path";
 import { wrapHandler } from "../utils/errorHandling.js";
-import { sanitizeBuildName } from "../utils/pathSanitizer.js";
+import { buildFileName, resolveBuildFile } from "../utils/pathSanitizer.js";
+import type { BuildService } from "../services/buildService.js";
 
 export interface LuaHandlerContext {
+  buildService?: Pick<BuildService, 'invalidateBuild'>;
   pobDirectory: string;
   luaEnabled: boolean;
   getLuaClient: () => PoBLuaApiClient | null;
@@ -66,7 +68,7 @@ export async function handleLuaNewBuild(context: LuaHandlerContext, className?: 
   });
 }
 
-export async function handleLuaSaveBuild(context: LuaHandlerContext, buildName: string) {
+export async function handleLuaSaveBuild(context: LuaHandlerContext, buildName: string, overwrite = false) {
   return wrapHandler('save build', async () => {
     await context.ensureLuaClient();
 
@@ -79,9 +81,10 @@ export async function handleLuaSaveBuild(context: LuaHandlerContext, buildName: 
       throw new Error('build_name is required');
     }
 
-    const fileName = buildName.endsWith('.xml') ? buildName : `${buildName}.xml`;
-    const filePath = sanitizeBuildName(fileName, context.pobDirectory);
-    const result = await luaClient.saveBuild(filePath);
+    const fileName = buildFileName(buildName);
+    const filePath = resolveBuildFile(fileName, context.pobDirectory);
+    const result = await luaClient.saveBuild(filePath, overwrite);
+    context.buildService?.invalidateBuild(buildName);
 
     return {
       content: [
@@ -92,6 +95,82 @@ export async function handleLuaSaveBuild(context: LuaHandlerContext, buildName: 
       ],
     };
   });
+}
+
+/**
+ * Post-load summary shared by every "a build just got loaded into the Lua
+ * bridge" handler: spec/item-set counts, core stats, and top issues.
+ */
+async function buildPostLoadSummary(context: LuaHandlerContext, luaClient: PoBLuaApiClient, name?: string): Promise<string> {
+    // Check for multiple specs / item sets and inform the user (sequential — bridge is single-request)
+    const extraLines: string[] = [];
+    try {
+      const specsResult = await luaClient.listSpecs();
+      const itemSetsResult = await luaClient.listItemSets();
+      if (specsResult?.specs?.length > 1) {
+        extraLines.push('');
+        extraLines.push(`📋 This build has ${specsResult.specs.length} passive tree specs:`);
+        const maxNodes = Math.max(...specsResult.specs.map(s => s.nodeCount ?? 0));
+        for (const s of specsResult.specs) {
+          const isEndgame = s.nodeCount === maxNodes && !s.active ? ' ← likely endgame' : '';
+          extraLines.push(`  ${s.active ? '▶' : ' '} [${s.index}] ${s.title} — ${s.className}/${s.ascendClassName}, ${s.nodeCount} nodes${isEndgame}`);
+        }
+        // Warn if active spec is not the one with the most nodes
+        const activeSpec = specsResult.specs.find(s => s.active);
+        if (activeSpec && activeSpec.nodeCount < maxNodes) {
+          const endgameSpec = specsResult.specs.find(s => s.nodeCount === maxNodes);
+          extraLines.push(`⚠️  Active spec is a leveling tree (${activeSpec.nodeCount} nodes). For endgame analysis, run: select_spec(${endgameSpec?.index})`);
+        }
+        extraLines.push('Use select_spec to switch specs.');
+      }
+      if (itemSetsResult?.itemSets?.length > 1) {
+        extraLines.push('');
+        extraLines.push(`🎒 This build has ${itemSetsResult.itemSets.length} item sets:`);
+        for (const s of itemSetsResult.itemSets) {
+          extraLines.push(`  ${s.active ? '▶' : ' '} [${s.id}] ${s.title}`);
+        }
+        extraLines.push('Use select_item_set to switch item sets.');
+      }
+    } catch (e) { noteIgnoredError("Non-fatal: spec/item set info is advisory only", e); }
+    const extra = extraLines.length > 0 ? '\n' + extraLines.join('\n') : '';
+
+    // Auto-context: fetch stats + top issues after successful load (sequential — bridge is single-request)
+    const summaryLines: string[] = [];
+    try {
+      const info = await luaClient.getBuildInfo().catch(() => null);
+      if (info) {
+        summaryLines.push(`**${info.name || name}** | Level ${info.level} ${info.className ?? ''}${info.ascendClassName ? ` (${info.ascendClassName})` : ''}`);
+      }
+
+      const s = await luaClient.getStats(['Life', 'TotalDPS', 'CombinedDPS', 'MinionTotalDPS',
+        'FireResist', 'ColdResist', 'LightningResist', 'ChaosResist', 'TotalEHP']).catch(() => null);
+      if (s) {
+        const dps = Number(s.CombinedDPS || s.TotalDPS || s.MinionTotalDPS || 0);
+        const dpsLabel = (s.MinionTotalDPS && !s.TotalDPS) ? 'Minion DPS' : 'DPS';
+        summaryLines.push(`Life: ${Number(s.Life ?? 0).toLocaleString()} | ${dpsLabel}: ${Math.round(dps).toLocaleString()} | EHP: ${Number(s.TotalEHP ?? 0).toLocaleString()}`);
+        summaryLines.push(`Resists: F${s.FireResist}% C${s.ColdResist}% L${s.LightningResist}% Ch${s.ChaosResist}%`);
+      }
+
+      const issuesResult = await handleGetBuildIssues({ getLuaClient: context.getLuaClient, ensureLuaClient: async () => {} }).catch(() => null);
+      if (issuesResult) {
+        const { issues } = issuesResult;
+        const topIssues = issues.filter(i => i.severity === 'error' || i.severity === 'warning').slice(0, 3);
+        if (topIssues.length > 0) {
+          summaryLines.push('');
+          summaryLines.push('**Top Issues:**');
+          for (const issue of topIssues) {
+            const icon = issue.severity === 'error' ? '🔴' : '🟡';
+            summaryLines.push(`  ${icon} ${issue.message}`);
+          }
+        } else {
+          summaryLines.push('');
+          summaryLines.push('✅ No critical issues detected.');
+        }
+      }
+    } catch (e) { noteIgnoredError("auto-context is best-effort", e); }
+    const summary = summaryLines.join('\n');
+
+    return extra + (summary ? '\n---\n' + summary : '');
 }
 
 export async function handleLuaLoadBuild(
@@ -110,8 +189,10 @@ export async function handleLuaLoadBuild(
 
     // If build_name is provided, read the file
     let xml = buildXml;
+    let sourcePath: string | undefined;
     if (buildName) {
-      const buildPath = sanitizeBuildName(buildName, context.pobDirectory);
+      const buildPath = resolveBuildFile(buildName, context.pobDirectory);
+      sourcePath = buildPath;
       xml = await fs.readFile(buildPath, 'utf-8');
       // Use the build filename as the name if not specified
       if (!name) {
@@ -121,85 +202,45 @@ export async function handleLuaLoadBuild(
       throw new Error('Either build_name or build_xml must be provided');
     }
 
-    await luaClient.loadBuildXml(xml, name);
-
-    // Check for multiple specs / item sets and inform the user (sequential — bridge is single-request)
-    const extraLines: string[] = [];
-    try {
-      const specsResult = await luaClient.listSpecs();
-      const itemSetsResult = await luaClient.listItemSets();
-      if (specsResult?.specs?.length > 1) {
-        extraLines.push('');
-        extraLines.push(`📋 This build has ${specsResult.specs.length} passive tree specs:`);
-        const maxNodes = Math.max(...specsResult.specs.map((s: any) => s.nodeCount ?? 0));
-        for (const s of specsResult.specs) {
-          const isEndgame = s.nodeCount === maxNodes && !s.active ? ' ← likely endgame' : '';
-          extraLines.push(`  ${s.active ? '▶' : ' '} [${s.index}] ${s.title} — ${s.className}/${s.ascendClassName}, ${s.nodeCount} nodes${isEndgame}`);
-        }
-        // Warn if active spec is not the one with the most nodes
-        const activeSpec = specsResult.specs.find((s: any) => s.active);
-        if (activeSpec && activeSpec.nodeCount < maxNodes) {
-          const endgameSpec = specsResult.specs.find((s: any) => s.nodeCount === maxNodes);
-          extraLines.push(`⚠️  Active spec is a leveling tree (${activeSpec.nodeCount} nodes). For endgame analysis, run: select_spec(${endgameSpec?.index})`);
-        }
-        extraLines.push('Use select_spec to switch specs.');
-      }
-      if (itemSetsResult?.itemSets?.length > 1) {
-        extraLines.push('');
-        extraLines.push(`🎒 This build has ${itemSetsResult.itemSets.length} item sets:`);
-        for (const s of itemSetsResult.itemSets) {
-          extraLines.push(`  ${s.active ? '▶' : ' '} [${s.id}] ${s.title}`);
-        }
-        extraLines.push('Use select_item_set to switch item sets.');
-      }
-    } catch {
-      // Non-fatal: spec/item set info is advisory only
-    }
-    const extra = extraLines.length > 0 ? '\n' + extraLines.join('\n') : '';
-
-    // Auto-context: fetch stats + top issues after successful load (sequential — bridge is single-request)
-    const summaryLines: string[] = [];
-    try {
-      const info = await luaClient.getBuildInfo().catch(() => null);
-      if (info) {
-        summaryLines.push(`**${info.name || name}** | Level ${info.level} ${info.class}${info.ascendancy ? ` (${info.ascendancy})` : ''}`);
-      }
-
-      const s = await luaClient.getStats(['Life', 'TotalDPS', 'CombinedDPS', 'MinionTotalDPS',
-        'FireResist', 'ColdResist', 'LightningResist', 'ChaosResist', 'TotalEHP']).catch(() => null);
-      if (s) {
-        const dps = Number(s.CombinedDPS || s.TotalDPS || s.MinionTotalDPS || 0);
-        const dpsLabel = (s.MinionTotalDPS && !s.TotalDPS) ? 'Minion DPS' : 'DPS';
-        summaryLines.push(`Life: ${Number(s.Life ?? 0).toLocaleString()} | ${dpsLabel}: ${Math.round(dps).toLocaleString()} | EHP: ${Number(s.TotalEHP ?? 0).toLocaleString()}`);
-        summaryLines.push(`Resists: F${s.FireResist}% C${s.ColdResist}% L${s.LightningResist}% Ch${s.ChaosResist}%`);
-      }
-
-      const issuesResult = await handleGetBuildIssues({ getLuaClient: context.getLuaClient, ensureLuaClient: async () => {} }).catch(() => null);
-      if (issuesResult) {
-        const { issues } = issuesResult;
-        const topIssues = issues.filter((i: any) => i.severity === 'error' || i.severity === 'warning').slice(0, 3);
-        if (topIssues.length > 0) {
-          summaryLines.push('');
-          summaryLines.push('**Top Issues:**');
-          for (const issue of topIssues) {
-            const icon = issue.severity === 'error' ? '🔴' : '🟡';
-            summaryLines.push(`  ${icon} ${issue.message}`);
-          }
-        } else {
-          summaryLines.push('');
-          summaryLines.push('✅ No critical issues detected.');
-        }
-      }
-    } catch { /* auto-context is best-effort */ }
-    const summary = summaryLines.join('\n');
-
-    const loadText = `✅ Build "${name || 'MCP Build'}" loaded.${extra}` + (summary ? '\n---\n' + summary : '');
+    await luaClient.loadBuildXml(xml, name, sourcePath);
+    const summary = await buildPostLoadSummary(context, luaClient, name);
 
     return {
       content: [
         {
           type: "text" as const,
-          text: loadText,
+          text: `✅ Build "${name || 'MCP Build'}" loaded.${summary}`,
+        },
+      ],
+    };
+  });
+}
+
+export async function handleLuaImportCode(
+  context: LuaHandlerContext,
+  code: string,
+  name?: string
+) {
+  return wrapHandler('import build code', async () => {
+    await context.ensureLuaClient();
+
+    const luaClient = context.getLuaClient();
+    if (!luaClient) {
+      throw new Error('Lua client not initialized');
+    }
+
+    if (!code || !code.trim()) {
+      throw new Error('code is required');
+    }
+
+    await luaClient.importCode(code.trim(), name);
+    const summary = await buildPostLoadSummary(context, luaClient, name);
+
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: `✅ Build "${name || 'Imported Build'}" imported from code.${summary}\n\nUse lua_save_build to persist it to a file.`,
         },
       ],
     };
@@ -249,9 +290,12 @@ export async function handleLuaGetStats(context: LuaHandlerContext, category?: s
     const textLines: string[] = ['=== PoB Calculated Stats ===', ''];
 
     if (stats && typeof stats === 'object') {
-      // Filter out zero/null/undefined values to reduce noise
-      const nonZero = (v: unknown) => v != null && v !== 0 && v !== '0';
-      const entries = Object.entries(stats).filter(([, v]) => nonZero(v));
+      // In 'all' mode filter out zero values to reduce noise; specific
+      // categories keep zeros (e.g. ChaosResist 0 is meaningful)
+      const isAllMode = !category || category === 'all';
+      const keep = (v: unknown) =>
+        v != null && (!isAllMode || (v !== 0 && v !== '0'));
+      const entries = Object.entries(stats).filter(([, v]) => keep(v));
 
       // Group by offense/defense if showing all
       if (!category || category === 'all') {
@@ -299,7 +343,7 @@ export async function handleLuaGetStats(context: LuaHandlerContext, category?: s
           }
         }
       } else {
-        // Just show the requested category, skip zeros
+        // Just show the requested category (zeros included)
         const maxStats = 50;
         let shown = 0;
         for (const [key, value] of entries) {
@@ -326,6 +370,170 @@ export async function handleLuaGetStats(context: LuaHandlerContext, category?: s
         },
       ],
     };
+  });
+}
+
+/**
+ * Non-damaging ailments, showing what the DPS calculation is crediting next to
+ * what the skill would actually inflict. Those two disagree for every
+ * chance-based ailment, because PoB applies only guaranteed or hand-configured
+ * ones, and nothing else in the tool surface makes that visible.
+ */
+export async function handleLuaGetAilments(context: LuaHandlerContext) {
+  return wrapHandler('get ailments', async () => {
+    await context.ensureLuaClient();
+    const luaClient = context.getLuaClient();
+    if (!luaClient) {
+      throw new Error('Lua client not initialized');
+    }
+
+    const { ailments } = await luaClient.getAilments();
+    const lines: string[] = ['=== Non-Damaging Ailments ===', ''];
+
+    if (ailments.length === 0) {
+      lines.push('This build inflicts no non-damaging ailments.');
+      return { content: [{ type: "text" as const, text: lines.join('\n') }] };
+    }
+
+    const inflicts = (a: AilmentReport) => a.chanceOnHit + a.chanceOnCrit > 0;
+    const uncredited = ailments.filter(
+      (a) => !a.creditedInCalc && a.landsOnConfiguredEnemy,
+    );
+    // A missing calculatedEffect must not read as a healthy build. Without this
+    // the row shows a real ailment chance next to 0% applied and says nothing,
+    // which is the exact silent failure this tool exists to remove.
+    const unreadable = ailments.filter(
+      (a) => !a.creditedInCalc && a.calculatedEffect == null && inflicts(a),
+    );
+
+    for (const a of ailments) {
+      lines.push(`**${a.name}**`);
+      lines.push(`  Chance: ${a.chanceOnHit}% on hit, ${a.chanceOnCrit}% on crit`);
+      if (a.effectMod != null) lines.push(`  Effect modifier: ${a.effectMod.toFixed(2)}x`);
+      const ignoringSomethingReal = !a.creditedInCalc && a.landsOnConfiguredEnemy;
+      lines.push(
+        `  Applied by the calculation: ${a.appliedEffect}%` +
+          (ignoringSomethingReal ? '  ← contributing nothing' : ''),
+      );
+      if (a.calculatedEffect != null) {
+        const lands = a.landsOnConfiguredEnemy
+          ? ''
+          : `  (below the ${a.minimumEffect}% minimum, so it does not land)`;
+        lines.push(`  Would inflict on the configured enemy: ${a.calculatedEffect}%${lands}`);
+      } else if (unreadable.includes(a)) {
+        lines.push('  Would inflict on the configured enemy: could not be read from the calculation');
+      }
+      if (a.thresholdTable?.length) {
+        const cap = a.thresholdTable.find((r) => r.note === 'maximum');
+        if (cap) {
+          lines.push(
+            `  Reaches the ${cap.effect}% maximum against an ailment threshold of ${cap.ailmentThreshold.toLocaleString()} or less`,
+          );
+        }
+      }
+      lines.push('');
+    }
+
+    // Two scope limits worth stating, because both invite a wrong reading:
+    // magnitude is the main skill's alone, and it collapses as enemy life rises.
+    if (ailments.some((a) => a.calculatedEffect != null)) {
+      lines.push(
+        'Magnitude is for your main skill against the enemy currently configured. ' +
+          'Ailments from other socket groups are not included, and the value falls steeply ' +
+          'as enemy life rises, so do not reuse one figure across bosses and map trash.',
+      );
+      lines.push('');
+    }
+
+    if (uncredited.length > 0 || unreadable.length > 0) {
+      lines.push('⚠️  Not counted in your DPS');
+      for (const a of uncredited) {
+        lines.push(
+          `  ${a.name} would land for ${a.calculatedEffect}% but the calculation is using ${a.appliedEffect}%.`,
+        );
+      }
+      for (const a of unreadable) {
+        lines.push(
+          `  ${a.name} has a ${a.chanceOnHit}%/${a.chanceOnCrit}% chance to apply but the calculation is using ${a.appliedEffect}%, ` +
+            'and its magnitude could not be read. Treat this build\'s damage as unverified until it is set by hand.',
+        );
+      }
+      lines.push('');
+      lines.push(
+        'PoB only applies a chance-based ailment when you enter its magnitude yourself, ' +
+          'so every downstream number stays understated until you do. To fix:',
+      );
+      for (const a of [...uncredited, ...unreadable]) {
+        // PoB names these vars inconsistently per ailment, so the engine reports
+        // them rather than the handler deriving them.
+        const parts: string[] = [];
+        if (a.enabledConfigVar && !a.enabledOnEnemy) parts.push(`${a.enabledConfigVar}: true`);
+        if (a.effectConfigVar) {
+          parts.push(`${a.effectConfigVar}: ${a.calculatedEffect ?? '<magnitude>'}`);
+        }
+        lines.push(
+          parts.length > 0
+            ? `  set_config ${parts.join(', ')}`
+            : `  ${a.name}: no config var found for this ailment`,
+        );
+      }
+    }
+
+    return { content: [{ type: "text" as const, text: lines.join('\n').trimEnd() }] };
+  });
+}
+
+/**
+ * A compact, post-edit view of the loaded build. Requests are deliberately
+ * sequential because both bridge implementations use a single stdio channel.
+ */
+export async function handleLuaGetBuildSnapshot(context: LuaHandlerContext) {
+  return wrapHandler('get build snapshot', async () => {
+    await context.ensureLuaClient();
+
+    const luaClient = context.getLuaClient();
+    if (!luaClient) {
+      throw new Error('Lua client not initialized');
+    }
+
+    const info = await luaClient.getBuildInfo();
+    const stats = await luaClient.getStats([
+      'Life', 'EnergyShield', 'Mana', 'TotalDPS', 'CombinedDPS', 'MinionTotalDPS', 'TotalEHP',
+      'FireResist', 'ColdResist', 'LightningResist', 'ChaosResist',
+    ]);
+    const tree = await luaClient.getTree();
+    const items = await luaClient.getItems();
+    const skills = await luaClient.getSkills();
+
+    const lines: string[] = ['=== Current PoB Build Snapshot ===', ''];
+    lines.push(`Build: ${info?.name || 'Unnamed'} | Level ${info?.level ?? 'Unknown'} | ${info?.className ?? 'Unknown'}${info?.ascendClassName ? ` (${info.ascendClassName})` : ''}`);
+    lines.push(`Tree: ${tree?.nodes?.length ?? 0} allocated nodes | version ${tree?.treeVersion ?? info?.treeVersion ?? 'Unknown'}`);
+
+    // _meta is a non-numeric block (strings); it must not print as a "[object Object]" stat row.
+    const statEntries = Object.entries(stats || {}).filter(
+      ([key, value]) => key !== '_meta' && value != null && value !== 0,
+    );
+    if (statEntries.length > 0) {
+      lines.push('', '**Core Stats:**');
+      lines.push(statEntries.map(([key, value]) => `${key}: ${value}`).join(' | '));
+    }
+
+    const equipped = (items || []).filter(item => item.id !== 0 && item.name);
+    lines.push('', `**Equipped Items:** ${equipped.length}`);
+    for (const item of equipped.slice(0, 12)) {
+      lines.push(`- ${item.slot}: ${item.name}${item.baseName && item.baseName !== item.name ? ` (${item.baseName})` : ''}`);
+    }
+    if (equipped.length > 12) lines.push(`- … ${equipped.length - 12} more (use get_equipped_items for full details)`);
+
+    const groups = Array.isArray(skills?.groups) ? skills.groups : [];
+    lines.push('', `**Skills:** ${groups.length} socket group${groups.length === 1 ? '' : 's'} | Main group: ${skills?.mainSocketGroup ?? 'None'}`);
+    const mainGroup = groups.find((group) => group.index === skills?.mainSocketGroup);
+    if (mainGroup?.gems?.length) {
+      lines.push(`Main gems: ${mainGroup.gems.map(gem => gem.name).filter(Boolean).join(', ')}`);
+    }
+    lines.push('Use lua_get_stats, lua_get_tree, get_equipped_items, or get_skill_setup for full detail.');
+
+    return { content: [{ type: 'text' as const, text: lines.join('\n') }] };
   });
 }
 
@@ -396,7 +604,7 @@ export async function handleLuaGetTree(context: LuaHandlerContext, includeNodeId
   });
 }
 
-export async function handleLuaSetTree(context: LuaHandlerContext, args: any) {
+export async function handleLuaSetTree(context: LuaHandlerContext, args: unknown) {
   return wrapHandler('set passive tree', async () => {
     await context.ensureLuaClient();
 
@@ -405,15 +613,25 @@ export async function handleLuaSetTree(context: LuaHandlerContext, args: any) {
       throw new Error('Lua client not initialized');
     }
 
-    if (!Array.isArray(args.nodes)) {
+    const { nodes, classId: rawClassId, ascendClassId: rawAscendClassId, secondaryAscendClassId: rawSecondary, treeVersion: rawTreeVersion, masteryEffects } =
+      (args ?? {}) as {
+        nodes?: unknown;
+        classId?: number;
+        ascendClassId?: number;
+        secondaryAscendClassId?: number;
+        treeVersion?: string;
+        masteryEffects?: Record<string, number>;
+      };
+
+    if (!Array.isArray(nodes)) {
       throw new Error('nodes must be an array');
     }
 
     // If classId/ascendClassId not provided, read them from current build to preserve class
-    let classId = args.classId;
-    let ascendClassId = args.ascendClassId;
-    let secondaryAscendClassId = args.secondaryAscendClassId;
-    let treeVersion = args.treeVersion;
+    let classId = rawClassId;
+    let ascendClassId = rawAscendClassId;
+    let secondaryAscendClassId = rawSecondary;
+    let treeVersion = rawTreeVersion;
 
     if (classId === undefined || ascendClassId === undefined) {
       const currentTree = await luaClient.getTree();
@@ -423,17 +641,20 @@ export async function handleLuaSetTree(context: LuaHandlerContext, args: any) {
       treeVersion = treeVersion ?? currentTree?.treeVersion;
     }
 
+    // The Lua side (M.import_from_node_list) merges the build's existing
+    // mastery selections underneath whatever we pass here, so an omitted
+    // masteryEffects still preserves masteries already on the build.
     const tree = await luaClient.setTree({
       classId,
       ascendClassId,
       secondaryAscendClassId,
-      nodes: (args.nodes as string[]).map(Number),
-      masteryEffects: args.masteryEffects,
+      nodes: (nodes as string[]).map(Number),
+      masteryEffects,
       treeVersion,
     });
 
-    const actualCount = (tree && Array.isArray(tree.nodes)) ? tree.nodes.length : args.nodes.length;
-    const requested = args.nodes.length;
+    const actualCount = (tree && Array.isArray(tree.nodes)) ? tree.nodes.length : nodes.length;
+    const requested = nodes.length;
     const dropped = requested - actualCount;
     let text = `✅ Passive tree updated. Allocated ${actualCount} nodes.`;
     if (dropped > 0) {
@@ -504,11 +725,11 @@ export async function handleLuaReloadBuild(context: LuaHandlerContext, buildName
       targetName = String(info.name);
     }
 
-    const fileName = targetName.endsWith('.xml') ? targetName : `${targetName}.xml`;
-    const buildPath = sanitizeBuildName(fileName, context.pobDirectory);
+    const fileName = buildFileName(targetName);
+    const buildPath = resolveBuildFile(fileName, context.pobDirectory);
     const xml = await fs.readFile(buildPath, 'utf-8');
     const name = fileName.replace(/\.xml$/i, '');
-    await luaClient.loadBuildXml(xml, name);
+    await luaClient.loadBuildXml(xml, name, buildPath);
 
     return {
       content: [{ type: "text" as const, text: `✅ Build "${fileName}" reloaded from disk.` }],
@@ -516,7 +737,7 @@ export async function handleLuaReloadBuild(context: LuaHandlerContext, buildName
   });
 }
 
-export async function handleUpdateTreeDelta(context: LuaHandlerContext, addNodes?: string[], removeNodes?: string[]) {
+export async function handleUpdateTreeDelta(context: LuaHandlerContext, addNodes?: string[], removeNodes?: string[], masteryEffects?: Record<string, number>) {
   return wrapHandler('update tree delta', async () => {
     await context.ensureLuaClient();
     const luaClient = context.getLuaClient();
@@ -526,14 +747,13 @@ export async function handleUpdateTreeDelta(context: LuaHandlerContext, addNodes
       throw new Error('At least one of add_nodes or remove_nodes must be provided.');
     }
 
-    const params: { addNodes?: number[]; removeNodes?: number[] } = {};
+    const params: { addNodes?: number[]; removeNodes?: number[]; masteryEffects?: Record<string, number> } = {};
     if (addNodes?.length)    params.addNodes    = addNodes.map(Number);
     if (removeNodes?.length) params.removeNodes = removeNodes.map(Number);
+    if (masteryEffects && Object.keys(masteryEffects).length) params.masteryEffects = masteryEffects;
 
     const result = await luaClient.updateTreeDelta(params);
     const tree = result?.tree;
-    const autoPathedNodes = result?.autoPathedNodes;
-    const skippedAsc = result?.skippedAscendancyNodes;
 
     const actualCount = Array.isArray(tree?.nodes) ? tree.nodes.length : '?';
     const addedCount  = addNodes?.length ?? 0;
@@ -544,16 +764,14 @@ export async function handleUpdateTreeDelta(context: LuaHandlerContext, addNodes
     if (removedCount)  text += `  Removed: ${removedCount} node(s)\n`;
     text += `  Total allocated: ${actualCount} nodes\n`;
 
-    if (autoPathedNodes && autoPathedNodes.length > 0) {
-      text += `\n🔗 Auto-pathed ${autoPathedNodes.length} intermediate node(s) to maintain connectivity.`;
-    }
-
-    if (skippedAsc && skippedAsc.length > 0) {
-      text += `\n🔴 BLOCKED: ${skippedAsc.length} ascendancy node(s) skipped — would exceed 8-point ascendancy cap (IDs: ${skippedAsc.join(', ')}).`;
-    }
-
-    if (addedCount > 0 && !autoPathedNodes?.length && !skippedAsc?.length) {
-      text += `\n⚠️  If total count is lower than expected, some nodes may have been dropped (not connected or invalid IDs).`;
+    // PoB reports exactly which requested nodes it refused, so name them
+    // instead of hedging about the total looking wrong.
+    const dropped: number[] = result?.droppedNodes ?? [];
+    if (dropped.length > 0) {
+      text += `\n\n⚠️  ${dropped.length} requested node(s) were NOT allocated: ${dropped.join(', ')}.`;
+      text += `\n   A node is dropped when it is not connected to your tree, when the ID is invalid,`;
+      text += `\n   or when it is a Mastery node with no effect chosen — pass mastery_effects`;
+      text += `\n   ({"<nodeId>": <effectId>}) to allocate a Mastery.`;
     }
 
     const ascUsed = tree?.ascendancyPointsUsed ?? 0;
@@ -589,11 +807,15 @@ export async function handleSearchTreeNodes(
     // Limit results to prevent large responses
     const effectiveMaxResults = Math.min(maxResults || 20, 30); // Default 20, max 30
 
+    // The schema and the Lua engine disagree on the undefined default unless
+    // we resolve it here: Lua treats a missing includeAllocated as `~= false`
+    // i.e. TRUE, which would contradict the documented default (false) and
+    // pollute every default search with already-allocated nodes.
     const results = await luaClient.searchNodes({
       keyword: keyword.trim(),
       nodeType,
       maxResults: effectiveMaxResults,
-      includeAllocated,
+      includeAllocated: includeAllocated ?? false,
     });
 
     const textLines: string[] = ['=== Passive Tree Node Search ===', ''];
@@ -666,12 +888,14 @@ export async function handleCreateSpec(context: LuaHandlerContext, title?: strin
     if (copyFrom != null) params.copyFrom = copyFrom;
     if (activate != null) params.activate = activate;
     const result = await luaClient.createSpec(params);
-    if (!result?.specs?.length) {
+    if (!result || !Array.isArray(result.specs)) {
       return { content: [{ type: "text" as const, text: "Failed to create spec." }] };
     }
     const newSpec = result.specs[result.specs.length - 1];
-    let text = `✅ Created new spec [${newSpec.index}] "${newSpec.title}" (${newSpec.className}/${newSpec.ascendClassName}, ${newSpec.nodeCount} nodes).`;
-    if (newSpec.active) text += '\nThis spec is now active.';
+    let text = newSpec
+      ? `✅ Created new spec [${newSpec.index}] "${newSpec.title}" (${newSpec.className}/${newSpec.ascendClassName}, ${newSpec.nodeCount} nodes).`
+      : `✅ Created new spec.`;
+    if (newSpec?.active) text += '\nThis spec is now active.';
     text += `\n\nTotal specs: ${result.specs.length}. Use list_specs to see all, select_spec to switch.`;
     return { content: [{ type: "text" as const, text }] };
   });
@@ -683,16 +907,17 @@ export async function handleListSpecs(context: LuaHandlerContext) {
   const luaClient = context.getLuaClient();
   if (!luaClient) throw new Error('Lua client not initialized');
   const result = await luaClient.listSpecs();
-  if (!result?.specs?.length) {
-    return { content: [{ type: "text" as const, text: "No specs found. Load a build first." }] };
+  const specs = result?.specs ?? [];
+  if (specs.length === 0) {
+    return { content: [{ type: "text" as const, text: `No specs found. Load a build first.` }] };
   }
-  const textLines: string[] = [`=== Passive Tree Specs (${result.specs.length} total) ===`, ''];
-  for (const s of result.specs) {
+  const textLines: string[] = [`=== Passive Tree Specs (${specs.length} total) ===`, ''];
+  for (const s of specs) {
     textLines.push(`${s.active ? '▶' : ' '} [${s.index}] ${s.title}`);
     textLines.push(`      Class: ${s.className || 'Unknown'} / ${s.ascendClassName || 'None'}`);
     textLines.push(`      Nodes: ${s.nodeCount}  |  Tree: ${s.treeVersion || 'Unknown'}`);
   }
-  textLines.push(`\nActive: Spec ${result.activeSpec}. Use select_spec to switch.`);
+  textLines.push(`\nActive: Spec ${result?.activeSpec}. Use select_spec to switch.`);
   const text = textLines.join('\n');
   return { content: [{ type: "text" as const, text }] };
   });
@@ -704,7 +929,7 @@ export async function handleSelectSpec(context: LuaHandlerContext, index: number
   const luaClient = context.getLuaClient();
   if (!luaClient) throw new Error('Lua client not initialized');
   const result = await luaClient.selectSpec(index);
-  const active = result?.specs?.find((s: any) => s.active);
+  const active = result?.specs?.find(s => s.active);
   let text = `✅ Switched to Spec ${index}`;
   if (active) text += ` — ${active.title} (${active.className}/${active.ascendClassName}, ${active.nodeCount} nodes)`;
   text += `.\n\nStats have been recalculated for this spec.`;
@@ -718,7 +943,7 @@ export async function handleDeleteSpec(context: LuaHandlerContext, index: number
     const luaClient = context.getLuaClient();
     if (!luaClient) throw new Error('Lua client not initialized');
     const result = await luaClient.deleteSpec(index);
-    if (!result?.specs?.length) {
+    if (!result || !Array.isArray(result.specs)) {
       return { content: [{ type: "text" as const, text: "Failed to delete spec." }] };
     }
     let text = `✅ Deleted spec ${index}. ${result.specs.length} spec(s) remaining.`;
@@ -733,10 +958,10 @@ export async function handleRenameSpec(context: LuaHandlerContext, index: number
     const luaClient = context.getLuaClient();
     if (!luaClient) throw new Error('Lua client not initialized');
     const result = await luaClient.renameSpec(index, title);
-    if (!result?.specs?.length) {
+    if (!result || !Array.isArray(result.specs)) {
       return { content: [{ type: "text" as const, text: "Failed to rename spec." }] };
     }
-    const renamed = result.specs.find((s: any) => s.index === index);
+    const renamed = result.specs.find(s => s.index === index);
     let text = `✅ Spec ${index} renamed to "${renamed?.title ?? title}".`;
     return { content: [{ type: "text" as const, text }] };
   });
@@ -748,16 +973,17 @@ export async function handleListItemSets(context: LuaHandlerContext) {
   const luaClient = context.getLuaClient();
   if (!luaClient) throw new Error('Lua client not initialized');
   const result = await luaClient.listItemSets();
-  if (!result?.itemSets?.length) {
+  const sets = result?.itemSets ?? [];
+  if (sets.length === 0) {
     return { content: [{ type: "text" as const, text: "No item sets found. Load a build first." }] };
   }
-  const textLines: string[] = [`=== Item Sets (${result.itemSets.length} total) ===`, ''];
-  for (const s of result.itemSets) {
+  const textLines: string[] = [`=== Item Sets (${sets.length} total) ===`, ''];
+  for (const s of sets) {
     let line = `${s.active ? '▶' : ' '} [${s.id}] ${s.title}`;
     if (s.useSecondWeaponSet) line += ` (swap weapon set)`;
     textLines.push(line);
   }
-  textLines.push(`\nActive: Item Set ${result.activeItemSetId}. Use select_item_set to switch.`);
+  textLines.push(`\nActive: Item Set ${result?.activeItemSetId}. Use select_item_set to switch.`);
   const text = textLines.join('\n');
   return { content: [{ type: "text" as const, text }] };
   });
@@ -769,7 +995,7 @@ export async function handleSelectItemSet(context: LuaHandlerContext, id: number
   const luaClient = context.getLuaClient();
   if (!luaClient) throw new Error('Lua client not initialized');
   const result = await luaClient.selectItemSet(id);
-  const active = result?.itemSets?.find((s: any) => s.active);
+  const active = result?.itemSets?.find(s => s.active);
   let text = `✅ Switched to Item Set ${id}`;
   if (active) text += ` — ${active.title}`;
   text += `.\n\nStats have been recalculated for this item set.`;

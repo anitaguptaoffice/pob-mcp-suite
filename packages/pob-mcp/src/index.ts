@@ -1,5 +1,16 @@
 #!/usr/bin/env node
 
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+
+// Authoritative repo root for repo-owned data files (lua bridge adapter).
+// Must be set before any module resolves paths: LuaClientManager cannot read
+// import.meta itself (the CommonJS test transform rejects it), so the entry —
+// which only ever runs as ESM — publishes it here.
+if (!process.env.POB_REPO_ROOT) {
+  process.env.POB_REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+}
+
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
@@ -8,11 +19,8 @@ import {
   ListToolsRequestSchema,
   ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import path from "path";
-import os from "os";
-import fs from "fs/promises";
-import { XMLParser } from "fast-xml-parser";
 // Import services
+import { defaultBuildsDirectory } from "./utils/pobLayout.js";
 import { BuildService } from "./services/buildService.js";
 import { TreeService } from "./services/treeService.js";
 import { WatchService } from "./services/watchService.js";
@@ -24,27 +32,19 @@ import { StatMapper } from "./services/statMapper.js";
 import { PoeNinjaClient } from "./services/poeNinjaClient.js";
 import { ItemRecommendationEngine } from "./services/itemRecommendationEngine.js";
 
-// Import types
-import type {
-  PassiveTreeData,
-  PoBBuild,
-  TreeAnalysisResult,
-} from "./types.js";
-
 // Import utilities
 import { ContextBuilder } from "./utils/contextBuilder.js";
 
 // Import server modules
-import { ToolGate } from "./server/toolGate.js";
 import { LuaClientManager } from "./server/luaClientManager.js";
+import type { ToolSchema } from "./server/toolSchemas.js";
 import { getToolSchemas, getLuaToolSchemas, getOptimizationToolSchemas, getConfigToolSchemas, getValidationToolSchemas, getExportToolSchemas, getSkillGemToolSchemas, getTradeToolSchemas, getPoeNinjaToolSchemas, getBuildGoalsToolSchemas } from "./server/toolSchemas.js";
 import { routeToolCall, type ToolRouterDependencies } from "./server/toolRouter.js";
-import { wrapWithTruncation } from "./server/responseUtils.js";
+import { wrapWithTruncation, shouldTruncate } from "./server/responseUtils.js";
 
 class PoBMCPServer {
   private server: Server;
   private pobDirectory: string;
-  private parser: XMLParser;
 
   // Services
   private buildService: BuildService;
@@ -62,14 +62,33 @@ class PoBMCPServer {
   private contextBuilder: ContextBuilder;
 
   // Server modules
-  private toolGate: ToolGate;
   private luaClientManager: LuaClientManager;
+
+  /**
+   * Every tool schema across all groups, regardless of runtime availability
+   * gating. Used for policy lookups (truncatable), never for advertising:
+   * what clients SEE is assembled per-state in the ListTools handler.
+   */
+  private allToolSchemas(): ToolSchema[] {
+    return [
+      ...getToolSchemas(),
+      ...getLuaToolSchemas(),
+      ...getOptimizationToolSchemas(),
+      ...getConfigToolSchemas(),
+      ...getValidationToolSchemas(),
+      ...getExportToolSchemas(),
+      ...getSkillGemToolSchemas(),
+      ...getTradeToolSchemas(),
+      ...getPoeNinjaToolSchemas(),
+      ...getBuildGoalsToolSchemas(),
+    ];
+  }
 
   constructor() {
     this.server = new Server(
       {
         name: "pob-mcp-server",
-        version: "1.0.0",
+        version: "1.0.1",
       },
       {
         capabilities: {
@@ -79,19 +98,8 @@ class PoBMCPServer {
       }
     );
 
-    // Initialize XML parser
-    this.parser = new XMLParser({
-      ignoreAttributes: false,
-      attributeNamePrefix: "",
-    });
-
     // Default Path of Building directory (can be customized)
-    // Auto-detect based on platform
-    const defaultPoBPath = process.platform === 'darwin'
-      ? path.join(os.homedir(), "Path of Building", "Builds")  // macOS
-      : path.join(os.homedir(), "Documents", "Path of Building", "Builds");  // Windows/Linux
-
-    this.pobDirectory = process.env.POB_DIRECTORY || defaultPoBPath;
+    this.pobDirectory = process.env.POB_DIRECTORY || defaultBuildsDirectory();
 
     // Initialize services
     this.buildService = new BuildService(this.pobDirectory);
@@ -115,14 +123,13 @@ class PoBMCPServer {
         cacheTTL,
       });
       this.statMapper = new StatMapper();
-      this.recommendationEngine = new ItemRecommendationEngine(this.tradeClient, this.statMapper);
+      this.recommendationEngine = new ItemRecommendationEngine(this.tradeClient);
       console.error('[Trade API] Enabled with rate limit:', requestsPerSecond, 'req/s');
     } else {
       console.error('[Trade API] Disabled (set POE_TRADE_ENABLED=true to enable)');
     }
 
     // Initialize server modules
-    this.toolGate = new ToolGate();
 
     const luaEnabled = process.env.POB_LUA_ENABLED === 'true';
     this.luaClientManager = new LuaClientManager(luaEnabled);
@@ -154,7 +161,7 @@ class PoBMCPServer {
     };
 
     // Handle EPIPE errors (broken pipe) gracefully
-    process.stdout.on('error', (err: any) => {
+    process.stdout.on('error', (err: NodeJS.ErrnoException) => {
       if (err.code === 'EPIPE') {
         // Client disconnected, exit gracefully
         process.exit(0);
@@ -163,7 +170,7 @@ class PoBMCPServer {
       }
     });
 
-    process.stderr.on('error', (err: any) => {
+    process.stderr.on('error', (err: NodeJS.ErrnoException) => {
       if (err.code === 'EPIPE') {
         // Client disconnected, exit gracefully
         process.exit(0);
@@ -178,43 +185,6 @@ class PoBMCPServer {
     };
     process.on("SIGINT", shutdown);
     process.on("SIGTERM", shutdown);
-  }
-
-  // Delegate to tool gate module
-  private checkToolGate(toolName: string): void {
-    this.toolGate.checkGate(toolName);
-  }
-
-  private unlockToolGate(): void {
-    this.toolGate.unlock();
-  }
-
-  // Tree Data Fetching
-  private async getTreeData(version: string = "3_28"): Promise<PassiveTreeData> {
-    // Delegate to TreeService
-    return await this.treeService.getTreeData(version);
-  }
-
-  // Tree Analysis Methods
-  private getActiveSpec(build: PoBBuild): any {
-    // Delegate to BuildService
-    return this.buildService.getActiveSpec(build);
-  }
-
-  private parseAllocatedNodes(build: PoBBuild): string[] {
-    // Delegate to BuildService
-    return this.buildService.parseAllocatedNodes(build);
-  }
-
-  private extractBuildVersion(build: PoBBuild): string {
-    // Delegate to BuildService
-    return this.buildService.extractBuildVersion(build);
-  }
-
-
-  private async analyzePassiveTree(build: PoBBuild): Promise<TreeAnalysisResult | null> {
-    // Delegate to TreeService
-    return await this.treeService.analyzePassiveTree(build);
   }
 
   private setupHandlers() {
@@ -268,9 +238,10 @@ class PoBMCPServer {
     // List available tools
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       // Get base tools
-      const tools: any[] = getToolSchemas();
+      const tools: ToolSchema[] = getToolSchemas();
 
-      // Add Lua tools if enabled
+      // Add Lua tools if enabled — the repo-owned stdio adapter drives a stock
+      // PoB checkout and supports the full action set
       if (this.luaClientManager.isEnabled()) {
         tools.push(...getLuaToolSchemas());
         tools.push(...getConfigToolSchemas()); // Phase 9: Config tools (require Lua)
@@ -291,13 +262,19 @@ class PoBMCPServer {
 
       // Add Trade API tools if enabled
       if (this.tradeClient) {
-        tools.push(...getTradeToolSchemas());
+        // Weighted search needs the Lua bridge (query generation) and an
+        // authenticated session (the Trade API rejects anonymous weighted sums)
+        const weightedAvailable = Boolean(process.env.POE_SESSION_ID)
+          && this.luaClientManager.isEnabled();
+        tools.push(...getTradeToolSchemas().filter((tool) => tool.name !== 'find_weighted_trade_items' || weightedAvailable));
       }
 
       // Add poe.ninja API tools (always available)
       tools.push(...getPoeNinjaToolSchemas());
 
-      return { tools };
+      // The truncatable flag is server-side policy, not part of the MCP wire
+      // contract - strip it from what clients see.
+      return { tools: tools.map(({ truncatable: _truncatable, ...wire }) => wire) };
     });
 
     // Handle tool calls
@@ -307,7 +284,6 @@ class PoBMCPServer {
       try {
         // Build router dependencies
         const routerDeps: ToolRouterDependencies = {
-          toolGate: this.toolGate,
           contextBuilder: this.contextBuilder,
           tradeClient: this.tradeClient,
           statMapper: this.statMapper,
@@ -320,18 +296,11 @@ class PoBMCPServer {
         // Route the tool call
         const result = await routeToolCall(name, args, routerDeps);
 
-        // Apply truncation for specific tools that return large outputs
-        const truncatedTools = ['analyze_build', 'analyze_defenses', 'suggest_optimal_nodes',
-                                'optimize_tree', 'analyze_items', 'optimize_skill_links',
-                                'create_budget_build', 'search_trade_items', 'find_item_upgrades',
-                                'find_resistance_gear', 'compare_trade_items', 'search_cluster_jewels',
-                                'generate_shopping_list',
-                                // Additional tools that can produce large responses:
-                                'validate_build', 'get_passive_upgrades', 'analyze_skill_links',
-                                'suggest_support_gems', 'find_optimal_links', 'compare_gem_setups',
-                                'lua_get_stats', 'suggest_masteries'];
-
-        if (truncatedTools.includes(name)) {
+        // Apply truncation for tools that opt in via their schema flag
+        // (ToolSchema.truncatable). The old hand-maintained name list here
+        // rotted - five unbounded-output tools had silently fallen outside
+        // it, while new tools could never learn to opt in.
+        if (shouldTruncate(name, this.allToolSchemas())) {
           return wrapWithTruncation(result);
         }
 
@@ -344,6 +313,7 @@ class PoBMCPServer {
           console.error(`[Tool Stack] ${error.stack}`);
         }
         return {
+          isError: true,
           content: [
             {
               type: "text",
@@ -359,18 +329,11 @@ class PoBMCPServer {
    * Initialize async components
    */
   private async initialize() {
-    // Load official stat data from PoE trade API (if enabled)
-    if (this.tradeClient && this.statMapper) {
-      try {
-        console.error('[StatMapper] Loading stats from PoE trade API...');
-        const statData = await this.tradeClient.getStatData();
-        await this.statMapper.loadFromTradeAPI(statData);
-        console.error('[StatMapper] Successfully loaded official stat data');
-      } catch (error) {
-        console.error('[StatMapper] Failed to load official stats, using static fallback:', error);
-        // Static mappings already loaded in constructor as fallback
-      }
-    }
+    // StatMapper is intentionally static-only: the trade API /stats dump keys
+    // everything by hashed ID (no PoB names), so swapping it in at startup used
+    // to erase the curated aliases that search_stats matches against. Official
+    // stat IDs enter queries via tradeQueryBuilder's own stat-id handling, not
+    // via this class.
   }
 
   async run() {

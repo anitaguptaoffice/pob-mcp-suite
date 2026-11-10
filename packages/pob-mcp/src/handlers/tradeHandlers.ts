@@ -1,8 +1,9 @@
 import { wrapHandler } from '../utils/errorHandling.js';
 import { TradeApiClient } from '../services/tradeClient.js';
 import { TradeQueryBuilder } from '../services/tradeQueryBuilder.js';
+import type { TradeItem, TradeQuery } from '../types/tradeTypes.js';
 import { StatMapper } from '../services/statMapper.js';
-import { ItemRecommendationEngine, UpgradeContext } from '../services/itemRecommendationEngine.js';
+import { ItemRecommendationEngine } from '../services/itemRecommendationEngine.js';
 import {
   ItemListing,
   SearchOptions,
@@ -22,6 +23,26 @@ interface TradeContext {
   ninjaClient?: PoeNinjaClient;
 }
 
+export async function handleFindWeightedTradeItems(context: TradeContext & { getLuaClient: () => import('../pobLuaBridge.js').PoBLuaApiClient | null; ensureLuaClient: () => Promise<void> }, args: { league: string; slot: string; options?: Record<string, unknown>; limit?: number }) {
+  return wrapHandler('find weighted trade items', async () => {
+    if (!process.env.POE_SESSION_ID) throw new Error('find_weighted_trade_items requires POE_SESSION_ID because the official Trade API rejects anonymous weighted searches.');
+    await context.ensureLuaClient();
+    const client = context.getLuaClient();
+    if (!client) throw new Error('Lua bridge not active. Load a build first.');
+    const { query, warning } = await client.generateWeightedTradeQuery(args.slot, args.options);
+    if (!query || typeof query !== 'object') throw new Error('PoB returned no trade query');
+    const search = await context.tradeClient.searchItems(args.league, query as TradeQuery);
+    if (!search.result?.length) return { content: [{ type: 'text' as const, text: `=== Weighted BIS Search (${args.league}, slot: ${args.slot}) ===\nNo items found.${warning ? `\nWarning: ${warning}` : ''}` }] };
+    const items = await context.tradeClient.fetchItems(search.result.slice(0, Math.min(args.limit ?? 5, 10)), search.id);
+    const lines = [`=== Weighted BIS Search (${args.league}, slot: ${args.slot}) ===`, `Total matches: ${search.total} | Showing: ${items.length}`, `🔗 ${getTradeSearchUrl(args.league, search.id)}`, warning ? `Warning: ${warning}` : ''];
+    for (const [index, listing] of items.entries()) {
+      const item = listing.item, price = listing.listing.price;
+      lines.push(`${index + 1}. ${item.name || item.typeLine}${item.name && item.typeLine && item.name !== item.typeLine ? ` (${item.typeLine})` : ''}`, price ? `   Price: ${price.amount} ${price.currency}` : '   Price: unlisted', `   Seller: ${listing.listing.account?.name ?? 'unknown'}`, '');
+    }
+    return { content: [{ type: 'text' as const, text: lines.join('\n') }] };
+  });
+}
+
 // ========================================
 // Trade Site URL Helpers
 // ========================================
@@ -33,6 +54,14 @@ function getTradeSearchUrl(league: string, searchId: string): string {
 function getTradeItemUrl(league: string, searchId: string, itemId: string): string {
   // Individual items can be highlighted in the search results
   return `https://www.pathofexile.com/trade/search/${encodeURIComponent(league)}/${searchId}#${itemId}`;
+}
+
+export function toStatFilters(
+  stats?: Array<{ id: string; min?: number; max?: number }>,
+  mods?: Array<{ stat_id: string; min?: number; max?: number }>,
+): Array<{ id: string; min?: number; max?: number }> {
+  if (stats?.length) return stats;
+  return (mods ?? []).map(mod => ({ id: mod.stat_id, min: mod.min, max: mod.max }));
 }
 
 type PublicStatGroup = {
@@ -137,6 +166,7 @@ export async function handleSearchTradeItems(
     price_currency?: string;
     status?: TradeStatus;
     online_only?: boolean;
+    online_status?: 'available' | 'online' | 'onlineleague' | 'securable' | 'any';
     item_rarity?: 'normal' | 'magic' | 'rare' | 'unique' | 'any';
     rarity?: 'normal' | 'magic' | 'rare' | 'unique' | 'any';
     min_links?: number;
@@ -165,6 +195,7 @@ export async function handleSearchTradeItems(
       price_currency = 'chaos',
       status,
       online_only = true,
+      online_status,
       item_rarity,
       rarity,
       min_links,
@@ -178,9 +209,7 @@ export async function handleSearchTradeItems(
       limit = 5,
     } = args;
     const normalizedRarity = item_rarity ?? rarity;
-    const normalizedStats = mods
-      ? mods.map(mod => ({ id: mod.stat_id, min: mod.min, max: mod.max }))
-      : stats;
+    const normalizedStats = toStatFilters(stats, mods);
 
     // Build the query
     const builder = new TradeQueryBuilder();
@@ -221,6 +250,7 @@ export async function handleSearchTradeItems(
       league,
       status,
       onlineOnly: online_only,
+      onlineStatus: online_status,
       minPrice: min_price,
       maxPrice: max_price,
       priceCurrency: price_currency,
@@ -321,14 +351,13 @@ export async function handleGetItemPrice(
     const itemIdsToFetch = searchResult.result.slice(0, Math.min(10, searchResult.result.length));
     const items = await context.tradeClient.fetchItems(itemIdsToFetch, searchResult.id);
 
-    // Calculate price statistics
-    const prices = items
-      .map(item => item.listing.price)
-      .filter(price => price !== undefined)
-      .map(price => ({
-        amount: price!.amount,
-        currency: price!.currency,
-      }));
+    // Calculate price statistics — flatMap narrows away unpriced listings,
+    // so the price object needs no re-assertion downstream.
+    const prices = items.flatMap(item =>
+      item.listing.price
+        ? [{ amount: item.listing.price.amount, currency: item.listing.price.currency }]
+        : [],
+    );
 
     if (prices.length === 0) {
       return {
@@ -344,10 +373,12 @@ export async function handleGetItemPrice(
     // Group by currency
     const byCurrency = new Map<string, number[]>();
     for (const price of prices) {
-      if (!byCurrency.has(price.currency)) {
-        byCurrency.set(price.currency, []);
+      const bucket = byCurrency.get(price.currency);
+      if (bucket) {
+        bucket.push(price.amount);
+      } else {
+        byCurrency.set(price.currency, [price.amount]);
       }
-      byCurrency.get(price.currency)!.push(price.amount);
     }
 
     // Format output
@@ -578,7 +609,7 @@ async function formatSearchResults(items: ItemListing[], totalResults: number, l
       output += `   Stats: ${statParts.join(', ')}\n`;
     }
 
-    output += `   ${seller.online ? '🟢' : '🔴'} ${seller.name}\n`;
+    output += `   ${seller?.online ? '🟢' : '🔴'} ${seller?.name ?? 'unknown'}\n`;
     output += `   🔗 ${getTradeItemUrl(league, searchId, listing.id)}\n\n`;
   }
 
@@ -587,6 +618,9 @@ async function formatSearchResults(items: ItemListing[], totalResults: number, l
 }
 
 function getMaxLinks(sockets: Array<{ group: number }>): number {
+  if (sockets.length === 0) {
+    return 0;
+  }
   const groups = new Map<number, number>();
   for (const socket of sockets) {
     const count = groups.get(socket.group) || 0;
@@ -712,75 +746,20 @@ export async function handleSearchStats(
 
 // Phase 3: Recommendation Engine Handlers
 
-export async function handleFindItemUpgrades(
-  context: TradeContext,
-  args: any
-): Promise<{ content: Array<{ type: string; text: string }> }> {
-  return wrapHandler('find item upgrades', async () => {
-    const {
-      slot,
-      league,
-      build_needs,
-      current_item,
-      max_price = 100,
-      currency = 'chaos',
-      limit = 5,
-    } = args;
-
-    if (!context.recommendationEngine) {
-      return {
-        content: [{ type: 'text', text: 'Recommendation engine not available.' }],
-      };
-    }
-
-    const upgradeContext: UpgradeContext = {
-      currentItem: current_item ? {
-        name: current_item.name || 'Current Item',
-        slot,
-        life: current_item.life,
-        es: current_item.es,
-        resistances: {
-          fire: current_item.fire_resist,
-          cold: current_item.cold_resist,
-          lightning: current_item.lightning_resist,
-          chaos: current_item.chaos_resist,
-        },
-      } : undefined,
-      buildNeeds: {
-        lifeNeeded: build_needs?.life,
-        esNeeded: build_needs?.es,
-        dpsTarget: build_needs?.dps,
-        resistanceGaps: (build_needs && (build_needs.fire_resist || build_needs.cold_resist || build_needs.lightning_resist)) ? {
-          fire: build_needs.fire_resist || 0,
-          cold: build_needs.cold_resist || 0,
-          lightning: build_needs.lightning_resist || 0,
-          chaos: build_needs.chaos_resist || 0,
-        } : undefined,
-      },
-      budget: {
-        maxPricePerItem: max_price,
-        totalBudget: max_price * 2,
-        currency,
-      },
-      league,
-    };
-
-    const recommendations = await context.recommendationEngine.findUpgrades(slot, upgradeContext);
-
-    if (recommendations.length === 0) {
-      return {
-        content: [{ type: 'text', text: `No upgrade recommendations found for ${slot} in ${league} within budget.` }],
-      };
-    }
-
-    const output = formatItemRecommendations(recommendations.slice(0, limit), slot, league);
-    return { content: [{ type: 'text', text: output }] };
-  });
-}
-
 export async function handleFindResistanceGear(
   context: TradeContext,
-  args: any
+  args: {
+    league: string;
+    fire_resist_needed?: number;
+    cold_resist_needed?: number;
+    lightning_resist_needed?: number;
+    chaos_resist_needed?: number;
+    max_price_per_item?: number;
+    total_budget?: number;
+    currency?: string;
+    slots?: string[];
+    limit?: number;
+  }
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
   return wrapHandler('find resistance gear', async () => {
     const {
@@ -828,70 +807,15 @@ export async function handleFindResistanceGear(
       };
     }
 
-    const output = formatResistanceRecommendations(recommendations.slice(0, limit), resistanceGaps, league, true);
+    const output = formatResistanceRecommendations(recommendations.slice(0, limit), resistanceGaps, league);
     return { content: [{ type: 'text', text: output }] };
   });
-}
-
-function formatItemRecommendations(
-  recommendations: ItemRecommendation[],
-  slot: string,
-  league: string,
-  includeLinks: boolean = false
-): string {
-  let output = `=== ${slot} Upgrades (${league}) ===\n`;
-  output += `${recommendations.length} found\n\n`;
-
-  for (const rec of recommendations) {
-    const item = rec.listing.item;
-    const price = rec.listing.listing.price;
-
-    output += `${rec.rank}. ${item.name || item.typeLine}`;
-    if (rec.priority === 'high') output += ' ⭐';
-    output += `\n`;
-
-    if (item.name && item.typeLine && item.name !== item.typeLine) {
-      output += `   Base: ${item.typeLine}\n`;
-    }
-
-    output += `   Score: ${rec.score.toFixed(1)}/100 (${rec.priority} priority)\n`;
-
-    if (price) {
-      output += `   Price: ${price.amount} ${price.currency}\n`;
-    }
-
-    if (rec.costBenefit) {
-      const cb = rec.costBenefit;
-      if (cb.lifeGain && cb.lifeGain > 0) {
-        output += `   Life Gain: +${cb.lifeGain}\n`;
-      }
-      if (cb.esGain && cb.esGain > 0) {
-        output += `   ES Gain: +${cb.esGain}\n`;
-      }
-      if (cb.efficiency) {
-        output += `   Efficiency: ${cb.efficiency.toFixed(2)} points per ${cb.currency}\n`;
-      }
-    }
-
-    if (rec.reasons.length > 0) {
-      output += `   Why:\n`;
-      for (const reason of rec.reasons.slice(0, 3)) {
-        output += `     - ${reason}\n`;
-      }
-    }
-
-    output += `   ${rec.listing.listing.account.online ? '🟢' : '🔴'} ${rec.listing.listing.account.name}\n`;
-    output += `   🔗 ${getTradeItemUrl(league, rec.searchId, rec.listing.id)}\n\n`;
-  }
-
-  return output;
 }
 
 function formatResistanceRecommendations(
   recommendations: ItemRecommendation[],
   resistanceGaps: ResistanceRequirements,
-  league: string,
-  includeLinks: boolean = false
+  league: string
 ): string {
   const targets = [];
   if (resistanceGaps.fire > 0) targets.push(`${resistanceGaps.fire}% Fire`);
@@ -945,7 +869,7 @@ function formatResistanceRecommendations(
       }
     }
 
-    output += `   ${rec.listing.listing.account.online ? '🟢' : '🔴'} ${rec.listing.listing.account.name}\n`;
+    output += `   ${rec.listing.listing.account?.online ? '🟢' : '🔴'} ${rec.listing.listing.account?.name ?? 'unknown'}\n`;
     output += `   🔗 ${getTradeItemUrl(league, rec.searchId, rec.listing.id)}\n\n`;
   }
 
@@ -959,6 +883,7 @@ export async function handleCompareTradeItems(
   context: TradeContext,
   args: {
     item_ids: string[];
+    search_id?: string;
     build_context?: {
       life_needed?: number;
       es_needed?: number;
@@ -975,7 +900,7 @@ export async function handleCompareTradeItems(
   }>;
 }> {
   return wrapHandler('compare trade items', async () => {
-    const { item_ids, build_context } = args;
+    const { item_ids, search_id, build_context } = args;
 
     if (!item_ids || item_ids.length === 0) {
       return {
@@ -989,7 +914,7 @@ export async function handleCompareTradeItems(
       };
     }
 
-    const items = await context.tradeClient.fetchItems(item_ids);
+    const items = await context.tradeClient.fetchItems(item_ids, search_id);
 
     if (items.length === 0) {
       return {
@@ -1035,8 +960,8 @@ function formatItemComparison(
       coldResist: extractResistValue(item, 'cold'),
       lightningResist: extractResistValue(item, 'lightning'),
       chaosResist: extractResistValue(item, 'chaos'),
-      seller: listing.listing.account.name,
-      online: listing.listing.account.online,
+      seller: listing.listing.account?.name ?? 'unknown',
+      online: listing.listing.account?.online ?? false,
     };
   });
 
@@ -1135,7 +1060,7 @@ function formatItemComparison(
   return output;
 }
 
-function extractStatValue(item: any, statName: string): number {
+function extractStatValue(item: TradeItem, statName: string): number {
   const allMods = [
     ...(item.explicitMods || []),
     ...(item.implicitMods || []),
@@ -1154,7 +1079,7 @@ function extractStatValue(item: any, statName: string): number {
   return 0;
 }
 
-function extractResistValue(item: any, element: string): number {
+function extractResistValue(item: TradeItem, element: string): number {
   const allMods = [
     ...(item.explicitMods || []),
     ...(item.implicitMods || []),
@@ -1167,13 +1092,13 @@ function extractResistValue(item: any, element: string): number {
     const lowerMod = mod.toLowerCase();
 
     if (lowerMod.includes(element + ' resistance')) {
-      const match = mod.match(/\+?(\d+)%/);
+      const match = mod.match(/(-?\d+)%/);
       if (match) total += parseInt(match[1], 10);
     }
 
     if ((element === 'fire' || element === 'cold' || element === 'lightning') &&
         (lowerMod.includes('all elemental resistances') || lowerMod.includes('to all resistances'))) {
-      const match = mod.match(/\+?(\d+)%/);
+      const match = mod.match(/(-?\d+)%/);
       if (match) total += parseInt(match[1], 10);
     }
   }

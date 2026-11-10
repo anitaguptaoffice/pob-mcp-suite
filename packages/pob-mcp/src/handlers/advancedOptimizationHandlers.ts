@@ -1,5 +1,7 @@
-import type { PoBLuaApiClient } from "../pobLuaBridge.js";
+import { toFiniteNumber, type PoBLuaApiClient } from "../pobLuaBridge.js";
+import { noteIgnoredError } from '../utils/errorHandling.js';
 import type { BuildService } from "../services/buildService.js";
+import { activeItemSlotsOf, itemTextMapOf } from "../utils/pobXml.js";
 import {
   analyzeEquippedItems,
   formatItemAnalysis,
@@ -11,9 +13,11 @@ import {
   formatSkillOptimization,
   type SkillGroup,
 } from "../skillLinkOptimizer.js";
-import { sanitizeBuildName } from "../utils/pathSanitizer.js";
+import { resolveBuildFile } from "../utils/pathSanitizer.js";
+import { loadBuildIfDifferent, readNamedBuild } from "../utils/namedBuild.js";
+import { activeSkillSet, asArray } from "../utils/xmlCollections.js";
 
-export interface AdvancedOptimizationContext {
+interface AdvancedOptimizationContext {
   buildService: BuildService;
   pobDirectory: string;
   getLuaClient: () => PoBLuaApiClient | null;
@@ -34,28 +38,16 @@ export async function handleAnalyzeItems(
     let stats: BuildStats | undefined;
 
     // Try to use Lua client for accurate data if available
+    try {
+      await context.ensureLuaClient();
+    } catch (e) { noteIgnoredError("Lua unavailable — fall back to XML below", e); }
     const luaClient = context.getLuaClient();
 
     if (luaClient) {
       // Load build into Lua only if a different build (or no build) is currently loaded.
       // Preserves any select_spec / select_item_set changes made in the current session.
       if (buildName) {
-        const fs = await import('fs/promises');
-        const path = await import('path');
-        let needsLoad = true;
-        try {
-          const info = await luaClient.getBuildInfo();
-          const loaded = (info?.name ?? '').replace(/\.xml$/i, '');
-          const requested = buildName.replace(/\.xml$/i, '');
-          if (loaded && (loaded === requested || loaded.split(/[/\\]/).pop() === requested.split(/[/\\]/).pop())) {
-            needsLoad = false;
-          }
-        } catch { /* no build loaded yet */ }
-        if (needsLoad) {
-          const buildPath = sanitizeBuildName(buildName, context.pobDirectory);
-          const xml = await fs.readFile(buildPath, 'utf-8');
-          await luaClient.loadBuildXml(xml, buildName);
-        }
+        await loadBuildIfDifferent(luaClient, buildName, context.pobDirectory);
       }
 
       try {
@@ -65,20 +57,21 @@ export async function handleAnalyzeItems(
           name: item.name,
           baseName: item.baseName,
           rarity: item.rarity,
+          shown: item.shown,
         }));
 
         // Get stats from Lua
         const luaStats = await luaClient.getStats();
         stats = {
-          life: luaStats.Life,
-          energyShield: luaStats.EnergyShield,
-          evasion: luaStats.Evasion,
-          armour: luaStats.Armour,
-          dps: luaStats.TotalDPS,
-          fireRes: luaStats['FireResist'],
-          coldRes: luaStats['ColdResist'],
-          lightningRes: luaStats['LightningResist'],
-          chaosRes: luaStats['ChaosResist'],
+          life: toFiniteNumber(luaStats.Life),
+          energyShield: toFiniteNumber(luaStats.EnergyShield),
+          evasion: toFiniteNumber(luaStats.Evasion),
+          armour: toFiniteNumber(luaStats.Armour),
+          dps: toFiniteNumber(luaStats.TotalDPS),
+          fireRes: toFiniteNumber(luaStats['FireResist']),
+          coldRes: toFiniteNumber(luaStats['ColdResist']),
+          lightningRes: toFiniteNumber(luaStats['LightningResist']),
+          chaosRes: toFiniteNumber(luaStats['ChaosResist']),
         };
 
         // Get class info from tree
@@ -102,17 +95,23 @@ export async function handleAnalyzeItems(
       className = className || build.Build?.className;
       ascendClassName = build.Build?.ascendClassName;
 
-      // Extract items from XML
-      if (build.Items?.ItemSet?.Slot) {
-        const slots = Array.isArray(build.Items.ItemSet.Slot)
-          ? build.Items.ItemSet.Slot
-          : [build.Items.ItemSet.Slot];
-
-        items = slots.map((slot) => {
-          const itemText = slot.Item || '';
+      // Extract items from XML — via the shared active-set normalisation:
+      // ItemSet is an array whenever a build has >1 gear set, which the
+      // previous single-object read silently mishandled.
+      const xmlSlots = activeItemSlotsOf(build);
+      if (xmlSlots.length > 0) {
+        // Slot elements carry no item text - the bodies live in Items/Item,
+        // joined by itemId (same lookup ShoppingListService uses). No engine
+        // here, so hidden-empty gating relies on treeVersion alone; an empty
+        // Graft/Ring 3 that the engine WOULD hide is simply not flagged in
+        // this fallback path (better silence than false demands).
+        const itemTexts = itemTextMapOf(build);
+        items = xmlSlots.map((slot) => {
+          const filled = Boolean(slot.itemId && slot.itemId !== '0');
+          const itemText = filled ? itemTexts.get(String(slot.itemId)) ?? '' : '';
           const lines = itemText.split('\n');
-          const rarity = lines[0]?.includes('Rarity:') ? lines[0].split(':')[1]?.trim() : undefined;
-          const name = lines[1] || '(empty)';
+          const rarity = lines.find((l) => /^Rarity:/.test(l.trim()))?.split(':').slice(1).join(':').trim();
+          const name = lines.find((l) => l.trim() !== '' && !/^(Item Class|Rarity):/.test(l.trim()))?.trim() ?? '';
 
           return {
             slot: slot.name || 'Unknown',
@@ -166,27 +165,27 @@ export async function handleOptimizeSkillLinks(
     let buildArchetype = 'unknown';
 
     // Try Lua client first for accurate data
+    try {
+      await context.ensureLuaClient();
+    } catch (e) { noteIgnoredError("Lua unavailable — fall back to XML below", e); }
     const luaClient = context.getLuaClient();
 
     if (luaClient) {
       // Load build if buildName provided
       if (buildName) {
-        const fs2 = await import('fs/promises');
-        const path2 = await import('path');
-        const buildPath = path2.join(context.pobDirectory, buildName);
-        const xml = await fs2.readFile(buildPath, 'utf-8');
-        await luaClient.loadBuildXml(xml, buildName);
+        const xml = await readNamedBuild(buildName, context.pobDirectory);
+        await luaClient.loadBuildXml(xml, buildName, resolveBuildFile(buildName, context.pobDirectory));
       }
 
       try {
         const skillData = await luaClient.getSkills();
 
         if (skillData && skillData.groups) {
-          skillGroups = skillData.groups.map((group: any) => ({
+          skillGroups = skillData.groups.map((group) => ({
             index: group.index,
             label: group.label,
             slot: group.slot,
-            enabled: group.enabled,
+            enabled: group.enabled ?? true,
             isMainSkill: group.index === skillData.mainSocketGroup,
             gems: group.gems || group.skills?.map((skillName: string) => ({ name: skillName })) || [],
             includeInFullDPS: group.includeInFullDPS,
@@ -200,9 +199,9 @@ export async function handleOptimizeSkillLinks(
         const className = classNames[tree.classId];
 
         buildArchetype = inferBuildArchetype(className, undefined, {
-          life: stats.Life,
-          energyShield: stats.EnergyShield,
-          dps: stats.TotalDPS,
+          life: toFiniteNumber(stats.Life),
+          energyShield: toFiniteNumber(stats.EnergyShield),
+          dps: toFiniteNumber(stats.TotalDPS),
         });
       } catch (error) {
         if (!buildName) {
@@ -223,12 +222,9 @@ export async function handleOptimizeSkillLinks(
       );
 
       // Extract skills from XML
-      if (build.Skills?.SkillSet?.Skill) {
-        const skills = Array.isArray(build.Skills.SkillSet.Skill)
-          ? build.Skills.SkillSet.Skill
-          : [build.Skills.SkillSet.Skill];
-
-        skillGroups = skills.map((skill: any, idx) => {
+      const skills = asArray(activeSkillSet(build)?.Skill);
+      if (skills.length > 0) {
+        skillGroups = skills.map((skill, idx: number) => {
           const gems = Array.isArray(skill.Gem) ? skill.Gem : skill.Gem ? [skill.Gem] : [];
 
           return {
@@ -237,7 +233,7 @@ export async function handleOptimizeSkillLinks(
             slot: skill.slot,
             enabled: skill.enabled !== 'false',
             isMainSkill: idx === 0, // Assume first is main
-            gems: gems.map((gem: any) => ({
+            gems: gems.map((gem) => ({
               name: gem.name || 'Unknown',
               level: parseInt(gem.level || '1', 10),
               quality: parseInt(gem.quality || '0', 10),
@@ -304,14 +300,12 @@ export async function handleCreateBudgetBuild(
 
     // Get main skill from first skill group
     let main_skill = 'your main skill';
-    if (build.Skills?.SkillSet?.Skill) {
-      const skills = Array.isArray(build.Skills.SkillSet.Skill)
-        ? build.Skills.SkillSet.Skill
-        : [build.Skills.SkillSet.Skill];
+    {
+      const skills = asArray(activeSkillSet(build)?.Skill);
       const firstSkill = skills[0];
       if (firstSkill?.Gem) {
         const gems = Array.isArray(firstSkill.Gem) ? firstSkill.Gem : [firstSkill.Gem];
-        const activeGem = gems.find((g: any) => g.enabled !== 'false' && !g.name?.includes('Support'));
+        const activeGem = gems.find((g) => g.enabled !== 'false' && !g.name?.includes('Support'));
         if (activeGem?.name) main_skill = activeGem.name;
       }
     }

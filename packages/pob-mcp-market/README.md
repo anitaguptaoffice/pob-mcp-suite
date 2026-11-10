@@ -1,33 +1,20 @@
-# PoB MCP Market
+# PoB MCP 插件
 
-This package contains the Path of Building MCP Codex plugin and client configuration bundle inside the `pob-mcp-suite` monorepo.
+本目录包含 Codex 插件、Skill、客户端配置及启动脚本。项目整体介绍和本地构建方式见[仓库首页](../../README.md)。
 
-## Monorepo Sources
+## 运行方式
 
-| Path | Responsibility |
-| --- | --- |
-| `vendor/PathOfBuilding` | Vendored Path of Building runtime with the stdio Lua bridge. |
-| `packages/pob-mcp` | MCP server source. |
-| `packages/pob-mcp-market` | Marketplace metadata, plugin files, skills, and client scripts. |
-| `.github/workflows` | The only active CI, sync, and Docker publishing workflows. |
-
-## Runtime
-
-The plugin runs a stdio MCP server from Docker:
+插件通过 Docker 启动 MCP 服务：
 
 ```bash
 pob-docker-mcp/scripts/pob-mcp-docker.sh
 ```
 
-By default the script pulls:
+默认镜像为 `ghcr.io/anitaguptaoffice/pob-mcp-suite:latest`。可通过 `POB_DOCKER_IMAGE` 指定镜像标签；本地开发镜像请使用仓库根目录的 Dockerfile。插件的 Skill 和 `references/` 是面向 AI 客户端的英文操作参考，用户交互使用简体中文。
 
-```text
-ghcr.io/anitaguptaoffice/pob-mcp-suite:latest
-```
+## 验证插件
 
-Set `POB_DOCKER_IMAGE` to pin a release tag. For image development, clone the monorepo and build its root Dockerfile; the installed plugin consumes published suite images only.
-
-## Validation
+以下命令在 `packages/pob-mcp-market` 目录执行：
 
 ```bash
 python3 scripts/validate_market.py
@@ -35,4 +22,4 @@ bash -n pob-docker-mcp/scripts/pob-mcp-docker.sh
 bash -n pob-docker-mcp/scripts/smoke-test.sh
 ```
 
-`smoke-test.sh` requires Docker and validates that the pulled image can answer MCP stdio requests.
+`smoke-test.sh` 需要 Docker，用于验证镜像能否响应 MCP 请求。

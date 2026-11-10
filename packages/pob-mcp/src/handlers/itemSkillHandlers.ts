@@ -1,7 +1,8 @@
 import type { PoBLuaApiClient } from "../pobLuaBridge.js";
+import { noteIgnoredError } from '../utils/errorHandling.js';
 import { wrapHandler } from "../utils/errorHandling.js";
 
-export interface ItemSkillHandlerContext {
+interface ItemSkillHandlerContext {
   getLuaClient: () => PoBLuaApiClient | null;
   ensureLuaClient: () => Promise<void>;
 }
@@ -39,6 +40,81 @@ export async function handleAddItem(
   });
 }
 
+// Known non-mod trailer lines that appear after mods in PoB raw item text
+const ITEM_TRAILER_LINES = new Set([
+  'Corrupted', 'Fractured Item', 'Mirrored', 'Split', 'Synthesised Item',
+  'Veiled Prefix', 'Veiled Suffix', 'Elder Item', 'Shaper Item',
+  'Warlord Item', 'Crusader Item', 'Redeemer Item', 'Hunter Item',
+]);
+
+interface ModLine { line: string; type: string; }
+
+/**
+ * Parse PoB internal item raw text to extract mod lines.
+ * Handles both formats: with and without "Rarity:" prefix.
+ * After "Implicits: N", lines are mods — first N are implicit, rest explicit.
+ */
+function parseItemRawMods(raw: string | undefined): ModLine[] {
+  if (!raw) return [];
+  const lines = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const mods: ModLine[] = [];
+  let implicitTotal = 0;
+  let pastImplicitsLine = false;
+  let enchantCount = 0;
+  let implicitCount = 0;
+
+  for (const rawLine of lines) {
+    const implicitsMatch = rawLine.match(/^Implicits:\s*(\d+)/);
+    if (implicitsMatch) {
+      implicitTotal = parseInt(implicitsMatch[1], 10);
+      pastImplicitsLine = true;
+      continue;
+    }
+    if (!pastImplicitsLine) continue;
+    if (ITEM_TRAILER_LINES.has(rawLine)) continue;
+    // Skip any remaining spec lines that sneak in (e.g. "Note: ...")
+    if (/^[A-Z][A-Za-z ]+:\s/.test(rawLine) && !/^[+\-\d]/.test(rawLine)) continue;
+
+    // Strip {tag} markers, collect flags
+    let crafted = false, fractured = false, scourge = false, crucible = false;
+    const displayLine = rawLine
+      .replace(/\{(\w+)(?::[^}]*)?\}/g, (_m, tag) => {
+        if (tag === 'crafted') crafted = true;
+        else if (tag === 'fractured') fractured = true;
+        else if (tag === 'scourge') scourge = true;
+        else if (tag === 'crucible') crucible = true;
+        return '';
+      })
+      .replace(/\s*\((implicit|enchant|crafted|fractured)\)\s*$/, '')
+      .trim();
+
+    if (!displayLine) continue;
+
+    // Determine type using the same logic as PoB's Item.lua:
+    // crafted mods within the implicit count go to enchant
+    const totalSoFar = enchantCount + implicitCount;
+    let type: string;
+    if (crafted && totalSoFar < implicitTotal) {
+      type = 'enchant'; enchantCount++;
+    } else if (!crafted && totalSoFar < implicitTotal) {
+      type = 'implicit'; implicitCount++;
+    } else if (fractured) {
+      type = 'fractured';
+    } else if (scourge) {
+      type = 'scourge';
+    } else if (crucible) {
+      type = 'crucible';
+    } else if (crafted) {
+      type = 'crafted';
+    } else {
+      type = 'explicit';
+    }
+
+    mods.push({ line: displayLine, type });
+  }
+  return mods;
+}
+
 export async function handleGetEquippedItems(context: ItemSkillHandlerContext) {
   return wrapHandler('get equipped items', async () => {
     await context.ensureLuaClient();
@@ -55,7 +131,7 @@ export async function handleGetEquippedItems(context: ItemSkillHandlerContext) {
     if (!items || items.length === 0) {
       text += "No items equipped.\n";
     } else {
-      const equipped = items.filter((item: any) => item.id !== 0 && item.name);
+      const equipped = items.filter((item) => item.id !== 0 && item.name);
       if (equipped.length === 0) {
         text += "No items equipped.\n";
       } else {
@@ -71,6 +147,25 @@ export async function handleGetEquippedItems(context: ItemSkillHandlerContext) {
           }
           if (item.active !== undefined) {
             text += `  Active: ${item.active ? 'Yes' : 'No'}\n`;
+          }
+          const mods = parseItemRawMods(item.raw);
+          if (mods.length > 0) {
+            const enchants = mods.filter(m => m.type === 'enchant');
+            const implicits = mods.filter(m => m.type === 'implicit');
+            const explicits = mods.filter(m => !['enchant', 'implicit'].includes(m.type));
+            if (enchants.length > 0) {
+              text += `  Enchant: ${enchants.map(m => m.line).join(' | ')}\n`;
+            }
+            if (implicits.length > 0) {
+              text += `  Implicit: ${implicits.map(m => m.line).join(' | ')}\n`;
+            }
+            if (explicits.length > 0) {
+              text += `  Mods:\n`;
+              for (const m of explicits) {
+                const tag = m.type !== 'explicit' ? ` [${m.type}]` : '';
+                text += `    - ${m.line}${tag}\n`;
+              }
+            }
           }
           text += "\n";
         }
@@ -116,14 +211,14 @@ export async function handleToggleFlask(
         'FireResist', 'ColdResist', 'LightningResist', 'ChaosResist',
         'PhysicalDamageReduction', 'ManaUnreserved',
       ]);
-      const fmt = (v: any) => v != null ? String(v) : '-';
+      const fmt = (v: unknown) => v != null ? String(v) : '-';
       text += `\n\nUpdated stats:\n`;
       text += `  Life: ${fmt(stats.Life)}  |  Armour: ${fmt(stats.Armour)}  |  Evasion: ${fmt(stats.Evasion)}\n`;
       text += `  Fire: ${fmt(stats.FireResist)}%  Cold: ${fmt(stats.ColdResist)}%  Lightning: ${fmt(stats.LightningResist)}%  Chaos: ${fmt(stats.ChaosResist)}%\n`;
       if (stats.PhysicalDamageReduction != null) {
         text += `  PDR: ${fmt(stats.PhysicalDamageReduction)}%\n`;
       }
-    } catch {}
+    } catch (e) { noteIgnoredError("defensive detail stats (section omitted from output)", e); }
 
     return {
       content: [
@@ -159,7 +254,7 @@ export async function handleGetSkillSetup(context: ItemSkillHandlerContext, main
     } else {
       const totalGroups = skillData.groups.length;
       const groups = mainOnly
-        ? skillData.groups.filter((g: any) => g.index === skillData.mainSocketGroup)
+        ? skillData.groups.filter((g) => g.index === skillData.mainSocketGroup)
         : skillData.groups;
 
       if (mainOnly && totalGroups > 1) {
@@ -481,6 +576,63 @@ export async function handleRemoveGem(
           text,
         },
       ],
+    };
+  });
+}
+
+export async function handleSetSocketGroupEnabled(
+  context: ItemSkillHandlerContext,
+  groupIndex: number,
+  enabled: boolean
+) {
+  return wrapHandler('set socket group enabled', async () => {
+    await context.ensureLuaClient();
+
+    const luaClient = context.getLuaClient();
+    if (!luaClient) {
+      throw new Error('Lua client not initialized. Use lua_start first.');
+    }
+
+    if (groupIndex < 1) {
+      throw new Error('group_index must be >= 1');
+    }
+
+    const result = await luaClient.setSocketGroupEnabled({ groupIndex, enabled });
+
+    const label = result?.label ? ` (${result.label})` : '';
+    const state = enabled ? 'enabled' : 'disabled';
+    const text = `✅ Group ${groupIndex}${label} ${state}.`;
+
+    return {
+      content: [{ type: "text" as const, text }],
+    };
+  });
+}
+
+export async function handleSetGemEnabled(
+  context: ItemSkillHandlerContext,
+  groupIndex: number,
+  gemIndex: number,
+  enabled: boolean
+) {
+  return wrapHandler('set gem enabled', async () => {
+    await context.ensureLuaClient();
+
+    const luaClient = context.getLuaClient();
+    if (!luaClient) {
+      throw new Error('Lua client not initialized. Use lua_start first.');
+    }
+
+    if (groupIndex < 1) throw new Error('group_index must be >= 1');
+    if (gemIndex < 1) throw new Error('gem_index must be >= 1');
+
+    await luaClient.setGemEnabled({ groupIndex, gemIndex, enabled });
+
+    const state = enabled ? 'enabled' : 'disabled';
+    const text = `✅ Gem ${gemIndex} in group ${groupIndex} ${state}.`;
+
+    return {
+      content: [{ type: "text" as const, text }],
     };
   });
 }

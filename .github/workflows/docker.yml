@@ -64,6 +64,25 @@ jobs:
             "${IMAGE_NAME}:ci" \
             /opt/pob-mcp/scripts/mcp-smoke.mjs node /opt/pob-mcp/build/index.js
 
+      - name: Verify engine calculations
+        run: |
+          docker run --rm --entrypoint node "${IMAGE_NAME}:ci" \
+            /opt/pob-mcp/scripts/engine-regression.mjs
+
+      - name: Verify real-engine integration
+        run: |
+          docker run --rm --entrypoint npm -e POB_REPO_ROOT=/opt/pob-mcp \
+            -v "${PWD}/packages/pob-mcp/tests:/opt/pob-mcp/tests:ro" \
+            -v "${PWD}/packages/pob-mcp/example-build.xml:/opt/pob-mcp/example-build.xml:ro" \
+            "${IMAGE_NAME}:ci" run test:smoke
+          docker run --rm --entrypoint npm -e POB_REPO_ROOT=/opt/pob-mcp \
+            -v "${PWD}/packages/pob-mcp/tests:/opt/pob-mcp/tests:ro" \
+            -v "${PWD}/packages/pob-mcp/example-build.xml:/opt/pob-mcp/example-build.xml:ro" \
+            "${IMAGE_NAME}:ci" run test:smoke:offline
+          docker run --rm --entrypoint npm -e POB_PATH=/opt/PathOfBuilding/src \
+            -v "${PWD}/packages/pob-mcp/tests:/opt/pob-mcp/tests:ro" \
+            "${IMAGE_NAME}:ci" run generate:item-oracle:check
+
       - name: Prepare image tags
         if: github.event_name != 'pull_request'
         id: tags

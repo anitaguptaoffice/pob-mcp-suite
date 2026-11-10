@@ -99,6 +99,15 @@ jobs:
             -e POB_LUA_ENABLED=true -e POE_TRADE_ENABLED=false \
             pob-mcp-sync-check /opt/pob-mcp/scripts/mcp-smoke.mjs \
             node /opt/pob-mcp/build/index.js
+          docker run --rm --entrypoint node pob-mcp-sync-check \
+            /opt/pob-mcp/scripts/engine-regression.mjs
+          docker run --rm --entrypoint npm -e POB_REPO_ROOT=/opt/pob-mcp \
+            -v "${PWD}/packages/pob-mcp/tests:/opt/pob-mcp/tests:ro" \
+            -v "${PWD}/packages/pob-mcp/example-build.xml:/opt/pob-mcp/example-build.xml:ro" \
+            pob-mcp-sync-check run test:smoke:offline
+          docker run --rm --entrypoint npm -e POB_PATH=/opt/PathOfBuilding/src \
+            -v "${PWD}/packages/pob-mcp/tests:/opt/pob-mcp/tests:ro" \
+            pob-mcp-sync-check run generate:item-oracle:check
 
       - name: Push changes
         if: ${{ steps.changes.outputs.changed == 'true' && (github.event_name == 'schedule' || inputs.dry_run == false) }}

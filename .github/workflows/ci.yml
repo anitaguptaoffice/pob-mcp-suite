@@ -30,13 +30,13 @@ jobs:
           cache-dependency-path: packages/pob-mcp/package-lock.json
 
       - name: Install MCP dependencies
-        run: npm --prefix packages/pob-mcp ci
+        run: npm --prefix packages/pob-mcp ci --workspaces=false
 
       - name: Build MCP
         run: npm run build
 
-      - name: Focused MCP tests
-        run: npm run test:focused
+      - name: MCP tests
+        run: npm run test:all
 
       - name: Validate Codex plugin marketplace
         run: npm run validate:market
