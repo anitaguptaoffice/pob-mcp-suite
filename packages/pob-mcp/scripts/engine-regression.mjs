@@ -110,6 +110,18 @@ try {
     assert.ok(Math.abs(itemEquipped[key] - itemPreview.candidateStats[key]) < 0.01, `item preview ${key} disagrees with actual equipment`);
   }
   await client.loadBuildXml(xml, 'regression-fixture');
+  const shieldText = xml.match(/<Item id="1">([\s\S]*?)<\/Item>/)?.[1]?.trim();
+  assert.ok(shieldText?.includes('Quality: 0'), 'shield quality fixture changed');
+  const shieldWithoutId = shieldText.replace(/^Unique ID:.*\r?\n/m, '');
+  const shieldZero = await client.compareItem('Weapon 2', shieldWithoutId);
+  const shieldTwenty = await client.compareItem('Weapon 2', shieldWithoutId.replace('Quality: 0', 'Quality: 20'));
+  assert.equal(shieldZero.candidate.quality, 0, 'preview raised the actual quality');
+  assert.equal(shieldTwenty.candidate.quality, 20);
+  assert.ok(shieldTwenty.candidateStats.EnergyShield > shieldZero.candidateStats.EnergyShield, 'quality fixture must affect energy shield');
+  await client.addItem(shieldWithoutId, 'Weapon 2');
+  const shieldEquipped = await client.getStats(['EnergyShield', 'TotalEHP']);
+  for (const key of ['EnergyShield', 'TotalEHP']) assert.ok(Math.abs(shieldEquipped[key] - shieldZero.candidateStats[key]) < 0.01, `zero quality ${key} differs from actual equipment`);
+  await client.loadBuildXml(xml, 'regression-fixture');
   const shoppingContext = await handleFindItemUpgrades({ getLuaClient: () => client }, { slot: 'Amulet' });
   assert.ok(shoppingContext.content[0].text.includes(`Life: ${fixtureStats.Life}`), 'shopping context does not match live PoB Life');
   assert.ok(shoppingContext.content[0].text.includes('Prices and candidate items have not been checked'), 'shopping context must disclose missing price data');

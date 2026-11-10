@@ -14,6 +14,8 @@ export async function compareItem(client: Pick<PoBLuaApiClient, 'compareItem'>, 
     warnings: [
       'Values use the current build, selected skills and configuration; player and minion damage are separate and must not be summed blindly.',
       'This uses PoB item-preview calculation, does not equip or save the item, and does not verify item legality, trade availability or price.',
+      'Candidate quality is preserved as parsed; the result does not assume that quality will be upgraded.',
+      'PoB may not recognize every modifier or special item mechanic; inspect the item and PoB version before relying on the result.',
       'Only supported equipment slots are accepted; jewels, flasks and swap slots require separate handling. Check skill sockets, requirements, and any other effects before purchasing.',
     ] };
 }

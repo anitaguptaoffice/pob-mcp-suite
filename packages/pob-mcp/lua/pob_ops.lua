@@ -817,7 +817,9 @@ function M.compare_item(params)
     if slot.inactive or (slot.weaponSet and slot.weaponSet ~= (tab.activeItemSet.useSecondWeaponSet and 2 or 1)) or (type(slot.IsShown) == 'function' and not slot:IsShown()) then error('slot is inactive or hidden') end
     local item = new('Item'):Item(params.itemText)
     if not item or not item.base or not item.baseName then error('item could not be parsed') end
-    item:NormaliseQuality()
+    -- PoB's NormaliseQuality upgrades some trade-imported items to 20% when
+    -- they lack a Unique ID. A listing preview must preserve the given item.
+    if item.quality == nil and (item.base.armour or item.base.weapon) then item.quality = 0 end
     if not tab:IsItemValidForSlot(item, slotName) then error('item is incompatible with slot') end
     local calc = build.calcsTab:GetMiscCalculator()
     local before = calc({}, true)
@@ -837,7 +839,7 @@ function M.compare_item(params)
       end
       return values
     end
-    return { slot = slotName, candidate = { name = item.name, base = item.baseName }, baseline = metrics(before), candidateStats = metrics(after) }
+    return { slot = slotName, candidate = { name = item.name, base = item.baseName, quality = item.quality }, baseline = metrics(before), candidateStats = metrics(after) }
   end)
   if not ok then return nil, 'item comparison failed: ' .. tostring(result) end
   return result
@@ -878,7 +880,9 @@ function M.add_item_text(params)
   if not ok then return nil, 'invalid item text: ' .. tostring(item) end
   if not item or not item.baseName then return nil, 'failed to parse item' end
 
-  item:NormaliseQuality()
+  -- Preserve clipboard quality; PoB's UI-oriented normalizer can silently
+  -- raise an uncorrupted item without a Unique ID to 20%.
+  if item.quality == nil and item.base and (item.base.armour or item.base.weapon) then item.quality = 0 end
   build.itemsTab:AddItem(item, params.noAutoEquip == true)
   if params.slotName then
     local slot = tostring(params.slotName)
