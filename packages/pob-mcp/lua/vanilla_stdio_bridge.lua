@@ -85,9 +85,16 @@ local function evaluate_anoint_candidates(params)
   if slotName ~= 'Amulet' and not item.canBeAnointed then return { ok = false, error = slotName .. ' is not an anointable item slot' } end
 
   local tab, previousItem, previousEnchantSlot = build.itemsTab, build.itemsTab.displayItem, build.itemsTab.anointEnchantSlot
+  -- PoB's misc calculator can refresh item-slot UI visibility as a side effect.
+  -- Restore these flags even when a candidate fails, along with the display item.
+  local previousSlotStates = {}
+  for _, slot in pairs(tab.slots or {}) do table.insert(previousSlotStates, { slot = slot, inactive = slot.inactive }) end
   local ok, result = pcall(function()
     tab:SetDisplayItem(item)
-    tab.anointEnchantSlot = 1
+    local enchantSlot = params.enchantSlot or 1
+    if type(enchantSlot) ~= 'number' or enchantSlot ~= math.floor(enchantSlot) or enchantSlot < 1 or enchantSlot > 3 or enchantSlot > #(item.enchantModLines or {}) + 1 then error('invalid enchant slot') end
+    local selectedEnchant = item.enchantModLines and item.enchantModLines[enchantSlot] and item.enchantModLines[enchantSlot].line or nil
+    tab.anointEnchantSlot = enchantSlot
     local calc = build.calcsTab:GetMiscCalculator()
     local repSlotName = item.base and item.base.type or slotName
     local base = calc({ repSlotName = repSlotName, repItem = tab:anointItem(nil) })
@@ -105,8 +112,9 @@ local function evaluate_anoint_candidates(params)
       { 'MinionTotalDPS', base.Minion and base.Minion.TotalDPS },
     }) do
       local value = number(candidate[2])
-      if value and value > 0 then damageStat, baseDps = candidate[1], value; break end
+      if value and value > 0 and (not params.damageMetric or params.damageMetric == candidate[1]) then damageStat, baseDps = candidate[1], value; break end
     end
+    if params.damageMetric and params.damageMetric ~= 'CombinedDPS' and params.damageMetric ~= 'TotalDPS' and params.damageMetric ~= 'MinionCombinedDPS' and params.damageMetric ~= 'MinionTotalDPS' then error('invalid damage metric') end
     local baseEhp = number(base.TotalEHP)
     if focus ~= 'defence' and not baseDps then error('no positive damage baseline for anoint evaluation') end
     if focus ~= 'dps' and (not baseEhp or baseEhp <= 0) then error('no positive effective hit pool baseline for anoint evaluation') end
@@ -134,9 +142,12 @@ local function evaluate_anoint_candidates(params)
     table.sort(candidates, function(a, b) return a.score > b.score end)
     local limit = math.min(math.max(tonumber(params.limit) or 50, 1), 500)
     while #candidates > limit do table.remove(candidates) end
-    return { ok = true, candidates = candidates, base = { CombinedDPS = number(base.CombinedDPS) or 0, TotalEHP = baseEhp or 0, damageStat = damageStat, damageValue = baseDps, ehpAvailable = baseEhp ~= nil }, evaluated = evaluated, skipped = skipped, slot = slotName, baseType = item.baseName or repSlotName, focus = focus }
+    return { ok = true, candidates = candidates, base = { CombinedDPS = number(base.CombinedDPS) or 0, TotalEHP = baseEhp or 0, damageStat = damageStat, damageValue = baseDps, ehpAvailable = baseEhp ~= nil }, evaluated = evaluated, skipped = skipped, slot = slotName, enchantSlot = enchantSlot, selectedEnchant = selectedEnchant, baseType = item.baseName or repSlotName, focus = focus }
   end)
-  tab:SetDisplayItem(previousItem); tab.anointEnchantSlot = previousEnchantSlot
+  local restored, restoreError = pcall(tab.SetDisplayItem, tab, previousItem)
+  tab.anointEnchantSlot = previousEnchantSlot
+  for _, state in ipairs(previousSlotStates) do state.slot.inactive = state.inactive end
+  if not restored then return { ok = false, error = 'anoint display restoration failed: ' .. tostring(restoreError) } end
   if not ok then return { ok = false, error = 'anoint evaluation failed: ' .. tostring(result) } end
   return result
 end

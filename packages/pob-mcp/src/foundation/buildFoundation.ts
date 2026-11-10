@@ -7,6 +7,7 @@ import { toFiniteNumber, type PoBLuaApiClient } from '../pobLuaBridge.js';
 
 /** The adapter owns a disposable PoB instance; it must never share live state. */
 export interface BuildEngine {
+  evaluateAnointCandidates(params: Parameters<PoBLuaApiClient['evaluateAnointCandidates']>[0]): ReturnType<PoBLuaApiClient['evaluateAnointCandidates']>;
   queryTreePaths(params: { targetNodeId?: number; maxDistance?: number; limit?: number; filter?: string }): Promise<unknown>;
   getBuildNotes(): Promise<string>;
   setBuildNotes(notes: string): Promise<void>;
@@ -213,7 +214,10 @@ export class BuildFoundation {
       const before = await observe(engine);
       const result = await operation(engine);
       const after = await observe(engine);
-      if (!isDeepStrictEqual(before, after)) throw new Error('PoB read operation changed the snapshot observation');
+      if (!isDeepStrictEqual(before, after)) {
+        const changed = Object.keys(before).filter(key => !isDeepStrictEqual(before[key as keyof typeof before], after[key as keyof typeof after]));
+        throw new Error(`PoB read operation changed the snapshot observation: ${changed.join(', ')}`);
+      }
       await engine.verifyIdentity();
       return { snapshotId: id, identity: engine.identity, warnings, result };
     });

@@ -131,3 +131,16 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   excludes ascendancy and blighted notables, and does not select mastery effects.
   Verify point availability, legality and build mechanics before applying a path.
   Results are seven-day trial snapshots; retain or save a chosen child explicitly.
+
+## Compare anointments
+
+- Call `rank_snapshot_anointments` with a `snapshot_id`, equipped `slot`, and
+  `focus`. For `dps` or `both`, supply the relevant `damage_metric` explicitly;
+  select a minion metric when the damage being compared belongs to minions.
+  `enchant_slot` selects the one-based enchantment slot and defaults to 1. The
+  baseline removes that enchantment if present, which may be a different
+  enchantment rather than an anointment; check `baseline.removedEnchant` before
+  interpreting the deltas relative to the currently equipped item.
+- Review the skipped count, result limit and score definition. PoB ranks
+  unallocated recipe candidates only; the result does not verify whether the
+  recipe, item or oils can be obtained or afforded in the current game version.
