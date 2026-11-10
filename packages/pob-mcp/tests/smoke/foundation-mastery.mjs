@@ -51,6 +51,14 @@ try {
   assert.ok(mastery.pathNodes.every(node => allocatedTree.data.tree.nodes.includes(node)));
   assert.equal(allocatedTree.data.tree.masteryEffects['4139'], 47642);
   assert.equal((await foundation.inspect(unallocated.id, ['tree'])).data.tree.masteryEffects['4139'], undefined);
+  const completeTree = allocatedTree.data.tree;
+  const target = { classId: completeTree.classId, ascendClassId: completeTree.ascendClassId, secondaryAscendClassId: completeTree.secondaryAscendClassId, treeVersion: completeTree.treeVersion, nodes: completeTree.nodes, masteryEffects: completeTree.masteryEffects };
+  const twoSpecs = await foundation.deriveCreateSpec(unallocated.id, { title: 'Preserved', copyFrom: 1, activate: false });
+  const replaced = await foundation.deriveTreeReplacement(twoSpecs.id, target);
+  assert.deepEqual((await foundation.inspect(replaced.id, ['tree'])).data.tree, completeTree);
+  const inactive = await foundation.deriveSpec(replaced.id, 2);
+  assert.deepEqual((await foundation.inspect(inactive.id, ['tree'])).data.tree, (await foundation.inspect(unallocated.id, ['tree'])).data.tree);
+  await assert.rejects(foundation.deriveTreeReplacement(twoSpecs.id, { ...target, masteryEffects: { 4139: 999999 } }), /mastery|complete requested tree/i);
 
   const parent = await foundation.importBuild(xml, 'mastery-fixture');
   const optionsResult = await foundation.masteryOptions(parent.id);

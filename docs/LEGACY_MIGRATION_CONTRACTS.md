@@ -57,7 +57,7 @@ acceptance work to perform during migration, not claims of completed tests.
 | Legacy tool | Intended replacement and missing behavior | Tool-specific acceptance |
 | --- | --- | --- |
 | `lua_get_tree` | `inspect` with `tree`. | Selected tree version, allocated IDs, mastery and special ascendancy match PoB. |
-| `lua_set_tree` | Calculate exact node delta then `foundation_derive_tree`; class/ascendancy replacement remains missing. | Reject dropped nodes and unconfirmed class/mastery changes without publishing. |
+| `lua_set_tree` | `foundation_replace_tree` accepts explicit class and ascendancy IDs, tree version, complete node IDs and mastery effects, then verifies the active and inactive trees across serialization. Existing node overrides are rejected because the current PoB replacement would otherwise erase them; target node overrides are not supported. | `foundation-create-build.mjs` exercises cross-version special ascendancy replacement and override rejection; `foundation-mastery.mjs` checks mastery validation and inactive spec preservation. Neither connectivity nor game legality is established. Legacy callers and override support remain. |
 | `update_tree_delta` | `foundation_derive_tree` for exact nodes; legacy automatic path completion is not supplied. | Test disconnected request, explicit path, removals and mastery against actual PoB. |
 | `search_tree_nodes` | `foundation_search_tree`; bounded unordered results have different limits/defaults. | Verify tree version, filter, allocated flag and truncation disclosure. |
 | `save_tree` | Typed tree derivation and explicit file save; backup and tree-only replacement need dedicated handling. | Other source-file sections remain intact and backup semantics are explicit. |

@@ -9,6 +9,7 @@ import { inspectLocalFile, restoreLocalFile } from './restoreLocalFile.js';
 
 /** Experimental surface; enabled only by explicit configuration. */
 export const foundationSchemas: ToolSchema[] = [
+  { name: 'foundation_replace_tree', description: 'Replace the complete active passive tree in a verified child snapshot. Supply all node IDs, class/ascendancy IDs, mastery selections and exact tree version. Existing node overrides are rejected; target overrides and in-game legality are not supported.', inputSchema: { type: 'object', additionalProperties: false, properties: { snapshot_id: { type: 'string' }, trial: { type: 'boolean' }, tree: { type: 'object', additionalProperties: false, properties: { classId: { type: 'integer', minimum: 0 }, ascendClassId: { type: 'integer', minimum: 0 }, secondaryAscendClassId: { type: 'integer', minimum: 0 }, treeVersion: { type: 'string' }, nodes: { type: 'array', maxItems: 2000, uniqueItems: true, items: { type: 'integer', minimum: 1 } }, masteryEffects: { type: 'object', additionalProperties: { type: 'integer', minimum: 1 } } }, required: ['classId', 'ascendClassId', 'secondaryAscendClassId', 'treeVersion', 'nodes', 'masteryEffects'] } }, required: ['snapshot_id', 'tree'] } },
   { name: 'inspect_unpaired_legacy_xml', description: 'Fingerprint an old history XML without readable metadata, selected from list_legacy_build_history issues. Does not infer its tag or purpose.', inputSchema: { type: 'object', additionalProperties: false, properties: { build_name: { type: 'string' }, origin: { type: 'string' }, file: { type: 'string' } }, required: ['build_name', 'origin', 'file'] } },
   { name: 'import_unpaired_legacy_xml', description: 'Explicitly import an unpaired old history XML after verifying its inspected content digest. Records the original filename without inventing missing metadata.', inputSchema: { type: 'object', additionalProperties: false, properties: { build_name: { type: 'string' }, origin: { type: 'string' }, file: { type: 'string' }, expected_xml_sha256: { type: 'string' } }, required: ['build_name', 'origin', 'file', 'expected_xml_sha256'] } },
   { name: 'inspect_local_build_file', description: 'Read a local build file fingerprint before an explicit restore; no PoB engine is started.', inputSchema: { type: 'object', additionalProperties: false, properties: { build_name: { type: 'string' } }, required: ['build_name'] } },
@@ -75,6 +76,9 @@ export async function invokeFoundation(foundation: BuildFoundation, name: string
     return args.trial === true;
   };
   switch (name) {
+    case 'foundation_replace_tree':
+      if (Object.keys(args).some(key => !['snapshot_id', 'tree', 'trial'].includes(key))) throw new Error('Invalid complete tree replacement');
+      return snapshotMetadata(await foundation.deriveTreeReplacement(stringArg('snapshot_id'), args.tree as Parameters<BuildFoundation['deriveTreeReplacement']>[1], trialArg()));
     case 'inspect_unpaired_legacy_xml': {
       if (!buildsDirectory || Object.keys(args).some(key => !['build_name', 'origin', 'file'].includes(key))) throw new Error('Invalid unpaired history selection');
       const { xml, ...selected } = await readUnpairedLegacyHistory(buildsDirectory, stringArg('build_name'), stringArg('origin'), stringArg('file'));

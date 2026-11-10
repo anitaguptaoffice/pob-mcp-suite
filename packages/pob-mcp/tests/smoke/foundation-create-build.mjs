@@ -28,11 +28,25 @@ try {
   const specialXml = (await call('foundation_export_build', { snapshot_id: special.id })).xml;
   const specialReloaded = await call('foundation_import_build', { xml: specialXml, source: 'special-create-roundtrip' });
   assert.deepEqual((await call('foundation_inspect', { snapshot_id: specialReloaded.id, sections: ['tree'] })).data.tree, specialTree);
+  const replacement = { classId: specialTree.classId, ascendClassId: specialTree.ascendClassId, secondaryAscendClassId: specialTree.secondaryAscendClassId, treeVersion: specialTree.treeVersion, nodes: specialTree.nodes, masteryEffects: Array.isArray(specialTree.masteryEffects) ? {} : specialTree.masteryEffects };
+  const replaced = await call('foundation_replace_tree', { snapshot_id: created.id, tree: replacement, trial: true });
+  assert.equal(replaced.parentId, created.id); assert.equal(replaced.retention.kind, 'trial');
+  assert.deepEqual((await call('foundation_inspect', { snapshot_id: replaced.id, sections: ['tree'] })).data.tree, specialTree);
+  assert.deepEqual((await call('foundation_inspect', { snapshot_id: created.id, sections: ['tree'] })).data.tree, tree);
+  const overriddenXml = xml.replace('</Spec>', '<Overrides><Override nodeId="2147483646" dn="Ancestral Tattoo of Bloodlines"/></Overrides></Spec>');
+  assert.notEqual(overriddenXml, xml);
+  const overridden = await call('foundation_import_build', { xml: overriddenXml, source: 'override-fixture' });
+  const rejectedOverride = await mcp.request('tools/call', { name: 'foundation_replace_tree', arguments: { snapshot_id: overridden.id, tree: replacement } });
+  assert.ok(rejectedOverride.error || rejectedOverride.result?.isError, JSON.stringify(rejectedOverride));
+  assert.match(JSON.stringify(rejectedOverride), /cannot preserve existing node overrides/);
+  assert.equal((await call('foundation_export_build', { snapshot_id: overridden.id })).xml, overriddenXml);
   const baseline = await call('foundation_list_snapshots', {});
   for (const args of [{ class_name: 'Unknown' }, { class_name: 'Witch', ascendancy: 'Juggernaut' }, { class_name: 'Witch', tree_version: '../bad' }]) {
     const response = await mcp.request('tools/call', { name: 'foundation_create_build', arguments: args });
     assert.ok(response.error || response.result?.isError, JSON.stringify(response));
   }
+  const dropped = await mcp.request('tools/call', { name: 'foundation_replace_tree', arguments: { snapshot_id: created.id, tree: { ...replacement, nodes: [...replacement.nodes, 2147483647] } } });
+  assert.ok(dropped.error || dropped.result?.isError, JSON.stringify(dropped));
   assert.deepEqual(await call('foundation_list_snapshots', {}), baseline);
   mcp.child.stdin.end(); assert.equal((await exited)[0], 0);
   console.log('foundation create build passed');

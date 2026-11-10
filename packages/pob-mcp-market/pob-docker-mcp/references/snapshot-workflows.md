@@ -39,6 +39,11 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   distinct equipment slots together. A failure publishes no partial child;
   inspect the resulting equipment and compare calculations before retaining it.
   Slot acceptance does not prove item legality or market availability.
+- Use `foundation_replace_tree` only with a complete explicit target tree,
+  including the exact version, class, ascendancy, allocated node IDs and mastery
+  selections. The new child is checked against the requested tree and inactive
+  specs after reload. Existing node overrides cause a refusal, and the interface
+  cannot represent target overrides; legality and connectivity remain unverified.
 - Use `list_local_build_files` to discover XML names under the configured build
   directory, including nested folders. Check `complete` and `issues`; absence
   from a partial scan is not proof that a file does not exist. For more pages,

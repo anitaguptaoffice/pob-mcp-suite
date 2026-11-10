@@ -387,6 +387,9 @@ function M.set_tree(params)
   if type(params) ~= 'table' then
     return nil, "invalid params"
   end
+  if params.rejectIfOverrides and next(build.spec.hashOverrides or {}) then
+    return nil, "tree replacement cannot preserve existing node overrides"
+  end
   local classId = tonumber(params.classId or 0) or 0
   local ascendId = tonumber(params.ascendClassId or 0) or 0
   local secondaryId = tonumber(params.secondaryAscendClassId or 0) or 0
