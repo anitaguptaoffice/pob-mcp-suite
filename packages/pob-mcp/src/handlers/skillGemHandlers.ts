@@ -4,6 +4,7 @@ import type { PoBLuaApiClient } from "../pobLuaBridge.js";
 import { wrapHandler } from "../utils/errorHandling.js";
 import { withBuildClient } from "../utils/isolatedBuildClient.js";
 import { compareGemSetups } from "../features/gemComparison/compare.js";
+import { rankSupportGems } from "../features/supportRanking/rank.js";
 import { listSupportCandidates } from "../features/supportCandidates/tool.js";
 import { activeSkillSet, asArray } from "../utils/xmlCollections.js";
 
@@ -76,6 +77,11 @@ export async function handleCompareGemSetups(
   return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
 }
 
+export async function handleRankSupportGems(context: SkillGemHandlerContext, args: Parameters<typeof rankSupportGems>[1]) {
+  const result = await rankSupportGems(context, args);
+  return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+}
+
 /**
  * Handle validate_gem_quality tool call
  */
@@ -112,7 +118,7 @@ export async function handleFindOptimalLinks(
   if (!args.build_name) throw new Error('build_name is required');
   if (!Number.isInteger(args.link_count) || args.link_count < 4 || args.link_count > 6) throw new Error('link_count must be between 4 and 6');
   const facts = await handleAnalyzeSkillLinks(context, { build_name: args.build_name, skill_index: args.skill_index });
-  facts.content[0].text += `\n\n尚未搜索或验证最优 ${args.link_count} 连；请提供候选方案，用 compare_gem_setups 逐项计算。预算和价格未验证。`;
+  facts.content[0].text += `\n\n尚未搜索或验证最优 ${args.link_count} 连；请提供候选方案，用 compare_gem_setups 计算或 rank_support_gems 对有限候选排序。预算和价格未验证。`;
   return facts;
 }
 

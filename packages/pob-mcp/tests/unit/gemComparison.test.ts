@@ -26,13 +26,14 @@ describe('isolated gem comparison', () => {
       { index: 2, name: 'Support', isSupport: true, enabled: true, level: 19, quality: 10, qualityId: 'Default', count: 1 },
     ];
     let gems = [...original];
-    const addGem = jest.fn(async (p: { gemName: string; level?: number; quality?: number; count?: number; enableGlobal2?: boolean }) => {
-      gems.push({ index: gems.length + 1, name: p.gemName, isSupport: p.gemName !== 'Active', enabled: true, level: p.level!, quality: p.quality!, qualityId: 'Default', count: p.count!, enableGlobal1: true, enableGlobal2: p.enableGlobal2 ?? false });
+    const addGem = jest.fn(async (p: { gemName: string; level?: number; quality?: number; count?: number; enableGlobal2?: boolean; insertIndex?: number }) => {
+      gems.splice((p.insertIndex ?? (gems.length + 1)) - 1, 0, { index: 0, name: p.gemName, isSupport: p.gemName !== 'Active', enabled: true, level: p.level!, quality: p.quality!, qualityId: 'Default', count: p.count!, enableGlobal1: true, enableGlobal2: p.enableGlobal2 ?? false });
+      gems.forEach((gem, index) => { gem.index = index + 1; });
     });
     const close = jest.fn(async () => {});
     const client = {
       loadBuildXml: async () => { gems = [...original]; }, getSkills: async () => ({ mainSocketGroup: 1, groups: [{ index: 1, enabled: true, mainActiveSkill: 1, gems }] }),
-      removeGem: async ({ gemIndex }: { gemIndex: number }) => { gems.splice(gemIndex - 1, 1); }, addGem,
+      removeGem: async ({ gemIndex }: { gemIndex: number }) => { gems.splice(gemIndex - 1, 1); gems.forEach((gem, index) => { gem.index = index + 1; }); }, addGem,
       setGemLevel: async ({ gemIndex, level }: { gemIndex: number; level: number }) => { gems[gemIndex - 1].level = level; },
       setGemQuality: async ({ gemIndex, quality }: { gemIndex: number; quality: number }) => { gems[gemIndex - 1].quality = quality; },
       getStats: async () => ({ TotalDPS: 0, MinionCombinedDPS: 123 }),
@@ -40,7 +41,7 @@ describe('isolated gem comparison', () => {
     const result = await compareGemSetups({ pobDirectory: dir, createIsolatedLuaClient: async () => ({ client, close }) },
       { build_name: 'saved', setups: [{ name: 'one', gems: ['Active', 'Support'] }, { name: 'two', gems: ['Active', 'New Support'], gem_overrides: { Active: { level: 20 }, 'New Support': { quality: 23 } } }] });
     expect(addGem).toHaveBeenCalledTimes(1);
-    expect(addGem.mock.calls[0][0]).toMatchObject({ gemName: 'New Support', level: 20, quality: 0 });
+    expect(addGem.mock.calls[0][0]).toMatchObject({ gemName: 'New Support', level: 20, quality: 0, insertIndex: 2 });
     expect(result.setups[0].gems[0]).toMatchObject({ name: 'Active', count: 3, level: 21, quality: 20 });
     expect(result.setups[1].gems).toMatchObject([{ name: 'Active', level: 20 }, { name: 'New Support', quality: 23 }]);
     expect(result.setups[0].stats).toMatchObject({ TotalDPS: 0, CombinedDPS: null, MinionCombinedDPS: 123 });

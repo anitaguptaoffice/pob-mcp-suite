@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { LuaClientManager } from '../../build/server/luaClientManager.js';
 import { compareGemSetups } from '../../build/features/gemComparison/compare.js';
+import { rankSupportGems } from '../../build/features/supportRanking/rank.js';
 
 // Unlike the production entrypoint, this direct bridge test must set the repo root.
 process.env.POB_REPO_ROOT ??= resolve('.');
@@ -35,6 +36,8 @@ try {
   try {
     await direct.client.loadBuildXml(await readFile(fixture, 'utf8'), 'control', fixture);
     const group = (await direct.client.getSkills()).groups.find(g => g.index === 5);
+    await assert.rejects(direct.client.addGem({ groupIndex: 5, gemName: 'Added Cold Damage', insertIndex: 0 }), /insertIndex/);
+    assert.deepEqual((await direct.client.getSkills()).groups.find(g => g.index === 5).gems.map(g => g.name), group.gems.map(g => g.name), 'invalid position must not mutate the group');
     const compatible = await direct.client.getCompatibleSupports({ groupIndex: 5, query: 'Efficacy', limit: 25 });
     assert.ok(compatible.candidates.some(g => g.name === 'Efficacy'), `expected compatible Efficacy: ${JSON.stringify(compatible)}`);
     const incompatible = await direct.client.getCompatibleSupports({ groupIndex: 5, query: 'Minion Damage', limit: 25 });
@@ -57,6 +60,27 @@ try {
     assert.equal(overridden.setups[0].stats.CombinedDPS, changedStats.CombinedDPS, 'gem override must match a direct PoB edit');
     assert.equal(overridden.setups[0].stats.TotalDPS, changedStats.TotalDPS, 'gem override must match a direct PoB edit');
     assert.notEqual(overridden.setups[0].stats.CombinedDPS, overridden.setups[1].stats.CombinedDPS, 'override fixture must change the result');
+    await direct.client.loadBuildXml(await readFile(fixture, 'utf8'), 'control', fixture);
+    const swappedNames = unchangedNames.map(name => name === 'Hypothermia' ? 'Added Cold Damage' : name);
+    const swapped = await compareGemSetups(context, { build_name: 'vortex.xml', setups: [
+      { name: 'swapped', gems: swappedNames }, { name: 'original', gems: unchangedNames },
+    ] });
+    assert.equal(swapped.setups[0].gems.find(g => g.name === 'Added Cold Damage').groupPosition, 1, 'replacement must keep the original slot position');
+    assert.equal(swapped.setups[0].gems.find(g => g.name === 'Vortex').groupPosition, 6, 'unaffected active gem must keep its position');
+    await direct.client.removeGem({ groupIndex: 5, gemIndex: 1 });
+    await direct.client.addGem({ groupIndex: 5, gemName: 'Added Cold Damage', level: 20, quality: 0, insertIndex: 1 });
+    const swappedStats = await direct.client.getStats(['CombinedDPS', 'TotalDPS']);
+    assert.equal(swapped.setups[0].stats.CombinedDPS, swappedStats.CombinedDPS, 'replacement must match a direct edit at the same position');
+    const ranked = await rankSupportGems(context, { build_name: 'vortex.xml', replace_gem: 'Hypothermia',
+      candidates: ['Hypothermia', 'Added Cold Damage', 'Minion Damage'], damage_metric: 'CombinedDPS' });
+    assert.equal(ranked.ranked.find(candidate => candidate.gem === 'Added Cold Damage')?.damage, swappedStats.CombinedDPS);
+    assert.ok(ranked.unranked.some(candidate => candidate.gem === 'Minion Damage'), 'incompatible support must not be ranked');
+    assert.equal(ranked.ranked.find(candidate => candidate.gem === 'Hypothermia')?.delta, 0, 'unchanged candidate must be neutral');
+    await direct.client.loadBuildXml(await readFile(fixture, 'utf8'), 'control', fixture);
+    await direct.client.removeGem({ groupIndex: 5, gemIndex: 1 });
+    await direct.client.addGem({ groupIndex: 5, gemName: 'Added Cold Damage', level: 20, quality: 0 });
+    const appendedStats = await direct.client.getStats(['CombinedDPS']);
+    assert.notEqual(appendedStats.CombinedDPS, swappedStats.CombinedDPS, 'fixture must expose the socket-order damage difference');
     await direct.client.loadBuildXml(await readFile(fixture, 'utf8'), 'control', fixture);
     for (let i = group.gems.length - 1; i >= 0; i--) {
       if (!['Vortex', 'Efficacy'].includes(group.gems[i].name)) await direct.client.removeGem({ groupIndex: 5, gemIndex: i + 1 });
@@ -93,6 +117,12 @@ try {
     const direct = await poison.client.getStats(['MinionTotalDPS', 'MinionCombinedDPS']);
     assert.equal(result.setups[1].stats.MinionCombinedDPS, direct.MinionCombinedDPS);
     assert.equal(result.setups[1].stats.MinionTotalDPS, direct.MinionTotalDPS);
+    await writeFile(join(dir, 'poison-ranked.xml'), await poison.client.exportBuildXml());
+    const poisonRanked = await rankSupportGems(context, { build_name: 'poison-ranked.xml', replace_gem: 'Minion Damage',
+      candidates: ['Minion Damage', 'Faster Casting'], damage_metric: 'MinionCombinedDPS' });
+    assert.equal(poisonRanked.metric, 'MinionCombinedDPS');
+    assert.equal(poisonRanked.ranked.find(candidate => candidate.gem === 'Minion Damage')?.damage, direct.MinionCombinedDPS);
+    assert.equal(poisonRanked.ranked.find(candidate => candidate.gem === 'Minion Damage')?.delta, 0);
   } finally { await poison.close(); }
   console.log('gem comparison passed: isolated PoB result equals an independently applied setup; invalid gem rejected; poison minion metrics match direct PoB');
 } finally { await rm(dir, { recursive: true, force: true }); }

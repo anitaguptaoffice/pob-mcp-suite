@@ -1022,8 +1022,15 @@ function M.add_gem(params)
     end
   end
 
-  table.insert(socketGroup.gemList, gemInstance)
-  local gemIndex = #socketGroup.gemList
+  local gemIndex = #socketGroup.gemList + 1
+  if params.insertIndex ~= nil then
+    local requestedIndex = tonumber(params.insertIndex)
+    if not requestedIndex or requestedIndex % 1 ~= 0 or requestedIndex < 1 or requestedIndex > gemIndex then
+      return nil, 'insertIndex must be a valid 1-based position in the socket group'
+    end
+    gemIndex = requestedIndex
+  end
+  table.insert(socketGroup.gemList, gemIndex, gemInstance)
 
   if build.skillsTab.ProcessSocketGroup then
     build.skillsTab:ProcessSocketGroup(socketGroup)

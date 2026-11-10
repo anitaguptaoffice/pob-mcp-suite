@@ -1327,6 +1327,17 @@ export function getSkillGemToolSchemas(): ToolSchema[] {
       },
     },
     {
+      name: "rank_support_gems",
+      truncatable: true,
+      description: "Use an isolated PoB engine to compare 1–4 explicitly named support replacements in the saved main skill group. Only candidates PoB confirms as applying are ranked. This does not search every gem or estimate cost.",
+      inputSchema: { type: "object", properties: {
+        build_name: { type: "string", description: "Saved build file." },
+        replace_gem: { type: "string", description: "Name of an enabled support in the saved main group." },
+        candidates: { type: "array", items: { type: "string" }, description: "1–4 distinct PoB support gem names without the Support suffix." },
+        damage_metric: { type: "string", enum: ["CombinedDPS", "TotalDPS", "MinionCombinedDPS", "MinionTotalDPS"], description: "Optional metric; required when player and minion damage are both positive or the choice is unclear." },
+      }, required: ["build_name", "replace_gem", "candidates"] },
+    },
+    {
       name: "validate_gem_quality",
       description: "List saved gem levels and qualities. Does not infer quality benefit, corruption state, or upgrade priority.",
       inputSchema: {

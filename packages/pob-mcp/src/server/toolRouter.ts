@@ -30,7 +30,7 @@ import { handleAnalyzeItems, handleOptimizeSkillLinks, handleCreateBudgetBuild }
 import { handleGetConfig, handleSetConfig, handleSetEnemyStats, handleSaveConfigPreset, handleLoadConfigPreset, handleListConfigPresets } from "../handlers/configHandlers.js";
 import { handleValidateBuild } from "../handlers/validationHandlers.js";
 import { handleExportBuild, handleSaveTree, handleSnapshotBuild, handleListSnapshots, handleRestoreSnapshot, handleExportBuildSummary } from "../handlers/exportHandlers.js";
-import { handleAnalyzeSkillLinks, handleSuggestSupportGems, handleCompareGemSetups, handleValidateGemQuality, handleFindOptimalLinks, handleGemUpgradePath } from "../handlers/skillGemHandlers.js";
+import { handleAnalyzeSkillLinks, handleSuggestSupportGems, handleCompareGemSetups, handleRankSupportGems, handleValidateGemQuality, handleFindOptimalLinks, handleGemUpgradePath } from "../handlers/skillGemHandlers.js";
 import { handleSearchTradeItems, handleGetItemPrice, handleGetLeagues, handleSearchStats, handleFindResistanceGear, handleCompareTradeItems, handleFindWeightedTradeItems } from "../handlers/tradeHandlers.js";
 import { handleGetCurrencyRates, handleFindArbitrage, handleCalculateTradingProfit } from "../handlers/poeNinjaHandlers.js";
 import { handleSearchClusterJewels, handleAnalyzeClusterJewels, handleAnalyzeBuildClusterJewels } from "../handlers/clusterJewelHandlers.js";
@@ -523,6 +523,15 @@ export async function routeToolCall(
         build_name: args.build_name as string,
         skill_index: args.skill_index as number | undefined,
         setups: args.setups as Array<{ name: string; gems: string[] }>,
+      });
+
+    case "rank_support_gems":
+      if (!args) throw new Error("Missing arguments");
+      return await handleRankSupportGems(skillGemContext, {
+        build_name: args.build_name as string,
+        replace_gem: args.replace_gem as string,
+        candidates: args.candidates as string[],
+        damage_metric: args.damage_metric as Parameters<typeof handleRankSupportGems>[1]['damage_metric'],
       });
 
     case "validate_gem_quality":

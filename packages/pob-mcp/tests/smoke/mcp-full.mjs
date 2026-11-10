@@ -70,6 +70,9 @@ try {
   if (gemComparison.setups[0].gems.find(gem => gem.name === 'Vortex')?.level !== 20) throw new Error(`gem level override was not applied: ${JSON.stringify(gemComparison)}`);
   const afterGemComparison = await call('lua_get_build_snapshot');
   if (!afterGemComparison.includes('Level 89')) throw new Error(`gem comparison overwrote unsaved changes: ${afterGemComparison}`);
+  const rankedSupports = JSON.parse(await call('rank_support_gems', { build_name: 'vortex.xml', replace_gem: 'Hypothermia', candidates: ['Hypothermia', 'Added Cold Damage'], damage_metric: 'CombinedDPS' }));
+  if (rankedSupports.metric !== 'CombinedDPS' || rankedSupports.ranked.find(g => g.gem === 'Hypothermia')?.delta !== 0) throw new Error(`support ranking was incomplete: ${JSON.stringify(rankedSupports)}`);
+  if (!(await call('lua_get_build_snapshot')).includes('Level 89')) throw new Error('support ranking overwrote unsaved changes');
   const otherDefenses = await call('analyze_defenses', { build_name: 'other.xml' });
   if (!otherDefenses.includes('Defensive Analysis') || !otherDefenses.includes('isolated engine')) throw new Error(`isolated defence analysis failed: ${otherDefenses}`);
   const otherItems = await call('analyze_items', { build_name: 'other.xml' });

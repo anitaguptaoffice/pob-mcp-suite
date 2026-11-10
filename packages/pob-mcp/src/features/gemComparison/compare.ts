@@ -64,8 +64,10 @@ export async function compareGemSetups(context: CompareContext, args: { build_na
       const requested = new Set(setup.gems.map(normalize));
       // Keep original instances intact: rebuilding a visually identical gem
       // may lose PoB metadata and produce different DPS.
+      const removedPositions: number[] = [];
       for (let i = freshGroup.gems.length - 1; i >= 0; i--) {
         if (!requested.has(normalize(freshGroup.gems[i].name))) {
+          removedPositions.unshift(i + 1);
           await client.removeGem({ groupIndex: groupIndex!, gemIndex: i + 1 });
         }
       }
@@ -75,9 +77,14 @@ export async function compareGemSetups(context: CompareContext, args: { build_na
         if (!gem.enabled) await client.setGemEnabled({ groupIndex: groupIndex!, gemIndex: gem.index, enabled: true });
       }
       const retainedNames = new Set(retained.gems.map(gem => normalize(gem.name)));
+      let currentSize = retained.gems.length;
+      let replacements = 0;
       for (const name of setup.gems) {
         if (!retainedNames.has(normalize(name))) {
-          await client.addGem({ groupIndex: groupIndex!, gemName: name, level: 20, quality: 0, qualityId: 'Default', enabled: true });
+          const formerPosition = removedPositions[replacements++];
+          const insertIndex = formerPosition === undefined ? undefined : Math.min(formerPosition, currentSize + 1);
+          await client.addGem({ groupIndex: groupIndex!, gemName: name, level: 20, quality: 0, qualityId: 'Default', enabled: true, insertIndex });
+          currentSize++;
         }
       }
       const names = setup.gems;
@@ -96,7 +103,7 @@ export async function compareGemSetups(context: CompareContext, args: { build_na
       const stats = await client.getStats([...metrics]);
       setups.push({ name: setup.name, gems: names.map(name => {
         const gem = after.gems.find(g => normalize(g.name) === normalize(name))!;
-        return { name: gem.name, level: gem.level, quality: gem.quality, qualityId: gem.qualityId, count: gem.count ?? 1,
+        return { name: gem.name, groupPosition: gem.index, level: gem.level, quality: gem.quality, qualityId: gem.qualityId, count: gem.count ?? 1,
           ...(gem.isSupport ? { appliedToSelectedSkill: gem.appliedToSelectedSkill ?? null } : {}) };
       }), stats: Object.fromEntries(metrics.map(key => [key, toFiniteNumber(stats[key]) ?? null])) });
     }
@@ -104,6 +111,7 @@ export async function compareGemSetups(context: CompareContext, args: { build_na
       baseline: Object.fromEntries(metrics.map(key => [key, toFiniteNumber(baseline[key]) ?? null])), setups,
       warnings: ['使用已保存构筑和其配置，未读取当前未保存修改；当前构筑保持不变。',
         '未指定时，新宝石按 20 级、0% 品质模拟，原有宝石保留等级和品质；显式设置会覆盖它们。等级和品质属于 PoB 模拟输入，不保证游戏中可获得；请检查宝石版本、装备孔数和辅助兼容性。',
+        '替换宝石按输入顺序填入原宝石的位置；宝石数量变化时其余位置可能移动，请核对插槽。',
         '辅助宝石是否作用于选中技能取自 PoB 计算结果；未知状态不能视为已生效。',
         '分别列出角色和召唤物伤害，不自动求和或判断最优；结果受 PoB 选中技能及配置影响。'] };
   } finally {
