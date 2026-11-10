@@ -55,6 +55,7 @@ try {
   assert.ok(!tools.result.tools.some(t => t.name === 'inspect_snapshot_ailments'));
   assert.ok(!tools.result.tools.some(t => t.name === 'inspect_snapshot_defenses'));
   assert.ok(!tools.result.tools.some(t => t.name === 'prepare_crafting_context'));
+  assert.ok(!tools.result.tools.some(t => t.name === 'inspect_pob_item_affix_weight'));
   assert.ok(!tools.result.tools.some(t => t.name === 'compare_snapshot_gem_setups'));
   assert.ok(!tools.result.tools.some(t => t.name === 'submit_snapshot_gem_setups' || t.name === 'summarize_snapshot_gem_setups'));
   assert.ok(!tools.result.tools.some(t => t.name === 'rank_snapshot_supports'));
@@ -99,6 +100,7 @@ try {
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'inspect_snapshot_ailments').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'inspect_snapshot_defenses').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'prepare_crafting_context').length, 1);
+  assert.equal(foundationOnly.result.tools.filter(t => t.name === 'inspect_pob_item_affix_weight').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_read_notes').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_notes').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_selection').length, 1);

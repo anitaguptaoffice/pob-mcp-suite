@@ -9,6 +9,7 @@ import { validEnemyLevelSetting } from '../domain/configPreset.js';
 
 /** The adapter owns a disposable PoB instance; it must never share live state. */
 export interface BuildEngine {
+  newBuild(): Promise<unknown>;
   getAilments(): ReturnType<PoBLuaApiClient['getAilments']>;
   getEnemyLevelSetting(): Promise<EnemyLevelSetting>;
   evaluateAnointCandidates(params: Parameters<PoBLuaApiClient['evaluateAnointCandidates']>[0]): ReturnType<PoBLuaApiClient['evaluateAnointCandidates']>;
@@ -100,8 +101,8 @@ async function observe(engine: BuildEngine) {
 
 export class BuildFoundation {
   private readonly limiter: EngineLimiter<BuildEngine>;
-  constructor(private readonly store: SnapshotStore, openEngine: () => Promise<BuildEngine>) {
-    this.limiter = new EngineLimiter(openEngine);
+  constructor(private readonly store: SnapshotStore, openEngine: () => Promise<BuildEngine>, limiter?: EngineLimiter<BuildEngine>) {
+    this.limiter = limiter ?? new EngineLimiter(openEngine);
   }
 
   async importBuild(xml: string, source: string): Promise<SnapshotRecord> {

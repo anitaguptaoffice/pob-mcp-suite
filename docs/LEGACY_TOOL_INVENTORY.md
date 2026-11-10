@@ -34,7 +34,7 @@ Generated from registered schema groups in the current build. Most entries are p
 
 ## getLuaToolSchemas
 
-- `inspect_item_affix_weight` — target: crafting and item data; replacement: item data/crafting module; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `inspect_item_affix_weight` — target: crafting and item data; replacement: `inspect_pob_item_affix_weight` uses a shared-limiter disposable engine without a snapshot; status: partially migrated (legacy callers remain); skill references: no exact name found in packaged skill Markdown.
 - `compare_equipment_candidate` — target: analysis and optimization; replacement: `foundation_preview_item`; status: snapshot preview live-tested, legacy callers require migration; skill references: `references/trade-tools.md`.
 - `lua_get_capabilities` — target: engine lifecycle and introspection; replacement: internal engine lifecycle and capability query; status: not migrated; skill references: no exact name found in packaged skill Markdown.
 - `lua_get_build_snapshot` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: no exact name found in packaged skill Markdown.

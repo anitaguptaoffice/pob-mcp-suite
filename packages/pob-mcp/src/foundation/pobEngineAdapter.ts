@@ -60,6 +60,7 @@ export async function openPoBEngine(options: PoBEngineOptions): Promise<BuildEng
   }
   return {
     identity, verifyIdentity,
+    newBuild: () => client.newBuild({ className: 'Witch' }),
     evaluateAnointCandidates: params => client.evaluateAnointCandidates(params),
     getBuildNotes: () => client.getBuildNotes(), setBuildNotes: notes => client.setBuildNotes(notes),
     queryTreePaths: params => client.queryTreePaths(params),

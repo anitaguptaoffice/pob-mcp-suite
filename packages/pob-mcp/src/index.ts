@@ -70,6 +70,9 @@ import { snapshotAilmentsSchema, createSnapshotAilmentsTool } from './features/a
 import { snapshotDefensesSchema, createSnapshotDefensesTool } from './features/defenses/tool.js';
 import { craftingContextSchema, createCraftingContextTool } from './features/craftingContext/tool.js';
 import { PoedbBaseReference } from './adapters/baseReference/poedb.js';
+import { PoBItemDataAdapter } from './adapters/pobItemData/source.js';
+import { itemAffixWeightSchema, createItemAffixWeightTool } from './features/affixWeight/sourceTool.js';
+import { EngineLimiter } from './foundation/engineLimiter.js';
 import { createModifierDataTools } from './features/modifierData/tools.js';
 import { PoBModifierData } from './adapters/modifierData/pobModifierData.js';
 import { LocalBuildFileCatalog } from './adapters/localBuild/fileCatalog.js';
@@ -165,6 +168,7 @@ class PoBMCPServer {
       snapshotAilmentsSchema(),
       snapshotDefensesSchema(),
       craftingContextSchema(),
+      itemAffixWeightSchema(),
       ...this.modifierFeatures.schemas(),
       ...this.buildFileCatalog.schemas(),
       ...this.configPresetCatalog.schemas(),
@@ -555,10 +559,12 @@ class PoBMCPServer {
       catch (error) { console.error('[Snapshot retention] Collection skipped because job references are unavailable:', error); }
       if (protectedIds) await store.collectExpired(protectedIds);
       const adapterPath = process.env.POB_ADAPTER_PATH || path.join(process.env.POB_REPO_ROOT!, 'lua', 'vanilla_stdio_bridge.lua');
-      this.foundation = new BuildFoundation(store, () => openPoBEngine({
+      const openEngine = () => openPoBEngine({
         cwd: process.env.POB_PATH || process.env.POB_FORK_PATH, command: process.env.POB_CMD,
         adapterPath, timeoutMs: process.env.POB_TIMEOUT_MS ? Number(process.env.POB_TIMEOUT_MS) : undefined,
-      }));
+      });
+      const engineLimiter = new EngineLimiter(openEngine);
+      this.foundation = new BuildFoundation(store, openEngine, engineLimiter);
       const foundation = this.foundation;
       this.foundationJobs = new JobRunner(jobs, input => foundation.evaluate(input.snapshotId, input.fields, input.options), 2,
         input => rankMasteryEffects(foundation, { snapshot_id: input.snapshotId, node_id: input.nodeId, effect_ids: [input.effectId], metric: input.metric, direction: input.direction }),
@@ -571,6 +577,7 @@ class PoBMCPServer {
       migrated.push(createSnapshotAilmentsTool(foundation));
       migrated.push(createSnapshotDefensesTool(foundation));
       migrated.push(createCraftingContextTool(foundation, new PoedbBaseReference()));
+      migrated.push(createItemAffixWeightTool(new PoBItemDataAdapter(engineLimiter)));
       if (trade) migrated.push(createTradePreviewTool(foundation, trade));
       this.foundationFeatures = new FeatureRegistry(migrated);
     }
