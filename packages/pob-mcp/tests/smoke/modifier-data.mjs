@@ -7,13 +7,17 @@ import { smokePoBSrc } from './pobSource.mjs';
 import { startMcpServer } from './mcpClient.mjs';
 
 const src = smokePoBSrc();
-const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'false', POB_LEGACY_ENABLED: 'false', POB_LUA_ENABLED: 'false', POB_PATH: src });
+const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'false', POB_LEGACY_ENABLED: 'false', POB_LUA_ENABLED: 'false', POE_TRADE_ENABLED: 'false', POB_PATH: src });
 const child = mcp.child; child.stderr.on('data', () => {}); const exited = once(child, 'exit');
 try {
   await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'modifier-data-smoke', version: '1' } }); mcp.notify('notifications/initialized', {});
   const names = (await mcp.request('tools/list', {})).result.tools.map(tool => tool.name);
   for (const name of ['classify_modifier_lines', 'query_bench_modifiers', 'query_modifier_tiers']) assert.ok(names.includes(name));
   assert.ok(!names.includes('foundation_import_build'));
+  assert.ok(!names.includes('list_builds'));
+  assert.ok(!names.includes('search_official_trade'));
+  const hiddenTrade = await mcp.request('tools/call', { name: 'search_official_trade', arguments: { league: 'Standard' } });
+  assert.equal(hiddenTrade.result.isError, true);
   const call = async (name, args) => { const response = await mcp.request('tools/call', { name, arguments: args }); assert.ok(!response.error && !response.result?.isError, JSON.stringify(response).slice(0, 1000)); return JSON.parse(response.result.content[0].text); };
   const tiers = await call('query_modifier_tiers', { search: 'maximum Life', item_tags: ['ring', 'default'], item_tags_complete: true, limit: 3 });
   assert.ok(tiers.groups.length > 0);

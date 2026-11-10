@@ -33,8 +33,8 @@ try {
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_create_spec'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_rename_spec'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_delete_spec'));
-  assert.ok(!tools.result.tools.some(t => t.name === 'reference_currency_rates'));
-  assert.ok(!tools.result.tools.some(t => t.name === 'screen_currency_spreads'));
+  assert.equal(tools.result.tools.filter(t => t.name === 'reference_currency_rates').length, 1);
+  assert.equal(tools.result.tools.filter(t => t.name === 'screen_currency_spreads').length, 1);
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_preview_item'));
   assert.ok(!tools.result.tools.some(t => t.name === 'preview_trade_listings'));
   assert.ok(!tools.result.tools.some(t => t.name === 'compare_official_trade_listings'));
@@ -58,6 +58,14 @@ try {
   const hidden = await disabled.request('tools/call', { name: 'foundation_import_build', arguments: { xml: '<x/>', source: 'test' } });
   assert.equal(hidden.result.isError, true);
   disabled.child.stdin.end(); await once(disabled.child, 'exit');
+  const marketOnly = start({ POB_FOUNDATION_ENABLED: 'false', POB_LEGACY_ENABLED: 'false', POB_LUA_ENABLED: 'false', POE_TRADE_ENABLED: 'true' });
+  await init(marketOnly);
+  const marketTools = (await marketOnly.request('tools/list', {})).result.tools;
+  for (const name of ['estimate_trade_comparable', 'search_official_trade', 'sample_trade_item_price', 'compare_official_trade_listings', 'search_resistance_listings', 'search_cluster_listings', 'search_trade_stats', 'list_trade_leagues', 'reference_currency_rates', 'screen_currency_spreads']) assert.equal(marketTools.filter(t => t.name === name).length, 1);
+  assert.ok(!marketTools.some(t => t.name === 'foundation_import_build' || t.name === 'preview_trade_listings'));
+  const invalidMarketCall = await marketOnly.request('tools/call', { name: 'sample_trade_item_price', arguments: {} });
+  assert.equal(invalidMarketCall.result.isError, true); assert.match(invalidMarketCall.result.content[0].text, /item_name/);
+  marketOnly.child.stdin.end(); assert.equal((await once(marketOnly.child, 'exit'))[0], 0);
   const jobs = new JobStore(join(dir, 'jobs'));
   const snapshot = await new SnapshotStore(dir).create({ xml: '<build/>', source: 'gating', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
   const abandoned = await jobs.create(1, [{ snapshotId: snapshot.id }]);

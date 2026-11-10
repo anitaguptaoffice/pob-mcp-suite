@@ -88,6 +88,7 @@ class PoBMCPServer {
   private foundation: BuildFoundation | null = null;
   private foundationFeatures: FeatureRegistry | null = null;
   private readonly modifierFeatures = new FeatureRegistry(createModifierDataTools(new PoBModifierData()));
+  private marketFeatures: FeatureRegistry | null = null;
   private foundationJobs: JobRunner | null = null;
   private releaseFoundationLock: (() => Promise<void>) | null = null;
   private foundationClosing = false;
@@ -194,8 +195,8 @@ class PoBMCPServer {
     this.ninjaClient = new PoeNinjaClient();
     console.error('[poe.ninja API] Client initialized');
 
-    // Initialize Trade API client (if enabled)
-    const tradeEnabled = process.env.POE_TRADE_ENABLED === 'true';
+    // The legacy client is unnecessary when only the source adapter is exposed.
+    const tradeEnabled = process.env.POE_TRADE_ENABLED === 'true' && this.legacyEnabled();
     if (tradeEnabled) {
       const requestsPerSecond = parseInt(process.env.POE_RATE_LIMIT_PER_SECOND || '4', 10);
       const cacheTTL = parseInt(process.env.POE_CACHE_TTL || '300', 10);
@@ -206,7 +207,7 @@ class PoBMCPServer {
       this.statMapper = new StatMapper();
       this.recommendationEngine = new ItemRecommendationEngine(this.tradeClient);
       console.error('[Trade API] Enabled with rate limit:', requestsPerSecond, 'req/s');
-    } else {
+    } else if (process.env.POE_TRADE_ENABLED !== 'true') {
       console.error('[Trade API] Disabled (set POE_TRADE_ENABLED=true to enable)');
     }
 
@@ -302,6 +303,7 @@ class PoBMCPServer {
   private legacyEnabled(): boolean {
     // During migration, the existing default remains usable. Enabling the new
     // foundation opts into the new surface; legacy requires explicit opt-in.
+    if (process.env.POB_LEGACY_ENABLED === 'false') return false;
     return process.env.POB_FOUNDATION_ENABLED !== 'true' || process.env.POB_LEGACY_ENABLED === 'true';
   }
 
@@ -358,7 +360,7 @@ class PoBMCPServer {
     // List available tools
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       if (!this.legacyEnabled()) {
-        const tools = this.foundation ? [...foundationSchemas, ...featureRegistry.schemas(), ...(this.foundationFeatures?.schemas() ?? []), ...this.modifierFeatures.schemas()] : this.modifierFeatures.schemas();
+        const tools = [...(this.foundation ? [...foundationSchemas, ...featureRegistry.schemas(), ...(this.foundationFeatures?.schemas() ?? [])] : []), ...this.modifierFeatures.schemas(), ...(this.marketFeatures?.schemas() ?? [])];
         assertUniqueToolSchemas(tools);
         return { tools: tools.map(({ truncatable: _truncatable, ...wire }) => wire) };
       }
@@ -401,6 +403,7 @@ class PoBMCPServer {
       featureRegistry.assertNoCollisions(tools);
       tools.push(...featureRegistry.schemas());
       tools.push(...this.modifierFeatures.schemas());
+      tools.push(...(this.marketFeatures?.schemas() ?? []));
       if (this.foundation) tools.push(...foundationSchemas, ...(this.foundationFeatures?.schemas() ?? []));
       assertUniqueToolSchemas(tools);
 
@@ -416,6 +419,13 @@ class PoBMCPServer {
       try {
         const modifierFeature = this.modifierFeatures.get(name);
         if (modifierFeature) return await modifierFeature.invoke(args ?? {});
+        const marketFeature = this.marketFeatures?.get(name);
+        if (marketFeature) {
+          if (this.foundationClosing) throw new Error('Market tools are unavailable during shutdown');
+          const pending = Promise.resolve().then(() => marketFeature.invoke(args ?? {}));
+          this.foundationPending.add(pending);
+          try { return await pending; } finally { this.foundationPending.delete(pending); }
+        }
         if (foundationSchemas.some(tool => tool.name === name)) {
           if (!this.foundation || this.foundationClosing) throw new Error('Foundation tools are unavailable');
           const pending = invokeFoundation(this.foundation, name, args ?? {}, this.foundationJobs ?? undefined, this.pobDirectory);
@@ -484,6 +494,15 @@ class PoBMCPServer {
    * Initialize async components
    */
   private async initialize() {
+    const economy = new PoeNinjaAdapter();
+    const market = [...createCurrencyReferenceTools(economy), createCurrencySpreadTool(economy)];
+    // Do not create a second Trade rate limiter while the legacy client is enabled.
+    const tradeEnabled = process.env.POE_TRADE_ENABLED === 'true' && !this.legacyEnabled();
+    const rate = Number(process.env.POE_RATE_LIMIT_PER_SECOND ?? 4);
+    const minTimeMs = Number.isFinite(rate) && rate > 0 ? Math.ceil(1000 / Math.min(rate, 4)) : 250;
+    const trade = tradeEnabled ? new OfficialTradeAdapter({ minTimeMs, session: () => process.env.POE_SESSION_ID || undefined }) : null;
+    if (trade) market.push(createSourceComparableTool(trade), createTradeSearchTool(trade), createTradeItemPriceTool(trade), createTradeListingComparisonTool(trade), createResistanceTradeTool(trade), createClusterTradeTool(trade), ...createTradeMetadataTools(trade));
+    this.marketFeatures = new FeatureRegistry(market);
     if (process.env.POB_FOUNDATION_ENABLED === 'true') {
       const directory = process.env.POB_SNAPSHOT_DIRECTORY || path.join(this.pobDirectory, '.pob-snapshots');
       this.releaseFoundationLock = await acquireStoreLock(directory);
@@ -500,7 +519,6 @@ class PoBMCPServer {
         adapterPath, timeoutMs: process.env.POB_TIMEOUT_MS ? Number(process.env.POB_TIMEOUT_MS) : undefined,
       }));
       const foundation = this.foundation;
-      const economy = new PoeNinjaAdapter();
       this.foundationJobs = new JobRunner(jobs, input => foundation.evaluate(input.snapshotId, input.fields, input.options), 2,
         input => rankMasteryEffects(foundation, { snapshot_id: input.snapshotId, node_id: input.nodeId, effect_ids: [input.effectId], metric: input.metric, direction: input.direction }),
         async input => {
@@ -508,15 +526,8 @@ class PoBMCPServer {
           try { return await compareSnapshotGemSetups(foundation, { snapshot_id: input.snapshotId, group_index: input.groupIndex, candidate_snapshot_ids: [candidate.id] }); }
           catch (error) { return { setupError: error instanceof Error ? error.message : String(error), candidateSnapshotId: candidate.id }; }
         }, input => evaluatePassive(foundation, input));
-      const migrated = [createSnapshotCostTool(foundation, economy), createShoppingListTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), createSnapshotBuildComparisonTool(foundation), createSnapshotGemComparisonTool(foundation), ...createGemSetupJobTools(foundation, this.foundationJobs), createSnapshotSupportRankingTool(foundation), ...createTreePathTools(foundation), createBuildIssuesTool(foundation), createBossReadinessTool(foundation), createMasteryRankingTool(foundation), createMasteryDiscoveryTool(foundation), ...createMasteryJobTools(foundation, this.foundationJobs), ...createPassiveRankingTools(foundation, this.foundationJobs), createTimelessSearchTool(foundation), ...createCurrencyReferenceTools(economy), createCurrencySpreadTool(economy)];
-      // Until the legacy Trade client is retired, do not run two independent
-      // rate limiters in one service against the same official API.
-      if (process.env.POE_TRADE_ENABLED === 'true' && !this.legacyEnabled()) {
-        const rate = Number(process.env.POE_RATE_LIMIT_PER_SECOND ?? 4);
-        const minTimeMs = Number.isFinite(rate) && rate > 0 ? Math.ceil(1000 / Math.min(rate, 4)) : 250;
-        const trade = new OfficialTradeAdapter({ minTimeMs, session: () => process.env.POE_SESSION_ID || undefined });
-        migrated.push(createSourceComparableTool(trade), createTradeSearchTool(trade), createTradeItemPriceTool(trade), createTradePreviewTool(foundation, trade), createTradeListingComparisonTool(trade), createResistanceTradeTool(trade), createClusterTradeTool(trade), ...createTradeMetadataTools(trade));
-      }
+      const migrated = [createSnapshotCostTool(foundation, economy), createShoppingListTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), createSnapshotBuildComparisonTool(foundation), createSnapshotGemComparisonTool(foundation), ...createGemSetupJobTools(foundation, this.foundationJobs), createSnapshotSupportRankingTool(foundation), ...createTreePathTools(foundation), createBuildIssuesTool(foundation), createBossReadinessTool(foundation), createMasteryRankingTool(foundation), createMasteryDiscoveryTool(foundation), ...createMasteryJobTools(foundation, this.foundationJobs), ...createPassiveRankingTools(foundation, this.foundationJobs), createTimelessSearchTool(foundation)];
+      if (trade) migrated.push(createTradePreviewTool(foundation, trade));
       this.foundationFeatures = new FeatureRegistry(migrated);
     }
     // StatMapper is intentionally static-only: the trade API /stats dump keys

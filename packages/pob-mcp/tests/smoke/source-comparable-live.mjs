@@ -7,7 +7,8 @@ import { once } from 'node:events';
 import { startMcpServer } from './mcpClient.mjs';
 
 const dir = await mkdtemp(join(tmpdir(), 'pob-trade-live-'));
-const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POE_TRADE_ENABLED: 'true', POE_SESSION_ID: '', POB_SNAPSHOT_DIRECTORY: dir });
+const marketOnly = process.env.POB_LIVE_MARKET_ONLY === 'true';
+const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: marketOnly ? 'false' : 'true', POB_LEGACY_ENABLED: 'false', POB_LUA_ENABLED: marketOnly ? 'false' : 'true', POE_TRADE_ENABLED: 'true', POE_SESSION_ID: '', POB_SNAPSHOT_DIRECTORY: dir });
 mcp.child.stderr.on('data', () => {});
 const exited = once(mcp.child, 'exit');
 const call = async (name = 'estimate_trade_comparable', args = { league: 'Standard', base_type: 'Hubris Circlet', stat_groups: [{ type: 'and', filters: [{ stat_id: 'explicit.stat_3299347043', min: 40 }] }], limit: 3 }) => {
@@ -20,6 +21,10 @@ try {
   mcp.notify('notifications/initialized', {});
   const tools = await mcp.request('tools/list', {});
   assert.ok(tools.result.tools.some(tool => tool.name === 'estimate_trade_comparable'));
+  if (marketOnly) assert.ok(!tools.result.tools.some(tool => tool.name === 'foundation_import_build' || tool.name === 'preview_trade_listings' || tool.name === 'list_builds'));
+  const reference = await call('reference_currency_rates', { league: 'Standard' });
+  assert.equal(reference.source, 'poe.ninja'); assert.ok(Number.isFinite(Date.parse(reference.fetchedAt))); assert.ok(reference.rates.length > 0);
+  assert.equal((await call('reference_currency_rates', { league: 'Standard' })).fetchedAt, reference.fetchedAt);
   const leagues = await call('list_trade_leagues', {});
   assert.ok(leagues.leagues.some(league => league.id === 'Standard'));
   const stats = await call('search_trade_stats', { query: 'maximum life', limit: 50 });

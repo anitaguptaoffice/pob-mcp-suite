@@ -57,7 +57,10 @@ back `estimate_trade_comparable`, `search_official_trade`, `sample_trade_item_pr
 and `list_trade_leagues`.
 The comparable policy and query/source-audit rules now live in feature/domain
 modules without a legacy-client dependency; temporary re-exports serve old
-callers until their routes are removed. Other source ports remain pending.
+callers until their routes are removed. Market-only tools can start without the
+PoB snapshot or Lua engine; snapshot preview and build costs still require the
+foundation. The economy adapter instance is shared with build-cost workflows.
+Other source ports remain pending.
 
 On 2026-11-11 a local, read-only Standard-league probe of the new adapter
 successfully fetched public skill-gem and currency snapshots. The legacy
@@ -72,8 +75,8 @@ On 2026-11-11 the opt-in `test:smoke:source-comparable` validated official
 international league and stat metadata, a `securable` and `priced` search,
 listing fetch, general and comparable searches, per-source statistics and
 separate original retrieval times.
-In foundation-only mode these new trade tools are advertised only when
-`POE_TRADE_ENABLED=true`. While the legacy mutable Trade client is enabled in
+These new trade tools are advertised only when `POE_TRADE_ENABLED=true` and the
+legacy router is disabled. While the legacy mutable Trade client is enabled in
 compatibility mode, the new trade tools are hidden to avoid two uncoordinated
 per-process rate limiters; the old trade surface remains available. Replacing
 that temporary gating and retiring the legacy client are migration work.
