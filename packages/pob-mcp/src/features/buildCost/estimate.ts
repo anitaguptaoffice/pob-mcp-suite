@@ -49,7 +49,7 @@ export function matchGem(gem: CostGem, lines: PriceLine[]): { line?: PriceLine; 
 export async function estimateBuildCost(source: PriceSource, league: string, items: CostItem[], groups: CostGroup[]): Promise<CostReport> {
   if (!league.trim()) throw new Error('league is required');
   const equipped = items.filter(item => item.id > 0 && item.shown !== false);
-  const gems = groups.flatMap(group => group.gems.map(gem => ({ gem, slot: group.label || `技能组 ${group.index}` })));
+  const gems = groups.flatMap(group => group.gems.map(gem => ({ gem, slot: group.label || `技能组 ${group.index}`, groupEnabled: group.enabled !== false })));
   const categories: PriceCategory[] = [];
   if (equipped.some(item => normalize(item.rarity) === 'unique')) categories.push(...uniqueCategories);
   if (gems.length) categories.push('SkillGem');
@@ -78,7 +78,11 @@ export async function estimateBuildCost(source: PriceSource, league: string, ite
       chaos: match.line?.chaosValue, samples: match.line?.listingCount ?? match.line?.count, fetchedAt: snapshot?.fetchedAt, note: match.reason });
   }
   const gemSnapshot = snapshots.get('SkillGem');
-  for (const { gem, slot } of gems) {
+  for (const { gem, slot, groupEnabled } of gems) {
+    if (!groupEnabled || !gem.enabled) {
+      entries.push({ kind: 'gem', slot, name: gem.name, status: 'unknown', note: '技能组或宝石已禁用，可能是备用配置，未计入小计' });
+      continue;
+    }
     const match = gemSnapshot ? matchGem(gem, gemSnapshot.lines) : { reason: '技能宝石行情不可用' };
     entries.push({ kind: 'gem', slot, name: gem.name, status: match.line ? 'reference' : 'unknown',
       chaos: match.line?.chaosValue, samples: match.line?.listingCount ?? match.line?.count, fetchedAt: gemSnapshot?.fetchedAt,

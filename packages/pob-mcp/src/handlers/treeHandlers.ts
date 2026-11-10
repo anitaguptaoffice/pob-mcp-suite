@@ -548,8 +548,11 @@ export async function handleSuggestMasteries(context: PassiveUpgradesContext) {
 
   // Get base stats for scoring
   const baseStats = await luaClient.getStats(['TotalDPS', 'CombinedDPS', 'MinionTotalDPS', 'TotalEHP', 'Life']);
-  const baseDPS = (baseStats.CombinedDPS as number) || (baseStats.TotalDPS as number) || (baseStats.MinionTotalDPS as number) || 1;
-  const baseEHP = (baseStats.TotalEHP as number) || (baseStats.Life as number) || 1;
+  const damageKey = (['CombinedDPS', 'TotalDPS', 'MinionTotalDPS'] as const).find(key => (toFiniteNumber(baseStats[key]) ?? 0) > 0);
+  const defenceKey = (['TotalEHP', 'Life'] as const).find(key => (toFiniteNumber(baseStats[key]) ?? 0) > 0);
+  if (!damageKey || !defenceKey) return { content: [{ type: 'text' as const, text: '无法取得非零伤害和防御基准，无法可靠比较天赋专精。' }] };
+  const baseDPS = toFiniteNumber(baseStats[damageKey])!;
+  const baseEHP = toFiniteNumber(baseStats[defenceKey])!;
 
   // Current mastery effect map: { nodeId: effectId } — the wire shape calcWith
   // takes; ids coerced to numbers because PoB's tree ids are numeric.
@@ -560,7 +563,7 @@ export async function handleSuggestMasteries(context: PassiveUpgradesContext) {
     }
   }
 
-  const outputLines: string[] = ['=== Mastery Node Suggestions ===', ''];
+  const outputLines: string[] = ['=== 天赋专精建议 ===', `基准：${damageKey} = ${baseDPS}；${defenceKey} = ${baseEHP}`, ''];
 
   for (const mastery of masteries) {
     outputLines.push(`**${mastery.nodeName}** (node ${mastery.nodeId})`);
@@ -579,9 +582,9 @@ export async function handleSuggestMasteries(context: PassiveUpgradesContext) {
         const out = await luaClient.calcWith({ masteryEffects: newMasteryEffects });
         if (!out) continue;
         // calcWith returns raw Lua output; minion stats nested under out.Minion
-        const outDPS = (out.CombinedDPS as number) || (out.TotalDPS as number) ||
-                       (out.Minion?.CombinedDPS as number) || (out.Minion?.TotalDPS as number) || baseDPS;
-        const outEHP = (out.TotalEHP as number) || (out.Life as number) || baseEHP;
+        const outDPS = damageKey === 'MinionTotalDPS' ? toFiniteNumber(out.Minion?.TotalDPS) : toFiniteNumber(out[damageKey]);
+        const outEHP = toFiniteNumber(out[defenceKey]);
+        if (outDPS === undefined || outEHP === undefined) continue;
         scored.push({ stat: effect.stat, dpsDelta: outDPS - baseDPS, ehpDelta: outEHP - baseEHP });
       } catch (e) {
         noteIgnoredError(`mastery effect simulation skipped (node ${mastery.nodeId}, effect ${effect.effectId})`, e);
@@ -597,8 +600,8 @@ export async function handleSuggestMasteries(context: PassiveUpgradesContext) {
       outputLines.push('  (simulation unavailable for this mastery)');
     }
     for (const s of scored.slice(0, 3)) {
-      const dpsStr = s.dpsDelta !== 0 ? ` | DPS Delta${s.dpsDelta > 0 ? '+' : ''}${Math.round(s.dpsDelta)}` : '';
-      const ehpStr = s.ehpDelta !== 0 ? ` | EHP Delta${s.ehpDelta > 0 ? '+' : ''}${Math.round(s.ehpDelta)}` : '';
+      const dpsStr = s.dpsDelta !== 0 ? ` | ${damageKey} Δ ${s.dpsDelta > 0 ? '+' : ''}${Math.round(s.dpsDelta)}` : '';
+      const ehpStr = s.ehpDelta !== 0 ? ` | ${defenceKey} Δ ${s.ehpDelta > 0 ? '+' : ''}${Math.round(s.ehpDelta)}` : '';
       outputLines.push(`  - ${s.stat}${dpsStr}${ehpStr}`);
     }
     outputLines.push('');

@@ -7,6 +7,15 @@ const line = { name: 'Example', baseType: 'Circlet', chaosValue: 12, listingCoun
 const source = { get: async (_league: string, category: PriceCategory) => ({ fetchedAt: '2026-01-01T00:00:00.000Z', lines: category === 'UniqueArmour' ? [line] : [] }) };
 
 describe('build cost matching', () => {
+  it('excludes disabled gems and skill groups from the subtotal', async () => {
+    const gem = { name: 'Vortex', level: 20, quality: 0, enabled: true };
+    const market = { get: async () => ({ fetchedAt: '2026-01-01', lines: [{ name: 'Vortex', gemLevel: 20, chaosValue: 10 }] }) };
+    const report = await estimateBuildCost(market, 'Standard', [], [
+      { index: 1, enabled: false, gems: [gem] }, { index: 2, enabled: true, gems: [{ ...gem, enabled: false }] },
+    ]);
+    expect(report.estimatedSubtotal).toBe(0);
+    expect(report.unknownCount).toBe(2);
+  });
   it('requires both name and base, and refuses special or ambiguous unique variants', () => {
     expect(matchUnique(unique, [line]).line?.chaosValue).toBe(12);
     expect(matchUnique({ ...unique, baseName: 'Other' }, [line]).line).toBeUndefined();
