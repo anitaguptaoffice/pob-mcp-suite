@@ -95,7 +95,7 @@ describe('handleSuggestCrafting — graceful degradation', () => {
       base: 'Hubris Circlet',
     });
     const text = result.content[0].text;
-    expect(text).toContain('200'); // fallback divine rate
+    expect(text).toContain('Market rate unavailable');
   });
 
   it('includes error message in output when poedb fetch fails', async () => {
@@ -136,6 +136,6 @@ describe('fallback currency-rate disclosure', () => {
       currencyRates: { chaos: 1, divine: 200, live: false },
       buildContext: null,
     });
-    expect(text).toContain('fallback rate');
+    expect(text).toContain('Market rate unavailable');
   });
 });

@@ -12,6 +12,10 @@
 
 PoB 引擎和 MCP 适配层分别维护。本仓库保留军团珠宝种子搜索、特殊升华名称和交易查询等定制；对照版本、改动与测试范围见[相对上游 MCP 的改动记录](UPSTREAM_MCP_CHANGES.md)。详细 MCP 工具与开发参考见 [MCP 说明](packages/pob-mcp/README.md)，插件和客户端入口见[插件说明](packages/pob-mcp-market/README.md)。
 
+造价功能和操作指引独立维护。`estimate_build_cost` 按国际服指定赛季查询 poe.ninja 公开行情，列出暗金和宝石参考价及无法估价的项目；稀有装备尚未自动估价，参考小计不是整套造价。`pob-economy` Skill 负责引导 AI 使用造价、交易与制作工具。
+
+在 MCP 服务环境中设置 `POE_TRADE_ENABLED=true` 并重启服务后，`estimate_comparable_item` 可按明确给出的底材和词缀条件对比稀有装备挂牌。`compare_craft_budget` 使用外部已核实的单次成功率和单次成本比较预算；它不推断游戏概率，也不是制作模拟器。制作操作另由 `pob-crafting` Skill 提供指导。
+
 ## 本地验证
 
 以下命令在仓库根目录执行，需要 Node.js、npm 和 Docker：

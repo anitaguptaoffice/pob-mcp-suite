@@ -31,6 +31,10 @@ import { TradeApiClient } from "./services/tradeClient.js";
 import { StatMapper } from "./services/statMapper.js";
 import { PoeNinjaClient } from "./services/poeNinjaClient.js";
 import { ItemRecommendationEngine } from "./services/itemRecommendationEngine.js";
+import { NinjaPrices } from "./features/buildCost/ninjaPrices.js";
+import { buildCostSchemas } from "./features/buildCost/tool.js";
+import { comparableToolSchemas } from "./features/tradeComparable/tool.js";
+import { craftBudgetSchemas } from "./features/craftBudget/tool.js";
 
 // Import utilities
 import { ContextBuilder } from "./utils/contextBuilder.js";
@@ -57,6 +61,7 @@ class PoBMCPServer {
   private statMapper: StatMapper | null = null;
   private recommendationEngine: ItemRecommendationEngine | null = null;
   private ninjaClient: PoeNinjaClient;
+  private buildCostPrices = new NinjaPrices();
 
   // Context builder
   private contextBuilder: ContextBuilder;
@@ -73,12 +78,15 @@ class PoBMCPServer {
     return [
       ...getToolSchemas(),
       ...getLuaToolSchemas(),
+      ...buildCostSchemas(),
       ...getOptimizationToolSchemas(),
       ...getConfigToolSchemas(),
       ...getValidationToolSchemas(),
       ...getExportToolSchemas(),
       ...getSkillGemToolSchemas(),
       ...getTradeToolSchemas(),
+      ...comparableToolSchemas(),
+      ...craftBudgetSchemas(),
       ...getPoeNinjaToolSchemas(),
       ...getBuildGoalsToolSchemas(),
     ];
@@ -244,6 +252,7 @@ class PoBMCPServer {
       // PoB checkout and supports the full action set
       if (this.luaClientManager.isEnabled()) {
         tools.push(...getLuaToolSchemas());
+        tools.push(...buildCostSchemas());
         tools.push(...getConfigToolSchemas()); // Phase 9: Config tools (require Lua)
         tools.push(...getBuildGoalsToolSchemas()); // Build diagnostics (require Lua)
       }
@@ -267,10 +276,12 @@ class PoBMCPServer {
         const weightedAvailable = Boolean(process.env.POE_SESSION_ID)
           && this.luaClientManager.isEnabled();
         tools.push(...getTradeToolSchemas().filter((tool) => tool.name !== 'find_weighted_trade_items' || weightedAvailable));
+        tools.push(...comparableToolSchemas());
       }
 
       // Add poe.ninja API tools (always available)
       tools.push(...getPoeNinjaToolSchemas());
+      tools.push(...craftBudgetSchemas());
 
       // The truncatable flag is server-side policy, not part of the MCP wire
       // contract - strip it from what clients see.
@@ -289,6 +300,7 @@ class PoBMCPServer {
           statMapper: this.statMapper,
           recommendationEngine: this.recommendationEngine,
           ninjaClient: this.ninjaClient,
+          buildCostPrices: this.buildCostPrices,
           getLuaClient: () => this.luaClientManager.getClient(),
           ensureLuaClient: () => this.luaClientManager.ensureClient(),
         };
