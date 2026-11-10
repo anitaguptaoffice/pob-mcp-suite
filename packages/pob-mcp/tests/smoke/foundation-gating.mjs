@@ -41,6 +41,7 @@ try {
   assert.ok(!tools.result.tools.some(t => t.name === 'list_snapshot_equipment'));
   assert.ok(!tools.result.tools.some(t => t.name === 'compare_snapshot_trees'));
   assert.ok(!tools.result.tools.some(t => t.name === 'compare_snapshot_builds'));
+  assert.ok(!tools.result.tools.some(t => t.name === 'compare_snapshot_gem_setups'));
   assert.ok(!tools.result.tools.some(t => t.name === 'search_snapshot_timeless_seeds'));
   assert.ok(!tools.result.tools.some(t => t.name === 'find_snapshot_tree_path' || t.name === 'find_snapshot_nearby_nodes'));
   assert.ok(!tools.result.tools.some(t => t.name === 'check_snapshot_issues'));
@@ -91,6 +92,7 @@ try {
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'list_snapshot_equipment').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'compare_snapshot_trees').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'compare_snapshot_builds').length, 1);
+  assert.equal(foundationOnly.result.tools.filter(t => t.name === 'compare_snapshot_gem_setups').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'search_snapshot_timeless_seeds').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'find_snapshot_tree_path').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'find_snapshot_nearby_nodes').length, 1);

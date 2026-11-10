@@ -6,6 +6,7 @@ import { PoBLuaApiClient } from '../../build/pobLuaBridge.js';
 import { BuildFoundation } from '../../build/foundation/buildFoundation.js';
 import { SnapshotStore } from '../../build/foundation/snapshotStore.js';
 import { openPoBEngine } from '../../build/foundation/pobEngineAdapter.js';
+import { createSnapshotGemComparisonTool } from '../../build/features/snapshotGemComparison/tool.js';
 import { gearedBuildXml, smokePoBSrc } from './pobSource.mjs';
 
 const dir = await mkdtemp(join(tmpdir(), 'pob-minion-'));
@@ -30,6 +31,12 @@ try {
   for (const key of fields) assert.ok(Math.abs(actual.stats[key] - expected[key]) < 0.01, `${key}: ${actual.stats[key]} vs ${expected[key]}`);
   assert.ok(actual.metrics.MinionCombinedDPS.value > actual.metrics.MinionTotalDPS.value);
   assert.equal(actual.context.skills.mainSocketGroup, group.index);
+  const lowerGem = await foundation.deriveGem(parent.id, group.index, 1, { level: 19 }, true);
+  const lowered = await foundation.evaluate(lowerGem.id, fields);
+  const comparison = await createSnapshotGemComparisonTool(foundation).invoke({ snapshot_id: parent.id, group_index: group.index, candidate_snapshot_ids: [lowerGem.id] });
+  const compared = JSON.parse(comparison.content[0].text);
+  assert.equal(compared.results[0].status, 'ok', JSON.stringify(compared.results[0]));
+  assert.equal(compared.results[0].metrics.MinionCombinedDPS.delta, lowered.metrics.MinionCombinedDPS.value - actual.metrics.MinionCombinedDPS.value);
   const item = 'Rarity: RARE\nMinion Test\nCitrine Amulet\nItem Level: 86\nImplicits: 0\nMinions deal 40% increased Damage';
   const child = await foundation.deriveItem(parent.id, 'Amulet', item);
   const changed = await foundation.evaluate(child.id, fields);

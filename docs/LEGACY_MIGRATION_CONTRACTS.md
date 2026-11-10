@@ -106,7 +106,7 @@ acceptance work to perform during migration, not claims of completed tests.
 | `create_budget_build` | Separate budget-build workflow; explicit cost source and assumptions required. | Unknown costs and unsupported substitutions cannot become a complete budget claim. |
 | `analyze_skill_links` | Snapshot skill-group inspection. | Match requested group and enabled gems; do not imply compatibility. |
 | `suggest_support_gems` | `foundation_compatible_supports` plus presentation. | Preserve exceptional-support filtering, alphabetical order, partial failures and no price/damage ranking. |
-| `compare_gem_setups` | Isolated typed gem changes and PoB comparison workflow; mutation capability missing. | Compare each complete candidate against one parent and separate player/minion metrics. |
+| `compare_gem_setups` | `compare_snapshot_gem_setups` compares explicit descendant snapshots against the same parent and selected skill group, rejecting unrelated tree, gear, configuration or skill changes. | `snapshotGemComparison.test.ts`, `foundation-gem.mjs` and `foundation-minion.mjs` cover ancestry, context, client access and real PoB player/poison-inclusive minion metrics. Automatic full-setup creation and legacy callers remain. |
 | `rank_support_gems` | Isolated explicit-candidate support comparison; mutation capability missing. | Only compatible candidates are ranked; requested damage metric and failures are retained. |
 | `validate_gem_quality` | Snapshot gem inspection. | Preserve level and quality; do not infer corruption or benefit. |
 | `find_optimal_links` | Skill-group inspection; optimizer would be a separate future feature. | Do not claim optimization or budget coverage where unavailable. |

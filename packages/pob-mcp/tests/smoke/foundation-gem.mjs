@@ -81,6 +81,13 @@ try {
     const trial = JSON.parse(response.result.content[0].text);
     assert.equal(trial.parentId, parent.id);
     assert.equal(trial.retention.kind, 'trial');
+    const comparison = await mcp.request('tools/call', { name: 'compare_snapshot_gem_setups', arguments: { snapshot_id: parent.id, group_index: 1, candidate_snapshot_ids: [trial.id] } });
+    assert.ok(!comparison.error && !comparison.result?.isError, JSON.stringify(comparison));
+    const compared = JSON.parse(comparison.result.content[0].text);
+    assert.equal(compared.results[0].status, 'ok', JSON.stringify(compared.results[0]));
+    const expectedParent = await foundation.evaluate(parent.id, ['CombinedDPS']);
+    const expectedTrial = await foundation.evaluate(trial.id, ['CombinedDPS']);
+    assert.equal(compared.results[0].metrics.CombinedDPS.delta, expectedTrial.metrics.CombinedDPS.value - expectedParent.metrics.CombinedDPS.value);
     const inspected = await mcp.request('tools/call', { name: 'foundation_inspect', arguments: { snapshot_id: trial.id, sections: ['skills'] } });
     assert.ok(!inspected.error && !inspected.result?.isError, JSON.stringify(inspected));
     assert.equal(JSON.parse(inspected.result.content[0].text).data.skills.groups[0].gems[1].quality, 12);
