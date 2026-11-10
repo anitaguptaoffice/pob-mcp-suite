@@ -50,11 +50,13 @@ describe('legacy build history', () => {
         await writeFile(path.join(folder, `${id}_saved.xml`), `<build>${id}</build>`);
       }
       const importBuild = jest.fn(async (xml: string, source: string) => ({ id: 'snapshot', xml, source }));
-      const foundation = { importBuild } as unknown as BuildFoundation;
+      const saveHistory = jest.fn(async (_id, input) => ({ id: 'history', ...input }));
+      const foundation = { importBuild, saveHistory } as unknown as BuildFoundation;
       const first = await invokeFoundation(foundation, 'list_legacy_build_history', { build_name: 'build', limit: 1 }, undefined, root) as any;
       expect(first.nextCursor).toBe(1); expect(first.entries[0].id).toBe('a');
       const imported = await invokeFoundation(foundation, 'import_legacy_build_history', { build_name: 'build', origin: first.entries[0].origin, legacy_id: 'a', metadata_digest: first.entries[0].metadataDigest }, undefined, root) as any;
       expect(importBuild).toHaveBeenCalledWith('<build>a</build>', expect.stringContaining('legacy-history:'));
+      expect(saveHistory).toHaveBeenCalledWith('snapshot', expect.objectContaining({ tag: 'saved', legacy: expect.objectContaining({ metadata: expect.objectContaining({ description: 'a' }) }) }));
       expect(imported.snapshot).not.toHaveProperty('xml'); expect(imported.legacy.metadata.description).toBe('a');
       await writeFile(path.join(folder, 'b_metadata.json'), JSON.stringify({ tag: 'saved', description: 'changed' }));
       await expect(invokeFoundation(foundation, 'list_legacy_build_history', { build_name: 'build', limit: 1, after: 1, catalog_fingerprint: first.catalogFingerprint }, undefined, root)).rejects.toThrow('restart pagination');

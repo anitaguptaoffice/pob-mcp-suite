@@ -15,9 +15,14 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   `complete`, `issues` and the catalog fingerprint when paging. To analyze one
   entry, call `import_legacy_build_history` with its exact origin, ID and
   metadata digest. Import does not delete or alter the old XML and metadata.
-  Legacy cached stats are historical values, not recalculated results. Their
-  metadata remains in the old files; moving or deleting those files loses that
-  metadata even though the imported snapshot itself remains durable.
+  The original metadata is copied to a durable history record; inspect it via
+  `list_snapshot_history`. Legacy cached stats are historical values, not
+  recalculated results. If recording metadata fails after import, the error
+  identifies the durable snapshot; retry the same import to record it.
+- Use `save_snapshot_history` to retain a snapshot with an explicit build name,
+  tag and description. `list_snapshot_history` filters by exact name and tag;
+  use its fingerprint when paging. Retention can succeed even if writing the
+  history record fails. Saving history does not overwrite a build file.
 - Use `foundation_derive_items` to test up to ten explicitly specified items in
   distinct equipment slots together. A failure publishes no partial child;
   inspect the resulting equipment and compare calculations before retaining it.

@@ -1,10 +1,11 @@
 import { strict as assert } from 'node:assert';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { once } from 'node:events';
 import { startMcpServer } from './mcpClient.mjs';
 import { BuildExportService } from '../../build/services/buildExportService.js';
+import { SnapshotStore } from '../../build/foundation/snapshotStore.js';
 
 const dir = await mkdtemp(join(tmpdir(), 'pob-file-catalog-'));
 const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_DIRECTORY: dir, POB_SNAPSHOT_DIRECTORY: join(dir, '.snapshots'), POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
@@ -22,6 +23,13 @@ try {
   assert.equal(importedHistory.legacy.metadata.tag, 'before'); assert.equal(importedHistory.snapshot.parentId, null);
   assert.equal((await call('foundation_export_build', { snapshot_id: importedHistory.snapshot.id })).xml, xml);
   assert.equal(await readFile(legacy.snapshotPath, 'utf8'), xml);
+  await rm(legacy.snapshotPath); await rm(join(dirname(legacy.snapshotPath), `${legacy.snapshotId}_metadata.json`));
+  const durableHistory = await call('list_snapshot_history', { build_name: 'league/build', tag: 'before' });
+  assert.equal(durableHistory.entries.length, 1); assert.equal(durableHistory.entries[0].id, importedHistory.history.id);
+  assert.equal(durableHistory.entries[0].description, 'legacy history fixture');
+  assert.deepEqual(durableHistory.entries[0].legacy.metadata, importedHistory.legacy.metadata);
+  const named = await call('save_snapshot_history', { snapshot_id: importedHistory.snapshot.id, build_name: 'league/build', tag: 'manual', description: 'saved through MCP' });
+  assert.equal(named.description, 'saved through MCP');
   const catalog = await call('list_local_build_files', {});
   assert.equal(catalog.complete, true); assert.deepEqual(catalog.names, [join('league', 'build.xml')]);
   const snapshot = await call('foundation_import_file', { build_name: catalog.names[0] });
@@ -34,5 +42,9 @@ try {
   const updated = await call('foundation_import_file', { build_name: catalog.names[0] });
   assert.notEqual(updated.id, snapshot.id); assert.equal((await call('foundation_export_build', { snapshot_id: updated.id })).xml, `${xml}\n`);
   assert.equal((await call('stop_local_build_watch', {})).state, 'stopped');
-  child.stdin.end(); assert.equal((await exited)[0], 0); console.log('foundation file catalog passed');
+  child.stdin.end(); assert.equal((await exited)[0], 0);
+  const reopened = new SnapshotStore(join(dir, '.snapshots'));
+  assert.equal((await reopened.readHistory(importedHistory.history.id)).description, 'legacy history fixture');
+  assert.equal((await reopened.readHistory(named.id)).tag, 'manual');
+  console.log('foundation file catalog passed');
 } finally { if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM'); await rm(dir, { recursive: true, force: true }); }

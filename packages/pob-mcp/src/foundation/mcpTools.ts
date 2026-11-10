@@ -8,6 +8,8 @@ import { createHash } from 'node:crypto';
 
 /** Experimental surface; enabled only by explicit configuration. */
 export const foundationSchemas: ToolSchema[] = [
+  { name: 'save_snapshot_history', description: 'Permanently retain a snapshot and record its build name, tag and description separately from snapshot content.', inputSchema: { type: 'object', additionalProperties: false, properties: { snapshot_id: { type: 'string' }, build_name: { type: 'string' }, tag: { type: 'string' }, description: { type: 'string' } }, required: ['snapshot_id', 'build_name', 'tag'] } },
+  { name: 'list_snapshot_history', description: 'List saved snapshot history, optionally filtering by exact build name and tag. Restart pagination if the catalog fingerprint changes.', inputSchema: { type: 'object', additionalProperties: false, properties: { build_name: { type: 'string' }, tag: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 50 }, after: { type: 'integer', minimum: 0 }, catalog_fingerprint: { type: 'string' } } } },
   { name: 'list_legacy_build_history', description: 'List old local build snapshots and their original metadata without modifying them. Restart pagination if the catalog fingerprint changes.', inputSchema: { type: 'object', additionalProperties: false, properties: { build_name: { type: 'string' }, tag: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 50 }, after: { type: 'integer', minimum: 0 }, catalog_fingerprint: { type: 'string' } }, required: ['build_name'] } },
   { name: 'import_legacy_build_history', description: 'Import one explicitly selected old history XML as a new durable snapshot; the old XML and metadata remain unchanged.', inputSchema: { type: 'object', additionalProperties: false, properties: { build_name: { type: 'string' }, origin: { type: 'string' }, legacy_id: { type: 'string' }, metadata_digest: { type: 'string' } }, required: ['build_name', 'origin', 'legacy_id', 'metadata_digest'] } },
   { name: 'foundation_derive_items', description: 'Atomically equip 1–10 explicit items in distinct slots and create a verified snapshot. Does not establish in-game item legality.', inputSchema: { type: 'object', additionalProperties: false, properties: { trial: { type: 'boolean' }, snapshot_id: { type: 'string' }, items: { type: 'array', minItems: 1, maxItems: 10, items: { type: 'object', additionalProperties: false, properties: { slot: { type: 'string' }, item_text: { type: 'string' } }, required: ['slot', 'item_text'] } } }, required: ['snapshot_id', 'items'] } },
@@ -68,6 +70,20 @@ export async function invokeFoundation(foundation: BuildFoundation, name: string
     return args.trial === true;
   };
   switch (name) {
+    case 'save_snapshot_history': {
+      if (Object.keys(args).some(key => !['snapshot_id', 'build_name', 'tag', 'description'].includes(key)) || typeof args.tag !== 'string' || (args.description !== undefined && typeof args.description !== 'string')) throw new Error('Invalid snapshot history options');
+      return foundation.saveHistory(stringArg('snapshot_id'), { buildName: stringArg('build_name'), tag: args.tag, description: args.description as string ?? '', recordedAt: new Date().toISOString() });
+    }
+    case 'list_snapshot_history': {
+      const limit = args.limit ?? 20, after = args.after ?? 0;
+      if (Object.keys(args).some(key => !['build_name', 'tag', 'limit', 'after', 'catalog_fingerprint'].includes(key)) || (args.build_name !== undefined && (typeof args.build_name !== 'string' || !args.build_name.trim() || args.build_name.length > 1000)) || (args.tag !== undefined && (typeof args.tag !== 'string' || args.tag.length > 1000)) || typeof limit !== 'number' || !Number.isSafeInteger(limit) || limit < 1 || limit > 50 || typeof after !== 'number' || !Number.isSafeInteger(after) || after < 0 || (args.catalog_fingerprint !== undefined && (typeof args.catalog_fingerprint !== 'string' || !/^[a-f0-9]{64}$/.test(args.catalog_fingerprint))) || (after > 0 && !args.catalog_fingerprint)) throw new Error('Invalid snapshot history pagination');
+      const records = (await foundation.listHistory()).filter(record => (args.build_name === undefined || record.buildName === args.build_name) && (args.tag === undefined || record.tag === args.tag));
+      const fingerprint = createHash('sha256').update(JSON.stringify({ ids: records.map(record => record.id), buildName: args.build_name ?? null, tag: args.tag ?? null })).digest('hex');
+      if (args.catalog_fingerprint !== undefined && args.catalog_fingerprint !== fingerprint) throw new Error('Snapshot history changed; restart pagination');
+      if (after > records.length) throw new Error('Invalid snapshot history cursor');
+      const entries = records.slice(after, after + limit);
+      return { entries, total: records.length, nextCursor: after + entries.length < records.length ? after + entries.length : null, catalogFingerprint: fingerprint, warnings: ['Legacy stats are historical values; evaluate the snapshot for current PoB calculations.'] };
+    }
     case 'list_legacy_build_history': {
       if (!buildsDirectory) throw new Error('Local build directory is unavailable');
       const limit = args.limit ?? 20, after = args.after ?? 0;
@@ -85,8 +101,15 @@ export async function invokeFoundation(foundation: BuildFoundation, name: string
       if (Object.keys(args).some(key => !['build_name', 'origin', 'legacy_id', 'metadata_digest'].includes(key))) throw new Error('Invalid legacy history selection');
       const selected = await readLegacyHistory(buildsDirectory, stringArg('build_name'), stringArg('origin'), stringArg('legacy_id'), stringArg('metadata_digest'));
       const snapshot = await foundation.importBuild(selected.xml, `legacy-history:${selected.buildName}:${selected.origin}:${selected.id}`);
+      let history;
+      try {
+        history = await foundation.saveHistory(snapshot.id, { buildName: selected.buildName, tag: selected.metadata.tag as string,
+          description: typeof selected.metadata.description === 'string' && selected.metadata.description.length <= 10000 ? selected.metadata.description : '',
+          recordedAt: typeof selected.metadata.timestamp === 'string' && selected.metadata.timestamp.length <= 100 ? selected.metadata.timestamp : null,
+          legacy: { id: selected.id, origin: selected.origin, metadataDigest: selected.metadataDigest, xmlDigest: selected.xmlDigest, metadata: selected.metadata } });
+      } catch (error) { throw new Error(`Snapshot ${snapshot.id} was imported, but history metadata could not be saved; retry: ${error instanceof Error ? error.message : String(error)}`); }
       const { xml: _xml, ...legacy } = selected;
-      return { snapshot: snapshotMetadata(snapshot), legacy, warnings: ['Legacy metadata remains in its original files; cached stats are not recalculated.'] };
+      return { snapshot: snapshotMetadata(snapshot), history, legacy, warnings: ['Legacy cached stats are historical and are not recalculated. Original files remain unchanged.'] };
     }
     case 'foundation_derive_items': {
       if (Object.keys(args).some(key => !['snapshot_id', 'items', 'trial'].includes(key)) || !Array.isArray(args.items) || args.items.some(item => !item || typeof item !== 'object' || Array.isArray(item) || Object.keys(item).some(key => !['slot', 'item_text'].includes(key)) || typeof item.slot !== 'string' || typeof item.item_text !== 'string')) throw new Error('Invalid item changes');

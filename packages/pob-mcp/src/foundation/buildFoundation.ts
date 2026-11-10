@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from 'node:util';
-import { SnapshotStore, snapshotMetadata, type SnapshotRecord } from './snapshotStore.js';
+import { SnapshotStore, snapshotMetadata, type SnapshotRecord, type SnapshotHistoryInput } from './snapshotStore.js';
 import { EngineLimiter } from './engineLimiter.js';
 import { normalizeObservation } from './observation.js';
 import { MAX_BUILD_BYTES, decodeShareCode } from './shareCode.js';
@@ -1065,5 +1065,7 @@ export class BuildFoundation {
   async retainSnapshot(id: string) { return this.store.retain(id); }
   async snapshotRetention(id: string) { return this.store.retentionStatus(id); }
   async listSnapshots(limit?: number, after?: string) { return this.store.list(limit, after); }
+  async saveHistory(id: string, input: SnapshotHistoryInput) { return this.store.saveHistory(id, input); }
+  async listHistory() { return this.store.listHistory(); }
   async exportBuild(id: string): Promise<string> { return (await this.store.read(id)).xml; }
 }
