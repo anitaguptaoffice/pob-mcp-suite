@@ -14,10 +14,10 @@ try {
   } });
   if (response.error || response.result?.isError) throw new Error(`suggest_crafting failed: ${JSON.stringify(response.error ?? response.result)}`);
   const text = response.result?.content?.[0]?.text || '';
-  if (!text.includes('=== Crafting Advisor: Hubris Circlet (helmet) ===') || text.includes('Could not fetch poedb data')) {
-    throw new Error(`crafting advice did not include live base-mod data: ${text}`);
+  if (!text.includes('=== 制作资料：Hubris Circlet (helmet) ===') || !text.includes('已核对底材页面标题') || !text.includes('不是经验证的可制作词缀表')) {
+    throw new Error(`crafting context did not include a verified base-page reference: ${text}`);
   }
-  console.log('crafting MCP passed: tool discovery plus live poe.ninja and PoEDB-backed crafting advice succeeded');
+  console.log('crafting MCP passed: tool discovery and live PoEDB base-page reference succeeded');
 } finally {
   child.kill();
 }

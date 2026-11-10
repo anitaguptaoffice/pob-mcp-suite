@@ -1947,7 +1947,7 @@ export function getBuildGoalsToolSchemas(): ToolSchema[] {
     },
     {
       name: "suggest_crafting",
-      description: "Recommend the best crafting method for an item. Provide a gear slot and optionally a base type and desired mods. If a build is loaded, auto-detects the equipped base and build gaps.",
+      description: "Collect crafting context and a verified base-page link. This is not a crafting rules engine or probability simulator; independently verify item state, game version and mechanics before suggesting steps. Currency reference is queried only when the exact international league is supplied.",
       inputSchema: {
         type: "object",
         properties: {
@@ -1968,15 +1968,15 @@ export function getBuildGoalsToolSchemas(): ToolSchema[] {
           budget: {
             type: "string",
             enum: ["low", "medium", "high"],
-            description: "Crafting budget: low (<50c), medium (50-500c), high (500c+)",
+            description: "Subjective budget category; no fixed currency amount is implied.",
           },
           ilvl: {
             type: "number",
-            description: "Item level — determines which mod tiers are reachable. 84+ for top tiers on most bases.",
+            description: "Caller-provided item level; applicability and available modifiers require independent verification.",
           },
           league: {
             type: "string",
-            description: "League name for currency prices (default: Standard)",
+            description: "Exact international league name for optional currency reference; no default is assumed.",
           },
         },
         required: ["slot"],

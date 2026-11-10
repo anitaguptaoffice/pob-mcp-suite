@@ -2,20 +2,13 @@ export function formatBaseSlug(base: string): string {
   return base.replace(/ /g, '_');
 }
 
-/**
- * Lightly processes poedb HTML into plain text sections useful for Claude.
- * We don't need perfect parsing — Claude can interpret semi-structured text.
- */
+/** The base page is not a verified affix table. Never inject scraped page text into a prompt. */
 export function parsePoedbText(html: string, base: string): string {
-  // Strip script/style tags
-  let text = html
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/<style[\s\S]*?<\/style>/gi, '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\s{2,}/g, '\n')
-    .trim();
-
-  return `=== poedb data for: ${base} ===\n\n${text.slice(0, 8000)}`;
+  const title = /<title[^>]*>([^<]*)<\/title>/i.exec(html)?.[1]?.trim();
+  if (!title || !title.toLowerCase().startsWith(`${base.toLowerCase()} - poedb`)) {
+    throw new Error(`poedb page title did not identify the requested base "${base}"`);
+  }
+  return `已核对底材页面标题：${base}。此页面不是经验证的可制作词缀表，不能据此确认词缀、权重或成功率。`;
 }
 
 interface CraftingBaseData {
@@ -46,7 +39,7 @@ export async function fetchBaseModData(base: string): Promise<CraftingBaseData> 
   }
 
   const html = await response.text();
-  const modText = parsePoedbText(html, base);
+  const modText = `${parsePoedbText(html, base)}\n英文页面：${url}\n中文页面：https://poedb.tw/cn/${encodeURIComponent(slug)}`;
 
   return { base, poedbUrl: url, modText };
 }

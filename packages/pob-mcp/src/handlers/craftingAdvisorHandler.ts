@@ -1,7 +1,7 @@
 import type { PoBLuaApiClient, StatsExport } from '../pobLuaBridge.js';
 import type { PoeNinjaClient } from '../services/poeNinjaClient.js';
 import { fetchBaseModData } from '../services/craftingDataService.js';
-import { wrapHandler, noteIgnoredError,} from '../utils/errorHandling.js';
+import { wrapHandler, noteIgnoredError } from '../utils/errorHandling.js';
 
 interface CraftingAdvisorContext {
   getLuaClient: () => PoBLuaApiClient | null;
@@ -15,156 +15,80 @@ interface CraftingResponseInput {
   modData: string;
   currencyRates: { chaos: number; divine?: number; live: boolean };
   buildContext: StatsExport | null;
+  league?: string;
+  baseFromEquipped?: boolean;
   ilvl?: number;
   budget?: 'low' | 'medium' | 'high';
 }
 
-const CRAFTING_METHODS = `
-## Always-Available Crafting Methods
+const slotMap: Record<string, string> = {
+  helmet: 'Helmet', chest: 'Body Armour', gloves: 'Gloves', boots: 'Boots',
+  weapon: 'Weapon 1', offhand: 'Weapon 2', ring: 'Ring 1', amulet: 'Amulet', belt: 'Belt',
+};
 
-1. **Chaos spam** — buy rares of the base, chaos orb repeatedly. Good when many mods are acceptable.
-2. **Alt/aug/regal** — start magic, alt/aug for desired prefix+suffix, regal to rare. Good for 2-mod targets.
-3. **Essence** — guarantees one specific mod. Best anchor point for crafting.
-4. **Fossil/resonator** — biases mod pool toward/away from tags. Best for specific combos.
-5. **Bench craft** — deterministically adds/removes one mod. Always used to finish an item.
-6. **Scour / annul** — Scouring normally removes all explicit modifiers and returns the item to normal rarity; an Annulment removes one random modifier. Check protection and special-item rules before using either.
-7. **Exalt slam** — adds a random mod to a rare. High variance but can finish items.
-8. **Meta-crafting** — "Prefixes Cannot Be Changed" / "Suffixes Cannot Be Changed" / "Cannot Roll Attack Mods". Lets you safely scour half the item.
-`;
-
-/**
- * Builds the crafting advisor response text from structured input.
- * Pure function — no async, no side effects — so it is easily unit tested.
- */
+/** Context only: this tool does not validate crafting rules or calculate probabilities. */
 export function buildCraftingResponse(input: CraftingResponseInput): string {
-  const { base, slot, desiredMods, modData, currencyRates, buildContext } = input;
-
-  let text = `=== Crafting Advisor: ${base} (${slot}) ===\n\n`;
-
-  text += `## Target Mods\n`;
-  if (desiredMods.length > 0) {
-    desiredMods.forEach(mod => { text += `- ${mod}\n`; });
-  } else {
-    text += `(No specific mods requested — use build context below)\n`;
+  let text = `=== 制作资料：${input.base} (${input.slot}) ===\n\n`;
+  if (input.baseFromEquipped) text += '底材来自当前装备；不代表目标物品具有相同物品等级、词缀或特殊状态。\n\n';
+  text += `## 目标词缀\n${input.desiredMods.length ? input.desiredMods.map(mod => `- ${mod}`).join('\n') : '未指定。'}\n\n`;
+  if (input.ilvl !== undefined) text += `物品等级：${input.ilvl}（由调用方提供，未验证）\n`;
+  if (input.budget !== undefined) text += `预算档位：${input.budget}（调用方主观描述，不代表固定金额）\n`;
+  if (input.buildContext) {
+    text += '\n## BD 数据\n';
+    for (const [key, value] of Object.entries(input.buildContext)) {
+      if (key !== '_meta' && (typeof value === 'number' || typeof value === 'string')) text += `- ${key}: ${value}\n`;
+    }
   }
-  text += '\n';
-
-  if (input.ilvl !== undefined || input.budget !== undefined) {
-    text += `## Crafting Parameters\n`;
-    if (input.ilvl !== undefined) text += `- Item Level: ${input.ilvl} (affects reachable mod tiers)\n`;
-    if (input.budget !== undefined) text += `- Budget: ${input.budget}\n`;
-    text += '\n';
-  }
-
-  if (buildContext) {
-    text += `## Build context\n`;
-    Object.entries(buildContext).forEach(([k, v]) => {
-      text += `- ${k}: ${v}\n`;
-    });
-    text += '\n';
-  }
-
-  text += `## Currency Rates\n`;
-  text += currencyRates.live
-    ? `- 1 Divine Orb = ${currencyRates.divine} Chaos Orb\n\n`
-    : '- Market rate unavailable; do not estimate currency costs using a placeholder.\n\n';
-
-  text += CRAFTING_METHODS + '\n';
-
-  if (modData) {
-    text += modData + '\n';
-  }
-
-  text += `\n---\nUsing the mod data above, recommend the best crafting method for the target mods on this base. `;
-  text += `Provide: (1) recommended method with reasoning, (2) step-by-step instructions, (3) cost only when supported by verified prices and probabilities, and (4) fallback if it bricks. This tool does not simulate probabilities; explicitly identify unknowns.`;
-
+  text += '\n## 通货参考\n';
+  if (!input.league) text += '未指定国际服赛季，未查询价格。\n';
+  else if (input.currencyRates.live && Number.isFinite(input.currencyRates.divine) && (input.currencyRates.divine ?? 0) > 0) {
+    text += `赛季：${input.league}；poe.ninja 参考汇率：1 Divine Orb = ${input.currencyRates.divine} Chaos Orb。数据可能来自缓存，不代表可立即成交的一口价。\n`;
+  } else text += `赛季：${input.league}；未取得有效汇率，不使用占位价格。\n`;
+  text += `\n## 底材资料\n${input.modData || '未取得资料。'}\n`;
+  text += '\n此工具只收集背景信息，不是工艺规则引擎或概率模拟器。给出制作步骤前，需要独立核实游戏版本、目标物品的等级、已有词缀及空位、特殊状态、各步骤的规则和风险。词缀概率与制作成本缺少可靠依据时应标为未知，并可与官方交易站可立即购买的一口价比较。';
   return text;
 }
 
-/**
- * MCP handler for the suggest_crafting tool.
- * Gathers live build stats, currency rates, and poedb mod data, then
- * returns a structured prompt for the AI to reason about crafting strategy.
- */
-export async function handleSuggestCrafting(
-  context: CraftingAdvisorContext,
-  args: {
-    slot: string;
-    base?: string;
-    desired_mods?: string[];
-    budget?: 'low' | 'medium' | 'high';
-    ilvl?: number;
-    league?: string;
-  }
-) {
+export async function handleSuggestCrafting(context: CraftingAdvisorContext, args: {
+  slot: string; base?: string; desired_mods?: string[]; budget?: 'low' | 'medium' | 'high'; ilvl?: number; league?: string;
+}) {
   return wrapHandler('suggest crafting', async () => {
-    const { slot, desired_mods = [], league = 'Standard' } = args;
-
-    let base = args.base;
+    const slot = typeof args.slot === 'string' ? args.slot.trim().toLowerCase() : '';
+    if (!Object.prototype.hasOwnProperty.call(slotMap, slot)) throw new Error('Invalid slot');
+    if (args.base !== undefined && (typeof args.base !== 'string' || !args.base.trim() || args.base.length > 120)) throw new Error('Invalid base');
+    if (args.league !== undefined && (typeof args.league !== 'string' || !args.league.trim() || args.league.length > 120)) throw new Error('Invalid league');
+    if (args.desired_mods !== undefined && (!Array.isArray(args.desired_mods) || args.desired_mods.length > 20 || args.desired_mods.some(mod => typeof mod !== 'string' || !mod.trim() || mod.length > 200))) throw new Error('Invalid desired_mods');
+    if (args.ilvl !== undefined && (!Number.isInteger(args.ilvl) || args.ilvl < 1 || args.ilvl > 100)) throw new Error('Invalid ilvl');
+    if (args.budget !== undefined && !['low', 'medium', 'high'].includes(args.budget)) throw new Error('Invalid budget');
+    const league = args.league?.trim();
+    let base = args.base?.trim();
+    let baseFromEquipped = false;
     let buildContext: StatsExport | null = null;
-
     const luaClient = context.getLuaClient();
     if (luaClient) {
       try {
-        const stats = await luaClient.getStats([
-          'Life', 'EnergyShield', 'FireResist', 'ColdResist', 'LightningResist', 'ChaosResist',
-          'TotalDPS', 'MinionTotalDPS', 'Armour', 'Evasion',
-        ]);
-        buildContext = stats;
-
-        if (!base) {
-          try {
-            const items = await luaClient.getItems();
-            const slotMap: Record<string, string> = {
-              helmet: 'Helmet', chest: 'Body Armour', gloves: 'Gloves',
-              boots: 'Boots', weapon: 'Weapon 1', offhand: 'Weapon 2',
-              ring: 'Ring 1', amulet: 'Amulet', belt: 'Belt',
-            };
-            const slotName = slotMap[slot.toLowerCase()];
-            const item = items.find((i) => i.slot === slotName);
-            if (item?.baseName) base = item.baseName;
-          } catch (e) { noteIgnoredError("No item in slot — fine, continue without auto-detected base", e); }
-        }
-      } catch (e) { noteIgnoredError("PoB not loaded — fine, continue without build context", e); }
+        buildContext = await luaClient.getStats(['Life', 'EnergyShield', 'FireResist', 'ColdResist', 'LightningResist', 'ChaosResist', 'TotalDPS', 'MinionTotalDPS', 'CombinedDPS', 'MinionCombinedDPS', 'Armour', 'Evasion']);
+      } catch (e) { noteIgnoredError('PoB build stats unavailable', e); }
+      if (!base) {
+        try {
+          const items = await luaClient.getItems();
+          const item = items.find(i => i.slot === slotMap[slot] && i.shown !== false && i.id > 0 && typeof i.baseName === 'string' && i.baseName.trim());
+          if (item?.baseName) { base = item.baseName.trim(); baseFromEquipped = true; }
+        } catch (e) { noteIgnoredError('PoB equipped item unavailable', e); }
+      }
     }
-
-    if (!base) {
-      return {
-        content: [{
-          type: 'text',
-          text: `Please provide a base type (e.g. "Hubris Circlet") — no build is loaded to auto-detect the equipped item in the ${slot} slot.`,
-        }],
-      };
-    }
-
+    if (!base) return { content: [{ type: 'text', text: `请提供底材名称：无法从 ${slot} 部位读取已装备物品。` }] };
     let currencyRates: CraftingResponseInput['currencyRates'] = { chaos: 1, live: false };
-    try {
-      const rateMap = await context.ninjaClient.getCurrencyExchangeMap(league);
-      const divineRate = rateMap.get('Divine Orb');
-      if (divineRate) currencyRates = { chaos: 1, divine: Math.round(divineRate), live: true };
-    } catch (e) { noteIgnoredError("poe.ninja unavailable — currency price omitted", e); }
-
-    let modData = '';
-    try {
-      const data = await fetchBaseModData(base);
-      modData = data.modText;
-    } catch (err) {
-      modData = `(Could not fetch poedb data for "${base}": ${err instanceof Error ? err.message : String(err)})`;
+    if (league) {
+      try {
+        const divine = (await context.ninjaClient.getCurrencyExchangeMap(league)).get('Divine Orb');
+        if (typeof divine === 'number' && Number.isFinite(divine) && divine > 0) currencyRates = { chaos: 1, divine, live: true };
+      } catch (e) { noteIgnoredError('poe.ninja unavailable', e); }
     }
-
-    const responseText = buildCraftingResponse({
-      base,
-      slot,
-      desiredMods: desired_mods,
-      modData,
-      currencyRates,
-      buildContext,
-      ilvl: args.ilvl,
-      budget: args.budget,
-    });
-
-    return {
-      content: [{ type: 'text', text: responseText }],
-    };
+    let modData: string;
+    try { modData = (await fetchBaseModData(base)).modText; }
+    catch (err) { modData = `未能核实 poedb 底材页面：${err instanceof Error ? err.message : String(err)}`; }
+    return { content: [{ type: 'text', text: buildCraftingResponse({ base, slot, desiredMods: args.desired_mods ?? [], modData,
+      currencyRates, buildContext, league, baseFromEquipped, ilvl: args.ilvl, budget: args.budget }) }] };
   });
 }
