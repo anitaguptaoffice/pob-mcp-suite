@@ -1,7 +1,7 @@
 import type { PriceCategory, PriceLine, PriceSnapshot } from './ninjaPrices.js';
 
 export interface CostItem { slot: string; id: number; name?: string; baseName?: string; type?: string; rarity?: string; raw?: string; shown?: boolean }
-export interface CostGem { name: string; level: number; quality: number; enabled: boolean; isSupport?: boolean }
+export interface CostGem { name: string; level: number; quality: number; qualityId?: string; enabled: boolean; isSupport?: boolean }
 export interface CostGroup { index: number; label?: string; enabled?: boolean; gems: CostGem[] }
 export interface CostEntry {
   kind: 'item' | 'gem'; slot: string; name: string; status: 'reference' | 'unknown';
@@ -36,6 +36,7 @@ export function matchUnique(item: CostItem, lines: PriceLine[]): { line?: PriceL
 
 export function matchGem(gem: CostGem, lines: PriceLine[]): { line?: PriceLine; reason: string } {
   if (!gem.name || !Number.isFinite(gem.level) || !Number.isFinite(gem.quality)) return { reason: '宝石信息不完整' };
+  if (gem.qualityId && normalize(gem.qualityId) !== 'default') return { reason: '宝石品质类型不是默认类型，需按实际版本单独核价' };
   const gemName = normalize(gem.name);
   const found = lines.filter(line => (normalize(line.name) === gemName ||
     (gem.isSupport === true && !gemName.endsWith(' support') && normalize(line.name) === `${gemName} support`)) &&
@@ -43,7 +44,10 @@ export function matchGem(gem: CostGem, lines: PriceLine[]): { line?: PriceLine; 
   // PoB's gem state does not reliably record corruption. More than one matching
   // variant must remain unknown; never pick the cheaper corrupted version.
   if (found.length !== 1) return { reason: found.length ? '存在腐化等多个版本，PoB 未提供足够信息区分' : '没有对应等级和品质的行情' };
-  return { line: found[0], reason: '按等级和品质匹配的行情参考；PoB 未确认腐化状态' };
+  if (found[0].corrupted === true || /c$/i.test(found[0].variant ?? '')) {
+    return { reason: '仅找到腐化版本行情，而 PoB 未确认宝石腐化状态，需单独核价' };
+  }
+  return { line: found[0], reason: '按等级和品质匹配的非腐化版本行情参考；PoB 未确认实际腐化状态' };
 }
 
 export async function estimateBuildCost(source: PriceSource, league: string, items: CostItem[], groups: CostGroup[]): Promise<CostReport> {

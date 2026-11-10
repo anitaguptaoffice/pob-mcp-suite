@@ -32,6 +32,29 @@ describe('build cost matching', () => {
     ]).line).toBeUndefined();
   });
 
+  it('does not price an unconfirmed corrupted or non-default-quality gem', () => {
+    const gem = { name: 'Raise Spectre', level: 21, quality: 20, enabled: true, qualityId: 'Default' };
+    // Real poe.ninja shape: Standard has a 21/20c entry and no non-corrupted 21/20 listing.
+    const corrupted = { name: 'Raise Spectre', gemLevel: 21, gemQuality: 20, chaosValue: 3007, corrupted: true, variant: '21/20c' };
+    expect(matchGem(gem, [corrupted]).line).toBeUndefined();
+    expect(matchGem(gem, [{ ...corrupted, corrupted: undefined }]).line).toBeUndefined();
+    expect(matchGem({ ...gem, level: 20, qualityId: 'Alternate1' }, [
+      { name: 'Raise Spectre', gemLevel: 20, gemQuality: 20, chaosValue: 433.5, variant: '20/20' },
+    ]).line).toBeUndefined();
+  });
+
+  it('excludes an unconfirmed corrupted gem from the reference subtotal', async () => {
+    const market = { get: async () => ({ fetchedAt: '2026-01-01', lines: [
+      { name: 'Raise Spectre', gemLevel: 21, gemQuality: 20, chaosValue: 3007, corrupted: true, variant: '21/20c' },
+    ] }) };
+    const report = await estimateBuildCost(market, 'Standard', [], [{ index: 1, gems: [
+      { name: 'Raise Spectre', level: 21, quality: 20, qualityId: 'Default', enabled: true },
+    ] }]);
+    expect(report.estimatedSubtotal).toBe(0);
+    expect(report.entries[0].status).toBe('unknown');
+    expect(report.entries[0].note).toContain('腐化');
+  });
+
   it('matches the support suffix only when PoB identifies a support gem', () => {
     const gem = { name: 'Second Wind', level: 20, quality: 0, enabled: true, isSupport: true };
     const listings = [{ name: 'Second Wind Support', gemLevel: 20, chaosValue: 2 }];
