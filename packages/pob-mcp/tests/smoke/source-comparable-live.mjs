@@ -50,6 +50,15 @@ try {
   assert.ok(search.listings.every(listing => !('whisper_token' in listing.listing)));
   const repeat = await call('search_official_trade', searchArgs);
   assert.deepEqual(repeat.sourceTimes, search.sourceTimes);
+  const priceArgs = { league: 'Standard', item_name: 'Goldrim', rarity: 'unique', limit: 3 };
+  const price = await call('sample_trade_item_price', priceArgs);
+  assert.equal(price.query.query.status.option, 'securable');
+  assert.equal(price.query.query.filters.trade_filters.filters.sale_type.option, 'priced');
+  assert.ok(price.pricedCount > 0 && price.pricedCount <= 3);
+  assert.equal(price.byCurrency.reduce((sum, group) => sum + group.sampleCount, 0), price.pricedCount);
+  assert.equal(new Set(price.byCurrency.map(group => group.currency)).size, price.byCurrency.length);
+  assert.ok(Number.isFinite(Date.parse(price.sourceTimes.search)));
+  assert.deepEqual((await call('sample_trade_item_price', priceArgs)).sourceTimes, price.sourceTimes);
   mcp.child.stdin.end(); assert.equal((await exited)[0], 0);
   console.log('source-backed comparable live integration passed');
 } finally {

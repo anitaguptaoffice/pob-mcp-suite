@@ -48,7 +48,7 @@ adapter use the shared cache; `estimate_snapshot_cost` combines that source with
 an explicit immutable PoB snapshot. Its pure price model is shared with the
 legacy cost tool and compared in unit tests; the legacy router and client/skill
 migration remain pending. The independent `OfficialTradeSource` and adapter now
-back `estimate_trade_comparable`, `search_official_trade`, `search_trade_stats`
+back `estimate_trade_comparable`, `search_official_trade`, `sample_trade_item_price`, `search_trade_stats`
 and `list_trade_leagues`.
 The comparable policy and query/source-audit rules now live in feature/domain
 modules without a legacy-client dependency; temporary re-exports serve old

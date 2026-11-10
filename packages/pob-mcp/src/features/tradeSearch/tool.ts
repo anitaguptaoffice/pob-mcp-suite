@@ -27,8 +27,8 @@ export function tradeSearchSchema(): FeatureTool['schema'] {
 type Filter = { stat_id: string; min?: number; max?: number };
 type Group = { type: 'and' | 'or' | 'not' | 'count' | 'weight'; filters: Filter[]; min?: number; max?: number };
 
-export function createTradeSearchTool(source: OfficialTradeSource): FeatureTool {
-  return { schema: tradeSearchSchema(), invoke: async args => {
+/** Application workflow returns structured data independently of MCP. */
+export async function searchOfficialTrade(source: OfficialTradeSource, args: Record<string, unknown>) {
     const allowed = new Set(['league', 'item_name', 'item_type', 'item_rarity', 'min_price', 'max_price', 'price_currency', 'status', 'sale_type', 'min_links', 'corrupted', 'identified', 'mods', 'stat_groups', 'audit_sources', 'sort', 'limit']);
     if (Object.keys(args).some(key => !allowed.has(key))) throw new Error('Unsupported trade search option');
     const league = typeof args.league === 'string' ? args.league.trim() : '';
@@ -90,9 +90,12 @@ export function createTradeSearchTool(source: OfficialTradeSource): FeatureTool 
       'Results are asking prices, not completed sales; listing availability can change.',
       'Source counts match official hashes to query IDs and do not verify values. Missing hashes and pseudo stats cannot establish source absence.',
     ];
-    return { content: [{ type: 'text', text: JSON.stringify({ source: 'official-trade', league, query, listingScope: status === 'securable' && sale === 'priced' ? 'instant_buyout' : 'other',
+    return { source: 'official-trade' as const, league, query, listingScope: status === 'securable' && sale === 'priced' ? 'instant_buyout' as const : 'other' as const,
       searchUrl: `https://www.pathofexile.com/trade/search/${encodeURIComponent(league)}/${encodeURIComponent(search.id)}`, totalMatches: search.total, inexact: search.inexact === true,
       requestedCount: selectedIds.length, fetchedCount: listings.length, missingListingIds: trade.missingIds, listings, sourceStatistics: statistics, sourceAudit, sourceWarnings,
-      sourceTimes: trade.sourceTimes, sourceFailures: trade.sourceFailures, warnings }) }] };
-  } };
+      sourceTimes: trade.sourceTimes, sourceFailures: trade.sourceFailures, warnings };
+}
+
+export function createTradeSearchTool(source: OfficialTradeSource): FeatureTool {
+  return { schema: tradeSearchSchema(), invoke: async args => ({ content: [{ type: 'text', text: JSON.stringify(await searchOfficialTrade(source, args)) }] }) };
 }

@@ -53,7 +53,7 @@ export async function estimateComparable(client: ComparableClient, args: Record<
   const byCurrency = [...prices.entries()].map(([currency, amounts]) => {
     amounts.sort((a, b) => a - b);
     const midpoint = Math.floor(amounts.length / 2);
-    return { currency, sampleCount: amounts.length, min: amounts[0], median: amounts.length % 2 ? amounts[midpoint] : (amounts[midpoint - 1] + amounts[midpoint]) / 2, max: amounts[amounts.length - 1] };
+    return { currency, sampleCount: amounts.length, min: amounts[0], median: amounts.length % 2 ? amounts[midpoint] : amounts[midpoint - 1] / 2 + amounts[midpoint] / 2, max: amounts[amounts.length - 1] };
   });
   return { league, baseType: base, query, searchUrl: `https://www.pathofexile.com/trade/search/${encodeURIComponent(league)}/${encodeURIComponent(search.id)}`,
     listingScope: 'instant_buyout', sourceWarnings, sourceStatistics, checkedAt: new Date().toISOString(), totalMatches: search.total, fetchedCount: listings.length, inexact: search.inexact === true, byCurrency,

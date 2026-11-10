@@ -49,6 +49,7 @@ import { OfficialTradeAdapter } from './adapters/officialTrade/officialTradeAdap
 import { createSourceComparableTool, sourceComparableSchema } from './features/tradeComparable/sourceTool.js';
 import { createTradeMetadataTools, tradeMetadataSchemas } from './features/tradeMetadata/tools.js';
 import { createTradeSearchTool, tradeSearchSchema } from './features/tradeSearch/tool.js';
+import { createTradeItemPriceTool, tradeItemPriceSchema } from './features/tradePrice/tool.js';
 
 // Import utilities
 import { ContextBuilder } from "./utils/contextBuilder.js";
@@ -102,6 +103,7 @@ class PoBMCPServer {
       sourceComparableSchema(),
       ...tradeMetadataSchemas(),
       tradeSearchSchema(),
+      tradeItemPriceSchema(),
       ...getLuaToolSchemas(),
       ...buildCostSchemas(),
       ...getOptimizationToolSchemas(),
@@ -459,7 +461,7 @@ class PoBMCPServer {
         const rate = Number(process.env.POE_RATE_LIMIT_PER_SECOND ?? 4);
         const minTimeMs = Number.isFinite(rate) && rate > 0 ? Math.ceil(1000 / Math.min(rate, 4)) : 250;
         const trade = new OfficialTradeAdapter({ minTimeMs, session: () => process.env.POE_SESSION_ID || undefined });
-        migrated.push(createSourceComparableTool(trade), createTradeSearchTool(trade), ...createTradeMetadataTools(trade));
+        migrated.push(createSourceComparableTool(trade), createTradeSearchTool(trade), createTradeItemPriceTool(trade), ...createTradeMetadataTools(trade));
       }
       this.foundationFeatures = new FeatureRegistry(migrated);
       this.foundationJobs = new JobRunner(jobs, input => foundation.evaluate(input.snapshotId, input.fields, input.options));
