@@ -62,5 +62,15 @@ try {
   const report = JSON.parse(response.result.content[0].text);
   assert.equal(report.itemId, listing.id);
   assert.equal(report.source, 'current_live_pob');
+  const batchIds = found.result.slice(0, 2);
+  assert.equal(batchIds.length, 2, 'expected at least two listings for batch smoke test');
+  const batchResponse = await request('tools/call', { name: 'compare_trade_listings_in_pob', arguments: { league, slot: 'Amulet', item_ids: batchIds, search_id: found.id } });
+  assert.ok(!batchResponse.error && !batchResponse.result?.isError, JSON.stringify(batchResponse.error ?? batchResponse.result));
+  const batch = JSON.parse(batchResponse.result.content[0].text);
+  assert.equal(batch.results.length, 2);
+  assert.equal(batch.results[0].status, 'ok');
+  assert.equal(batch.results[0].result.candidateStats.Life, report.candidateStats.Life);
+  assert.equal(batch.results[0].result.baseline.Life, report.baseline.Life);
+  assert.ok(batch.results.every(row => row.status === 'ok' || row.status === 'error'));
   console.log('trade-to-PoB MCP route passed');
 } finally { child.kill(); }
