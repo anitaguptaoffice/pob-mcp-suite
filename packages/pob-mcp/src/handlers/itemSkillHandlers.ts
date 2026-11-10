@@ -196,9 +196,10 @@ export async function handleToggleFlask(
       throw new Error('Lua client not initialized. Use lua_start first.');
     }
 
-    if (flaskNumber < 1 || flaskNumber > 5) {
-      throw new Error('flask_number must be between 1 and 5');
+    if (!Number.isInteger(flaskNumber) || flaskNumber < 1 || flaskNumber > 5) {
+      throw new Error('flask_number must be an integer from 1 to 5');
     }
+    if (typeof active !== 'boolean') throw new Error('active must be a boolean');
 
     await luaClient.setFlaskActive(flaskNumber, active);
 
@@ -595,10 +596,8 @@ export async function handleSetSocketGroupEnabled(
       throw new Error('Lua client not initialized. Use lua_start first.');
     }
 
-    if (groupIndex < 1) {
-      throw new Error('group_index must be >= 1');
-    }
-
+    if (!Number.isInteger(groupIndex) || groupIndex < 1) throw new Error('group_index must be a positive integer');
+    if (typeof enabled !== 'boolean') throw new Error('enabled must be a boolean');
     const result = await luaClient.setSocketGroupEnabled({ groupIndex, enabled });
 
     const label = result?.label ? ` (${result.label})` : '';
@@ -625,8 +624,9 @@ export async function handleSetGemEnabled(
       throw new Error('Lua client not initialized. Use lua_start first.');
     }
 
-    if (groupIndex < 1) throw new Error('group_index must be >= 1');
-    if (gemIndex < 1) throw new Error('gem_index must be >= 1');
+    if (!Number.isInteger(groupIndex) || groupIndex < 1) throw new Error('group_index must be a positive integer');
+    if (!Number.isInteger(gemIndex) || gemIndex < 1) throw new Error('gem_index must be a positive integer');
+    if (typeof enabled !== 'boolean') throw new Error('enabled must be a boolean');
 
     await luaClient.setGemEnabled({ groupIndex, gemIndex, enabled });
 

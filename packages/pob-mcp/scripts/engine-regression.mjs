@@ -107,6 +107,24 @@ try {
   await client.createSocketGroup({ label: 'spell', slot: 'Weapon 1' });
   await client.addGem({ groupIndex: 1, gemName: 'Arc', level: 20 });
   await client.setMainSelection({ mainSocketGroup: 1 });
+  const beforeBadToggles = await client.getSkills();
+  await assert.rejects(() => client.setSocketGroupEnabled({ groupIndex: 1, enabled: 'false' }), /boolean/);
+  await assert.rejects(() => client.setGemEnabled({ groupIndex: 1, gemIndex: 1, enabled: 'false' }), /boolean/);
+  assert.deepEqual(await client.getSkills(), beforeBadToggles, 'invalid enable flag changed skills');
+  await client.setGemEnabled({ groupIndex: 1, gemIndex: 1, enabled: false });
+  assert.equal((await client.getSkills()).groups[0].gems[0].enabled, false);
+  await client.setGemEnabled({ groupIndex: 1, gemIndex: 1, enabled: true });
+  await client.setSocketGroupEnabled({ groupIndex: 1, enabled: false });
+  assert.equal((await client.getSkills()).groups[0].enabled, false);
+  await client.setSocketGroupEnabled({ groupIndex: 1, enabled: true });
+  const flaskBeforeInvalid = await client.getItems();
+  await assert.rejects(() => client.setFlaskActive(1, 'false'), /boolean/);
+  await assert.rejects(() => client.setFlaskActive(1.5, true), /invalid flask index/);
+  assert.deepEqual(await client.getItems(), flaskBeforeInvalid, 'invalid flask input changed equipment');
+  await client.setFlaskActive(1, true);
+  assert.equal((await client.getItems()).find(item => item.slot === 'Flask 1')?.active, true);
+  await client.setFlaskActive(1, false);
+  assert.equal((await client.getItems()).find(item => item.slot === 'Flask 1')?.active, false);
   const beforeInvalidGems = await client.getSkills();
   for (const invalid of [{ level: 0 }, { level: 1.5 }, { quality: -1 }, { quality: 100 }, { count: 0 }]) {
     await assert.rejects(() => client.addGem({ groupIndex: 1, gemName: 'Arc', ...invalid }), /invalid/);

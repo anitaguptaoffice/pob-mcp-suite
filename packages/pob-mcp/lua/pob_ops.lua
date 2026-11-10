@@ -1003,9 +1003,10 @@ end
 function M.set_flask_active(params)
   if not build or not build.itemsTab then return nil, 'items not initialized' end
   if type(params) ~= 'table' then return nil, 'invalid params' end
+  if type(params.active) ~= 'boolean' then return nil, 'active must be a boolean' end
   local idx = tonumber(params.index)
   local active = params.active == true
-  if not idx or idx < 1 or idx > NUM_FLASK_SLOTS then
+  if not idx or idx < 1 or idx > NUM_FLASK_SLOTS or idx ~= math.floor(idx) then
     return nil, string.format('invalid flask index (must be 1-%d)', NUM_FLASK_SLOTS)
   end
   local slotName = 'Flask ' .. tostring(idx)
@@ -1536,6 +1537,7 @@ function M.set_socket_group_enabled(params)
   if type(params) ~= 'table' or params.groupIndex == nil or params.enabled == nil then
     return nil, 'missing groupIndex or enabled'
   end
+  if type(params.enabled) ~= 'boolean' then return nil, 'enabled must be a boolean' end
   local skillSetId = build.skillsTab.activeSkillSetId or 1
   local skillSet = build.skillsTab.skillSets[skillSetId]
   if not skillSet then return nil, 'active skill set not found' end
@@ -1561,6 +1563,7 @@ function M.set_gem_enabled(params)
   if type(params) ~= 'table' or params.groupIndex == nil or params.gemIndex == nil or params.enabled == nil then
     return nil, 'missing groupIndex, gemIndex or enabled'
   end
+  if type(params.enabled) ~= 'boolean' then return nil, 'enabled must be a boolean' end
   local skillSetId = build.skillsTab.activeSkillSetId or 1
   local skillSet = build.skillsTab.skillSets[skillSetId]
   if not skillSet then return nil, 'active skill set not found' end
