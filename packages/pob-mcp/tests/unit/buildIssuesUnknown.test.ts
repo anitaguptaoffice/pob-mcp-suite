@@ -1,5 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 import { formatIssuesResponse, handleGetBuildIssues } from '../../src/handlers/buildGoalsHandlers.js';
+import { formatLoadStats } from '../../src/handlers/luaHandlers.js';
 
 describe('build issue data integrity', () => {
   it('does not treat missing stats, alternate-tree points or hidden jewel slots as failures', async () => {
@@ -27,5 +28,13 @@ describe('build issue data integrity', () => {
     const ctx = { getLuaClient: () => client, ensureLuaClient: async () => {} } as unknown as Parameters<typeof handleGetBuildIssues>[0];
     const result = await handleGetBuildIssues(ctx);
     expect(result.issues.some(issue => issue.message.includes('does 0 DPS'))).toBe(false);
+  });
+  it('shows minion poison-inclusive damage without turning missing values into zero', () => {
+    const text = formatLoadStats({ MinionTotalDPS: 246, MinionCombinedDPS: 303, TotalDPS: 0 }).join('\n');
+    expect(text).toContain('MinionTotalDPS: 246');
+    expect(text).toContain('MinionCombinedDPS: 303');
+    expect(text).toContain('TotalDPS: 0');
+    expect(text).toContain('生命: 未提供');
+    expect(text).toContain('火焰 未提供');
   });
 });

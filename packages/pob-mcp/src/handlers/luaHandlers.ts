@@ -1,4 +1,5 @@
 import type { AilmentReport, PoBLuaApiClient } from "../pobLuaBridge.js";
+import { toFiniteNumber } from "../pobLuaBridge.js";
 import { noteIgnoredError } from '../utils/errorHandling.js';
 import { handleGetBuildIssues } from "./buildGoalsHandlers.js";
 import fs from "fs/promises";
@@ -101,6 +102,18 @@ export async function handleLuaSaveBuild(context: LuaHandlerContext, buildName: 
  * Post-load summary shared by every "a build just got loaded into the Lua
  * bridge" handler: spec/item-set counts, core stats, and top issues.
  */
+export function formatLoadStats(stats: Record<string, unknown>): string[] {
+  const value = (key: string, suffix = '') => {
+    const n = toFiniteNumber(stats[key]);
+    return n === undefined ? '未提供' : `${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}${suffix}`;
+  };
+  return [
+    `生命: ${value('Life')} | 有效生命: ${value('TotalEHP')}`,
+    `TotalDPS: ${value('TotalDPS')} | CombinedDPS: ${value('CombinedDPS')} | MinionTotalDPS: ${value('MinionTotalDPS')} | MinionCombinedDPS: ${value('MinionCombinedDPS')}`,
+    `抗性：火焰 ${value('FireResist', '%')} | 冰霜 ${value('ColdResist', '%')} | 闪电 ${value('LightningResist', '%')} | 混沌 ${value('ChaosResist', '%')}`,
+  ];
+}
+
 async function buildPostLoadSummary(context: LuaHandlerContext, luaClient: PoBLuaApiClient, name?: string): Promise<string> {
     // Check for multiple specs / item sets and inform the user (sequential — bridge is single-request)
     const extraLines: string[] = [];
@@ -142,13 +155,10 @@ async function buildPostLoadSummary(context: LuaHandlerContext, luaClient: PoBLu
         summaryLines.push(`**${info.name || name}** | Level ${info.level} ${info.className ?? ''}${info.ascendClassName ? ` (${info.ascendClassName})` : ''}`);
       }
 
-      const s = await luaClient.getStats(['Life', 'TotalDPS', 'CombinedDPS', 'MinionTotalDPS',
+      const s = await luaClient.getStats(['Life', 'TotalDPS', 'CombinedDPS', 'MinionTotalDPS', 'MinionCombinedDPS',
         'FireResist', 'ColdResist', 'LightningResist', 'ChaosResist', 'TotalEHP']).catch(() => null);
       if (s) {
-        const dps = Number(s.CombinedDPS || s.TotalDPS || s.MinionTotalDPS || 0);
-        const dpsLabel = (s.MinionTotalDPS && !s.TotalDPS) ? 'Minion DPS' : 'DPS';
-        summaryLines.push(`Life: ${Number(s.Life ?? 0).toLocaleString()} | ${dpsLabel}: ${Math.round(dps).toLocaleString()} | EHP: ${Number(s.TotalEHP ?? 0).toLocaleString()}`);
-        summaryLines.push(`Resists: F${s.FireResist}% C${s.ColdResist}% L${s.LightningResist}% Ch${s.ChaosResist}%`);
+        summaryLines.push(...formatLoadStats(s));
       }
 
       const issuesResult = await handleGetBuildIssues({ getLuaClient: context.getLuaClient, ensureLuaClient: async () => {} }).catch(() => null);
@@ -164,7 +174,7 @@ async function buildPostLoadSummary(context: LuaHandlerContext, luaClient: PoBLu
           }
         } else {
           summaryLines.push('');
-          summaryLines.push('✅ No critical issues detected.');
+          summaryLines.push('未发现已覆盖的严重问题；缺失数据和未覆盖的机制仍需核对。');
         }
       }
     } catch (e) { noteIgnoredError("auto-context is best-effort", e); }

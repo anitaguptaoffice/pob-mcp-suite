@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { PoBLuaApiClient } from '../build/pobLuaBridge.js';
+import { formatLoadStats } from '../build/handlers/luaHandlers.js';
 
 const client = new PoBLuaApiClient({
   cwd: process.env.POB_FORK_PATH,
@@ -68,6 +69,7 @@ try {
   assert.ok(poisonConfig.applied.customMods, 'poison fixture configuration rejected');
   const poisonBase = await client.getStats(['MinionTotalDPS', 'MinionCombinedDPS']);
   assert.ok(poisonBase.MinionCombinedDPS > poisonBase.MinionTotalDPS, 'poison fixture must include ailment damage');
+  assert.ok(formatLoadStats(poisonBase).join('\n').includes('MinionCombinedDPS: 302.94'), 'load summary omitted poison-inclusive damage');
 
   const jewels = await client.findTimelessJewelSeeds({
     socketNodeId: 60735, desired: ['eternal_notable_minion_1'], seeds: [130660],
