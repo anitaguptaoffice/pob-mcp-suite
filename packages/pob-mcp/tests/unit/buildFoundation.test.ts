@@ -5,6 +5,23 @@ import { BuildFoundation, type BuildEngine } from '../../src/foundation/buildFou
 import { SnapshotStore } from '../../src/foundation/snapshotStore.js';
 
 describe('BuildFoundation isolation', () => {
+  it('does not publish a newly created build when PoB changes its tree on reload', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'pob-new-build-'));
+    try {
+      const store = new SnapshotStore(dir);
+      let reloaded = false;
+      const engine = { identity: { engineVersion: null, dataVersion: null, adapterVersion: null },
+        newBuild: async () => {}, captureSnapshot: async () => ({ xml: '<build/>' }),
+        getTree: async () => ({ className: 'Witch', ascendClassName: reloaded ? 'Occultist' : 'Necromancer' }),
+        loadBuildXml: async () => { reloaded = true; }, verifyIdentity: async () => {}, close: async () => {},
+      } as unknown as BuildEngine;
+      const foundation = new BuildFoundation(store, async () => engine);
+      await expect(foundation.createBuild('Witch', 'Occultist')).rejects.toThrow('did not confirm');
+      await expect(foundation.createBuild('Witch', undefined, '../bad')).rejects.toThrow('tree version');
+      await expect(foundation.createBuild('Witch', 'Necromancer')).rejects.toThrow('did not preserve');
+      expect(await readdir(dir)).toEqual([]);
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
   it('does not publish a full gem setup if adding a later gem fails', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'pob-gem-setup-'));
     try {

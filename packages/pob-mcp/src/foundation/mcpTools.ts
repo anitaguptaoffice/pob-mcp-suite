@@ -6,6 +6,7 @@ import { readLocalBuild, saveLocalBuild } from './localBuildFile.js';
 
 /** Experimental surface; enabled only by explicit configuration. */
 export const foundationSchemas: ToolSchema[] = [
+  { name: 'foundation_create_build', description: 'Create a new PoB build as a durable immutable snapshot after verifying the requested class, ascendancy and tree version survive reload. Special ascendancies require their matching tree version.', inputSchema: { type: 'object', additionalProperties: false, properties: { class_name: { type: 'string' }, ascendancy: { type: 'string' }, tree_version: { type: 'string' } }, required: ['class_name'] } },
   { name: 'foundation_import_build', description: 'Import a PoB XML document into an immutable snapshot.', inputSchema: { type: 'object', properties: { xml: { type: 'string' }, source: { type: 'string' } }, required: ['xml', 'source'] } },
   { name: 'foundation_import_file', description: 'Import an XML build from the configured local build directory.', inputSchema: { type: 'object', properties: { build_name: { type: 'string' } }, required: ['build_name'] } },
   { name: 'foundation_save_file', description: 'Retain the snapshot and save it to the local build directory; overwrite is false by default. Retention can succeed even if the file write fails.', inputSchema: { type: 'object', properties: { snapshot_id: { type: 'string' }, build_name: { type: 'string' }, overwrite: { type: 'boolean' } }, required: ['snapshot_id', 'build_name'] } },
@@ -62,6 +63,9 @@ export async function invokeFoundation(foundation: BuildFoundation, name: string
     return args.trial === true;
   };
   switch (name) {
+    case 'foundation_create_build':
+      if (Object.keys(args).some(key => !['class_name', 'ascendancy', 'tree_version'].includes(key)) || (args.ascendancy !== undefined && typeof args.ascendancy !== 'string') || (args.tree_version !== undefined && typeof args.tree_version !== 'string')) throw new Error('Invalid new build options');
+      return snapshotMetadata(await foundation.createBuild(stringArg('class_name'), args.ascendancy as string | undefined, args.tree_version as string | undefined));
     case 'foundation_submit_evaluations':
       if (!jobs) throw new Error('Job runner is unavailable');
       return jobs.submit(args.items as EvaluationInput[]);

@@ -225,6 +225,13 @@ handlers.new_build = function(params)
     if params.className and not CLASS_IDS[params.className] and not CLASS_IDS[params.className:lower()] then
       return { ok = false, error = 'unknown class: ' .. tostring(params.className) }
     end
+    if params.treeVersion then
+      if type(params.treeVersion) ~= 'string' or not params.treeVersion:match('^%d+_%d+[%w_]*$') or #params.treeVersion > 60 then
+        return { ok = false, error = 'invalid tree version' }
+      end
+      BuildOps.import_from_node_list(build.spec, classId, 0, 0, {}, {}, {}, params.treeVersion)
+      if build.spec.treeVersion ~= params.treeVersion then return { ok = false, error = 'tree version was not applied' } end
+    end
     local ascendId = 0
     if params.ascendancy and params.ascendancy:lower() ~= 'none' then
       local class = build and build.spec and build.spec.tree and build.spec.tree.classes[classId]

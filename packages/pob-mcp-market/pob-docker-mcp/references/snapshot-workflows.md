@@ -7,6 +7,10 @@ by server configuration. Never assume legacy tools are exposed alongside it.
 
 ## Import and inspect
 
+- Create a new build with `foundation_create_build`, providing the PoB class
+  name and optionally an ascendancy and `tree_version`. Special-season
+  ascendancies require the matching tree version; the name is checked against
+  that version. The durable root snapshot is published only after reload checks.
 - Use `list_local_build_files` to discover XML names under the configured build
   directory, including nested folders. Check `complete` and `issues`; absence
   from a partial scan is not proof that a file does not exist. For more pages,

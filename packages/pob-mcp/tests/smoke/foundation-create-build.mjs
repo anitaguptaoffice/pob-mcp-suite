@@ -1,0 +1,39 @@
+import { strict as assert } from 'node:assert';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { once } from 'node:events';
+import { startMcpServer } from './mcpClient.mjs';
+
+const dir = await mkdtemp(join(tmpdir(), 'pob-create-build-'));
+const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
+mcp.child.stderr.on('data', () => {}); const exited = once(mcp.child, 'exit');
+try {
+  await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'create-build-smoke', version: '1' } });
+  mcp.notify('notifications/initialized', {});
+  const call = async (name, args) => { const response = await mcp.request('tools/call', { name, arguments: args }); assert.ok(!response.error && !response.result?.isError, JSON.stringify(response)); return JSON.parse(response.result.content[0].text); };
+  const unascended = await call('foundation_create_build', { class_name: 'Ranger' });
+  const plainTree = (await call('foundation_inspect', { snapshot_id: unascended.id, sections: ['tree'] })).data.tree;
+  assert.equal(plainTree.className, 'Ranger'); assert.ok(!plainTree.ascendClassName || plainTree.ascendClassName === 'None');
+  const created = await call('foundation_create_build', { class_name: 'Witch', ascendancy: 'Necromancer' });
+  assert.equal(created.parentId, null);
+  const tree = (await call('foundation_inspect', { snapshot_id: created.id, sections: ['tree'] })).data.tree;
+  assert.equal(tree.className, 'Witch'); assert.equal(tree.ascendClassName, 'Necromancer');
+  const xml = (await call('foundation_export_build', { snapshot_id: created.id })).xml;
+  const imported = await call('foundation_import_build', { xml, source: 'create-build-roundtrip' });
+  assert.deepEqual((await call('foundation_inspect', { snapshot_id: imported.id, sections: ['tree'] })).data.tree, tree);
+  const special = await call('foundation_create_build', { class_name: 'Marauder', ascendancy: 'Ancestral Commander', tree_version: '3_28_alternate' });
+  const specialTree = (await call('foundation_inspect', { snapshot_id: special.id, sections: ['tree'] })).data.tree;
+  assert.equal(specialTree.className, 'Marauder'); assert.equal(specialTree.ascendClassName, 'Ancestral Commander'); assert.equal(specialTree.treeVersion, '3_28_alternate');
+  const specialXml = (await call('foundation_export_build', { snapshot_id: special.id })).xml;
+  const specialReloaded = await call('foundation_import_build', { xml: specialXml, source: 'special-create-roundtrip' });
+  assert.deepEqual((await call('foundation_inspect', { snapshot_id: specialReloaded.id, sections: ['tree'] })).data.tree, specialTree);
+  const baseline = await call('foundation_list_snapshots', {});
+  for (const args of [{ class_name: 'Unknown' }, { class_name: 'Witch', ascendancy: 'Juggernaut' }, { class_name: 'Witch', tree_version: '../bad' }]) {
+    const response = await mcp.request('tools/call', { name: 'foundation_create_build', arguments: args });
+    assert.ok(response.error || response.result?.isError, JSON.stringify(response));
+  }
+  assert.deepEqual(await call('foundation_list_snapshots', {}), baseline);
+  mcp.child.stdin.end(); assert.equal((await exited)[0], 0);
+  console.log('foundation create build passed');
+} finally { if (mcp.child.exitCode === null && mcp.child.signalCode === null) { mcp.child.kill('SIGTERM'); await exited; } await rm(dir, { recursive: true, force: true }); }

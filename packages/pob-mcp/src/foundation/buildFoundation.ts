@@ -11,7 +11,7 @@ import { validEnemyLevelSetting } from '../domain/configPreset.js';
 export interface BuildEngine {
   inspectItemParse(itemText: string): Promise<unknown>;
   getClusterJewels(): Promise<unknown>;
-  newBuild(): Promise<unknown>;
+  newBuild(params?: { className: string; ascendancy?: string; treeVersion?: string }): Promise<unknown>;
   getCapabilities(): ReturnType<PoBLuaApiClient['getCapabilities']>;
   getAilments(): ReturnType<PoBLuaApiClient['getAilments']>;
   getEnemyLevelSetting(): Promise<EnemyLevelSetting>;
@@ -106,6 +106,24 @@ export class BuildFoundation {
   private readonly limiter: EngineLimiter<BuildEngine>;
   constructor(private readonly store: SnapshotStore, openEngine: () => Promise<BuildEngine>, limiter?: EngineLimiter<BuildEngine>) {
     this.limiter = limiter ?? new EngineLimiter(openEngine);
+  }
+
+  async createBuild(className: string, ascendancy?: string, treeVersion?: string): Promise<SnapshotRecord> {
+    if (typeof className !== 'string' || !className.trim() || className !== className.trim() || className.length > 100 ||
+        (ascendancy !== undefined && (typeof ascendancy !== 'string' || !ascendancy.trim() || ascendancy !== ascendancy.trim() || ascendancy.length > 100)) ||
+        (treeVersion !== undefined && (typeof treeVersion !== 'string' || !/^\d+_\d+[A-Za-z0-9_]*$/.test(treeVersion) || treeVersion.length > 60))) throw new Error('Valid class, optional ascendancy and tree version are required');
+    return this.limiter.withEngine(async engine => {
+      await engine.newBuild({ className, ascendancy, treeVersion });
+      const tree = await engine.getTree() as { className?: unknown; ascendClassName?: unknown; treeVersion?: unknown };
+      const same = (actual: unknown, requested: string) => typeof actual === 'string' && actual.toLowerCase() === requested.toLowerCase();
+      if (!tree || !same(tree.className, className) || (treeVersion && tree.treeVersion !== treeVersion) || (ascendancy && ascendancy.toLowerCase() !== 'none' && !same(tree.ascendClassName, ascendancy)) || ((!ascendancy || ascendancy.toLowerCase() === 'none') && tree.ascendClassName && !same(tree.ascendClassName, 'none'))) throw new Error('PoB did not confirm the requested class, ascendancy and tree version');
+      const { xml } = await engine.captureSnapshot();
+      if (typeof xml !== 'string' || !xml.trim() || Buffer.byteLength(xml, 'utf8') > MAX_BUILD_BYTES) throw new Error('PoB returned invalid build XML');
+      await engine.loadBuildXml(xml);
+      if (!isDeepStrictEqual(normalizeObservation(await engine.getTree()), normalizeObservation(tree))) throw new Error('PoB did not preserve the new tree on reload');
+      await engine.verifyIdentity();
+      return this.store.create({ xml, source: 'new-build', parentId: null, ...engine.identity });
+    });
   }
 
   async importBuild(xml: string, source: string): Promise<SnapshotRecord> {

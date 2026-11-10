@@ -620,7 +620,7 @@ export class PoBLuaApiClient {
       ?? { mode: 'unreported', adapter: 'unknown', capabilitiesReported: false };
   }
 
-  async newBuild(params?: { className?: string; ascendancy?: string }): Promise<BuildLoadResult> {
+  async newBuild(params?: { className?: string; ascendancy?: string; treeVersion?: string }): Promise<BuildLoadResult> {
     const res = await this.send({ action: "new_build", params: params || {} });
     if (!res.ok) throw new Error(res.error || "new_build failed");
     this.loadedFilePath = undefined;
