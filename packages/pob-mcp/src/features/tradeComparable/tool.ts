@@ -3,6 +3,7 @@ import type { TradeApiClient } from '../../services/tradeClient.js';
 import { TradeQueryBuilder } from '../../services/tradeQueryBuilder.js';
 import { auditStatSourceCoverage } from '../../services/tradeSourceAudit.js';
 import type { StatFilterGroup } from '../../types/tradeTypes.js';
+import { collectSourceStatistics } from './sourceStatistics.js';
 
 type Filter = { stat_id: string; min?: number; max?: number };
 type Group = { type: 'and' | 'or' | 'count'; filters: Filter[]; min?: number; max?: number };
@@ -47,24 +48,7 @@ export async function estimateComparable(client: Pick<TradeApiClient, 'searchIte
   const search = await client.searchItems(league, query);
   const limit = typeof args.limit === 'number' && Number.isInteger(args.limit) ? Math.max(1, Math.min(10, args.limit)) : 10;
   const listings = await client.fetchItems((search.result ?? []).slice(0, limit), search.id);
-  // Count only exact queried IDs present in the official hashes. A missing
-  // hashes section is unknown, not evidence that an item has no such source.
-  const requestedIds = new Set(normalized.flatMap(group => group.filters.map(filter => filter.id)));
-  const sourceNames = ['explicit', 'implicit', 'fractured', 'crafted', 'enchant'] as const;
-  const sourceCounts = Object.fromEntries(sourceNames.map(source => [source, 0])) as Record<typeof sourceNames[number], number>;
-  const sourcePresentCounts = Object.fromEntries(sourceNames.map(source => [source, 0])) as Record<typeof sourceNames[number], number>;
-  let sourceInspectableCount = 0;
-  for (const listing of listings) {
-    const hashes = listing.item?.extended?.hashes;
-    if (!hashes || typeof hashes !== 'object' || !sourceNames.some(source => Array.isArray(hashes[source]))) continue;
-    sourceInspectableCount++;
-    for (const source of sourceNames) {
-      if (hashes[source]?.length) sourcePresentCounts[source]++;
-      if (hashes[source]?.some(([id]) => requestedIds.has(id))) sourceCounts[source]++;
-    }
-  }
-  const sourceStatistics = { sampleCount: listings.length, inspectableCount: sourceInspectableCount,
-    unavailableCount: listings.length - sourceInspectableCount, matchingListingsBySource: sourceCounts, listingsContainingSource: sourcePresentCounts };
+  const sourceStatistics = collectSourceStatistics(listings, normalized.flatMap(group => group.filters.map(filter => filter.id)));
   const prices = new Map<string, number[]>();
   for (const item of listings) {
     const price = item.listing?.price;
@@ -80,5 +64,5 @@ export async function estimateComparable(client: Pick<TradeApiClient, 'searchIte
   });
   return { league, baseType: base, query, searchUrl: `https://www.pathofexile.com/trade/search/${encodeURIComponent(league)}/${encodeURIComponent(search.id)}`,
     listingScope: 'instant_buyout', sourceWarnings, sourceStatistics, checkedAt: new Date().toISOString(), totalMatches: search.total, fetchedCount: listings.length, inexact: search.inexact === true, byCurrency,
-    warnings: [...sourceWarnings, ...(search.inexact ? ['官方交易搜索标记结果为近似匹配，不能认定所有条件均严格满足。'] : []), '仅比较可即时购买的指定条件物品；卖家可离线，实际购买前仍需确认挂单有效。结果不是原物品的精确价格。', 'checkedAt 是报告生成时间；交易查询和物品详情可能来自缓存，不能作为行情抓取时间。', '最多取价格排序靠前的 10 条，统计值不是全部市场的中位数；不同通货分开统计。', '词缀来源统计只计算样本中与查询 ID 精确匹配的官方 hashes；listingsContainingSource 统计有该来源的物品，可能与搜索条件无关；同一物品可计入多个来源，缺少 hashes 的物品未知，综合词缀不等同于来源词缀。', '词缀来源、数值、底材、腐化等未包含的条件可能显著影响价格。'] };
+    warnings: [...sourceWarnings, ...(search.inexact ? ['官方交易搜索标记结果为近似匹配，不能认定所有条件均严格满足。'] : []), '仅比较可即时购买的指定条件物品；卖家可离线，实际购买前仍需确认挂单有效。结果不是原物品的精确价格。', 'checkedAt 是报告生成时间；交易查询和物品详情可能来自缓存，不能作为行情抓取时间。', '最多取价格排序靠前的 10 条，统计值不是全部市场的中位数；不同通货分开统计。', '词缀来源统计只按官方 hashes 与查询 ID 精确匹配，并非验证词缀数值；hashComparable 为 false 的条件（包括综合词缀）不能以此统计来源，零计数不表示没有匹配。缺少或不完整的 hashes 不能证明不存在对应来源。listingsContainingSource 统计有该来源的物品，可能与搜索条件无关；同一物品可计入多个来源。', '词缀来源、数值、底材、腐化等未包含的条件可能显著影响价格。'] };
 }
