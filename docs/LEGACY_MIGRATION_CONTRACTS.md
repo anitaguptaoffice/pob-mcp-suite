@@ -129,8 +129,8 @@ acceptance work to perform during migration, not claims of completed tests.
 | `estimate_build_cost` | `estimate_snapshot_cost` uses explicit snapshot and independent poe.ninja source; migrate legacy callers and skills before removing the old route. | `snapshotCostTool.test.ts` checks model parity and partial failures; `snapshot-cost-live.mjs` checks real PoB and public data. Unknown items stay excluded and subtotal is not a complete buyable price. |
 | `search_trade_items` | Official Trade adapter plus search workflow. | Preserve exact `securable` priced defaults, caller overrides, stat groups, source audit, sample and fetch time. |
 | `get_item_price` | Exact-item asking-price sample workflow over official trade. | Limit and currency groups are explicit; asking prices are not sales or full-market statistics. |
-| `get_leagues` | Official source league query. | Return current source response and errors; no implicit substitution of league. |
-| `search_stats` | Official stat metadata query with optional source reporting. | Preserve official IDs, source ambiguity and coverage instead of inferring nonexistent sources. |
+| `get_leagues` | `list_trade_leagues` reads official source metadata; migrate existing callers. | Return current source response and errors; no implicit substitution of league. |
+| `search_stats` | `search_trade_stats` groups official IDs by identical text and source; legacy static fallback remains separate and pending migration. | Preserve official IDs, source ambiguity and coverage instead of inferring nonexistent sources. |
 | `compare_trade_items` | Raw listing comparison over official data. | Report raw values and partial misses without inventing PoB metrics or currency conversion. |
 | `find_resistance_gear` | Individual listing search workflow. | Per-item budget and requested resistances remain distinct from combined build affordability. |
 | `search_cluster_jewels` | Cluster-jewel trade workflow with local post-filter. | Size, passive count, exact notables and sample-limited coverage stay explicit. |
@@ -138,7 +138,7 @@ acceptance work to perform during migration, not claims of completed tests.
 | `find_weighted_trade_items` | PoB weight generation combined with official Trade search. | Preserve user league, auth dependencies, candidate scope and no best-in-slot claim. |
 | `compare_trade_listing_in_pob` | Official listing fetch plus isolated PoB comparison. | Exact clipboard item and snapshot baseline retained; do not claim listing availability or legality. |
 | `compare_trade_listings_in_pob` | Bounded batch listing comparison using one immutable snapshot. | Baseline identity and metrics match per candidate; report each failure independently. |
-| `estimate_comparable_item` | Official comparable-listing workflow over confirmed base and stats. | Preserve query, `securable`, sample, currencies and ambiguity; do not claim exact appraisal. |
+| `estimate_comparable_item` | `estimate_trade_comparable` composes the independent official source with the extracted comparable policy; legacy route and caller removal are pending. | Preserve query, `securable`, sample, currencies and ambiguity; `source-comparable-live.mjs` checks real source and original retrieval times. |
 | `suggest_crafting` | Crafting-context and versioned verified-data feature. | Preserve supplied budget/item context and verified source link; do not invent mechanics or odds. |
 | `inspect_item_affix_weight` | `foundation_item_affix_weight` plus item-data presentation. | Separate spawn weight, item-level eligibility and unknowns from crafting probability. |
 | `classify_item_affixes` | Versioned PoB modifier classification adapter. | Preserve hybrid/ambiguous matches and only infer slots with complete confirmed inputs. |

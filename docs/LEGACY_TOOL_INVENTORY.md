@@ -131,8 +131,8 @@ Generated from registered schema groups in the current build. Most entries are p
 - `find_weighted_trade_items` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: no exact name found in packaged skill Markdown.
 - `search_trade_items` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: `references/trade-tools.md`.
 - `get_item_price` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: `references/trade-tools.md`.
-- `get_leagues` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: `references/trade-tools.md`.
-- `search_stats` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: `references/trade-tools.md`, `skills/pob-docker-mcp/SKILL.md`.
+- `get_leagues` — target: market and workflows; replacement: `list_trade_leagues`; status: new source tool live-tested, caller migration and legacy removal pending; skill references: `references/trade-tools.md`.
+- `search_stats` — target: market and workflows; replacement: `search_trade_stats` for official metadata; status: new source tool live-tested, static fallback and callers require separate migration; skill references: `references/trade-tools.md`, `skills/pob-docker-mcp/SKILL.md`.
 - `compare_trade_items` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: `references/trade-tools.md`.
 - `find_resistance_gear` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: `references/trade-tools.md`.
 - `search_cluster_jewels` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: no exact name found in packaged skill Markdown.
@@ -148,7 +148,7 @@ Generated from registered schema groups in the current build. Most entries are p
 
 ## comparableToolSchemas
 
-- `estimate_comparable_item` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: `skills/pob-economy/SKILL.md`.
+- `estimate_comparable_item` — target: market and workflows; replacement: `estimate_trade_comparable`; status: new source tool live-tested and policy extracted, caller migration and legacy route removal pending; skill references: `skills/pob-economy/SKILL.md`.
 
 ## featureRegistry
 

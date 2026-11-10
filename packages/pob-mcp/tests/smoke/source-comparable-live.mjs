@@ -1,0 +1,46 @@
+// Opt-in read-only integration with official international Trade.
+import { strict as assert } from 'node:assert';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { once } from 'node:events';
+import { startMcpServer } from './mcpClient.mjs';
+
+const dir = await mkdtemp(join(tmpdir(), 'pob-trade-live-'));
+const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POE_TRADE_ENABLED: 'true', POE_SESSION_ID: '', POB_SNAPSHOT_DIRECTORY: dir });
+mcp.child.stderr.on('data', () => {});
+const exited = once(mcp.child, 'exit');
+const call = async (name = 'estimate_trade_comparable', args = { league: 'Standard', base_type: 'Hubris Circlet', stat_groups: [{ type: 'and', filters: [{ stat_id: 'explicit.stat_3299347043', min: 40 }] }], limit: 3 }) => {
+  const response = await mcp.request('tools/call', { name, arguments: args });
+  assert.ok(!response.error && !response.result?.isError, JSON.stringify(response));
+  return JSON.parse(response.result.content[0].text);
+};
+try {
+  await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'trade-source-live', version: '1' } });
+  mcp.notify('notifications/initialized', {});
+  const tools = await mcp.request('tools/list', {});
+  assert.ok(tools.result.tools.some(tool => tool.name === 'estimate_trade_comparable'));
+  const leagues = await call('list_trade_leagues', {});
+  assert.ok(leagues.leagues.some(league => league.id === 'Standard'));
+  const stats = await call('search_trade_stats', { query: 'maximum life', limit: 50 });
+  assert.ok(stats.results.some(group => group.sources.some(source => source.id === 'explicit.stat_3299347043')));
+  const report = await call();
+  assert.equal(report.source, 'official-trade');
+  assert.equal(report.league, 'Standard');
+  assert.equal(report.query.query.status.option, 'securable');
+  assert.equal(report.query.query.filters.trade_filters.filters.sale_type.option, 'priced');
+  assert.equal(report.listingScope, 'instant_buyout');
+  assert.ok(Number.isFinite(Date.parse(report.sourceTimes.search)));
+  assert.ok(Number.isFinite(Date.parse(report.sourceTimes.stats)));
+  assert.equal(report.sourceTimes.stats, stats.fetchedAt);
+  assert.ok(report.totalMatches > 0 && report.fetchedCount > 0);
+  assert.ok(Number.isFinite(Date.parse(report.sourceTimes.listings)));
+  assert.equal(report.sourceStatistics.sampleCount, report.fetchedCount);
+  const cached = await call();
+  assert.deepEqual(cached.sourceTimes, report.sourceTimes);
+  mcp.child.stdin.end(); assert.equal((await exited)[0], 0);
+  console.log('source-backed comparable live integration passed');
+} finally {
+  if (mcp.child.exitCode === null && mcp.child.signalCode === null) { mcp.child.kill('SIGTERM'); await exited; }
+  await rm(dir, { recursive: true, force: true });
+}

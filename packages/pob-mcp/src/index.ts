@@ -45,6 +45,9 @@ import { featureRegistry } from "./server/featureModules.js";
 import { assertUniqueToolSchemas, FeatureRegistry } from "./server/featureRegistry.js";
 import { PoeNinjaAdapter } from './adapters/poeNinja/poeNinjaAdapter.js';
 import { createSnapshotCostTool, snapshotCostSchema } from './features/buildCost/snapshotTool.js';
+import { OfficialTradeAdapter } from './adapters/officialTrade/officialTradeAdapter.js';
+import { createSourceComparableTool, sourceComparableSchema } from './features/tradeComparable/sourceTool.js';
+import { createTradeMetadataTools, tradeMetadataSchemas } from './features/tradeMetadata/tools.js';
 
 // Import utilities
 import { ContextBuilder } from "./utils/contextBuilder.js";
@@ -95,6 +98,8 @@ class PoBMCPServer {
       ...getToolSchemas(),
       ...foundationSchemas,
       snapshotCostSchema(),
+      sourceComparableSchema(),
+      ...tradeMetadataSchemas(),
       ...getLuaToolSchemas(),
       ...buildCostSchemas(),
       ...getOptimizationToolSchemas(),
@@ -445,7 +450,16 @@ class PoBMCPServer {
         adapterPath, timeoutMs: process.env.POB_TIMEOUT_MS ? Number(process.env.POB_TIMEOUT_MS) : undefined,
       }));
       const foundation = this.foundation;
-      this.foundationFeatures = new FeatureRegistry([createSnapshotCostTool(foundation, new PoeNinjaAdapter())]);
+      const migrated = [createSnapshotCostTool(foundation, new PoeNinjaAdapter())];
+      // Until the legacy Trade client is retired, do not run two independent
+      // rate limiters in one service against the same official API.
+      if (process.env.POE_TRADE_ENABLED === 'true' && !this.legacyEnabled()) {
+        const rate = Number(process.env.POE_RATE_LIMIT_PER_SECOND ?? 4);
+        const minTimeMs = Number.isFinite(rate) && rate > 0 ? Math.ceil(1000 / Math.min(rate, 4)) : 250;
+        const trade = new OfficialTradeAdapter({ minTimeMs, session: () => process.env.POE_SESSION_ID || undefined });
+        migrated.push(createSourceComparableTool(trade), ...createTradeMetadataTools(trade));
+      }
+      this.foundationFeatures = new FeatureRegistry(migrated);
       this.foundationJobs = new JobRunner(jobs, input => foundation.evaluate(input.snapshotId, input.fields, input.options));
     }
     // StatMapper is intentionally static-only: the trade API /stats dump keys
