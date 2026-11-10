@@ -37,6 +37,19 @@ try {
   const disabledMain = await foundation.deriveSkillGroupEnabled(parent.id, 1, false);
   assert.equal((await foundation.inspect(disabledMain.id, ['skills'])).data.skills.groups[0].enabled, false);
   await assert.rejects(foundation.deriveSkillGroupEnabled(parent.id, 99, false), /Skill group not found/);
+  const removedOther = await foundation.deriveRemoveSkillGroup(parent.id, 2);
+  const single = (await foundation.inspect(removedOther.id, ['skills'])).data.skills;
+  assert.equal(single.groups.length, 1); assert.equal(single.groups[0].label, 'main');
+  await assert.rejects(foundation.deriveRemoveSkillGroup(parent.id, 1), /replacement_main_group/);
+  const removedMain = await foundation.deriveRemoveSkillGroup(parent.id, 1, 1);
+  const mainReplacement = (await foundation.inspect(removedMain.id, ['skills'])).data.skills;
+  assert.equal(mainReplacement.groups.length, 1); assert.equal(mainReplacement.groups[0].label, 'other'); assert.equal(mainReplacement.mainSocketGroup, 1);
+  const selectOther = await foundation.deriveSelection(parent.id, { mainSocketGroup: 2 });
+  const reindexed = await foundation.deriveRemoveSkillGroup(selectOther.id, 1);
+  const preservedSelection = (await foundation.inspect(reindexed.id, ['skills'])).data.skills;
+  assert.equal(preservedSelection.mainSocketGroup, 1); assert.equal(preservedSelection.groups[0].label, 'other');
+  const empty = await foundation.deriveRemoveSkillGroup(removedOther.id, 1);
+  assert.equal((await foundation.inspect(empty.id, ['skills'])).data.skills.groups.length, 0);
   const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
   mcp.child.stderr.on('data', () => {}); const exited = once(mcp.child, 'exit');
   try {
@@ -48,6 +61,9 @@ try {
     const result = await mcp.request('tools/call', { name: 'foundation_inspect', arguments: { snapshot_id: trial.id, sections: ['skills'] } });
     assert.ok(!result.error && !result.result?.isError, JSON.stringify(result));
     assert.equal(JSON.parse(result.result.content[0].text).data.skills.groups[1].enabled, false);
+    const removal = await mcp.request('tools/call', { name: 'foundation_remove_skill_group', arguments: { snapshot_id: parent.id, group_index: 1, replacement_main_group: 1, trial: true } });
+    assert.ok(!removal.error && !removal.result?.isError, JSON.stringify(removal));
+    assert.equal(JSON.parse(removal.result.content[0].text).retention.kind, 'trial');
     mcp.child.stdin.end(); assert.equal((await exited)[0], 0);
   } finally { if (mcp.child.exitCode === null && mcp.child.signalCode === null) { mcp.child.kill('SIGTERM'); await exited; } }
   console.log('foundation group toggle passed');
