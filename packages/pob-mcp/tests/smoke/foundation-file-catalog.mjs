@@ -42,6 +42,13 @@ try {
   const updated = await call('foundation_import_file', { build_name: catalog.names[0] });
   assert.notEqual(updated.id, snapshot.id); assert.equal((await call('foundation_export_build', { snapshot_id: updated.id })).xml, `${xml}\n`);
   assert.equal((await call('stop_local_build_watch', {})).state, 'stopped');
+  const fileInfo = await call('inspect_local_build_file', { build_name: catalog.names[0] });
+  const restored = await call('restore_snapshot_file', { snapshot_id: snapshot.id, build_name: catalog.names[0], expected_current_sha256: fileInfo.sha256 });
+  assert.ok(restored.backupSnapshotId); assert.equal(await readFile(join(dir, 'league', 'build.xml'), 'utf8'), xml);
+  assert.equal((await call('foundation_export_build', { snapshot_id: restored.backupSnapshotId })).xml, `${xml}\n`);
+  assert.equal((await call('foundation_export_build', { snapshot_id: updated.id })).xml, `${xml}\n`);
+  const backups = await call('list_snapshot_history', { build_name: catalog.names[0], tag: 'before-restore' });
+  assert.equal(backups.entries.length, 1); assert.equal(backups.entries[0].snapshotId, restored.backupSnapshotId);
   child.stdin.end(); assert.equal((await exited)[0], 0);
   const reopened = new SnapshotStore(join(dir, '.snapshots'));
   assert.equal((await reopened.readHistory(importedHistory.history.id)).description, 'legacy history fixture');

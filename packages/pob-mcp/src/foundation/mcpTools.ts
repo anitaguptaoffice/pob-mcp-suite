@@ -5,9 +5,12 @@ import { snapshotMetadata } from './snapshotStore.js';
 import { readLocalBuild, saveLocalBuild } from './localBuildFile.js';
 import { listLegacyHistory, readLegacyHistory } from './legacyHistory.js';
 import { createHash } from 'node:crypto';
+import { inspectLocalFile, restoreLocalFile } from './restoreLocalFile.js';
 
 /** Experimental surface; enabled only by explicit configuration. */
 export const foundationSchemas: ToolSchema[] = [
+  { name: 'inspect_local_build_file', description: 'Read a local build file fingerprint before an explicit restore; no PoB engine is started.', inputSchema: { type: 'object', additionalProperties: false, properties: { build_name: { type: 'string' } }, required: ['build_name'] } },
+  { name: 'restore_snapshot_file', description: 'Replace an existing local build file using an explicit snapshot and expected current fingerprint. Saves a durable backup snapshot by default; external writes can still race the final replacement.', inputSchema: { type: 'object', additionalProperties: false, properties: { snapshot_id: { type: 'string' }, build_name: { type: 'string' }, expected_current_sha256: { type: 'string' }, backup_current: { type: 'boolean' } }, required: ['snapshot_id', 'build_name', 'expected_current_sha256'] } },
   { name: 'save_snapshot_history', description: 'Permanently retain a snapshot and record its build name, tag and description separately from snapshot content.', inputSchema: { type: 'object', additionalProperties: false, properties: { snapshot_id: { type: 'string' }, build_name: { type: 'string' }, tag: { type: 'string' }, description: { type: 'string' } }, required: ['snapshot_id', 'build_name', 'tag'] } },
   { name: 'list_snapshot_history', description: 'List saved snapshot history, optionally filtering by exact build name and tag. Restart pagination if the catalog fingerprint changes.', inputSchema: { type: 'object', additionalProperties: false, properties: { build_name: { type: 'string' }, tag: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 50 }, after: { type: 'integer', minimum: 0 }, catalog_fingerprint: { type: 'string' } } } },
   { name: 'list_legacy_build_history', description: 'List old local build snapshots and their original metadata without modifying them. Restart pagination if the catalog fingerprint changes.', inputSchema: { type: 'object', additionalProperties: false, properties: { build_name: { type: 'string' }, tag: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 50 }, after: { type: 'integer', minimum: 0 }, catalog_fingerprint: { type: 'string' } }, required: ['build_name'] } },
@@ -70,6 +73,12 @@ export async function invokeFoundation(foundation: BuildFoundation, name: string
     return args.trial === true;
   };
   switch (name) {
+    case 'inspect_local_build_file':
+      if (!buildsDirectory || Object.keys(args).some(key => key !== 'build_name')) throw new Error('Invalid local build file inspection');
+      return inspectLocalFile(buildsDirectory, stringArg('build_name'));
+    case 'restore_snapshot_file':
+      if (!buildsDirectory || Object.keys(args).some(key => !['snapshot_id', 'build_name', 'expected_current_sha256', 'backup_current'].includes(key)) || (args.backup_current !== undefined && typeof args.backup_current !== 'boolean')) throw new Error('Invalid restore options');
+      return restoreLocalFile(foundation, buildsDirectory, stringArg('snapshot_id'), stringArg('build_name'), stringArg('expected_current_sha256'), args.backup_current !== false);
     case 'save_snapshot_history': {
       if (Object.keys(args).some(key => !['snapshot_id', 'build_name', 'tag', 'description'].includes(key)) || typeof args.tag !== 'string' || (args.description !== undefined && typeof args.description !== 'string')) throw new Error('Invalid snapshot history options');
       return foundation.saveHistory(stringArg('snapshot_id'), { buildName: stringArg('build_name'), tag: args.tag, description: args.description as string ?? '', recordedAt: new Date().toISOString() });

@@ -23,6 +23,13 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   tag and description. `list_snapshot_history` filters by exact name and tag;
   use its fingerprint when paging. Retention can succeed even if writing the
   history record fails. Saving history does not overwrite a build file.
+- To restore over an existing build file, first call `inspect_local_build_file`
+  and pass its `sha256` as `expected_current_sha256` to `restore_snapshot_file`.
+  The default creates a durable `before-restore` history snapshot; an invalid
+  existing PoB file cannot be backed up this way and the restore fails. A file
+  change detected before replacement aborts, but another writer can still race
+  the final check. Retention or a backup may remain after a failed restore. The
+  in-memory PoB application is not reloaded automatically.
 - Use `foundation_derive_items` to test up to ten explicitly specified items in
   distinct equipment slots together. A failure publishes no partial child;
   inspect the resulting equipment and compare calculations before retaining it.
