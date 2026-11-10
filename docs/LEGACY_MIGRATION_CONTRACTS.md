@@ -87,7 +87,7 @@ acceptance work to perform during migration, not claims of completed tests.
 
 | Legacy tool | Intended replacement and missing behavior | Tool-specific acceptance |
 | --- | --- | --- |
-| `get_build_issues` | Snapshot-based issue-scan feature. | Missing resistances and life are unknown; existing threshold behavior is covered. |
+| `get_build_issues` | `check_snapshot_issues` scans PoB stats, tree, gear and skills in the saved snapshot context; explicit unknown checks and heuristic labels prevent missing values from becoming passes. | `buildIssues.test.ts` covers resistance caps, unknown values, low life with energy shield, damage, gear visibility and heuristics; `foundation-issues.mjs` compares real poison-minion PoB output. Legacy callers and broader validation remain. |
 | `get_passive_upgrades` | Tree candidate workflow using PoB paths and isolated evaluations. | Rank actual gains per allocated point, expose candidate scope and selected damage metric. |
 | `suggest_masteries` | Mastery options plus isolated candidate evaluation and ranking. | Compare effects on the same parent, including minion metric and unavailable effects. |
 | `find_best_anointment` | Independent anointment workflow using isolated PoB evaluation. | Amulet and supported belt slots, candidate bounds and baseline remain correct. |

@@ -4,7 +4,7 @@ Generated from registered schema groups in the current build. Most entries are p
 
 ## getBuildGoalsToolSchemas
 
-- `get_build_issues` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `get_build_issues` — target: analysis and optimization; replacement: `check_snapshot_issues`; status: partially migrated (legacy callers remain; full validation is separate); skill references: no exact name found in packaged skill Markdown.
 - `get_passive_upgrades` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
 - `suggest_masteries` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
 - `find_best_anointment` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.

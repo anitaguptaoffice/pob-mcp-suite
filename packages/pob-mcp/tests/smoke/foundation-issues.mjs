@@ -1,0 +1,43 @@
+import { strict as assert } from 'node:assert';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { once } from 'node:events';
+import { PoBLuaApiClient } from '../../build/pobLuaBridge.js';
+import { gearedBuildXml, smokePoBSrc } from './pobSource.mjs';
+import { startMcpServer } from './mcpClient.mjs';
+const dir = await mkdtemp(join(tmpdir(), 'pob-issues-'));
+const client = new PoBLuaApiClient({ cwd: smokePoBSrc(), cmd: process.env.POB_CMD, args: [resolve('lua/vanilla_stdio_bridge.lua')], env: { POB_API_STDIO: '0' }, timeoutMs: 60000 });
+let child;
+try {
+  await client.start(); await client.loadBuildXml(await readFile(gearedBuildXml, 'utf8'));
+  const group = await client.createSocketGroup({ label: 'poison-minion', slot: 'Helmet' });
+  await client.addGem({ groupIndex: group.index, gemName: 'Summon Raging Spirit', level: 20 });
+  await client.setMainSelection({ mainSocketGroup: group.index });
+  await client.setConfig({ customMods: 'Minions have 100% chance to Poison on Hit' });
+  const expected = await client.getStats(['Life', 'EnergyShield', 'FireResist', 'MissingFireResist', 'MinionTotalDPS', 'MinionCombinedDPS']);
+  assert.ok(expected.MinionCombinedDPS > expected.MinionTotalDPS && expected.MinionTotalDPS > 0);
+  const { xml } = await client.unchangedItemsSnapshot(); await client.stop();
+  const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
+  child = mcp.child; child.stderr.on('data', () => {}); const exited = once(child, 'exit');
+  await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'issues-smoke', version: '1' } });
+  mcp.notify('notifications/initialized', {});
+  const call = async (name, args) => { const response = await mcp.request('tools/call', { name, arguments: args }); assert.ok(!response.error && !response.result?.isError, JSON.stringify(response)); return JSON.parse(response.result.content[0].text); };
+  const parent = await call('foundation_import_build', { xml, source: 'poison-issues-fixture' });
+  const scan = await call('check_snapshot_issues', { snapshot_id: parent.id });
+  assert.equal(scan.snapshotId, parent.id);
+  for (const [key, value] of Object.entries(expected)) assert.deepEqual(scan.stats[key], value, key);
+  assert.equal(scan.checks.fireResistance, 'checked');
+  assert.equal(scan.checks.items, 'checked');
+  assert.equal(scan.checks.gemCoherence, 'checked');
+  assert.equal(scan.context.skills.mainSocketGroup, group.index);
+  assert.match(scan.context.config.customMods, /100% chance to Poison/);
+  assert.ok(!scan.issues.some(issue => issue.code === 'zero_damage'));
+  assert.ok(!scan.issues.some(issue => issue.code === 'empty_gear_slot' && issue.evidence.slot === 'Ring 3'));
+  assert.equal((await call('foundation_export_build', { snapshot_id: parent.id })).xml, xml);
+  child.stdin.end(); assert.equal((await exited)[0], 0);
+  console.log('foundation issue scan passed');
+} finally {
+  if (child && child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');
+  await client.stop(); await rm(dir, { recursive: true, force: true });
+}
