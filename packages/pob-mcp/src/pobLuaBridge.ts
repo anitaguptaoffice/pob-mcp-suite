@@ -154,6 +154,8 @@ export interface SearchedNode {
   ascendancyName?: string;
   isMastery?: boolean;
   isBlighted?: boolean;
+  /** Unallocated nodes on PoB's current path, in allocation order. */
+  pathNodes?: Array<number | string>;
 }
 
 /** list_specs / create_spec / select_spec / delete_spec / rename_spec */

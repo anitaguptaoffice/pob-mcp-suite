@@ -1374,6 +1374,16 @@ function M.search_nodes(params)
     end
 
     if matches then
+      local pathNodes = nil
+      if not allocatedSet[id] and type(node.path) == 'table' and node.pathDist and node.pathDist < 1000 then
+        pathNodes = {}
+        for index = #node.path, 1, -1 do
+          local pathNode = node.path[index]
+          if pathNode and not pathNode.alloc and pathNode.id then
+            table.insert(pathNodes, pathNode.id)
+          end
+        end
+      end
       local nodeType = 'normal'
       if node.isKeystone then nodeType = 'keystone'
       elseif node.isNotable then nodeType = 'notable'
@@ -1402,6 +1412,7 @@ function M.search_nodes(params)
         orbit = node.orbit,
         orbitIndex = node.orbitIndex,
         ascendancyName = node.ascendancyName,
+        pathNodes = pathNodes,
         -- Blight notables sit off the tree and are reached by anointing, not by
         -- spending a point; callers need to tell them apart from real nodes.
         isBlighted = node.isBlighted == true,

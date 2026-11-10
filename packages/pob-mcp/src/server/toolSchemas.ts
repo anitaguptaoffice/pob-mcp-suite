@@ -1852,7 +1852,7 @@ export function getBuildGoalsToolSchemas(): ToolSchema[] {
     {
       name: "get_passive_upgrades",
       truncatable: true,
-      description: "Find the best unallocated notable passives to pick up next, ranked by their actual stat impact. Uses calcWith to simulate each candidate and scores by relative DPS/EHP gain.",
+      description: "Find reachable unallocated notable passives. Simulates each candidate together with PoB's current path and ranks relative stat gains per allocated point. Results depend on current configuration and do not guarantee affordability or build legality; verify before applying.",
       inputSchema: {
         type: "object",
         properties: {

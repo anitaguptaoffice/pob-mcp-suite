@@ -2,6 +2,7 @@ import type { BuildService } from "../services/buildService.js";
 import { noteIgnoredError } from '../utils/errorHandling.js';
 import type { TreeService } from "../services/treeService.js";
 import type { SearchedNode } from "../pobLuaBridge.js";
+import { toFiniteNumber } from "../pobLuaBridge.js";
 import type { TreeComparison } from "../types.js";
 import type { PoBLuaApiClient } from "../pobLuaBridge.js";
 import { handleGetBuildIssues } from "./buildGoalsHandlers.js";
@@ -357,8 +358,15 @@ export async function handleGetPassiveUpgrades(
   // Step 1: get current base stats and issues to determine search keywords
   const { issues, stats: baseStats } = await handleGetBuildIssues(context);
 
-  const baseDPS = (baseStats.CombinedDPS as number) || (baseStats.TotalDPS as number) || (baseStats.MinionTotalDPS as number) || 1;
-  const baseEHP = (baseStats.TotalEHP as number) || (baseStats.Life as number) || 1;
+  const damageKey = (['CombinedDPS', 'TotalDPS', 'MinionTotalDPS'] as const)
+    .find(key => (toFiniteNumber(baseStats[key]) ?? 0) > 0);
+  const defenceKey = (['TotalEHP', 'Life'] as const)
+    .find(key => (toFiniteNumber(baseStats[key]) ?? 0) > 0);
+  const baseDPS = damageKey ? toFiniteNumber(baseStats[damageKey])! : undefined;
+  const baseEHP = defenceKey ? toFiniteNumber(baseStats[defenceKey])! : undefined;
+  if ((focus !== 'defence' && !baseDPS) || (focus !== 'dps' && !baseEHP)) {
+    return { content: [{ type: 'text' as const, text: '无法取得用于比较的非零伤害或防御基准，请检查主技能与 PoB 计算配置。' }] };
+  }
 
   // Step 2: map focus + issues to search keywords
   const keywords: string[] = [];
@@ -380,15 +388,17 @@ export async function handleGetPassiveUpgrades(
   // search_nodes matches across the whole tree, which includes every other
   // class's ascendancy. Those can never be allocated by this build, so drop
   // them before scoring rather than spending a simulation on each.
-  const ownAscendancy = (await luaClient.getBuildInfo())?.ascendClassName ?? '';
   const isSimulatable = (node: SearchedNode): boolean => {
     const ascendancy = node.ascendancy ?? node.ascendancyName ?? '';
-    const isForeignAscendancy = ascendancy !== '' && ascendancy !== ownAscendancy;
-    const isMastery = node.isMastery === true || node.type === 'Mastery';
+    const isAscendancy = ascendancy !== '';
+    const isMastery = node.isMastery === true || node.type.toLowerCase() === 'mastery';
     // Blight notables sit off the tree entirely and are reached by anointing an
     // amulet, never by spending a passive point. find_best_anointment covers them.
     const isAnointOnly = node.isBlighted === true;
-    return !isForeignAscendancy && !isMastery && !isAnointOnly;
+    const path = node.pathNodes;
+    const reachable = Array.isArray(path) && path.length > 0 &&
+      path.some(id => String(id) === String(node.id)) && new Set(path.map(String)).size === path.length;
+    return !isAscendancy && !isMastery && !isAnointOnly && reachable;
   };
 
   // One failed keyword should narrow the search, not sink the whole suggestion.
@@ -441,27 +451,30 @@ export async function handleGetPassiveUpgrades(
 
   for (const node of candidates) {
     try {
-      const out = await luaClient.calcWith({ addNodes: [node.id] });
+      const path = node.pathNodes!;
+      const out = await luaClient.calcWith({ addNodes: path });
       if (!out) continue;
 
       // calcWith returns raw Lua output; minion stats are nested under out.Minion
       // (unlike getStats() which remaps them to MinionTotalDPS etc.)
-      const outDPS = (out.CombinedDPS as number) || (out.TotalDPS as number) ||
-                     (out.Minion?.CombinedDPS as number) || (out.Minion?.TotalDPS as number) || baseDPS;
-      const outEHP = (out.TotalEHP as number) || (out.Life as number) || baseEHP;
+      const outDPS = damageKey === 'MinionTotalDPS' ? toFiniteNumber(out.Minion?.TotalDPS) :
+        damageKey ? toFiniteNumber(out[damageKey]) : undefined;
+      const outEHP = defenceKey ? toFiniteNumber(out[defenceKey]) : undefined;
+      if ((focus !== 'defence' && outDPS === undefined) || (focus !== 'dps' && outEHP === undefined)) continue;
 
-      const dpsDelta = outDPS - baseDPS;
-      const ehpDelta = outEHP - baseEHP;
+      const dpsDelta = outDPS !== undefined && baseDPS !== undefined ? outDPS - baseDPS : 0;
+      const ehpDelta = outEHP !== undefined && baseEHP !== undefined ? outEHP - baseEHP : 0;
 
       // Relative score weighted by focus
       let score: number;
       if (focus === 'dps') {
-        score = dpsDelta / baseDPS;
+        score = dpsDelta / baseDPS!;
       } else if (focus === 'defence') {
-        score = ehpDelta / baseEHP;
+        score = ehpDelta / baseEHP!;
       } else {
-        score = (dpsDelta / baseDPS) + (ehpDelta / baseEHP);
+        score = (dpsDelta / baseDPS!) + (ehpDelta / baseEHP!);
       }
+      score /= path.length;
 
       scored.push({ node, dpsDelta, ehpDelta, score });
     } catch (e) {
@@ -478,10 +491,10 @@ export async function handleGetPassiveUpgrades(
   const textLines: string[] = [
     `=== Passive Upgrades (focus: ${focus}) ===`,
     '',
-    `Base DPS: ${Math.round(baseDPS).toLocaleString()}  |  Base EHP: ${Math.round(baseEHP).toLocaleString()}`,
-    `Evaluated ${candidates.length} candidate notables, showing top ${top.length}:`,
+    `基准：${damageKey ?? '伤害未提供'} = ${baseDPS ?? '未提供'}；${defenceKey ?? '防御未提供'} = ${baseEHP ?? '未提供'}`,
+    `按 PoB 路径的每点收益排序；候选 ${candidates.length} 项，显示 ${top.length} 项。搜索按关键词限量，并非全树穷举。`,
     ...(skippedForeign > 0
-      ? [`(skipped ${skippedForeign} node(s) this build cannot allocate)`]
+      ? [`（跳过 ${skippedForeign} 个没有可用普通天赋路径或不适合试算的节点）`]
       : []),
     '',
   ];
@@ -489,9 +502,10 @@ export async function handleGetPassiveUpgrades(
   for (let i = 0; i < top.length; i++) {
     const { node, dpsDelta, ehpDelta, score } = top[i];
     textLines.push(`${i + 1}. **${node.name}** [${node.id}]`);
+    textLines.push(`   路径（${node.pathNodes!.length} 点）：${node.pathNodes!.join(' → ')}`);
     let scoreLine = `   Score: ${score.toFixed(4)}`;
-    if (dpsDelta !== 0) scoreLine += `  |  DPS Δ: ${dpsDelta > 0 ? '+' : ''}${Math.round(dpsDelta).toLocaleString()}`;
-    if (ehpDelta !== 0) scoreLine += `  |  EHP Δ: ${ehpDelta > 0 ? '+' : ''}${Math.round(ehpDelta).toLocaleString()}`;
+    if (dpsDelta !== 0) scoreLine += `  |  ${damageKey} Δ: ${dpsDelta > 0 ? '+' : ''}${Math.round(dpsDelta).toLocaleString()}`;
+    if (ehpDelta !== 0) scoreLine += `  |  ${defenceKey} Δ: ${ehpDelta > 0 ? '+' : ''}${Math.round(ehpDelta).toLocaleString()}`;
     textLines.push(scoreLine);
     if (node.stats && node.stats.length > 0) {
       for (const stat of (node.stats as string[]).slice(0, 2)) {
@@ -504,7 +518,7 @@ export async function handleGetPassiveUpgrades(
   if (top.length === 0) {
     textLines.push('No results after simulation. Try a different focus or ensure a build is loaded.');
   } else {
-    textLines.push('', '💡 Use lua_set_tree to allocate the top node and recalculate stats.');
+    textLines.push('', '试算包含路径上的节点；结果取决于当前技能和配置。请在 PoB 中核对路径、点数和机制后再应用。');
   }
 
   return {
