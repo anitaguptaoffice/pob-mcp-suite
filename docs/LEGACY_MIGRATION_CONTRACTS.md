@@ -33,8 +33,8 @@ acceptance work to perform during migration, not claims of completed tests.
 | `restore_snapshot` | Use a selected immutable snapshot ID; explicit file overwrite and backup are separate operations. | Selecting old state does not mutate later snapshot; file restoration honors backup and overwrite. |
 | `export_build_summary` | Presentation workflow over `inspect` and `evaluate`; no equivalent report yet. | Missing values remain unknown; user-facing report includes selected skill and source identity. |
 | `list_builds` | Local file catalog; snapshot list alone is not equivalent. | Only configured build directory is listed, with stable behavior for missing directory and nested files. |
-| `get_build_notes` | Snapshot notes query is needed. | Notes including Unicode and newlines match source XML. |
-| `set_build_notes` | Typed notes-derived snapshot plus explicit file save is needed. | Parent remains unchanged and notes survive reload; no silent file overwrite. |
+| `get_build_notes` | `foundation_read_notes` reads PoB's notes editor in an isolated snapshot engine. | `foundation-notes.mjs` checks Unicode, special characters, newline forms and empty notes against real PoB; legacy file-name callers still need migration. |
+| `set_build_notes` | `foundation_derive_notes` creates a typed snapshot; saving a local file remains an explicit separate operation. | `foundation-notes.mjs` checks parent isolation and export/reimport; `buildFoundation.test.ts` rejects notes lost on reload. Legacy callers still need migration. |
 
 ## Configuration and calculations
 

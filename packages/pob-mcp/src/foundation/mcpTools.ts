@@ -19,6 +19,8 @@ export const foundationSchemas: ToolSchema[] = [
   { name: 'foundation_compatible_supports', description: 'Query PoB support compatibility for the selected skill; not a damage ranking.', inputSchema: { type: 'object', properties: { snapshot_id: { type: 'string' }, group_index: { type: 'integer', minimum: 1 }, query: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 100 }, include_exceptional: { type: 'boolean' } }, required: ['snapshot_id'] } },
   { name: 'foundation_search_tree', description: 'Search nodes in the snapshot tree version; results are bounded and unordered.', inputSchema: { type: 'object', properties: { snapshot_id: { type: 'string' }, query: { type: 'string' }, node_type: { type: 'string', enum: ['normal', 'notable', 'keystone', 'jewel', 'mastery', 'ascendancy'] }, limit: { type: 'integer', minimum: 1, maximum: 30 }, include_allocated: { type: 'boolean' } }, required: ['snapshot_id', 'query'] } },
   { name: 'foundation_inspect', description: 'Read selected build, tree, item, skill or config sections from a snapshot.', inputSchema: { type: 'object', properties: { snapshot_id: { type: 'string' }, sections: { type: 'array', minItems: 1, maxItems: 5, uniqueItems: true, items: { type: 'string', enum: ['build', 'tree', 'items', 'skills', 'config'] } } }, required: ['snapshot_id', 'sections'] } },
+  { name: 'foundation_read_notes', description: 'Read PoB notes from an immutable snapshot.', inputSchema: { type: 'object', additionalProperties: false, properties: { snapshot_id: { type: 'string' } }, required: ['snapshot_id'] } },
+  { name: 'foundation_derive_notes', description: 'Create a verified snapshot with replaced PoB notes; the source snapshot and any local build file are unchanged.', inputSchema: { type: 'object', additionalProperties: false, properties: { snapshot_id: { type: 'string' }, notes: { type: 'string' }, trial: { type: 'boolean' } }, required: ['snapshot_id', 'notes'] } },
   { name: 'foundation_evaluate', description: 'Calculate specified PoB metrics for a snapshot.', inputSchema: { type: 'object', properties: { snapshot_id: { type: 'string' }, fields: { type: 'array', items: { type: 'string' } }, selection: { type: 'object', properties: { mainSocketGroup: { type: 'integer', minimum: 1 }, mainActiveSkill: { type: 'integer', minimum: 1 }, skillPart: { type: 'integer', minimum: 1 } } }, config: { type: 'object', additionalProperties: { type: ['string', 'number', 'boolean'] } } }, required: ['snapshot_id', 'fields'] } },
   { name: 'foundation_mastery_node_options', description: 'Read PoB options for a mastery node, allocated or not; this does not prove allocatability.', inputSchema: { type: 'object', properties: { snapshot_id: { type: 'string' }, node_id: { type: 'integer', minimum: 1 } }, required: ['snapshot_id', 'node_id'] } },
   { name: 'foundation_mastery_options', description: 'Read PoB effect options for allocated mastery nodes in a snapshot.', inputSchema: { type: 'object', properties: { snapshot_id: { type: 'string' } }, required: ['snapshot_id'] } },
@@ -103,6 +105,14 @@ export async function invokeFoundation(foundation: BuildFoundation, name: string
       includeAllocated: args.include_allocated as boolean | undefined,
     });
     case 'foundation_inspect': return foundation.inspect(stringArg('snapshot_id'), args.sections as string[]);
+    case 'foundation_read_notes': {
+      if (Object.keys(args).some(key => key !== 'snapshot_id')) throw new Error('Invalid notes read options');
+      return foundation.notes(stringArg('snapshot_id'));
+    }
+    case 'foundation_derive_notes': {
+      if (Object.keys(args).some(key => !['snapshot_id', 'notes', 'trial'].includes(key)) || typeof args.notes !== 'string') throw new Error('Invalid notes change options');
+      return snapshotMetadata(await foundation.deriveNotes(stringArg('snapshot_id'), args.notes, trialArg()));
+    }
     case 'foundation_evaluate': {
       const id = stringArg('snapshot_id');
       const fields = args.fields;

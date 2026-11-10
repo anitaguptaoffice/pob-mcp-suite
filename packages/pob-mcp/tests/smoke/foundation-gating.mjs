@@ -15,6 +15,7 @@ try {
   await init(disabled);
   const tools = await disabled.request('tools/list', {});
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_import_build'));
+  assert.ok(!tools.result.tools.some(t => t.name === 'foundation_read_notes' || t.name === 'foundation_derive_notes'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_derive_selection'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_derive_gem'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_derive_gem_list'));
@@ -51,6 +52,8 @@ try {
   assert.equal((await jobs.get(abandoned.id)).status, 'interrupted');
   const foundationOnly = await first.request('tools/list', {});
   assert.ok(foundationOnly.result.tools.some(t => t.name === 'foundation_import_build'));
+  assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_read_notes').length, 1);
+  assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_notes').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_selection').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_gem').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_gem_list').length, 1);

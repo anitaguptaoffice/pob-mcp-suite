@@ -363,6 +363,21 @@ function M.export_build_xml()
   return xml
 end
 
+function M.get_build_notes()
+  local edit = build and build.notesTab and build.notesTab.controls and build.notesTab.controls.edit
+  if not edit or type(edit.buf) ~= 'string' then return nil, 'PoB notes editor unavailable' end
+  return edit.buf
+end
+
+function M.set_build_notes(params)
+  local edit = build and build.notesTab and build.notesTab.controls and build.notesTab.controls.edit
+  if not edit or type(edit.SetText) ~= 'function' then return nil, 'PoB notes editor unavailable' end
+  if not params or type(params.notes) ~= 'string' then return nil, 'notes must be a string' end
+  edit:SetText(params.notes)
+  if edit.buf ~= params.notes then return nil, 'PoB did not apply notes exactly' end
+  return true
+end
+
 function M.set_level(level)
   if not build or not build.configTab then
     return nil, 'build/config not initialized'

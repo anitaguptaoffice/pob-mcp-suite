@@ -5,6 +5,23 @@ import { BuildFoundation, type BuildEngine } from '../../src/foundation/buildFou
 import { SnapshotStore } from '../../src/foundation/snapshotStore.js';
 
 describe('BuildFoundation isolation', () => {
+  it('rejects a notes change that is lost on reload without publishing a snapshot', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'pob-notes-'));
+    try {
+      const store = new SnapshotStore(dir);
+      const parent = await store.create({ xml: '<build/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
+      let notes = '';
+      const engine = { identity: { engineVersion: null, dataVersion: null, adapterVersion: null }, loadBuildXml: async () => { notes = ''; },
+        getBuildNotes: async () => notes, setBuildNotes: async (value: string) => { notes = value; }, captureSnapshot: async () => ({ xml: '<build/>' }),
+        getBuildInfo: async () => ({}), getTree: async () => ({}), getItems: async () => [], getSkills: async () => ({}),
+        getConfig: async () => ({}), getStats: async () => ({}), verifyIdentity: async () => {}, close: async () => {},
+      } as unknown as BuildEngine;
+      const foundation = new BuildFoundation(store, async () => engine);
+      await expect(foundation.deriveNotes(parent.id, 'new notes')).rejects.toThrow('did not preserve');
+      await expect(foundation.deriveNotes(parent.id, 'invalid\u0000notes')).rejects.toThrow('valid XML text');
+      expect(await readdir(dir)).toEqual([`${parent.id}.json`]);
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
   it('rejects a read-only operation that changes the observed build', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'pob-read-only-'));
     try {
@@ -318,7 +335,7 @@ describe('BuildFoundation isolation', () => {
         engineVersion: null, dataVersion: null, adapterVersion: null });
       let loads = 0;
       let closed = false;
-      const engine: BuildEngine = {
+      const engine: BuildEngine = { getBuildNotes: async () => '', setBuildNotes: async () => {},
         setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {}, listItemSets: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), selectItemSet: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), listSpecs: async () => ({ activeSpec: 1, specs: [{ index: 1, title: "fixture", active: true, nodeCount: 0 }] }), selectSpec: async () => ({ activeSpec: 1, specs: [{ index: 1, title: "fixture", active: true, nodeCount: 0 }] }), createSpec: async () => ({}), renameSpec: async () => ({}), deleteSpec: async () => ({}), compareItem: async (slot: string) => ({ slot, candidate: {}, baseline: {}, candidateStats: {} }), findTimelessJewelSeedsDetailed: async () => ({ socketNodeId: 1, treeVersion: "fixture", jewelType: "Elegant Hubris", scannedSeeds: 0, totalMatches: 0, results: [] }),
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
@@ -352,7 +369,7 @@ describe('BuildFoundation isolation', () => {
       const parent = await store.create({ xml: '<original/>', source: 'fixture', parentId: null,
         engineVersion: null, dataVersion: null, adapterVersion: null });
       let closed = false;
-      const engine: BuildEngine = {
+      const engine: BuildEngine = { getBuildNotes: async () => '', setBuildNotes: async () => {},
         setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {}, listItemSets: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), selectItemSet: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), listSpecs: async () => ({ activeSpec: 1, specs: [{ index: 1, title: "fixture", active: true, nodeCount: 0 }] }), selectSpec: async () => ({ activeSpec: 1, specs: [{ index: 1, title: "fixture", active: true, nodeCount: 0 }] }), createSpec: async () => ({}), renameSpec: async () => ({}), deleteSpec: async () => ({}), compareItem: async (slot: string) => ({ slot, candidate: {}, baseline: {}, candidateStats: {} }), findTimelessJewelSeedsDetailed: async () => ({ socketNodeId: 1, treeVersion: "fixture", jewelType: "Elegant Hubris", scannedSeeds: 0, totalMatches: 0, results: [] }),
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
@@ -382,7 +399,7 @@ describe('BuildFoundation isolation', () => {
       const parent = await store.create({ xml: '<original/>', source: 'fixture', parentId: null,
         engineVersion: '1', dataVersion: null, adapterVersion: 'a', runtimeVersion: 'runtime-a', executableVersion: 'exe-a' });
       let loaded = false;
-      const engine: BuildEngine = {
+      const engine: BuildEngine = { getBuildNotes: async () => '', setBuildNotes: async () => {},
         setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {}, listItemSets: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), selectItemSet: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), listSpecs: async () => ({ activeSpec: 1, specs: [{ index: 1, title: "fixture", active: true, nodeCount: 0 }] }), selectSpec: async () => ({ activeSpec: 1, specs: [{ index: 1, title: "fixture", active: true, nodeCount: 0 }] }), createSpec: async () => ({}), renameSpec: async () => ({}), deleteSpec: async () => ({}), compareItem: async (slot: string) => ({ slot, candidate: {}, baseline: {}, candidateStats: {} }), findTimelessJewelSeedsDetailed: async () => ({ socketNodeId: 1, treeVersion: "fixture", jewelType: "Elegant Hubris", scannedSeeds: 0, totalMatches: 0, results: [] }),
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
@@ -428,7 +445,7 @@ describe('BuildFoundation isolation', () => {
       const selection = jest.fn(async () => {});
       const config = jest.fn(async () => ({ rejected: { badOption: 'unknown' } }));
       const closed = jest.fn(async () => {});
-      const engine: BuildEngine = {
+      const engine: BuildEngine = { getBuildNotes: async () => '', setBuildNotes: async () => {},
         setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {}, listItemSets: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), selectItemSet: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), listSpecs: async () => ({ activeSpec: 1, specs: [{ index: 1, title: "fixture", active: true, nodeCount: 0 }] }), selectSpec: async () => ({ activeSpec: 1, specs: [{ index: 1, title: "fixture", active: true, nodeCount: 0 }] }), createSpec: async () => ({}), renameSpec: async () => ({}), deleteSpec: async () => ({}), compareItem: async (slot: string) => ({ slot, candidate: {}, baseline: {}, candidateStats: {} }), findTimelessJewelSeedsDetailed: async () => ({ socketNodeId: 1, treeVersion: "fixture", jewelType: "Elegant Hubris", scannedSeeds: 0, totalMatches: 0, results: [] }),
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
@@ -465,7 +482,7 @@ describe('BuildFoundation isolation', () => {
       const getTree = jest.fn(async () => ({ nodes: [1] }));
       const getItems = jest.fn(async () => [{ slot: 'Helmet' }]);
       const close = jest.fn(async () => {});
-      const engine: BuildEngine = {
+      const engine: BuildEngine = { getBuildNotes: async () => '', setBuildNotes: async () => {},
         setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {}, listItemSets: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), selectItemSet: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), listSpecs: async () => ({ activeSpec: 1, specs: [{ index: 1, title: "fixture", active: true, nodeCount: 0 }] }), selectSpec: async () => ({ activeSpec: 1, specs: [{ index: 1, title: "fixture", active: true, nodeCount: 0 }] }), createSpec: async () => ({}), renameSpec: async () => ({}), deleteSpec: async () => ({}), compareItem: async (slot: string) => ({ slot, candidate: {}, baseline: {}, candidateStats: {} }), findTimelessJewelSeedsDetailed: async () => ({ socketNodeId: 1, treeVersion: "fixture", jewelType: "Elegant Hubris", scannedSeeds: 0, totalMatches: 0, results: [] }),
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
@@ -500,7 +517,7 @@ describe('BuildFoundation isolation', () => {
       const parent = await store.create({ xml: '<original/>', source: 'fixture', parentId: null,
         engineVersion: null, dataVersion: null, adapterVersion: null });
       const searchNodes = jest.fn(async () => ({ nodes: [{ id: 1, name: 'Life' }], count: 1 }));
-      const engine: BuildEngine = {
+      const engine: BuildEngine = { getBuildNotes: async () => '', setBuildNotes: async () => {},
         setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {}, listItemSets: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), selectItemSet: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), listSpecs: async () => ({ activeSpec: 1, specs: [{ index: 1, title: "fixture", active: true, nodeCount: 0 }] }), selectSpec: async () => ({ activeSpec: 1, specs: [{ index: 1, title: "fixture", active: true, nodeCount: 0 }] }), createSpec: async () => ({}), renameSpec: async () => ({}), deleteSpec: async () => ({}), compareItem: async (slot: string) => ({ slot, candidate: {}, baseline: {}, candidateStats: {} }), findTimelessJewelSeedsDetailed: async () => ({ socketNodeId: 1, treeVersion: "fixture", jewelType: "Elegant Hubris", scannedSeeds: 0, totalMatches: 0, results: [] }),
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
@@ -531,7 +548,7 @@ describe('BuildFoundation isolation', () => {
       const parent = await store.create({ xml: '<original/>', source: 'fixture', parentId: null,
         engineVersion: null, dataVersion: null, adapterVersion: null });
       const search = jest.fn(async () => ({ groupIndex: 1, skillName: 'Vortex', candidates: [{ id: 'x', name: 'Efficacy', exceptional: false, alreadySocketed: false }], total: 1, failed: 2 }));
-      const engine: BuildEngine = {
+      const engine: BuildEngine = { getBuildNotes: async () => '', setBuildNotes: async () => {},
         setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {}, listItemSets: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), selectItemSet: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), listSpecs: async () => ({ activeSpec: 1, specs: [{ index: 1, title: "fixture", active: true, nodeCount: 0 }] }), selectSpec: async () => ({ activeSpec: 1, specs: [{ index: 1, title: "fixture", active: true, nodeCount: 0 }] }), createSpec: async () => ({}), renameSpec: async () => ({}), deleteSpec: async () => ({}), compareItem: async (slot: string) => ({ slot, candidate: {}, baseline: {}, candidateStats: {} }), findTimelessJewelSeedsDetailed: async () => ({ socketNodeId: 1, treeVersion: "fixture", jewelType: "Elegant Hubris", scannedSeeds: 0, totalMatches: 0, results: [] }),
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
@@ -562,7 +579,7 @@ describe('BuildFoundation isolation', () => {
       const store = new SnapshotStore(dir);
       const parent = await store.create({ xml: '<original/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
       const weight = jest.fn(async (modId: string) => ({ modId, base: 'Ring', weight: 0 }));
-      const engine: BuildEngine = {
+      const engine: BuildEngine = { getBuildNotes: async () => '', setBuildNotes: async () => {},
         setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {}, listItemSets: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), selectItemSet: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), listSpecs: async () => ({ activeSpec: 1, specs: [{ index: 1, title: "fixture", active: true, nodeCount: 0 }] }), selectSpec: async () => ({ activeSpec: 1, specs: [{ index: 1, title: "fixture", active: true, nodeCount: 0 }] }), createSpec: async () => ({}), renameSpec: async () => ({}), deleteSpec: async () => ({}), compareItem: async (slot: string) => ({ slot, candidate: {}, baseline: {}, candidateStats: {} }), findTimelessJewelSeedsDetailed: async () => ({ socketNodeId: 1, treeVersion: "fixture", jewelType: "Elegant Hubris", scannedSeeds: 0, totalMatches: 0, results: [] }),
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
@@ -591,7 +608,7 @@ describe('BuildFoundation isolation', () => {
       const store = new SnapshotStore(dir);
       const parent = await store.create({ xml: '<original/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
       const close = jest.fn(async () => {});
-      const engine: BuildEngine = {
+      const engine: BuildEngine = { getBuildNotes: async () => '', setBuildNotes: async () => {},
         setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {}, listItemSets: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), selectItemSet: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), listSpecs: async () => ({ activeSpec: 1, specs: [{ index: 1, title: "fixture", active: true, nodeCount: 0 }] }), selectSpec: async () => ({ activeSpec: 1, specs: [{ index: 1, title: "fixture", active: true, nodeCount: 0 }] }), createSpec: async () => ({}), renameSpec: async () => ({}), deleteSpec: async () => ({}), compareItem: async (slot: string) => ({ slot, candidate: {}, baseline: {}, candidateStats: {} }), findTimelessJewelSeedsDetailed: async () => ({ socketNodeId: 1, treeVersion: "fixture", jewelType: "Elegant Hubris", scannedSeeds: 0, totalMatches: 0, results: [] }),
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
@@ -620,7 +637,7 @@ describe('BuildFoundation isolation', () => {
       const store = new SnapshotStore(dir);
       const parent = await store.create({ xml: '<original/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
       const base = { nodes: [1, 2], treeVersion: '3_28', classId: 1, ascendClassId: 0, secondaryAscendClassId: 0, masteryEffects: {} };
-      const engine: BuildEngine = {
+      const engine: BuildEngine = { getBuildNotes: async () => '', setBuildNotes: async () => {},
         setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {}, listItemSets: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), selectItemSet: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), listSpecs: async () => ({ activeSpec: 1, specs: [{ index: 1, title: "fixture", active: true, nodeCount: 0 }] }), selectSpec: async () => ({ activeSpec: 1, specs: [{ index: 1, title: "fixture", active: true, nodeCount: 0 }] }), createSpec: async () => ({}), renameSpec: async () => ({}), deleteSpec: async () => ({}), compareItem: async (slot: string) => ({ slot, candidate: {}, baseline: {}, candidateStats: {} }), findTimelessJewelSeedsDetailed: async () => ({ socketNodeId: 1, treeVersion: "fixture", jewelType: "Elegant Hubris", scannedSeeds: 0, totalMatches: 0, results: [] }),
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
@@ -651,7 +668,7 @@ describe('BuildFoundation isolation', () => {
       let tree = base;
       let unexpected = false;
       const refresh = jest.fn(async () => {});
-      const engine: BuildEngine = {
+      const engine: BuildEngine = { getBuildNotes: async () => '', setBuildNotes: async () => {},
         setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {}, listItemSets: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), selectItemSet: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), listSpecs: async () => ({ activeSpec: 1, specs: [{ index: 1, title: "fixture", active: true, nodeCount: 0 }] }), selectSpec: async () => ({ activeSpec: 1, specs: [{ index: 1, title: "fixture", active: true, nodeCount: 0 }] }), createSpec: async () => ({}), renameSpec: async () => ({}), deleteSpec: async () => ({}), compareItem: async (slot: string) => ({ slot, candidate: {}, baseline: {}, candidateStats: {} }), findTimelessJewelSeedsDetailed: async () => ({ socketNodeId: 1, treeVersion: "fixture", jewelType: "Elegant Hubris", scannedSeeds: 0, totalMatches: 0, results: [] }),
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: refresh,
@@ -680,7 +697,7 @@ describe('BuildFoundation isolation', () => {
       const parent = await store.create({ xml: '<original/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
       const tree = { nodes: [1], treeVersion: '3_28', classId: 1, ascendClassId: 0, secondaryAscendClassId: 0, masteryEffects: { '1': 5 } };
       const update = jest.fn(async () => ({ tree }));
-      const engine: BuildEngine = {
+      const engine: BuildEngine = { getBuildNotes: async () => '', setBuildNotes: async () => {},
         setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {}, listItemSets: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), selectItemSet: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), listSpecs: async () => ({ activeSpec: 1, specs: [{ index: 1, title: "fixture", active: true, nodeCount: 0 }] }), selectSpec: async () => ({ activeSpec: 1, specs: [{ index: 1, title: "fixture", active: true, nodeCount: 0 }] }), createSpec: async () => ({}), renameSpec: async () => ({}), deleteSpec: async () => ({}), compareItem: async (slot: string) => ({ slot, candidate: {}, baseline: {}, candidateStats: {} }), findTimelessJewelSeedsDetailed: async () => ({ socketNodeId: 1, treeVersion: "fixture", jewelType: "Elegant Hubris", scannedSeeds: 0, totalMatches: 0, results: [] }),
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},

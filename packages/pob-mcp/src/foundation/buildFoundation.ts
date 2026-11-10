@@ -7,6 +7,8 @@ import { toFiniteNumber, type PoBLuaApiClient } from '../pobLuaBridge.js';
 
 /** The adapter owns a disposable PoB instance; it must never share live state. */
 export interface BuildEngine {
+  getBuildNotes(): Promise<string>;
+  setBuildNotes(notes: string): Promise<void>;
   identity: { engineVersion: string | null; adapterVersion: string | null; dataVersion: string | null; runtimeVersion?: string | null; executableVersion?: string | null };
   verifyIdentity(): Promise<void>;
   loadBuildXml(xml: string): Promise<unknown>;
@@ -869,6 +871,25 @@ export class BuildFoundation {
         throw new Error('PoB did not confirm the requested config');
       }
     }, trial);
+  }
+
+  async notes(id: string) {
+    const { result, ...context } = await this.runReadOnlySnapshot(id, engine => engine.getBuildNotes());
+    if (typeof result !== 'string') throw new Error('PoB returned invalid notes');
+    return { ...context, notes: result };
+  }
+
+  async deriveNotes(id: string, notes: string, trial = false): Promise<SnapshotRecord> {
+    if (typeof notes !== 'string' || Buffer.byteLength(notes, 'utf8') > 512 * 1024 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\ufffe\uffff]|[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/u.test(notes)) throw new Error('Notes must be valid XML text of at most 512 KiB');
+    const verify = async (engine: BuildEngine) => {
+      if (await engine.getBuildNotes() !== notes) throw new Error('PoB did not preserve the requested notes');
+    };
+    return this.derive(id, 'derived:notes', async engine => {
+      const before = await observe(engine);
+      await engine.setBuildNotes(notes);
+      await verify(engine);
+      if (!isDeepStrictEqual(before, await observe(engine))) throw new Error('Notes change modified unrelated build state');
+    }, trial, verify);
   }
 
   async readSnapshot(id: string) { return snapshotMetadata(await this.store.read(id)); }

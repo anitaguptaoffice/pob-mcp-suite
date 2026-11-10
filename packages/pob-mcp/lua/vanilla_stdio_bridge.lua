@@ -314,6 +314,8 @@ handlers.get_cost_snapshot = function()
 end
 handlers.get_compatible_supports = op(BuildOps.get_compatible_supports, 'result')
 handlers.get_build_info = op(BuildOps.get_build_info, 'info')
+handlers.get_build_notes = op(BuildOps.get_build_notes, 'notes')
+handlers.set_build_notes = op(BuildOps.set_build_notes)
 handlers.get_config = function()
   local cfg, err = BuildOps.get_config()
   if cfg == nil then return { ok = false, error = err or 'operation failed' } end

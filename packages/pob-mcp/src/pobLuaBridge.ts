@@ -776,6 +776,17 @@ async setTree(params: {
     return res.info as BuildInfo;
   }
 
+  async getBuildNotes(): Promise<string> {
+    const res = await this.send({ action: 'get_build_notes' });
+    if (!res.ok || typeof res.notes !== 'string') throw new Error(res.error || 'get_build_notes failed');
+    return res.notes;
+  }
+
+  async setBuildNotes(notes: string): Promise<void> {
+    const res = await this.send({ action: 'set_build_notes', params: { notes } });
+    if (!res.ok) throw new Error(res.error || 'set_build_notes failed');
+  }
+
   async setLevel(level: number): Promise<void> {
     const res = await this.send({ action: "set_level", params: { level } });
     if (!res.ok) throw new Error(res.error || "set_level failed");
