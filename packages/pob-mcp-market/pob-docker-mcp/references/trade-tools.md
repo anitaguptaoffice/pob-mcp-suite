@@ -21,7 +21,7 @@ Trade tools are environment-gated.
 - Use `compare_equipment_candidate` with a complete PoB-compatible item text and the exact active equipment slot to preview replacement stats without equipping it. It uses the live build and current configuration; it does not validate game legality, listing price, or item availability. Jewels, flasks and swap slots are not supported.
 - Check `parseDiagnostics` on both the currently equipped and candidate item. PoB excludes active modifier lines marked with `extra`; disclose them and do not claim the simulation includes their effects. This is a two-item check, not a complete build audit.
 - Use `compare_trade_listing_in_pob` with the exact league, listing ID, search ID and slot to fetch the official clipboard text and compare that listing. It refuses missing or mismatched clipboard text; listing data can be cached and the original search status cannot be inferred from price alone.
-- Use `compare_trade_listings_in_pob` for up to five listings from one search. Each item can fail independently; inspect each result and its parse diagnostics. If baseline stats differ, do not compare candidates until the build is stable. Matching baseline stats do not prove all configuration was unchanged.
+- Use `compare_trade_listings_in_pob` for up to five listings from one search. It captures the live build once and evaluates candidates in an isolated engine, rejecting results when numeric baselines disagree. Each item can fail independently; inspect each result and its parse diagnostics. Matching numerical baselines do not prove every non-numeric setting survived serialization.
 
 ## Search Workflow
 

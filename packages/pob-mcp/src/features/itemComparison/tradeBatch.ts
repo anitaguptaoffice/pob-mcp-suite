@@ -5,8 +5,7 @@ import { compareTradeListing } from './tradeListing.js';
 type Success = { itemId: string; status: 'ok'; result: Awaited<ReturnType<typeof compareTradeListing>> };
 type Failure = { itemId: string; status: 'error'; error: string };
 
-/** One trade fetch, then bounded sequential previews in the current PoB engine. */
-export async function compareTradeListings(trade: Pick<TradeApiClient, 'fetchItems'>, client: Pick<PoBLuaApiClient, 'compareItem'>, args: Record<string, unknown>) {
+export function validateTradeBatchArgs(args: Record<string, unknown>) {
   const league = typeof args.league === 'string' ? args.league.trim() : '';
   const slot = typeof args.slot === 'string' ? args.slot.trim() : '';
   const searchId = typeof args.search_id === 'string' ? args.search_id.trim() : '';
@@ -16,10 +15,16 @@ export async function compareTradeListings(trade: Pick<TradeApiClient, 'fetchIte
       new Set(ids.map(id => id.toLowerCase())).size !== ids.length) {
     throw new Error('exact league, slot, search_id and 1–5 distinct listing IDs are required');
   }
+  return { league, slot, searchId, ids: ids as string[] };
+}
+
+/** One trade fetch, then bounded sequential previews in the supplied PoB engine. */
+export async function compareTradeListings(trade: Pick<TradeApiClient, 'fetchItems'>, client: Pick<PoBLuaApiClient, 'compareItem'>, args: Record<string, unknown>) {
+  const { league, slot, searchId, ids } = validateTradeBatchArgs(args);
   const listings = await trade.fetchItems(ids, searchId);
   const results: Array<Success | Failure> = [];
   // Isolate errors so one stale listing does not discard the other candidates.
-  for (const itemId of ids as string[]) {
+  for (const itemId of ids) {
     try {
       const matches = listings.filter(listing => listing.id === itemId);
       const result = await compareTradeListing({ fetchItems: async () => matches }, client, { league, slot, item_id: itemId, search_id: searchId });

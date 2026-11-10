@@ -57,9 +57,16 @@ try {
   const fixture = await readFile(new URL('../tests/fixtures/occ-vortex.xml', import.meta.url), 'utf8');
   const loaded = await request('tools/call', { name: 'lua_load_build', arguments: { build_xml: fixture } });
   assert.ok(!loaded.error && !loaded.result?.isError, 'MCP build load failed');
+  const prior = await request('tools/call', { name: 'compare_trade_listing_in_pob', arguments: { league, slot: 'Amulet', item_id: listing.id, search_id: found.id } });
+  assert.ok(!prior.error && !prior.result?.isError, JSON.stringify(prior.error ?? prior.result));
+  const priorLife = JSON.parse(prior.result.content[0].text).baseline.Life;
+  const changed = await request('tools/call', { name: 'set_config', arguments: { config_name: 'customMods', value: '+123 to maximum Life' } });
+  assert.ok(!changed.error && !changed.result?.isError, 'unsaved config change failed');
+  assert.ok(changed.result.content[0].text.includes('=== Configuration Updated ==='), 'unsaved config change was rejected');
   const response = await request('tools/call', { name: 'compare_trade_listing_in_pob', arguments: { league, slot: 'Amulet', item_id: listing.id, search_id: found.id } });
   assert.ok(!response.error && !response.result?.isError, JSON.stringify(response.error ?? response.result));
   const report = JSON.parse(response.result.content[0].text);
+  assert.ok(report.baseline.Life > priorLife, 'unsaved config did not affect the live build');
   assert.equal(report.itemId, listing.id);
   assert.equal(report.source, 'current_live_pob');
   const batchIds = found.result.slice(0, 2);
@@ -69,8 +76,13 @@ try {
   const batch = JSON.parse(batchResponse.result.content[0].text);
   assert.equal(batch.results.length, 2);
   assert.equal(batch.results[0].status, 'ok');
+  assert.equal(batch.source, 'live_snapshot_isolated_pob');
+  assert.equal(batch.results[0].result.source, 'live_snapshot_isolated_pob');
   assert.equal(batch.results[0].result.candidateStats.Life, report.candidateStats.Life);
   assert.equal(batch.results[0].result.baseline.Life, report.baseline.Life);
   assert.ok(batch.results.every(row => row.status === 'ok' || row.status === 'error'));
+  const after = await request('tools/call', { name: 'compare_trade_listing_in_pob', arguments: { league, slot: 'Amulet', item_id: listing.id, search_id: found.id } });
+  assert.ok(!after.error && !after.result?.isError, JSON.stringify(after.error ?? after.result));
+  assert.equal(JSON.parse(after.result.content[0].text).baseline.Life, report.baseline.Life, 'batch preview changed the live build');
   console.log('trade-to-PoB MCP route passed');
 } finally { child.kill(); }

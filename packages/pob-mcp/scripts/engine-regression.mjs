@@ -155,6 +155,24 @@ try {
   const originalItems = itemIdentity(await client.getItems());
   const originalAnointStats = await client.getStats(['Life', 'MinionTotalDPS', 'MinionCombinedDPS']);
   const originalAnointTree = await client.getTree();
+  const originalSnapshotSkills = await client.getSkills();
+  const originalSnapshotConfig = await client.getConfig();
+  const snapshot = await client.itemComparisonSnapshot();
+  assert.deepEqual(itemIdentity(await client.getItems()), originalItems, 'snapshot changed equipped items');
+  assert.deepEqual(await client.getStats(['Life', 'MinionTotalDPS', 'MinionCombinedDPS']), originalAnointStats, 'snapshot changed live stats');
+  assert.deepEqual(await client.getTree(), originalAnointTree, 'snapshot changed passive tree');
+  assert.deepEqual(await client.getSkills(), originalSnapshotSkills, 'snapshot changed selected skills');
+  assert.deepEqual(await client.getConfig(), originalSnapshotConfig, 'snapshot changed configuration');
+  assert.ok(snapshot.baseline.MinionCombinedDPS > 0, 'snapshot lost selected minion skill');
+  const snapshotClient = new PoBLuaApiClient({ cwd: process.env.POB_FORK_PATH, cmd: process.env.POB_CMD, timeoutMs: 60000 });
+  try {
+    await snapshotClient.start();
+    await snapshotClient.loadBuildXml(snapshot.xml, 'snapshot-regression');
+    const isolatedPreview = await snapshotClient.compareItem('Amulet', candidateText);
+    for (const key of Object.keys(snapshot.baseline)) {
+      assert.ok(Math.abs(snapshot.baseline[key] - isolatedPreview.baseline[key]) < 0.01, `snapshot baseline ${key} disagrees after reload`);
+    }
+  } finally { await snapshotClient.stop(); }
   const anoint = await client.evaluateAnointCandidates({ slot: 'Amulet', focus: 'dps', limit: 5 });
   assert.equal(anoint.base.damageStat, 'MinionCombinedDPS', 'anoint ranking must score poison-inclusive minion damage');
   assert.ok(anoint.base.damageValue > 0 && anoint.candidates.some(candidate => candidate.dpsDelta > 0), 'poison anoint fixture must have meaningful damage gains');

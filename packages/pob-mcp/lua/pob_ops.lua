@@ -806,6 +806,49 @@ function M.get_compatible_supports(params)
     candidates = candidates, total = total, failed = failed }
 end
 
+local function itemComparisonMetrics(output)
+  local values = {}
+  for _, key in ipairs({ 'Life', 'EnergyShield', 'TotalEHP', 'FireResist', 'ColdResist', 'LightningResist', 'ChaosResist', 'TotalDPS', 'CombinedDPS', 'FullDPS' }) do
+    local n = output[key]
+    if type(n) == 'number' and n == n and n ~= math.huge and n ~= -math.huge then values[key] = n end
+  end
+  if type(output.Minion) == 'table' then
+    for _, key in ipairs({ 'TotalDPS', 'CombinedDPS' }) do
+      local n = output.Minion[key]
+      if type(n) == 'number' and n == n and n ~= math.huge and n ~= -math.huge then values['Minion' .. key] = n end
+    end
+  end
+  return values
+end
+
+-- Capture XML and its item-preview baseline in one bridge request.
+function M.item_comparison_snapshot()
+  if not build or not build.calcsTab or not build.itemsTab then return nil, 'build not initialized' end
+  local ok, result = pcall(function()
+    -- ItemsTab:Save normally calls BuildAndParseRaw on every live item, which
+    -- mutates their parsed state and raw strings. Save can serialize BuildRaw
+    -- and existing modifier ranges without re-parsing the live objects.
+    local saved = {}
+    for _, item in pairs(build.itemsTab.items or {}) do
+      table.insert(saved, { item = item, raw = item.raw, method = rawget(item, 'BuildAndParseRaw') })
+      item.BuildAndParseRaw = function(self) self.raw = self:BuildRaw() end
+    end
+    local savedOk, xml, err = pcall(M.export_build_xml)
+    for _, entry in ipairs(saved) do
+      entry.item.raw = entry.raw
+      entry.item.BuildAndParseRaw = entry.method
+    end
+    if not savedOk then error(xml) end
+    if not xml then error(err or 'build export failed') end
+    local calc = build.calcsTab:GetMiscCalculator()
+    local output = calc({}, true)
+    if type(output) ~= 'table' then error('calculator returned no baseline') end
+    return { xml = xml, baseline = itemComparisonMetrics(output) }
+  end)
+  if not ok then return nil, 'item comparison snapshot failed: ' .. tostring(result) end
+  return result
+end
+
 -- Non-destructive item comparison using PoB's own item tooltip calculator.
 function M.compare_item(params)
   if not build or not build.itemsTab or not build.calcsTab then return nil, 'build not initialized' end
@@ -825,20 +868,6 @@ function M.compare_item(params)
     local before = calc({}, true)
     local after = calc({ repSlotName = slotName, repItem = item }, true)
     if type(before) ~= 'table' or type(after) ~= 'table' then error('calculator returned no stats') end
-    local function metrics(output)
-      local values = {}
-      for _, key in ipairs({ 'Life', 'EnergyShield', 'TotalEHP', 'FireResist', 'ColdResist', 'LightningResist', 'ChaosResist', 'TotalDPS', 'CombinedDPS', 'FullDPS' }) do
-        local n = output[key]
-        if type(n) == 'number' and n == n and n ~= math.huge and n ~= -math.huge then values[key] = n end
-      end
-      if type(output.Minion) == 'table' then
-        for _, key in ipairs({ 'TotalDPS', 'CombinedDPS' }) do
-          local n = output.Minion[key]
-          if type(n) == 'number' and n == n and n ~= math.huge and n ~= -math.huge then values['Minion' .. key] = n end
-        end
-      end
-      return values
-    end
     -- Item:BuildModList ignores lines with `extra` entirely, even if parseMod
     -- produced some mods. Follow PoB's active-variant check and disclose those
     -- lines rather than assuming the preview includes them.
@@ -861,7 +890,7 @@ function M.compare_item(params)
     end
     local current = slot.selItemId and tab.items[slot.selItemId] or nil
     return { slot = slotName, candidate = { name = item.name, base = item.baseName, quality = item.quality },
-      baseline = metrics(before), candidateStats = metrics(after),
+      baseline = itemComparisonMetrics(before), candidateStats = itemComparisonMetrics(after),
       parseDiagnostics = { current = parseDiagnostics(current), candidate = parseDiagnostics(item) } }
   end)
   if not ok then return nil, 'item comparison failed: ' .. tostring(result) end

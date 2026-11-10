@@ -871,6 +871,12 @@ async setTree(params: {
     return res.result as { slot: string; candidate: { name?: string; base?: string; quality?: number }; baseline: Record<string, number>; candidateStats: Record<string, number>; parseDiagnostics?: { current: ItemParseDiagnostics; candidate: ItemParseDiagnostics } };
   }
 
+  async itemComparisonSnapshot(): Promise<{ xml: string; baseline: Record<string, number> }> {
+    const res = await this.send({ action: 'item_comparison_snapshot' });
+    if (!res.ok) throw new Error(res.error || 'item_comparison_snapshot failed');
+    return res.result as { xml: string; baseline: Record<string, number> };
+  }
+
   async getMasteryOptions(): Promise<MasteryOptions> {
     const res = await this.send({ action: "get_mastery_options" });
     if (!res.ok) throw new Error(res.error || "get_mastery_options failed");

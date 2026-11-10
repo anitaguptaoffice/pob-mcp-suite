@@ -43,7 +43,7 @@ import { handleFindTimelessJewelSeeds } from "../handlers/timelessJewelHandlers.
 import { handleFindItemUpgrades as handleFindItemUpgradesNew } from "../handlers/itemShoppingHandler.js";
 import { compareItem } from "../features/itemComparison/tool.js";
 import { compareTradeListing } from "../features/itemComparison/tradeListing.js";
-import { compareTradeListings } from "../features/itemComparison/tradeBatch.js";
+import { compareTradeListingsSnapshot } from "../features/itemComparison/isolatedTradeBatch.js";
 import { handleClassifyItemAffixes, handleListCraftableMods, handleFindAffixTiers } from "../handlers/affixHandlers.js";
 
 export interface ToolRouterDependencies {
@@ -648,7 +648,8 @@ export async function routeToolCall(
       await deps.ensureLuaClient();
       const client = deps.getLuaClient();
       if (!client) throw new Error('PoB Lua bridge not available');
-      const result = await compareTradeListings(deps.tradeClient, client, args ?? {});
+      if (!handlerContext.createIsolatedLuaClient) throw new Error('isolated PoB engine not available');
+      const result = await compareTradeListingsSnapshot(deps.tradeClient, { live: client, createIsolated: handlerContext.createIsolatedLuaClient }, args ?? {});
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
     }
 

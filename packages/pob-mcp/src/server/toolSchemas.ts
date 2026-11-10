@@ -1556,7 +1556,7 @@ export function getTradeToolSchemas(): ToolSchema[] {
   return [
     {
       name: "compare_trade_listings_in_pob",
-      description: "Fetch up to five listings from one official trade search and preview them sequentially in the current PoB build. Returns per-item results and failures without ranking or currency conversion. Requires Trade API and Lua bridge.",
+      description: "Fetch up to five official trade listings and preview them sequentially in an isolated PoB engine using one captured live-build snapshot. Rejects candidate results if numeric snapshot baselines do not match. Returns per-item failures without ranking or currency conversion. Requires Trade API and Lua bridge.",
       inputSchema: { type: "object", properties: {
         league: { type: "string", description: "Exact international league of the original search." },
         slot: { type: "string", description: "Exact active PoB equipment slot." },
