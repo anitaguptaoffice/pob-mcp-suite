@@ -774,6 +774,18 @@ async setTree(params: {
     return res.tree as TreeState;
   }
 
+  async setTreePreservingOverrides(params: { classId: number; ascendClassId: number; secondaryAscendClassId: number; nodes: number[]; masteryEffects: Record<string, number>; treeVersion: string }): Promise<TreeState> {
+    const res = await this.send({ action: 'set_tree_preserve_overrides', params });
+    if (!res.ok) throw new Error(res.error || 'set_tree_preserve_overrides failed');
+    return res.tree as TreeState;
+  }
+
+  async getTreeOverrides(): Promise<unknown> {
+    const res = await this.send({ action: 'get_tree_overrides' });
+    if (!res.ok) throw new Error(res.error || 'get_tree_overrides failed');
+    return (res as unknown as { overrides: unknown }).overrides;
+  }
+
   async exportBuildXml(): Promise<string> {
     const res = await this.send({ action: "export_build_xml" });
     if (!res.ok) throw new Error(res.error || "export_build_xml failed");

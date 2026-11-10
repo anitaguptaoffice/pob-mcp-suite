@@ -32,7 +32,8 @@ export interface BuildEngine {
   getTree(): Promise<unknown>;
   refreshTreeProgress(): Promise<void>;
   updateTreeDelta(params: { addNodes: number[]; removeNodes: number[]; masteryEffects?: Record<string, number> }): Promise<{ tree: unknown; droppedNodes?: number[] }>;
-  setTree(params: { classId: number; ascendClassId: number; secondaryAscendClassId: number; nodes: number[]; masteryEffects: Record<string, number>; treeVersion: string }): Promise<unknown>;
+  setTree(params: { classId: number; ascendClassId: number; secondaryAscendClassId: number; nodes: number[]; masteryEffects: Record<string, number>; treeVersion: string }, preserveOverrides?: boolean): Promise<unknown>;
+  getTreeOverrides?(): Promise<unknown>;
   getMasteryNodeOptions(nodeId: number): Promise<{ nodeId: number; nodeName: string; allocated: boolean; allocatedEffect?: number; ascendancyName?: string; availableEffects: Array<{ effectId: number; stat: string }> }>;
   getMasteryOptions(): Promise<{ masteries: Array<{ nodeId: number | string; nodeName?: string; allocatedEffect?: number; availableEffects: Array<{ effectId: number; stat?: string }> }> }>;
   searchNodes(params: { keyword: string; nodeType?: string; maxResults: number; includeAllocated: boolean }): Promise<{ nodes: unknown[]; count: number }>;
@@ -887,18 +888,26 @@ export class BuildFoundation {
     });
   }
 
-  async deriveTreeReplacement(id: string, target: { classId: number; ascendClassId: number; secondaryAscendClassId: number; nodes: number[]; masteryEffects: Record<string, number>; treeVersion: string }, trial = false): Promise<SnapshotRecord> {
+  async deriveTreeReplacement(id: string, target: { classId: number; ascendClassId: number; secondaryAscendClassId: number; nodes: number[]; masteryEffects: Record<string, number>; treeVersion: string }, trial = false, overridePolicy: 'reject' | 'preserve' = 'reject'): Promise<SnapshotRecord> {
+    if (!['reject', 'preserve'].includes(overridePolicy)) throw new Error('Invalid node override policy');
     if (!target || typeof target !== 'object' || Array.isArray(target) || Object.keys(target).some(key => !['classId', 'ascendClassId', 'secondaryAscendClassId', 'nodes', 'masteryEffects', 'treeVersion'].includes(key)) ||
         [target.classId, target.ascendClassId, target.secondaryAscendClassId].some(value => !Number.isSafeInteger(value) || value < 0 || value > 255) || typeof target.treeVersion !== 'string' || !/^\d+_\d+[A-Za-z0-9_]*$/.test(target.treeVersion) || target.treeVersion.length > 60 ||
         !Array.isArray(target.nodes) || target.nodes.length > 2000 || target.nodes.some(node => !Number.isSafeInteger(node) || node < 1 || node > 2147483647) || new Set(target.nodes).size !== target.nodes.length ||
         !target.masteryEffects || typeof target.masteryEffects !== 'object' || Array.isArray(target.masteryEffects) || Object.entries(target.masteryEffects).some(([node, effect]) => !/^[1-9][0-9]*$/.test(node) || !target.nodes.includes(Number(node)) || !Number.isSafeInteger(effect) || effect < 1 || effect > 2147483647)) throw new Error('Invalid complete tree replacement');
     let expectedSpecs: Awaited<ReturnType<BuildFoundation['inspectSpecs']>> = [];
     let expectedCatalog: Awaited<ReturnType<BuildFoundation['readSpecCatalog']>>;
+    let expectedOverrides: unknown;
     return this.derive(id, 'derived:tree-replacement', async engine => {
       const beforeCatalog = await this.readSpecCatalog(engine);
       const beforeSpecs = await this.inspectSpecs(engine, beforeCatalog, beforeCatalog.activeSpec);
       const before = normalizeObservation({ items: await engine.getItems(), skills: await engine.getSkills(), config: await engine.getConfig() });
-      await engine.setTree(target);
+      if (overridePolicy === 'preserve') {
+        if (!engine.getTreeOverrides) throw new Error('PoB adapter lacks node override inspection');
+        expectedOverrides = await engine.getTreeOverrides();
+        if (!Array.isArray(expectedOverrides)) throw new Error('PoB returned invalid node overrides');
+      }
+      await engine.setTree(target, overridePolicy === 'preserve');
+      if (overridePolicy === 'preserve' && !isDeepStrictEqual(expectedOverrides, await engine.getTreeOverrides!())) throw new Error('PoB changed node overrides during tree replacement');
       const tree = await engine.getTree() as { classId?: unknown; ascendClassId?: unknown; secondaryAscendClassId?: unknown; treeVersion?: unknown; nodes?: unknown; masteryEffects?: unknown };
       const mastery = Array.isArray(tree?.masteryEffects) && tree.masteryEffects.length === 0 ? {} : tree?.masteryEffects;
       if (!tree || tree.classId !== target.classId || tree.ascendClassId !== target.ascendClassId || tree.secondaryAscendClassId !== target.secondaryAscendClassId || tree.treeVersion !== target.treeVersion || !Array.isArray(tree.nodes) || tree.nodes.length !== target.nodes.length || new Set(tree.nodes).size !== target.nodes.length || tree.nodes.some(node => !target.nodes.includes(node)) || !isDeepStrictEqual(mastery, target.masteryEffects)) throw new Error('PoB did not apply the complete requested tree');
@@ -917,6 +926,7 @@ export class BuildFoundation {
     }, trial, async engine => {
       const catalog = await this.readSpecCatalog(engine);
       if (!isDeepStrictEqual(catalog, expectedCatalog) || !isDeepStrictEqual(await this.inspectSpecs(engine, catalog, catalog.activeSpec), expectedSpecs)) throw new Error('Replaced tree or inactive specs did not survive serialization');
+      if (overridePolicy === 'preserve' && !isDeepStrictEqual(expectedOverrides, await engine.getTreeOverrides!())) throw new Error('Node overrides did not survive serialization');
     });
   }
 

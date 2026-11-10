@@ -390,6 +390,13 @@ function M.set_tree(params)
   if params.rejectIfOverrides and next(build.spec.hashOverrides or {}) then
     return nil, "tree replacement cannot preserve existing node overrides"
   end
+  local overrides = {}
+  if params.preserveOverrides then
+    if next(build.spec.hashOverrides or {}) and params.treeVersion ~= build.spec.treeVersion then
+      return nil, "node overrides cannot be preserved across tree versions"
+    end
+    overrides = build.spec.hashOverrides or {}
+  end
   local classId = tonumber(params.classId or 0) or 0
   local ascendId = tonumber(params.ascendClassId or 0) or 0
   local secondaryId = tonumber(params.secondaryAscendClassId or 0) or 0
@@ -401,9 +408,23 @@ function M.set_tree(params)
   end
   local mastery = params.masteryEffects or {}
   local treeVersion = params.treeVersion
-  M.import_from_node_list(build.spec, classId, ascendId, secondaryId, nodes, {}, mastery, treeVersion)
+  M.import_from_node_list(build.spec, classId, ascendId, secondaryId, nodes, overrides, mastery, treeVersion)
   M.get_main_output()
   return true
+end
+
+-- Project exactly the override properties PoB serializes, excluding runtime sprites.
+function M.get_tree_overrides()
+  if not build or not build.spec then return nil, 'build/spec not initialized' end
+  local result = setmetatable({}, { __jsontype = 'array' })
+  for id, node in pairs(build.spec.hashOverrides or {}) do
+    if type(id) ~= 'number' or type(node) ~= 'table' or type(node.dn) ~= 'string' or type(node.icon) ~= 'string' or type(node.activeEffectImage) ~= 'string' or type(node.sd) ~= 'table' then return nil, 'invalid node override' end
+    local lines = setmetatable({}, { __jsontype = 'array' })
+    for _, line in ipairs(node.sd) do if type(line) ~= 'string' then return nil, 'invalid node override line' end; table.insert(lines, line) end
+    table.insert(result, { nodeId = id, name = node.dn, icon = node.icon, activeEffectImage = node.activeEffectImage, lines = lines })
+  end
+  table.sort(result, function(a, b) return a.nodeId < b.nodeId end)
+  return result
 end
 
 function M.export_build_xml()

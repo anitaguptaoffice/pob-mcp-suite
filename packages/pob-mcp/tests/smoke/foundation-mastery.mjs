@@ -61,6 +61,18 @@ try {
   await assert.rejects(foundation.deriveTreeReplacement(twoSpecs.id, { ...target, masteryEffects: { 4139: 999999 } }), /mastery|complete requested tree/i);
 
   const parent = await foundation.importBuild(xml, 'mastery-fixture');
+  const tattooNode = mastery.pathNodes.find(id => id !== 4139); assert.ok(tattooNode);
+  const tattooXml = xml.replace('</Spec>', `<Overrides><Override nodeId="${tattooNode}" dn="Honoured Tattoo of the Oak"/></Overrides></Spec>`);
+  assert.notEqual(tattooXml, xml);
+  const tattooParent = await foundation.importBuild(tattooXml, 'allocated-tattoo-fixture');
+  const tattooTree = (await foundation.inspect(tattooParent.id, ['tree'])).data.tree;
+  assert.ok(tattooTree.nodes.includes(tattooNode));
+  const tattooTarget = { classId: tattooTree.classId, ascendClassId: tattooTree.ascendClassId, secondaryAscendClassId: tattooTree.secondaryAscendClassId, treeVersion: tattooTree.treeVersion, nodes: tattooTree.nodes, masteryEffects: tattooTree.masteryEffects };
+  const tattooLife = await foundation.evaluate(tattooParent.id, ['Life']);
+  assert.notEqual(tattooLife.metrics.Life.value, (await foundation.evaluate(parent.id, ['Life'])).metrics.Life.value);
+  const tattooChild = await foundation.deriveTreeReplacement(tattooParent.id, tattooTarget, false, 'preserve');
+  assert.equal((await foundation.evaluate(tattooChild.id, ['Life'])).metrics.Life.value, tattooLife.metrics.Life.value);
+  assert.match(await foundation.exportBuild(tattooChild.id), /Honoured Tattoo of the Oak/);
   const optionsResult = await foundation.masteryOptions(parent.id);
   assert.equal(optionsResult.treeVersion, '3_29');
   const lifeOptions = optionsResult.masteries.find(node => Number(node.nodeId) === 4139);

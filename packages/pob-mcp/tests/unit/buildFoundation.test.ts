@@ -5,6 +5,20 @@ import { BuildFoundation, type BuildEngine } from '../../src/foundation/buildFou
 import { SnapshotStore } from '../../src/foundation/snapshotStore.js';
 
 describe('BuildFoundation isolation', () => {
+  it('refuses to publish when preserving node overrides changes their content', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'pob-tree-overrides-'));
+    try {
+      const store = new SnapshotStore(dir);
+      const parent = await store.create({ xml: '<build/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
+      let changed = false;
+      const catalog = { activeSpec: 1, specs: [{ index: 1, title: 'Default', active: true, nodeCount: 1 }] };
+      const engine = { identity: { engineVersion: null, dataVersion: null, adapterVersion: null }, loadBuildXml: async () => {},
+        listSpecs: async () => catalog, selectSpec: async () => catalog, getTree: async () => ({ treeVersion: '3_29', classId: 3, ascendClassId: 0, secondaryAscendClassId: 0, nodes: [1], masteryEffects: {} }),
+        getItems: async () => [], getSkills: async () => ({}), getConfig: async () => ({}), getTreeOverrides: async () => [{ nodeId: 1, name: changed ? 'different' : 'original' }], setTree: async () => { changed = true; }, close: async () => {} } as unknown as BuildEngine;
+      await expect(new BuildFoundation(store, async () => engine).deriveTreeReplacement(parent.id, { classId: 3, ascendClassId: 0, secondaryAscendClassId: 0, treeVersion: '3_29', nodes: [1], masteryEffects: {} }, false, 'preserve')).rejects.toThrow('changed node overrides');
+      expect(await readdir(dir)).toEqual([`${parent.id}.json`]);
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
   it('refuses a full tree replacement when PoB drops a requested node', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'pob-tree-replace-'));
     try {

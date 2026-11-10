@@ -42,8 +42,10 @@ by server configuration. Never assume legacy tools are exposed alongside it.
 - Use `foundation_replace_tree` only with a complete explicit target tree,
   including the exact version, class, ascendancy, allocated node IDs and mastery
   selections. The new child is checked against the requested tree and inactive
-  specs after reload. Existing node overrides cause a refusal, and the interface
-  cannot represent target overrides; legality and connectivity remain unverified.
+  specs after reload. Existing node overrides cause a refusal by default; use
+  `override_policy: preserve` to keep existing overrides on the same tree
+  version. Cross-version preservation and new target overrides are unsupported;
+  legality and connectivity remain unverified.
 - Use `list_local_build_files` to discover XML names under the configured build
   directory, including nested folders. Check `complete` and `issues`; absence
   from a partial scan is not proof that a file does not exist. For more pages,

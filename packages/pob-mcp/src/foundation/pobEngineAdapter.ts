@@ -42,10 +42,12 @@ export async function openPoBEngine(options: PoBEngineOptions): Promise<BuildEng
     args: [options.adapterPath], env: { POB_API_STDIO: '0' }, timeoutMs: options.timeoutMs });
   let identity: BuildEngine['identity'];
   let guardedTreeAvailable = false;
+  let preservingTreeAvailable = false;
   try {
     await client.start();
     const capabilities = await client.getCapabilities();
     guardedTreeAvailable = capabilities.actions?.includes('set_tree_guarded') === true;
+    preservingTreeAvailable = capabilities.actions?.includes('set_tree_preserve_overrides') === true && capabilities.actions?.includes('get_tree_overrides') === true;
     if (!capabilities.actions?.includes('unchanged_items_snapshot') || !capabilities.actions?.includes('refresh_tree_progress') || !capabilities.actions?.includes('set_calcs_selection')) {
       throw new Error('PoB adapter lacks required foundation actions');
     }
@@ -73,7 +75,9 @@ export async function openPoBEngine(options: PoBEngineOptions): Promise<BuildEng
     setLevel: level => client.setLevel(level), setMainSelection: selection => client.setMainSelection(selection), setCalcsSelection: index => client.setCalcsSelection(index),
     setConfig: config => client.setConfig(config), getBuildInfo: () => client.getBuildInfo(),
     captureSnapshot: () => client.unchangedItemsSnapshot(), getTree: () => client.getTree(),
-    refreshTreeProgress: () => client.refreshTreeProgress(), searchNodes: params => client.searchNodes(params), getMasteryOptions: () => client.getMasteryOptions(), getMasteryNodeOptions: nodeId => client.getMasteryNodeOptions(nodeId), updateTreeDelta: params => client.updateTreeDelta(params), setTree: params => { if (!guardedTreeAvailable) throw new Error('PoB adapter lacks guarded tree replacement'); return client.setTreeGuarded(params); },
+    refreshTreeProgress: () => client.refreshTreeProgress(), searchNodes: params => client.searchNodes(params), getMasteryOptions: () => client.getMasteryOptions(), getMasteryNodeOptions: nodeId => client.getMasteryNodeOptions(nodeId), updateTreeDelta: params => client.updateTreeDelta(params),
+    setTree: (params, preserve) => { if (preserve) { if (!preservingTreeAvailable) throw new Error('PoB adapter lacks override-preserving tree replacement'); return client.setTreePreservingOverrides(params); } if (!guardedTreeAvailable) throw new Error('PoB adapter lacks guarded tree replacement'); return client.setTreeGuarded(params); },
+    getTreeOverrides: () => { if (!preservingTreeAvailable) throw new Error('PoB adapter lacks node override inspection'); return client.getTreeOverrides(); },
     getItems: () => client.getItems(), addItem: (text, slot) => client.addItem(text, slot), getItemAffixWeight: (modId, itemText) => client.getItemAffixWeight(modId, itemText), getSkills: () => client.getSkills(),
     setGemLevel: params => client.setGemLevel(params), setGemQuality: params => client.setGemQuality(params), setGemEnabled: params => client.setGemEnabled(params),
     addGem: params => client.addGem(params), removeGem: params => client.removeGem(params),

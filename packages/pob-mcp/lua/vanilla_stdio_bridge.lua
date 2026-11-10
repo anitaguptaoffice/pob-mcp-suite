@@ -283,6 +283,15 @@ handlers.set_tree_guarded = function(params)
   return { ok = true, tree = (BuildOps.get_tree()) }
 end
 
+handlers.set_tree_preserve_overrides = function(params)
+  params = params or {}
+  params.preserveOverrides = true
+  local ok2, err = BuildOps.set_tree(params)
+  if not ok2 then return { ok = false, error = err } end
+  return { ok = true, tree = (BuildOps.get_tree()) }
+end
+handlers.get_tree_overrides = op(BuildOps.get_tree_overrides, 'overrides')
+
 handlers.update_tree_delta = function(params)
   local result, err = BuildOps.update_tree_delta(params or {})
   if not result then return { ok = false, error = err } end

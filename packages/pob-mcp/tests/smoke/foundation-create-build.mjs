@@ -33,13 +33,23 @@ try {
   assert.equal(replaced.parentId, created.id); assert.equal(replaced.retention.kind, 'trial');
   assert.deepEqual((await call('foundation_inspect', { snapshot_id: replaced.id, sections: ['tree'] })).data.tree, specialTree);
   assert.deepEqual((await call('foundation_inspect', { snapshot_id: created.id, sections: ['tree'] })).data.tree, tree);
-  const overriddenXml = xml.replace('</Spec>', '<Overrides><Override nodeId="2147483646" dn="Ancestral Tattoo of Bloodlines"/></Overrides></Spec>');
+  const search = await call('foundation_search_tree', { snapshot_id: created.id, query: 'intelligence', node_type: 'normal' });
+  const overrideId = search.nodes.find(node => Number.isSafeInteger(node.id))?.id; assert.ok(overrideId);
+  const overriddenXml = xml.replace('</Spec>', `<Overrides><Override nodeId="${overrideId}" dn="Ancestral Tattoo of Bloodlines"/></Overrides></Spec>`);
   assert.notEqual(overriddenXml, xml);
   const overridden = await call('foundation_import_build', { xml: overriddenXml, source: 'override-fixture' });
   const rejectedOverride = await mcp.request('tools/call', { name: 'foundation_replace_tree', arguments: { snapshot_id: overridden.id, tree: replacement } });
   assert.ok(rejectedOverride.error || rejectedOverride.result?.isError, JSON.stringify(rejectedOverride));
   assert.match(JSON.stringify(rejectedOverride), /cannot preserve existing node overrides/);
   assert.equal((await call('foundation_export_build', { snapshot_id: overridden.id })).xml, overriddenXml);
+  const plainTarget = { classId: tree.classId, ascendClassId: tree.ascendClassId, secondaryAscendClassId: tree.secondaryAscendClassId, treeVersion: tree.treeVersion, nodes: tree.nodes, masteryEffects: Array.isArray(tree.masteryEffects) ? {} : tree.masteryEffects };
+  const preserved = await call('foundation_replace_tree', { snapshot_id: overridden.id, tree: plainTarget, override_policy: 'preserve', trial: true });
+  const preservedXml = (await call('foundation_export_build', { snapshot_id: preserved.id })).xml;
+  assert.match(preservedXml, new RegExp(`nodeId="${overrideId}"[^>]*dn="Ancestral Tattoo of Bloodlines"|dn="Ancestral Tattoo of Bloodlines"[^>]*nodeId="${overrideId}"`));
+  assert.equal((await call('foundation_inspect', { snapshot_id: preserved.id, sections: ['tree'] })).data.tree.treeVersion, tree.treeVersion);
+  const rejectedVersion = await mcp.request('tools/call', { name: 'foundation_replace_tree', arguments: { snapshot_id: overridden.id, tree: replacement, override_policy: 'preserve' } });
+  assert.ok(rejectedVersion.error || rejectedVersion.result?.isError, JSON.stringify(rejectedVersion));
+  assert.match(JSON.stringify(rejectedVersion), /cannot be preserved across tree versions/);
   const baseline = await call('foundation_list_snapshots', {});
   for (const args of [{ class_name: 'Unknown' }, { class_name: 'Witch', ascendancy: 'Juggernaut' }, { class_name: 'Witch', tree_version: '../bad' }]) {
     const response = await mcp.request('tools/call', { name: 'foundation_create_build', arguments: args });
