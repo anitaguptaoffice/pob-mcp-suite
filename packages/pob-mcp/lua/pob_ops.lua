@@ -687,6 +687,9 @@ end
 
 function M.get_skills()
   if not build or not build.skillsTab or not build.calcsTab then return nil, 'skills not initialized' end
+  -- Build MAIN output before consulting PoB's selected-skill effect lists.
+  local calcOK, output = pcall(M.get_main_output)
+  local calcReady = calcOK and output ~= nil
   local groups = {}
   for idx, g in ipairs(build.skillsTab.socketGroupList or {}) do
     local names = {}
@@ -700,6 +703,23 @@ function M.get_skills()
     local gems = {}
     if g.gemList then
       for gemIdx, gem in ipairs(g.gemList) do
+        local granted = gem.gemData and gem.gemData.grantedEffect or gem.grantedEffect
+        local isSupport = granted and granted.support or (gem.skillId and gem.skillId:find('Support') ~= nil) or false
+        local appliedToSelectedSkill = nil
+        local selected = g.displaySkillList and g.displaySkillList[tonumber(g.mainActiveSkill) or 1]
+        if isSupport and gem.enabled ~= false and g.enabled ~= false and g.slotEnabled ~= false and calcReady
+            and selected and type(selected.effectList) == 'table' then
+          appliedToSelectedSkill = false
+          local function containsGem(effects)
+            for _, effect in ipairs(effects or {}) do
+              if effect.srcInstance == gem then return true end
+            end
+            return false
+          end
+          if containsGem(selected.effectList) then appliedToSelectedSkill = true end
+          local minion = selected.minion and selected.minion.mainSkill
+          if minion and containsGem(minion.effectList) then appliedToSelectedSkill = true end
+        end
         table.insert(gems, {
           index = gemIdx,
           name = gem.nameSpec or gem.name or '',
@@ -707,7 +727,8 @@ function M.get_skills()
           quality = gem.quality or 0,
           qualityId = gem.qualityId or 'Default',
           enabled = gem.enabled ~= false,
-          isSupport = gem.skillId and gem.skillId:find('Support') ~= nil or false,
+          isSupport = not not isSupport,
+          appliedToSelectedSkill = appliedToSelectedSkill,
           count = tonumber(gem.count) or 1,
           enableGlobal1 = gem.enableGlobal1 ~= false,
           enableGlobal2 = gem.enableGlobal2 == true,
@@ -731,6 +752,58 @@ function M.get_skills()
     groups = groups,
   }
   return result
+end
+
+
+-- Reuse the same compatibility predicate as PoB's GemSelectControl.
+-- Compatibility is not a DPS ranking and does not establish availability.
+function M.get_compatible_supports(params)
+  params = params or {}
+  if not build or not build.skillsTab or not build.calcsTab then return nil, 'skills not initialized' end
+  local output, err = M.get_main_output()
+  if not output then return nil, err or 'calculation unavailable' end
+  if not calcLib or type(calcLib.canGrantedEffectSupportActiveSkill) ~= 'function' then return nil, 'PoB support compatibility unavailable' end
+  if not build.data or type(build.data.gems) ~= 'table' then return nil, 'PoB gem data unavailable' end
+  local index = tonumber(params.groupIndex) or tonumber(build.mainSocketGroup)
+  local group = index and build.skillsTab.socketGroupList[index]
+  if not group or group.enabled == false or group.slotEnabled == false then return nil, 'selected socket group missing or disabled' end
+  local selected = group.displaySkillList and group.displaySkillList[tonumber(group.mainActiveSkill) or 1]
+  if not selected or not selected.activeEffect then return nil, 'selected active skill unavailable' end
+  local query = tostring(params.query or ''):lower()
+  local includeExceptional = params.includeExceptional ~= false
+  local limit = math.max(1, math.min(100, tonumber(params.limit) or 25))
+  local candidates, seen, failed = {}, {}, 0
+  local existing = {}
+  for _, gem in ipairs(group.gemList or {}) do
+    if gem.nameSpec then existing[tostring(gem.nameSpec):lower()] = true end
+  end
+  for id, gem in pairs((build.data and build.data.gems) or {}) do
+    local effect = gem.grantedEffect
+    local exceptional = gem.tagString and gem.tagString:find('Exceptional', 1, true) ~= nil or false
+    local name = gem.name or gem.nameSpec
+    if effect and effect.support and not effect.hideFromGemList and not effect.legacy and name
+        and (includeExceptional or not exceptional) and tostring(name):lower():find(query, 1, true) then
+      local ok, compatible = pcall(calcLib.canGrantedEffectSupportActiveSkill, effect, selected)
+      if not ok then
+        failed = failed + 1
+      elseif compatible then
+        local key = tostring(id)
+        if not seen[key] then
+          seen[key] = true
+          candidates[#candidates + 1] = { id = key, name = name, exceptional = exceptional, alreadySocketed = not not existing[tostring(name):lower()] }
+        end
+      end
+    end
+  end
+  table.sort(candidates, function(a, b)
+    local an, bn = tostring(a.name):lower(), tostring(b.name):lower()
+    if an == bn then return a.id < b.id end
+    return an < bn
+  end)
+  local total = #candidates
+  while #candidates > limit do table.remove(candidates) end
+  return { groupIndex = index, skillName = selected.activeEffect.grantedEffect and selected.activeEffect.grantedEffect.name,
+    candidates = candidates, total = total, failed = failed }
 end
 
 function M.set_main_selection(params)

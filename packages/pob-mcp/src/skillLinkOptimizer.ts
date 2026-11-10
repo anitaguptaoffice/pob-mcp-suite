@@ -11,6 +11,7 @@ interface SkillGem {
   qualityType?: string;
   enabled?: boolean;
   isSupport?: boolean;
+  appliedToSelectedSkill?: boolean;
 }
 
 export interface SkillGroup {
@@ -74,7 +75,8 @@ function analyzeSkillGroup(group: SkillGroup): SkillGroupAnalysis {
   }
   if (unknownGems.length > 0) analysis.suggestions.push('部分宝石的主动或辅助类型未知，不能判断其连接关系。');
   if (activeGems.length > 1) analysis.suggestions.push('该组有多个主动技能；请以 PoB 中选中的技能为准。');
-  if (supports.length > 0) analysis.suggestions.push('辅助宝石是否生效及伤害变化需由 PoB 逐项验证；仅凭名称不能确认兼容性。');
+  if (supports.some(gem => gem.appliedToSelectedSkill === false)) analysis.suggestions.push('部分辅助宝石未作用于所选技能，请检查技能和连接。');
+  if (supports.some(gem => gem.appliedToSelectedSkill === undefined)) analysis.suggestions.push('部分辅助宝石的生效状态未知；请在 PoB 中检查。');
   return analysis;
 }
 
@@ -98,7 +100,7 @@ export function analyzeSkillSetup(
 
   const mainSkill = groupAnalyses.find(g => g.group.isMainSkill);
   if (!mainSkill) generalSuggestions.push('未能确认主技能组，请在 PoB 中检查所选技能。');
-  generalSuggestions.push('此处只检查宝石和启用状态，不推断连接数、辅助兼容性或伤害收益；请用 PoB 比较。');
+  generalSuggestions.push('辅助生效状态仅在 PoB 提供所选技能效果时显示；此处不推断伤害收益。');
 
   const totalIssues = groupAnalyses.reduce((sum, g) => sum + g.issues.length, 0);
 
@@ -138,7 +140,7 @@ export function formatSkillOptimization(result: SkillOptimizationResult): string
       output += `  Label: ${group.label}\n`;
     }
     output += `  已启用宝石数: ${analysis.linkCount}\n`;
-    output += `  Gems: ${group.gems.map(g => `${g.name}${g.enabled === false ? '（已禁用）' : ''}${isSupportGem(g) === true ? '（辅助）' : isSupportGem(g) === false ? '（主动）' : '（类型未知）'}`).join(', ')}\n`;
+    output += `  Gems: ${group.gems.map(g => `${g.name}${g.enabled === false ? '（已禁用）' : ''}${isSupportGem(g) === true ? `（辅助；${g.appliedToSelectedSkill === true ? '作用于所选技能' : g.appliedToSelectedSkill === false ? '未作用于所选技能' : '生效状态未知'}）` : isSupportGem(g) === false ? '（主动）' : '（类型未知）'}`).join(', ')}\n`;
 
     if (analysis.issues.length > 0) {
       output += `  Issues:\n`;

@@ -1255,7 +1255,7 @@ export function getSkillGemToolSchemas(): ToolSchema[] {
     {
       name: "suggest_support_gems",
       truncatable: true,
-      description: "Inspect the saved skill group. Automatic support recommendations, DPS gains, and prices are unavailable; compare explicit candidates with compare_gem_setups.",
+      description: "List supports compatible with the selected skill according to PoB. Results are alphabetical, not ranked by damage or price; compare candidates with compare_gem_setups.",
       inputSchema: {
         type: "object",
         properties: {
@@ -1269,11 +1269,15 @@ export function getSkillGemToolSchemas(): ToolSchema[] {
           },
           count: {
             type: "number",
-            description: "Accepted for compatibility; automatic suggestions are unavailable.",
+            description: "Maximum candidates to return, 1–100 (default 25).",
           },
           include_exceptional: {
             type: "boolean",
-            description: "Accepted for compatibility; automatic suggestions are unavailable.",
+            description: "Include exceptional support candidates (default true).",
+          },
+          query: {
+            type: "string",
+            description: "Optional case-insensitive name substring; use PoB gem names.",
           },
           budget: {
             type: "string",

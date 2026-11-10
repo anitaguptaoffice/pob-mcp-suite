@@ -23,15 +23,23 @@ const context = { pobDirectory: dir, createIsolatedLuaClient: factory };
 const args = { build_name: 'vortex.xml', setups: [
   { name: 'efficacy', gems: ['Vortex', 'Efficacy'] },
   { name: 'controlled', gems: ['Vortex', 'Controlled Destruction'] },
+  { name: 'incompatible', gems: ['Vortex', 'Minion Damage'] },
 ] };
 try {
   const result = await compareGemSetups(context, args);
   assert.equal(result.activeGem, 'Vortex');
   assert.equal(result.mainGroup, 5);
+  assert.equal(result.setups[0].gems.find(g => g.name === 'Efficacy').appliedToSelectedSkill, true, 'compatible support should apply');
+  assert.equal(result.setups[2].gems.find(g => g.name === 'Minion Damage').appliedToSelectedSkill, false, 'incompatible support should be reported');
   const direct = await factory();
   try {
     await direct.client.loadBuildXml(await readFile(fixture, 'utf8'), 'control', fixture);
     const group = (await direct.client.getSkills()).groups.find(g => g.index === 5);
+    const compatible = await direct.client.getCompatibleSupports({ groupIndex: 5, query: 'Efficacy', limit: 25 });
+    assert.ok(compatible.candidates.some(g => g.name === 'Efficacy'), `expected compatible Efficacy: ${JSON.stringify(compatible)}`);
+    const incompatible = await direct.client.getCompatibleSupports({ groupIndex: 5, query: 'Minion Damage', limit: 25 });
+    assert.ok(!incompatible.candidates.some(g => g.name === 'Minion Damage'), `incompatible support leaked into candidates: ${JSON.stringify(incompatible)}`);
+    assert.equal(compatible.failed, 0, 'compatibility predicate failed on matching candidates');
     const unchangedNames = group.gems.filter(g => g.enabled).map(g => g.name);
     const roundTrip = await compareGemSetups(context, { build_name: 'vortex.xml', setups: [
       { name: 'unchanged', gems: unchangedNames }, { name: 'same-again', gems: unchangedNames },
@@ -69,12 +77,16 @@ try {
     await poison.client.addGem({ groupIndex: 1, gemName: 'Summon Raging Spirit', level: 20 });
     await poison.client.setMainSelection({ mainSocketGroup: 1 });
     await poison.client.setConfig({ customMods: 'Minions have 100% chance to Poison on Hit' });
+    const supports = await poison.client.getCompatibleSupports({ groupIndex: 1, query: 'Minion Damage', limit: 25 });
+    assert.ok(supports.candidates.some(g => g.name === 'Minion Damage'), `minion damage must support SRS: ${JSON.stringify(supports)}`);
+    assert.equal(supports.failed, 0);
     const poisonXml = await poison.client.exportBuildXml();
     await writeFile(join(dir, 'poison.xml'), poisonXml);
     const result = await compareGemSetups(context, { build_name: 'poison.xml', setups: [
       { name: 'alone', gems: ['Summon Raging Spirit'] },
       { name: 'minion damage', gems: ['Summon Raging Spirit', 'Minion Damage'] },
     ] });
+    assert.equal(result.setups[1].gems.find(g => g.name === 'Minion Damage').appliedToSelectedSkill, true, 'minion support should apply to the selected minion skill');
     assert.ok(result.setups[0].stats.MinionCombinedDPS > result.setups[0].stats.MinionTotalDPS,
       'poison damage must be included in the minion combined metric');
     await poison.client.addGem({ groupIndex: 1, gemName: 'Minion Damage', level: 20, quality: 0 });

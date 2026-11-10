@@ -59,6 +59,9 @@ try {
   if (!otherAnalysis.includes('Live Calculated Stats') || !otherAnalysis.includes('isolated engine')) throw new Error(`isolated live analysis failed: ${otherAnalysis}`);
   const afterAnalysis = await call('lua_get_build_snapshot');
   if (!afterAnalysis.includes('Level 89')) throw new Error(`analysis overwrote unsaved changes: ${afterAnalysis}`);
+  const supportCandidates = JSON.parse(await call('suggest_support_gems', { build_name: 'vortex.xml', query: 'Efficacy' }));
+  if (supportCandidates.source !== 'saved_build_isolated_pob' || !supportCandidates.candidates.some(g => g.name === 'Efficacy')) throw new Error(`compatible support lookup failed: ${JSON.stringify(supportCandidates)}`);
+  if (!(await call('lua_get_build_snapshot')).includes('Level 89')) throw new Error('support lookup overwrote unsaved changes');
   const gemComparison = JSON.parse(await call('compare_gem_setups', { build_name: 'vortex.xml', setups: [
     { name: 'efficacy', gems: ['Vortex', 'Efficacy'], gem_overrides: { Vortex: { level: 20 } } },
     { name: 'controlled', gems: ['Vortex', 'Controlled Destruction'] },

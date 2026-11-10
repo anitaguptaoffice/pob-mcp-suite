@@ -4,6 +4,7 @@ import type { PoBLuaApiClient } from "../pobLuaBridge.js";
 import { wrapHandler } from "../utils/errorHandling.js";
 import { withBuildClient } from "../utils/isolatedBuildClient.js";
 import { compareGemSetups } from "../features/gemComparison/compare.js";
+import { listSupportCandidates } from "../features/supportCandidates/tool.js";
 import { activeSkillSet, asArray } from "../utils/xmlCollections.js";
 
 interface SkillGemHandlerContext {
@@ -52,12 +53,12 @@ export async function handleSuggestSupportGems(
     count?: number;
     include_exceptional?: boolean;
     budget?: "league_start" | "mid_league" | "endgame";
+    query?: string;
   }
 ) {
   if (!args?.build_name) throw new Error('build_name is required');
-  const facts = await handleAnalyzeSkillLinks(context, { build_name: args.build_name, skill_index: args.skill_index });
-  facts.content[0].text += '\n\n目前没有经过当前 PoB 版本和构筑验证的自动推荐；请提供候选宝石，使用 compare_gem_setups 实测。未估算价格或伤害。';
-  return facts;
+  const result = await listSupportCandidates(context, args);
+  return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
 }
 
 /**

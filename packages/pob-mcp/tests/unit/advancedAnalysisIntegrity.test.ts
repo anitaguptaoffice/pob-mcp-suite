@@ -52,12 +52,27 @@ describe('advanced analysis data integrity', () => {
     const text = (await handleOptimizeSkillLinks(context, 'fixture')).content[0].text;
     expect(text).toContain('Group 5 (MAIN)');
     expect(text).toContain('Vortex（主动）');
-    expect(text).toContain('Controlled Destruction（辅助）');
+    expect(text).toContain('Controlled Destruction（辅助；生效状态未知）');
     expect(text).not.toContain('Gems: Unknown');
     expect(text).not.toContain('均标识为辅助宝石');
     expect(text).not.toContain('20–35%');
     const budget = await handleCreateBudgetBuild(context, 'fixture');
     expect(budget.content[0].text).toContain('Main Skill: Vortex');
+  });
+
+  it('shows only PoB-confirmed support status and distinguishes missing status', async () => {
+    const client = { getBuildInfo: async () => ({ name: 'saved' }), getSkills: async () => ({ mainSocketGroup: 1, groups: [
+      { index: 1, enabled: true, gems: [ { name: 'Vortex', enabled: true, isSupport: false },
+        { name: 'Efficacy', enabled: true, isSupport: true, appliedToSelectedSkill: true },
+        { name: 'Minion Damage', enabled: true, isSupport: true, appliedToSelectedSkill: false },
+        { name: 'Unknown', enabled: true, isSupport: true } ] },
+    ] }), getTree: async () => ({ classId: 3 }), getStats: async () => ({ Life: 100 }) };
+    const context = { pobDirectory: '/unused', ensureLuaClient: async () => {}, getLuaClient: () => client,
+      buildService: {} } as unknown as Parameters<typeof handleOptimizeSkillLinks>[0];
+    const text = (await handleOptimizeSkillLinks(context, 'saved')).content[0].text;
+    expect(text).toContain('Efficacy（辅助；作用于所选技能）');
+    expect(text).toContain('Minion Damage（辅助；未作用于所选技能）');
+    expect(text).toContain('Unknown（辅助；生效状态未知）');
   });
 
   it('does not count a disabled support as active or invent penetration gains', async () => {

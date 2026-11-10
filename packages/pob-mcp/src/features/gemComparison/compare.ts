@@ -96,13 +96,15 @@ export async function compareGemSetups(context: CompareContext, args: { build_na
       const stats = await client.getStats([...metrics]);
       setups.push({ name: setup.name, gems: names.map(name => {
         const gem = after.gems.find(g => normalize(g.name) === normalize(name))!;
-        return { name: gem.name, level: gem.level, quality: gem.quality, qualityId: gem.qualityId, count: gem.count ?? 1 };
+        return { name: gem.name, level: gem.level, quality: gem.quality, qualityId: gem.qualityId, count: gem.count ?? 1,
+          ...(gem.isSupport ? { appliedToSelectedSkill: gem.appliedToSelectedSkill ?? null } : {}) };
       }), stats: Object.fromEntries(metrics.map(key => [key, toFiniteNumber(stats[key]) ?? null])) });
     }
     return { source: 'saved_build_isolated_pob', mainGroup: groupIndex, activeGem: activeGem.name,
       baseline: Object.fromEntries(metrics.map(key => [key, toFiniteNumber(baseline[key]) ?? null])), setups,
       warnings: ['使用已保存构筑和其配置，未读取当前未保存修改；当前构筑保持不变。',
         '未指定时，新宝石按 20 级、0% 品质模拟，原有宝石保留等级和品质；显式设置会覆盖它们。等级和品质属于 PoB 模拟输入，不保证游戏中可获得；请检查宝石版本、装备孔数和辅助兼容性。',
+        '辅助宝石是否作用于选中技能取自 PoB 计算结果；未知状态不能视为已生效。',
         '分别列出角色和召唤物伤害，不自动求和或判断最优；结果受 PoB 选中技能及配置影响。'] };
   } finally {
     await isolated.close();

@@ -15,12 +15,21 @@ describe('skill gem tools avoid invented figures', () => {
     expect(result.content[0].text).toContain('Vortex');
     expect(result.content[0].text).toContain('Controlled Destruction');
   });
-  it('does not claim guessed support gains, prices, or an optimal setup', async () => {
-    for (const result of [await handleSuggestSupportGems(context, { build_name: 'fixture' }),
-      await handleFindOptimalLinks(context, { build_name: 'fixture', link_count: 6 })]) {
-      expect(result.content[0].text).not.toMatch(/Est\. DPS|Bang-for-Buck|Total Est\.|🏆/);
-      expect(result.content[0].text).toContain('compare_gem_setups');
-    }
+  it('reports PoB compatibility candidates without claiming gains or prices', async () => {
+    const client = { getBuildInfo: async () => ({ name: 'fixture' }), getCompatibleSupports: async () => ({
+      groupIndex: 5, skillName: 'Vortex', candidates: [{ id: 'id', name: 'Efficacy', exceptional: false, alreadySocketed: true }], total: 1, failed: 0,
+    }) };
+    const liveContext = { ...context, pobDirectory: '/unused', getLuaClient: () => client, ensureLuaClient: async () => {} } as unknown as Parameters<typeof handleSuggestSupportGems>[0];
+    const result = await handleSuggestSupportGems(liveContext, { build_name: 'fixture', budget: 'endgame' });
+    const report = JSON.parse(result.content[0].text);
+    expect(report.candidates[0].name).toBe('Efficacy');
+    expect(report.warnings.join(' ')).toContain('未用于筛选');
+    expect(result.content[0].text).not.toMatch(/Est\. DPS|Bang-for-Buck|Total Est\.|🏆/);
+  });
+  it('does not claim an unmeasured setup is optimal', async () => {
+    const result = await handleFindOptimalLinks(context, { build_name: 'fixture', link_count: 6 });
+    expect(result.content[0].text).not.toMatch(/Est\. DPS|Bang-for-Buck|Total Est\.|🏆/);
+    expect(result.content[0].text).toContain('compare_gem_setups');
   });
   it('does not present a corrupted or missing quality as a proven upgrade', async () => {
     const result = await handleValidateGemQuality(context, { build_name: 'fixture', include_corrupted: true });

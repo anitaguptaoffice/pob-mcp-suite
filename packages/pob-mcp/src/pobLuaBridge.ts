@@ -114,6 +114,8 @@ interface SkillGemEntry {
   qualityId: string;
   enabled: boolean;
   isSupport: boolean;
+  /** True/false only when PoB exposes the selected skill effect list. */
+  appliedToSelectedSkill?: boolean;
   count?: number;
   enableGlobal1?: boolean;
   enableGlobal2?: boolean;
@@ -711,6 +713,15 @@ export class PoBLuaApiClient {
     const res = await this.send({ action: "get_skills" });
     if (!res.ok) throw new Error(res.error || "get_skills failed");
     return res.skills as SkillsOutput;
+  }
+
+  async getCompatibleSupports(params: { groupIndex?: number; query?: string; limit?: number; includeExceptional?: boolean }): Promise<{
+    groupIndex: number; skillName?: string; candidates: Array<{ id: string; name: string; exceptional: boolean; alreadySocketed: boolean }>;
+    total: number; failed: number;
+  }> {
+    const res = await this.send({ action: "get_compatible_supports", params });
+    if (!res.ok) throw new Error(res.error || "get_compatible_supports failed");
+    return res.result as { groupIndex: number; skillName?: string; candidates: Array<{ id: string; name: string; exceptional: boolean; alreadySocketed: boolean }>; total: number; failed: number };
   }
 
   async setMainSelection(params: {
