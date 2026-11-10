@@ -923,22 +923,39 @@ end
 function M.set_main_selection(params)
   if not build or not build.skillsTab or not build.calcsTab then return nil, 'skills not initialized' end
   if type(params) ~= 'table' then return nil, 'invalid params' end
-  if params.mainSocketGroup ~= nil then
-    build.mainSocketGroup = tonumber(params.mainSocketGroup) or build.mainSocketGroup
+  local function validIndex(value)
+    return type(value) == 'number' and value >= 1 and value < math.huge and value == math.floor(value)
   end
-  local g = build.skillsTab.socketGroupList[build.mainSocketGroup]
+  if params.mainSocketGroup ~= nil and not validIndex(params.mainSocketGroup) then return nil, 'invalid mainSocketGroup' end
+  if params.mainActiveSkill ~= nil and not validIndex(params.mainActiveSkill) then return nil, 'invalid mainActiveSkill' end
+  if params.skillPart ~= nil and not validIndex(params.skillPart) then return nil, 'invalid skillPart' end
+  local index = params.mainSocketGroup or build.mainSocketGroup
+  local g = build.skillsTab.socketGroupList[index]
   if not g then return nil, 'invalid mainSocketGroup' end
-  if params.mainActiveSkill ~= nil then
-    g.mainActiveSkill = tonumber(params.mainActiveSkill) or g.mainActiveSkill
-  end
+  local skillIndex = params.mainActiveSkill or g.mainActiveSkill or 1
+  local selected = g.displaySkillList and g.displaySkillList[skillIndex]
+  if params.mainActiveSkill ~= nil and not selected then return nil, 'invalid mainActiveSkill' end
+  local src
   if params.skillPart ~= nil then
-    local idx = g.mainActiveSkill or 1
-    local src = g.displaySkillList and g.displaySkillList[idx] and g.displaySkillList[idx].activeEffect and g.displaySkillList[idx].activeEffect.srcInstance
-    if src then src.skillPart = tonumber(params.skillPart) end
+    local effect = selected and selected.activeEffect
+    src = effect and effect.srcInstance
+    local parts = effect and effect.grantedEffect and effect.grantedEffect.parts
+    local partCount = type(parts) == 'table' and math.max(1, #parts) or 1
+    if not src or params.skillPart > partCount then return nil, 'invalid skillPart' end
   end
-  -- Keep calcsTab in sync: use active group index
-  build.calcsTab.input.skill_number = build.mainSocketGroup
-  M.get_main_output()
+  local oldGroup, oldSkill, oldCalcs, oldPart = build.mainSocketGroup, g.mainActiveSkill, build.calcsTab.input.skill_number, src and src.skillPart
+  build.mainSocketGroup = index
+  if params.mainActiveSkill ~= nil then g.mainActiveSkill = params.mainActiveSkill end
+  if src then src.skillPart = params.skillPart end
+  build.calcsTab.input.skill_number = index
+  local ok, output = pcall(M.get_main_output)
+  if not ok or not output then
+    build.mainSocketGroup, g.mainActiveSkill, build.calcsTab.input.skill_number = oldGroup, oldSkill, oldCalcs
+    if src then src.skillPart = oldPart end
+    local restored, restoredOutput = pcall(M.get_main_output)
+    if not restored or not restoredOutput then return nil, 'main skill recalculation failed and rollback could not be verified' end
+    return nil, 'main skill recalculation failed; selection restored'
+  end
   return true
 end
 

@@ -87,6 +87,12 @@ try {
   await client.addGem({ groupIndex: 1, gemName: 'Arc', level: 20 });
   await client.setMainSelection({ mainSocketGroup: 1 });
   const spell = await client.getStats();
+  const selectionBefore = await client.getSkills();
+  for (const invalid of [{ mainSocketGroup: 999 }, { mainSocketGroup: 1, mainActiveSkill: 999 }, { mainSocketGroup: 1, skillPart: 999 }, { mainSocketGroup: 1.5 }]) {
+    await assert.rejects(() => client.setMainSelection(invalid), /invalid/);
+    assert.deepEqual(await client.getSkills(), selectionBefore, 'rejected main selection changed skill state');
+    assert.equal((await client.getStats()).TotalDPS, spell.TotalDPS, 'rejected main selection changed damage');
+  }
   assert.ok(spell.TotalDPS > 0, `missing spell damage: ${JSON.stringify(spell)}`);
   // Known results from the 3.29 tree and PoB revision a69391d. A later engine
   // update may legitimately change them; investigate before updating fixtures.
@@ -229,6 +235,17 @@ try {
   for (const key of ['MinionTotalDPS', 'MinionCombinedDPS']) {
     assert.ok(Math.abs(actualMinionItem[key] - minionPreview.candidateStats[key]) < 0.01, `minion item preview ${key} disagrees with actual equipment`);
   }
+  await client.newBuild({ className: 'Witch' });
+  await client.createSocketGroup({ label: 'multipart', slot: 'Helmet' });
+  await client.addGem({ groupIndex: 1, gemName: 'Arc', level: 20 });
+  await client.addGem({ groupIndex: 1, gemName: 'Ball Lightning', level: 20 });
+  await client.setMainSelection({ mainSocketGroup: 1, mainActiveSkill: 2, skillPart: 1 });
+  const singleBolt = (await client.getStats()).TotalDPS;
+  await client.setMainSelection({ mainSocketGroup: 1, mainActiveSkill: 2, skillPart: 2 });
+  const allBolts = (await client.getStats()).TotalDPS;
+  assert.ok(singleBolt > 0 && allBolts > singleBolt, 'valid multipart skill selection did not change DPS');
+  await assert.rejects(() => client.setMainSelection({ mainSocketGroup: 1, mainActiveSkill: 2, skillPart: 3 }), /invalid skillPart/);
+  assert.equal((await client.getStats()).TotalDPS, allBolts, 'invalid part changed the selected multipart skill');
   console.log(JSON.stringify({ spellDps: spell.TotalDPS, minionDps: minion.MinionTotalDPS, jewels: jewels.length }));
 } finally {
   await client.stop();
