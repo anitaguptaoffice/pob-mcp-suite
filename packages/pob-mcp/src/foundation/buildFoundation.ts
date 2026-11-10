@@ -439,6 +439,36 @@ export class BuildFoundation {
     }, trial);
   }
 
+  async deriveSupportReplacement(id: string, groupIndex: number, gemIndex: number, replacement: { gemName: string; level?: number; quality?: number }, trial = false): Promise<SnapshotRecord> {
+    const validInt = (value: unknown, min: number, max: number) => typeof value === 'number' && Number.isSafeInteger(value) && value >= min && value <= max;
+    if (!validInt(groupIndex, 1, 10000) || !validInt(gemIndex, 1, 10000) || !replacement || typeof replacement !== 'object' || Array.isArray(replacement) || Object.keys(replacement).some(key => !['gemName', 'level', 'quality'].includes(key)) || typeof replacement.gemName !== 'string' || !replacement.gemName.trim() || replacement.gemName.length > 200 || (replacement.level !== undefined && !validInt(replacement.level, 1, 40)) || (replacement.quality !== undefined && !validInt(replacement.quality, 0, 99)) || Object.values(replacement).some(value => value === undefined)) throw new Error('Invalid support replacement');
+    return this.derive(id, 'derived:support-replacement', async engine => {
+      const read = async () => normalizeObservation({ tree: await engine.getTree(), items: await engine.getItems(), config: await engine.getConfig(), skills: await engine.getSkills() });
+      type Gem = Record<string, unknown> & { index?: number };
+      type Group = Record<string, unknown> & { index?: number; gems?: Gem[] };
+      const groups = (skills: unknown): Group[] => {
+        const list = (skills as { groups?: Group[] })?.groups;
+        if (!Array.isArray(list) || list.some((group, i) => group.index !== i + 1 || !Array.isArray(group.gems) || group.gems.some((gem, j) => gem.index !== j + 1))) throw new Error('PoB returned invalid skill groups');
+        return list;
+      };
+      const before = await read(), original = groups(before.skills), group = original.find(entry => entry.index === groupIndex);
+      const target = group?.gems?.find(gem => gem.index === gemIndex);
+      if (!group || !target || target.isSupport !== true) throw new Error('Requested gem is not a support in this group');
+      if (target.enabled !== true || group.enabled !== true || group.slotEnabled !== true || (before.skills as Record<string, unknown>).mainSocketGroup !== groupIndex) throw new Error('Support replacement requires an enabled support in the active main group');
+      const normalized = (name: unknown) => typeof name === 'string' ? name.trim().toLowerCase().replace(/ support$/, '') : '';
+      if (group.gems!.some(gem => gem.index !== gemIndex && normalized(gem.name) === normalized(replacement.gemName))) throw new Error('Replacement already exists in the group');
+      await engine.removeGem({ groupIndex, gemIndex });
+      const added = await engine.addGem({ groupIndex, gemName: replacement.gemName.trim(), level: replacement.level ?? 20, quality: replacement.quality ?? 0, enabled: true, insertIndex: gemIndex });
+      if (added.gemIndex !== gemIndex || typeof added.name !== 'string' || !added.name) throw new Error('PoB did not confirm the replacement gem');
+      const after = await read(), updated = groups(after.skills), changed = updated.find(entry => entry.index === groupIndex)?.gems?.find(gem => gem.index === gemIndex);
+      for (const section of ['tree', 'items', 'config'] as const) if (!isDeepStrictEqual(before[section], after[section])) throw new Error(`Support replacement modified unrelated ${section}`);
+      for (const key of ['mainSocketGroup', 'calcsSkillNumber']) if ((before.skills as Record<string, unknown>)[key] !== (after.skills as Record<string, unknown>)[key]) throw new Error(`Support replacement modified unrelated ${key}`);
+      if (!changed || changed.name !== added.name || changed.isSupport !== true || changed.enabled !== true || changed.level !== (replacement.level ?? 20) || changed.quality !== (replacement.quality ?? 0) || changed.qualityId !== 'Default' || changed.count !== 1 || changed.enableGlobal1 !== true || changed.enableGlobal2 !== false) throw new Error('PoB did not confirm the requested support properties');
+      const canonical = (list: Group[]) => list.map(entry => ({ ...entry, ...(entry.index === groupIndex ? { skills: undefined, selectedSkillPart: undefined } : {}), gems: entry.gems!.filter(gem => !(entry.index === groupIndex && gem.index === gemIndex)).map(gem => { const copy = { ...gem }; delete copy.appliedToSelectedSkill; return copy; }) }));
+      if (!isDeepStrictEqual(canonical(original), canonical(updated))) throw new Error('Support replacement modified unrelated skill or gem data');
+    }, trial);
+  }
+
   async deriveSkillGroup(id: string, group: { label?: string; slot?: string; enabled?: boolean; includeInFullDPS?: boolean }, gems: Array<{ gemName: string; level?: number; quality?: number; enabled?: boolean }>, trial = false): Promise<SnapshotRecord> {
     if (!group || typeof group !== 'object' || Array.isArray(group) || Object.keys(group).some(key => !['label', 'slot', 'enabled', 'includeInFullDPS'].includes(key)) ||
         (group.label !== undefined && (typeof group.label !== 'string' || group.label.length > 200)) || (group.slot !== undefined && (typeof group.slot !== 'string' || !group.slot.trim() || group.slot.length > 100)) ||

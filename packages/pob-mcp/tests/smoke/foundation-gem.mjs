@@ -52,6 +52,17 @@ try {
   assert.deepEqual((await foundation.inspect(removed.id, ['skills'])).data.skills, before.data.skills);
   await assert.rejects(foundation.deriveGemList(parent.id, 1, { type: 'add', gemName: 'No Such Gem Fixture' }), /unrecognized gem/);
   await assert.rejects(foundation.deriveGemList(parent.id, 1, { type: 'remove', gemIndex: 99 }), /Gem not found/);
+  const replaced = await foundation.deriveSupportReplacement(parent.id, 1, 2, { gemName: 'Controlled Destruction Support', level: 18, quality: 7 }, true);
+  assert.equal(replaced.parentId, parent.id);
+  const replacedSkills = (await foundation.inspect(replaced.id, ['skills'])).data.skills;
+  assert.equal(replacedSkills.groups[0].gems[1].name, 'Controlled Destruction');
+  assert.equal(replacedSkills.groups[0].gems[1].level, 18);
+  assert.equal(replacedSkills.groups[0].gems[1].quality, 7);
+  assert.deepEqual(replacedSkills.groups[0].gems[0], before.data.skills.groups[0].gems[0]);
+  assert.deepEqual(replacedSkills.groups[1], before.data.skills.groups[1]);
+  const beforeFailure = (await foundation.listSnapshots()).snapshots.length;
+  await assert.rejects(foundation.deriveSupportReplacement(parent.id, 1, 2, { gemName: 'No Such Gem Fixture' }, true), /unrecognized gem/);
+  assert.equal((await foundation.listSnapshots()).snapshots.length, beforeFailure);
   const combined = await foundation.deriveSkillGroup(parent.id, { label: 'atomic', slot: 'Boots', enabled: true, includeInFullDPS: true }, [
     { gemName: 'Arc', level: 18, quality: 10 }, { gemName: 'Added Lightning Damage Support', level: 15, enabled: false },
   ]);
@@ -81,6 +92,24 @@ try {
     const trial = JSON.parse(response.result.content[0].text);
     assert.equal(trial.parentId, parent.id);
     assert.equal(trial.retention.kind, 'trial');
+    const replaceResponse = await mcp.request('tools/call', { name: 'foundation_replace_support', arguments: { snapshot_id: parent.id, group_index: 1, gem_index: 2, replacement: { gemName: 'Controlled Destruction Support' }, trial: true } });
+    assert.ok(!replaceResponse.error && !replaceResponse.result?.isError, JSON.stringify(replaceResponse));
+    const replacementTrial = JSON.parse(replaceResponse.result.content[0].text);
+    assert.equal(replacementTrial.parentId, parent.id); assert.equal(replacementTrial.retention.kind, 'trial');
+    const rankingResponse = await mcp.request('tools/call', { name: 'rank_snapshot_supports', arguments: { snapshot_id: parent.id, group_index: 1, gem_index: 2, metric: 'CombinedDPS', candidates: [{ gem_name: 'Controlled Destruction Support' }, { gem_name: 'No Such Gem Fixture' }] } });
+    assert.ok(!rankingResponse.error && !rankingResponse.result?.isError, JSON.stringify(rankingResponse));
+    const ranking = JSON.parse(rankingResponse.result.content[0].text);
+    assert.deepEqual(ranking.rankedCandidates, ['Controlled Destruction Support']);
+    assert.equal(ranking.results[0].gem.appliedToSelectedSkill, true);
+    assert.equal(ranking.results[1].status, 'error');
+    const directRanked = await foundation.evaluate(ranking.results[0].snapshotId, ['CombinedDPS']);
+    assert.equal(ranking.results[0].value, directRanked.metrics.CombinedDPS.value);
+    const fullBatch = await mcp.request('tools/call', { name: 'rank_snapshot_supports', arguments: { snapshot_id: parent.id, group_index: 1, gem_index: 2, metric: 'CombinedDPS', candidates: [{ gem_name: 'Controlled Destruction Support' }, { gem_name: 'Added Lightning Damage Support' }, { gem_name: 'Faster Casting Support' }, { gem_name: 'Spell Echo Support' }] } });
+    assert.ok(!fullBatch.error && !fullBatch.result?.isError, JSON.stringify(fullBatch));
+    assert.equal(JSON.parse(fullBatch.result.content[0].text).results.length, 4);
+    const replacedComparison = await mcp.request('tools/call', { name: 'compare_snapshot_gem_setups', arguments: { snapshot_id: parent.id, group_index: 1, candidate_snapshot_ids: [replacementTrial.id] } });
+    assert.ok(!replacedComparison.error && !replacedComparison.result?.isError, JSON.stringify(replacedComparison));
+    assert.equal(JSON.parse(replacedComparison.result.content[0].text).results[0].status, 'ok');
     const comparison = await mcp.request('tools/call', { name: 'compare_snapshot_gem_setups', arguments: { snapshot_id: parent.id, group_index: 1, candidate_snapshot_ids: [trial.id] } });
     assert.ok(!comparison.error && !comparison.result?.isError, JSON.stringify(comparison));
     const compared = JSON.parse(comparison.result.content[0].text);

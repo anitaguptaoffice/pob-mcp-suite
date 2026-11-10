@@ -18,6 +18,7 @@ try {
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_read_notes' || t.name === 'foundation_derive_notes'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_derive_selection'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_derive_gem'));
+  assert.ok(!tools.result.tools.some(t => t.name === 'foundation_replace_support'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_derive_gem_list'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_derive_skill_group'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_derive_skill_group_enabled'));
@@ -42,6 +43,7 @@ try {
   assert.ok(!tools.result.tools.some(t => t.name === 'compare_snapshot_trees'));
   assert.ok(!tools.result.tools.some(t => t.name === 'compare_snapshot_builds'));
   assert.ok(!tools.result.tools.some(t => t.name === 'compare_snapshot_gem_setups'));
+  assert.ok(!tools.result.tools.some(t => t.name === 'rank_snapshot_supports'));
   assert.ok(!tools.result.tools.some(t => t.name === 'search_snapshot_timeless_seeds'));
   assert.ok(!tools.result.tools.some(t => t.name === 'find_snapshot_tree_path' || t.name === 'find_snapshot_nearby_nodes'));
   assert.ok(!tools.result.tools.some(t => t.name === 'check_snapshot_issues'));
@@ -65,6 +67,7 @@ try {
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_notes').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_selection').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_gem').length, 1);
+  assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_replace_support').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_gem_list').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_skill_group').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_skill_group_enabled').length, 1);
@@ -93,6 +96,7 @@ try {
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'compare_snapshot_trees').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'compare_snapshot_builds').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'compare_snapshot_gem_setups').length, 1);
+  assert.equal(foundationOnly.result.tools.filter(t => t.name === 'rank_snapshot_supports').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'search_snapshot_timeless_seeds').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'find_snapshot_tree_path').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'find_snapshot_nearby_nodes').length, 1);
