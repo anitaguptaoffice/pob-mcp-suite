@@ -40,6 +40,8 @@ export interface BuildEngine {
   selectItemSet(id: number): Promise<{ activeItemSetId: number; itemSets: Array<{ id: number; title: string; active: boolean; useSecondWeaponSet: boolean }> }>;
   listSpecs(): Promise<{ activeSpec: number; specs: Array<{ index: number; title: string; active: boolean; className?: string; ascendClassName?: string; treeVersion?: string; nodeCount: number }> }>;
   selectSpec(index: number): Promise<{ activeSpec: number; specs: Array<{ index: number; title: string; active: boolean; className?: string; ascendClassName?: string; treeVersion?: string; nodeCount: number }> }>;
+  createSpec(params: { title?: string; copyFrom?: number; activate?: boolean }): Promise<unknown>;
+  renameSpec(index: number, title: string): Promise<unknown>;
   getCompatibleSupports(params: { groupIndex?: number; query?: string; limit?: number; includeExceptional?: boolean }): Promise<{
     groupIndex: number; skillName?: string; candidates: Array<{ id: string; name: string; exceptional: boolean; alreadySocketed: boolean }>;
     total: number; failed: number;
@@ -594,36 +596,88 @@ export class BuildFoundation {
     });
   }
 
+  private async inspectSpecs(engine: BuildEngine, catalog: Awaited<ReturnType<BuildFoundation['readSpecCatalog']>>, restoreIndex: number) {
+    const results = [];
+    for (const spec of catalog.specs) {
+      await engine.selectSpec(spec.index);
+      if ((await this.readSpecCatalog(engine)).activeSpec !== spec.index) throw new Error('PoB did not confirm passive spec selection');
+      const tree = await engine.getTree();
+      if (!tree || typeof tree !== 'object' || Array.isArray(tree) || !Array.isArray((tree as { nodes?: unknown }).nodes)) throw new Error('PoB returned invalid passive tree');
+      const items = normalizeObservation({ items: await engine.getItems() }).items;
+      if (!Array.isArray(items)) throw new Error('PoB returned invalid equipment');
+      results.push({ index: spec.index, tree, items });
+    }
+    await engine.selectSpec(restoreIndex);
+    if ((await this.readSpecCatalog(engine)).activeSpec !== restoreIndex) throw new Error('PoB did not restore selected passive spec');
+    return results;
+  }
+
   async deriveSpec(id: string, specIndex: number, trial = false): Promise<SnapshotRecord> {
     if (!Number.isSafeInteger(specIndex) || specIndex < 1) throw new Error('Invalid passive spec index');
     let expected: Array<{ index: number; tree: unknown; items: unknown }> = [];
     let catalogBefore: Awaited<ReturnType<BuildFoundation['readSpecCatalog']>>;
-    const inspectAll = async (engine: BuildEngine, catalog: typeof catalogBefore, restoreIndex: number) => {
-      const results = [];
-      for (const spec of catalog.specs) {
-        await engine.selectSpec(spec.index);
-        if ((await this.readSpecCatalog(engine)).activeSpec !== spec.index) throw new Error('PoB did not confirm passive spec selection');
-        const tree = await engine.getTree();
-        if (!tree || typeof tree !== 'object' || Array.isArray(tree) || !Array.isArray((tree as { nodes?: unknown }).nodes)) throw new Error('PoB returned invalid passive tree');
-        const items = normalizeObservation({ items: await engine.getItems() }).items;
-        if (!Array.isArray(items)) throw new Error('PoB returned invalid equipment');
-        results.push({ index: spec.index, tree, items });
-      }
-      await engine.selectSpec(restoreIndex);
-      if ((await this.readSpecCatalog(engine)).activeSpec !== restoreIndex) throw new Error('PoB did not restore selected passive spec');
-      return results;
-    };
     return this.derive(id, 'derived:passive-spec', async engine => {
       catalogBefore = await this.readSpecCatalog(engine);
       if (!catalogBefore.specs.some(spec => spec.index === specIndex)) throw new Error('Passive spec not found');
-      expected = await inspectAll(engine, catalogBefore, specIndex);
+      expected = await this.inspectSpecs(engine, catalogBefore, specIndex);
       const selected = await this.readSpecCatalog(engine);
       const withoutActive = (catalog: typeof catalogBefore) => catalog.specs.map(({ active: _active, ...rest }) => rest);
       if (selected.activeSpec !== specIndex || !isDeepStrictEqual(withoutActive(catalogBefore), withoutActive(selected))) throw new Error('Passive spec selection modified the catalog');
     }, trial, async engine => {
       const reloaded = await this.readSpecCatalog(engine);
       if (reloaded.activeSpec !== specIndex || !isDeepStrictEqual(catalogBefore.specs.map(({ active: _active, ...rest }) => rest), reloaded.specs.map(({ active: _active, ...rest }) => rest))) throw new Error('Passive spec catalog did not survive serialization');
-      if (!isDeepStrictEqual(expected, await inspectAll(engine, reloaded, specIndex))) throw new Error('Passive specs did not survive serialization');
+      if (!isDeepStrictEqual(expected, await this.inspectSpecs(engine, reloaded, specIndex))) throw new Error('Passive specs did not survive serialization');
+    });
+  }
+
+  async deriveCreateSpec(id: string, params: { title?: string; copyFrom?: number; activate?: boolean }, trial = false): Promise<SnapshotRecord> {
+    if (!params || typeof params !== 'object' || Array.isArray(params) || Object.keys(params).some(key => !['title', 'copyFrom', 'activate'].includes(key)) ||
+        (params.title !== undefined && (typeof params.title !== 'string' || !params.title.trim() || params.title.length > 200)) ||
+        (params.copyFrom !== undefined && (!Number.isSafeInteger(params.copyFrom) || params.copyFrom < 1)) ||
+        (params.activate !== undefined && typeof params.activate !== 'boolean') || Object.values(params).some(value => value === undefined)) throw new Error('Invalid passive spec creation');
+    let expected: Awaited<ReturnType<BuildFoundation['inspectSpecs']>> = [];
+    let catalogAfter: Awaited<ReturnType<BuildFoundation['readSpecCatalog']>>;
+    return this.derive(id, 'derived:create-spec', async engine => {
+      const before = await this.readSpecCatalog(engine);
+      if (before.specs.length >= 100) throw new Error('Passive spec limit reached');
+      if (params.copyFrom !== undefined && !before.specs.some(spec => spec.index === params.copyFrom)) throw new Error('Source passive spec not found');
+      const previous = await this.inspectSpecs(engine, before, before.activeSpec);
+      await engine.createSpec(params);
+      catalogAfter = await this.readSpecCatalog(engine);
+      const newIndex = before.specs.length + 1, expectedActive = params.activate === false ? before.activeSpec : newIndex;
+      const withoutActive = (catalog: typeof before) => catalog.specs.map(({ active: _active, ...rest }) => rest);
+      if (catalogAfter.activeSpec !== expectedActive || catalogAfter.specs.length !== newIndex ||
+          !isDeepStrictEqual(withoutActive(before), withoutActive(catalogAfter).slice(0, -1)) ||
+          (params.title !== undefined && catalogAfter.specs[newIndex - 1].title !== params.title)) throw new Error('PoB did not confirm passive spec creation');
+      expected = await this.inspectSpecs(engine, catalogAfter, expectedActive);
+      if (!isDeepStrictEqual(previous, expected.slice(0, -1))) throw new Error('Passive spec creation modified existing specs');
+      if (params.copyFrom !== undefined) {
+        const source = expected[params.copyFrom - 1], created = expected[newIndex - 1];
+        if (!isDeepStrictEqual(source.tree, created.tree) || !isDeepStrictEqual(source.items, created.items)) throw new Error('PoB did not preserve the copied passive spec');
+      }
+    }, trial, async engine => {
+      const catalog = await this.readSpecCatalog(engine);
+      if (!isDeepStrictEqual(catalog, catalogAfter) || !isDeepStrictEqual(expected, await this.inspectSpecs(engine, catalog, catalog.activeSpec))) throw new Error('Created passive specs did not survive serialization');
+    });
+  }
+
+  async deriveRenameSpec(id: string, index: number, title: string, trial = false): Promise<SnapshotRecord> {
+    if (!Number.isSafeInteger(index) || index < 1 || typeof title !== 'string' || !title.trim() || title.length > 200) throw new Error('Invalid passive spec rename');
+    let expected: Awaited<ReturnType<BuildFoundation['inspectSpecs']>> = [];
+    let catalogAfter: Awaited<ReturnType<BuildFoundation['readSpecCatalog']>>;
+    return this.derive(id, 'derived:rename-spec', async engine => {
+      const before = await this.readSpecCatalog(engine);
+      if (!before.specs.some(spec => spec.index === index)) throw new Error('Passive spec not found');
+      const previous = await this.inspectSpecs(engine, before, before.activeSpec);
+      await engine.renameSpec(index, title);
+      catalogAfter = await this.readSpecCatalog(engine);
+      const intended = structuredClone(before); intended.specs[index - 1].title = title;
+      if (!isDeepStrictEqual(catalogAfter, intended)) throw new Error('PoB did not confirm the requested passive spec name');
+      expected = await this.inspectSpecs(engine, catalogAfter, catalogAfter.activeSpec);
+      if (!isDeepStrictEqual(expected, previous)) throw new Error('Passive spec rename modified tree or equipment');
+    }, trial, async engine => {
+      const catalog = await this.readSpecCatalog(engine);
+      if (!isDeepStrictEqual(catalog, catalogAfter) || !isDeepStrictEqual(expected, await this.inspectSpecs(engine, catalog, catalog.activeSpec))) throw new Error('Renamed passive specs did not survive serialization');
     });
   }
 

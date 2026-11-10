@@ -36,7 +36,19 @@ try {
   const restored = await foundation.deriveSpec(child.id, 1);
   assert.deepEqual((await foundation.inspect(restored.id, ['tree'])).data.tree, original);
   assert.equal((await foundation.specs(parent.id)).activeSpec, 1);
+  const copy = await foundation.deriveCreateSpec(parent.id, { title: 'Copy', copyFrom: 2, activate: false });
+  const copyCatalog = await foundation.specs(copy.id);
+  assert.equal(copyCatalog.activeSpec, 1); assert.equal(copyCatalog.specs.length, 3); assert.equal(copyCatalog.specs[2].title, 'Copy');
+  const copySelected = await foundation.deriveSpec(copy.id, 3);
+  assert.deepEqual((await foundation.inspect(copySelected.id, ['tree'])).data.tree, alternative);
+  const renamed = await foundation.deriveRenameSpec(copy.id, 3, 'Renamed');
+  assert.equal((await foundation.specs(renamed.id)).specs[2].title, 'Renamed');
+  assert.equal((await foundation.specs(copy.id)).specs[2].title, 'Copy');
+  const blank = await foundation.deriveCreateSpec(parent.id, { title: 'Blank', activate: true });
+  assert.equal((await foundation.specs(blank.id)).activeSpec, 3);
   await assert.rejects(foundation.deriveSpec(parent.id, 99), /Passive spec not found/);
+  await assert.rejects(foundation.deriveCreateSpec(parent.id, { copyFrom: 99 }), /Source passive spec not found/);
+  await assert.rejects(foundation.deriveRenameSpec(parent.id, 99, 'missing'), /Passive spec not found/);
   const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
   mcp.child.stderr.on('data', () => {}); const exited = once(mcp.child, 'exit');
   try {
@@ -48,6 +60,9 @@ try {
     const response = await mcp.request('tools/call', { name: 'foundation_derive_spec', arguments: { snapshot_id: parent.id, spec_index: 2, trial: true } });
     assert.ok(!response.error && !response.result?.isError, JSON.stringify(response));
     const trial = JSON.parse(response.result.content[0].text); assert.equal(trial.parentId, parent.id); assert.equal(trial.retention.kind, 'trial');
+    const created = await mcp.request('tools/call', { name: 'foundation_create_spec', arguments: { snapshot_id: parent.id, title: 'MCP Copy', copy_from: 2, activate: false, trial: true } });
+    assert.ok(!created.error && !created.result?.isError, JSON.stringify(created));
+    assert.equal(JSON.parse(created.result.content[0].text).retention.kind, 'trial');
     mcp.child.stdin.end(); assert.equal((await exited)[0], 0);
   } finally { if (mcp.child.exitCode === null && mcp.child.signalCode === null) { mcp.child.kill('SIGTERM'); await exited; } }
   console.log('foundation passive specs passed');

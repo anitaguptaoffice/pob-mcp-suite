@@ -26,6 +26,8 @@ try {
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_derive_item_set'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_specs'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_derive_spec'));
+  assert.ok(!tools.result.tools.some(t => t.name === 'foundation_create_spec'));
+  assert.ok(!tools.result.tools.some(t => t.name === 'foundation_rename_spec'));
   assert.ok(!tools.result.tools.some(t => t.name === 'estimate_snapshot_cost'));
   assert.ok(!tools.result.tools.some(t => t.name === 'compare_snapshot_trees'));
   const hidden = await disabled.request('tools/call', { name: 'foundation_import_build', arguments: { xml: '<x/>', source: 'test' } });
@@ -51,6 +53,11 @@ try {
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_item_set').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_specs').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_spec').length, 1);
+  assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_create_spec').length, 1);
+  assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_rename_spec').length, 1);
+  const invalidSpecOption = await first.request('tools/call', { name: 'foundation_create_spec', arguments: { snapshot_id: snapshot.id, copyFrom: 1 } });
+  assert.equal(invalidSpecOption.result.isError, true);
+  assert.match(invalidSpecOption.result.content[0].text, /Invalid passive spec creation option/);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'estimate_snapshot_cost').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'compare_snapshot_trees').length, 1);
   assert.ok(foundationOnly.result.tools.some(t => t.name === 'compare_craft_budget'));

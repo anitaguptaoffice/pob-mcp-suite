@@ -37,6 +37,8 @@ export const foundationSchemas: ToolSchema[] = [
   { name: 'foundation_derive_item_set', description: 'Select a PoB item set in a verified child snapshot, checking equipment in every set after reload.', inputSchema: { type: 'object', properties: { trial: { type: 'boolean' }, snapshot_id: { type: 'string' }, item_set_id: { type: 'integer', minimum: 1 } }, required: ['snapshot_id', 'item_set_id'] } },
   { name: 'foundation_specs', description: 'List the passive tree specs of a snapshot using PoB indices.', inputSchema: { type: 'object', properties: { snapshot_id: { type: 'string' } }, required: ['snapshot_id'] } },
   { name: 'foundation_derive_spec', description: 'Select a passive spec in a verified child snapshot, checking all specs after reload.', inputSchema: { type: 'object', properties: { trial: { type: 'boolean' }, snapshot_id: { type: 'string' }, spec_index: { type: 'integer', minimum: 1 } }, required: ['snapshot_id', 'spec_index'] } },
+  { name: 'foundation_create_spec', description: 'Create or copy a passive spec in a verified child snapshot.', inputSchema: { type: 'object', additionalProperties: false, properties: { trial: { type: 'boolean' }, snapshot_id: { type: 'string' }, title: { type: 'string' }, copy_from: { type: 'integer', minimum: 1 }, activate: { type: 'boolean' } }, required: ['snapshot_id'] } },
+  { name: 'foundation_rename_spec', description: 'Rename a passive spec in a verified child snapshot.', inputSchema: { type: 'object', properties: { trial: { type: 'boolean' }, snapshot_id: { type: 'string' }, spec_index: { type: 'integer', minimum: 1 }, title: { type: 'string' } }, required: ['snapshot_id', 'spec_index', 'title'] } },
   { name: 'foundation_export_build', description: 'Export a snapshot as PoB XML.', inputSchema: { type: 'object', properties: { snapshot_id: { type: 'string' } }, required: ['snapshot_id'] } },
   { name: 'foundation_submit_evaluations', description: 'Start a bounded batch of snapshot evaluations.', inputSchema: { type: 'object', properties: { items: { type: 'array', minItems: 1, maxItems: 100, items: { type: 'object', properties: { snapshotId: { type: 'string' }, fields: { type: 'array', items: { type: 'string' } }, options: { type: 'object', properties: { selection: { type: 'object' }, config: { type: 'object' } } } }, required: ['snapshotId', 'fields'] } } }, required: ['items'] } },
   { name: 'foundation_get_job', description: 'Read job status and per-item results.', inputSchema: { type: 'object', properties: { job_id: { type: 'string' } }, required: ['job_id'] } },
@@ -121,6 +123,11 @@ export async function invokeFoundation(foundation: BuildFoundation, name: string
     case 'foundation_derive_item_set': return snapshotMetadata(await foundation.deriveItemSet(stringArg('snapshot_id'), args.item_set_id as number, trialArg()));
     case 'foundation_specs': return foundation.specs(stringArg('snapshot_id'));
     case 'foundation_derive_spec': return snapshotMetadata(await foundation.deriveSpec(stringArg('snapshot_id'), args.spec_index as number, trialArg()));
+    case 'foundation_create_spec': {
+      if (Object.keys(args).some(key => !['snapshot_id', 'trial', 'title', 'copy_from', 'activate'].includes(key))) throw new Error('Invalid passive spec creation option');
+      return snapshotMetadata(await foundation.deriveCreateSpec(stringArg('snapshot_id'), { ...(args.title === undefined ? {} : { title: args.title as string }), ...(args.copy_from === undefined ? {} : { copyFrom: args.copy_from as number }), ...(args.activate === undefined ? {} : { activate: args.activate as boolean }) }, trialArg()));
+    }
+    case 'foundation_rename_spec': return snapshotMetadata(await foundation.deriveRenameSpec(stringArg('snapshot_id'), args.spec_index as number, stringArg('title'), trialArg()));
     case 'foundation_derive_level': {
       const id = stringArg('snapshot_id');
       if (typeof args.level !== 'number' || !Number.isInteger(args.level) || args.level < 1 || args.level > 100) throw new Error('level must be an integer between 1 and 100');
