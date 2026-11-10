@@ -40,6 +40,8 @@ by server configuration. Never assume legacy tools are exposed alongside it.
 - Use `foundation_derive_skill_group` to create a new group and its ordered gems
   atomically. An unrecognized or ambiguous gem prevents publishing the child;
   this operation does not verify socket legality or game availability.
+- Use `foundation_derive_skill_group_enabled` to enable or disable a specific
+  group in a child snapshot. Recalculate the relevant damage metrics afterwards.
 - Use `compare_snapshot_trees` for allocated node and mastery differences between
   two snapshots with the same known tree version. It does not prove legality,
   compute point cost, or measure the resulting damage.

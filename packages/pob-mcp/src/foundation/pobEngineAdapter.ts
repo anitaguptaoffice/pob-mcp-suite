@@ -69,6 +69,7 @@ export async function openPoBEngine(options: PoBEngineOptions): Promise<BuildEng
     setGemLevel: params => client.setGemLevel(params), setGemQuality: params => client.setGemQuality(params), setGemEnabled: params => client.setGemEnabled(params),
     addGem: params => client.addGem(params), removeGem: params => client.removeGem(params),
     createSocketGroup: params => client.createSocketGroup(params),
+    setSocketGroupEnabled: params => client.setSocketGroupEnabled(params),
     getCompatibleSupports: params => client.getCompatibleSupports(params),
     getConfig: () => client.getConfig(), close: () => client.stop(),
   };

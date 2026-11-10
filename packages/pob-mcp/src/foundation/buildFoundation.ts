@@ -32,6 +32,7 @@ export interface BuildEngine {
   addGem(params: { groupIndex: number; gemName: string; level?: number; quality?: number; enabled?: boolean; count?: number; enableGlobal1?: boolean; enableGlobal2?: boolean; insertIndex?: number }): Promise<{ gemIndex: number; name?: string }>;
   removeGem(params: { groupIndex: number; gemIndex: number }): Promise<void>;
   createSocketGroup(params: { label?: string; slot?: string; enabled?: boolean; includeInFullDPS?: boolean }): Promise<{ index: number; label?: string }>;
+  setSocketGroupEnabled(params: { groupIndex: number; enabled: boolean }): Promise<{ groupIndex: number; enabled: boolean }>;
   getCompatibleSupports(params: { groupIndex?: number; query?: string; limit?: number; includeExceptional?: boolean }): Promise<{
     groupIndex: number; skillName?: string; candidates: Array<{ id: string; name: string; exceptional: boolean; alreadySocketed: boolean }>;
     total: number; failed: number;
@@ -413,6 +414,32 @@ export class BuildFoundation {
           gems.some((gem, i) => { const actual = createdGroup.gems?.[i]; return !actual || actual.name !== names[i] || actual.level !== (gem.level ?? 20) || actual.quality !== (gem.quality ?? 0) || actual.enabled !== (gem.enabled ?? true) || actual.qualityId !== 'Default'; })) throw new Error('PoB did not confirm the requested skill group and gems');
       const canonical = (list: Group[]) => list.map(entry => ({ ...entry, gems: entry.gems!.map(gem => { const copy = { ...gem }; delete copy.appliedToSelectedSkill; return copy; }) }));
       if (!isDeepStrictEqual(canonical(original), canonical(updated.slice(0, -1)))) throw new Error('Skill group creation modified existing skill groups');
+    }, trial);
+  }
+
+  async deriveSkillGroupEnabled(id: string, groupIndex: number, enabled: boolean, trial = false): Promise<SnapshotRecord> {
+    if (!Number.isSafeInteger(groupIndex) || groupIndex < 1 || typeof enabled !== 'boolean') throw new Error('Invalid skill group enable change');
+    return this.derive(id, 'derived:skill-group-enabled', async engine => {
+      const read = async () => normalizeObservation({ tree: await engine.getTree(), items: await engine.getItems(), config: await engine.getConfig(), skills: await engine.getSkills() });
+      type Gem = Record<string, unknown> & { index?: number };
+      type Group = Record<string, unknown> & { index?: number; gems?: Gem[]; enabled?: boolean };
+      const groups = (value: unknown): Group[] => {
+        const list = (value as { groups?: Group[] })?.groups;
+        if (!Array.isArray(list) || list.some((group, index) => group.index !== index + 1 || !Array.isArray(group.gems) || group.gems.some((gem, i) => gem.index !== i + 1))) throw new Error('PoB returned invalid skill groups');
+        return list;
+      };
+      const before = await read();
+      const original = groups(before.skills);
+      if (!original.find(group => group.index === groupIndex)) throw new Error('Skill group not found');
+      const result = await engine.setSocketGroupEnabled({ groupIndex, enabled });
+      if (result.groupIndex !== groupIndex || result.enabled !== enabled) throw new Error('PoB did not confirm the skill group change');
+      const after = await read();
+      for (const section of ['tree', 'items', 'config'] as const) if (!isDeepStrictEqual(before[section], after[section])) throw new Error(`Skill group change modified unrelated ${section}`);
+      for (const key of ['mainSocketGroup', 'calcsSkillNumber']) if ((before.skills as Record<string, unknown>)[key] !== (after.skills as Record<string, unknown>)[key]) throw new Error(`Skill group change modified unrelated ${key}`);
+      const updated = groups(after.skills);
+      if (updated.find(group => group.index === groupIndex)?.enabled !== enabled) throw new Error('PoB did not confirm the skill group state');
+      const canonical = (list: Group[]) => list.map(group => ({ ...group, ...(group.index === groupIndex ? { enabled: undefined, skills: undefined, selectedSkillPart: undefined } : {}), gems: group.gems!.map(gem => { const copy = { ...gem }; delete copy.appliedToSelectedSkill; return copy; }) }));
+      if (!isDeepStrictEqual(canonical(original), canonical(updated))) throw new Error('Skill group change modified unrelated skill or gem data');
     }, trial);
   }
 
