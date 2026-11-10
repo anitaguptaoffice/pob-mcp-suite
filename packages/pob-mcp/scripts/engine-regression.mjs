@@ -50,6 +50,15 @@ try {
   assert.equal(amuletWeight.requiredItemLevel, 52);
   await assert.rejects(() => client.getItemAffixWeight('NotARealMod', 'Rarity: RARE\nTest\nCitrine Amulet'), /not found/);
   assert.deepEqual(await client.getItems(), ruleItemsBefore, 'affix weight inspection changed live equipment');
+  await client.createSocketGroup({ label: 'active weapon', slot: 'Weapon 1' });
+  await client.addGem({ groupIndex: 1, gemName: 'Arc', level: 20 });
+  await client.createSocketGroup({ label: 'swap weapon', slot: 'Weapon 1 Swap' });
+  await client.addGem({ groupIndex: 2, gemName: 'Arc', level: 20 });
+  const costGroups = (await client.getCostSnapshot()).skills.groups;
+  assert.equal(costGroups[0].slotEnabled, true, 'active weapon skill group was not marked active');
+  assert.equal(costGroups[1].slotEnabled, false, 'swap weapon skill group was not marked inactive');
+  await client.newBuild({ className: 'Witch' });
+  await client.setTree({ classId: 3, ascendClassId: 0, nodes: [], treeVersion: '3_29' });
   const info = await client.getBuildInfo();
   assert.equal(info.className, 'Witch', `class metadata lost: ${JSON.stringify(info)}`);
   const masterySearch = await client.searchNodes({ keyword: 'mastery', nodeType: 'mastery', maxResults: 100, includeAllocated: false });

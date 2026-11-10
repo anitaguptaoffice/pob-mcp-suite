@@ -63,7 +63,7 @@ describe('build cost matching', () => {
     const market = { get: async () => ({ fetchedAt: '2026-01-01', lines: [
       { name: 'Raise Spectre', gemLevel: 21, gemQuality: 20, chaosValue: 3007, corrupted: true, variant: '21/20c' },
     ] }) };
-    const report = await estimateBuildCost(market, 'Standard', [], [{ index: 1, gems: [
+    const report = await estimateBuildCost(market, 'Standard', [], [{ index: 1, slotEnabled: true, gems: [
       { name: 'Raise Spectre', level: 21, quality: 20, qualityId: 'Default', enabled: true },
     ] }]);
     expect(report.estimatedSubtotal).toBe(0);
@@ -82,13 +82,27 @@ describe('build cost matching', () => {
     const report = await estimateBuildCost(source, 'Standard', [unique,
       { slot: 'Boots', id: 2, rarity: 'RARE', name: 'Rare boots' },
       { slot: 'Weapon 2', id: 3, rarity: 'UNIQUE', name: 'Other', shown: false },
-    ], [{ index: 1, gems: [{ name: 'Vortex', level: 20, quality: 0, enabled: true }] }]);
+    ], [{ index: 1, slotEnabled: true, gems: [{ name: 'Vortex', level: 20, quality: 0, enabled: true }] }]);
     expect(report.estimatedSubtotal).toBe(12);
     expect(report.pricedCount).toBe(1);
     expect(report.unknownCount).toBe(2);
     expect(report.complete).toBe(false);
     expect(report.entries.find(entry => entry.name === 'Rare boots')?.chaos).toBeUndefined();
     expect(report.warnings.join(' ')).toContain('未知物品未计入');
+  });
+
+  it('prices active equipment-slot gems only and reports inactive or unknown slots', async () => {
+    const gem = { name: 'Vortex', level: 20, quality: 0, enabled: true };
+    const market = { get: async () => ({ fetchedAt: '2026-01-01', lines: [{ name: 'Vortex', gemLevel: 20, chaosValue: 10 }] }) };
+    const report = await estimateBuildCost(market, 'Standard', [], [
+      { index: 1, label: 'active weapon', slotEnabled: true, gems: [gem] },
+      { index: 2, label: 'swap weapon', slotEnabled: false, gems: [gem] },
+      { index: 3, label: 'unknown slot', gems: [gem] },
+    ]);
+    expect(report.estimatedSubtotal).toBe(10);
+    expect(report.entries.map(entry => entry.status)).toEqual(['reference', 'unknown', 'unknown']);
+    expect(report.entries[1].note).toContain('inactive equipment slot');
+    expect(report.entries[2].note).toContain('state is unknown');
   });
 
   it('does not treat a failed category as an empty market', async () => {

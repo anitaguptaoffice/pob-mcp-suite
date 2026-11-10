@@ -131,6 +131,7 @@ export interface SocketGroupEntry {
   label?: string;
   slot?: string;
   enabled?: boolean;
+  slotEnabled?: boolean;
   includeInFullDPS?: boolean;
   mainActiveSkill?: number;
   skills: string[];

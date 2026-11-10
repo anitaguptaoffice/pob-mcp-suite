@@ -735,11 +735,14 @@ function M.get_skills()
         })
       end
     end
+    local slotEnabled = nil
+    if calcReady then slotEnabled = g.slotEnabled end
     table.insert(groups, {
       index = idx,
       label = g.label,
       slot = g.slot,
       enabled = g.enabled,
+      slotEnabled = slotEnabled,
       includeInFullDPS = g.includeInFullDPS,
       mainActiveSkill = g.mainActiveSkill,
       skills = names,

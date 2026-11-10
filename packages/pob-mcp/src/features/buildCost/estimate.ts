@@ -2,7 +2,7 @@ import type { PriceCategory, PriceLine, PriceSnapshot } from './ninjaPrices.js';
 
 export interface CostItem { slot: string; id: number; name?: string; baseName?: string; type?: string; rarity?: string; raw?: string; shown?: boolean }
 export interface CostGem { name: string; level: number; quality: number; qualityId?: string; enabled: boolean; isSupport?: boolean }
-export interface CostGroup { index: number; label?: string; enabled?: boolean; gems: CostGem[] }
+export interface CostGroup { index: number; label?: string; enabled?: boolean; slotEnabled?: boolean; gems: CostGem[] }
 export interface CostEntry {
   kind: 'item' | 'gem'; slot: string; name: string; status: 'reference' | 'unknown';
   chaos?: number; samples?: number; fetchedAt?: string; note: string;
@@ -60,7 +60,7 @@ export function matchGem(gem: CostGem, lines: PriceLine[]): { line?: PriceLine; 
 export async function estimateBuildCost(source: PriceSource, league: string, items: CostItem[], groups: CostGroup[]): Promise<CostReport> {
   if (!league.trim()) throw new Error('league is required');
   const equipped = items.filter(item => item.id > 0 && item.shown !== false);
-  const gems = groups.flatMap(group => group.gems.map(gem => ({ gem, slot: group.label || `技能组 ${group.index}`, groupEnabled: group.enabled !== false })));
+  const gems = groups.flatMap(group => group.gems.map(gem => ({ gem, slot: group.label || `Skill group ${group.index}`, groupEnabled: group.enabled !== false, slotEnabled: group.slotEnabled })));
   const categories: PriceCategory[] = [];
   if (equipped.some(item => normalize(item.rarity) === 'unique')) categories.push(...uniqueCategories);
   if (gems.length) categories.push('SkillGem');
@@ -89,9 +89,15 @@ export async function estimateBuildCost(source: PriceSource, league: string, ite
       chaos: match.line?.chaosValue, samples: match.line?.listingCount ?? match.line?.count, fetchedAt: snapshot?.fetchedAt, note: match.reason });
   }
   const gemSnapshot = snapshots.get('SkillGem');
-  for (const { gem, slot, groupEnabled } of gems) {
+  for (const { gem, slot, groupEnabled, slotEnabled } of gems) {
     if (!groupEnabled || !gem.enabled) {
       entries.push({ kind: 'gem', slot, name: gem.name, status: 'unknown', note: '技能组或宝石已禁用，可能是备用配置，未计入小计' });
+      continue;
+    }
+    if (slotEnabled !== true) {
+      entries.push({ kind: 'gem', slot, name: gem.name, status: 'unknown', note: slotEnabled === false
+        ? 'The skill group belongs to an inactive equipment slot and is excluded from the subtotal.'
+        : 'The skill group equipment-slot state is unknown; this gem is excluded from the subtotal.' });
       continue;
     }
     const match = gemSnapshot ? matchGem(gem, gemSnapshot.lines) : { reason: '技能宝石行情不可用' };
