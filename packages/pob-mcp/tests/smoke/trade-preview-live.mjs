@@ -18,7 +18,8 @@ try {
   assert.equal(search.listingScope, 'instant_buyout'); assert.ok(search.listings.length > 0);
   assert.equal(search.query.query.status.option, 'securable');
   assert.equal(search.query.query.filters.trade_filters.filters.sale_type.option, 'priced');
-  const searchId = decodeURIComponent(new URL(search.searchUrl).pathname.split('/').at(-1));
+  const searchId = search.searchId;
+  assert.equal(searchId, decodeURIComponent(new URL(search.searchUrl).pathname.split('/').at(-1)));
   const ids = search.listings.map(listing => listing.id);
   const raw = await call('compare_official_trade_listings', { league: 'Standard', search_id: searchId, item_ids: ids });
   assert.equal(raw.listingScope, 'unknown'); assert.equal(raw.requestedCount, ids.length);

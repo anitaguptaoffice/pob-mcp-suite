@@ -34,7 +34,7 @@ export function createTradeItemPriceTool(source: OfficialTradeSource): FeatureTo
     });
     const pricedCount = byCurrency.reduce((sum, bucket) => sum + bucket.sampleCount, 0);
     return { content: [{ type: 'text', text: JSON.stringify({ source: report.source, league: report.league, itemName: args.item_name.trim(), query: report.query,
-      searchUrl: report.searchUrl, listingScope: report.listingScope, totalMatches: report.totalMatches, inexact: report.inexact,
+      searchId: report.searchId, searchUrl: report.searchUrl, listingScope: report.listingScope, totalMatches: report.totalMatches, inexact: report.inexact,
       requestedCount: report.requestedCount, fetchedCount: report.fetchedCount, pricedCount, unpricedOrInvalidCount: report.fetchedCount - pricedCount,
       missingListingIds: report.missingListingIds, byCurrency, sourceTimes: report.sourceTimes, sourceFailures: report.sourceFailures,
       warnings: [...report.warnings, 'At most ten asking prices are sampled; currencies are never converted and the sample is not a complete market appraisal.',

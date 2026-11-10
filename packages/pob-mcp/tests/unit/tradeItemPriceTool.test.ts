@@ -18,6 +18,7 @@ describe('named item asking price sampling', () => {
     } as unknown as OfficialTradeSource;
     const report = JSON.parse((await createTradeItemPriceTool(source).invoke({ league: 'Standard', item_name: 'Goldrim', rarity: 'unique', limit: 5 })).content[0].text);
     expect(query?.query.status?.option).toBe('securable');
+    expect(report.searchId).toBe('q');
     expect(query?.query.filters?.trade_filters?.filters?.sale_type?.option).toBe('priced');
     expect(report.byCurrency).toEqual([
       { currency: 'chaos', sampleCount: 2, min: 2, median: 3, average: 3, max: 4 },

@@ -27,6 +27,7 @@ describe('new official trade search', () => {
     expect(result.listings.map((listing: { id: string }) => listing.id)).toEqual(['one', 'two']);
     expect(result.missingListingIds).toEqual(['missing']);
     expect(result.listingScope).toBe('instant_buyout');
+    expect(result.searchId).toBe('q');
     expect(result.sourceStatistics.matchingListingsBySource).toMatchObject({ explicit: 1, fractured: 1 });
     expect(result.sourceTimes).toEqual({ stats: time, search: time, listings: time });
     expect(result.inexact).toBe(true);

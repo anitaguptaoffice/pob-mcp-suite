@@ -23,6 +23,7 @@ describe('comparable trade prices', () => {
     ]);
     expect(report.totalMatches).toBe(20);
     expect(report.searchUrl).toContain('/Standard/abc');
+    expect(report.searchId).toBe('abc');
     expect(report.warnings.join(' ')).toContain('may be cached');
   });
 

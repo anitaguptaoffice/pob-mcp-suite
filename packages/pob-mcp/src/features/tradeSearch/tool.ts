@@ -90,7 +90,7 @@ export async function searchOfficialTrade(source: OfficialTradeSource, args: Rec
       'Results are asking prices, not completed sales; listing availability can change.',
       'Source counts match official hashes to query IDs and do not verify values. Missing hashes and pseudo stats cannot establish source absence.',
     ];
-    return { source: 'official-trade' as const, league, query, listingScope: status === 'securable' && sale === 'priced' ? 'instant_buyout' as const : 'other' as const,
+    return { source: 'official-trade' as const, league, query, searchId: search.id, listingScope: status === 'securable' && sale === 'priced' ? 'instant_buyout' as const : 'other' as const,
       searchUrl: `https://www.pathofexile.com/trade/search/${encodeURIComponent(league)}/${encodeURIComponent(search.id)}`, totalMatches: search.total, inexact: search.inexact === true,
       requestedCount: selectedIds.length, fetchedCount: listings.length, missingListingIds: trade.missingIds, listings, sourceStatistics: statistics, sourceAudit, sourceWarnings,
       sourceTimes: trade.sourceTimes, sourceFailures: trade.sourceFailures, warnings };

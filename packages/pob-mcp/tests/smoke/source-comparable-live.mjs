@@ -31,6 +31,7 @@ try {
   assert.ok(stats.results.some(group => group.sources.some(source => source.id === 'explicit.stat_3299347043')));
   const report = await call();
   assert.equal(report.source, 'official-trade');
+  assert.equal(decodeURIComponent(new URL(report.searchUrl).pathname.split('/').at(-1)), report.searchId);
   assert.equal(report.league, 'Standard');
   assert.equal(report.query.query.status.option, 'securable');
   assert.equal(report.query.query.filters.trade_filters.filters.sale_type.option, 'priced');
@@ -46,6 +47,7 @@ try {
   const searchArgs = { league: 'Standard', item_type: 'Gold Ring', mods: [{ stat_id: 'explicit.stat_3299347043', min: 40 }], limit: 3 };
   const search = await call('search_official_trade', searchArgs);
   assert.equal(search.listingScope, 'instant_buyout');
+  assert.equal(decodeURIComponent(new URL(search.searchUrl).pathname.split('/').at(-1)), search.searchId);
   assert.equal(search.query.query.status.option, 'securable');
   assert.equal(search.query.query.filters.trade_filters.filters.sale_type.option, 'priced');
   assert.equal(search.sourceAudit, 'completed');
@@ -57,6 +59,7 @@ try {
   assert.deepEqual(repeat.sourceTimes, search.sourceTimes);
   const priceArgs = { league: 'Standard', item_name: 'Goldrim', rarity: 'unique', limit: 3 };
   const price = await call('sample_trade_item_price', priceArgs);
+  assert.equal(decodeURIComponent(new URL(price.searchUrl).pathname.split('/').at(-1)), price.searchId);
   assert.equal(price.query.query.status.option, 'securable');
   assert.equal(price.query.query.filters.trade_filters.filters.sale_type.option, 'priced');
   assert.ok(price.pricedCount > 0 && price.pricedCount <= 3);
