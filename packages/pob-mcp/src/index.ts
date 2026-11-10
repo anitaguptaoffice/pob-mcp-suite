@@ -45,6 +45,7 @@ import { featureRegistry } from "./server/featureModules.js";
 import { assertUniqueToolSchemas, FeatureRegistry } from "./server/featureRegistry.js";
 import { PoeNinjaAdapter } from './adapters/poeNinja/poeNinjaAdapter.js';
 import { createSnapshotCostTool, snapshotCostSchema } from './features/buildCost/snapshotTool.js';
+import { createShoppingListTool, shoppingListSchema } from './features/shoppingList/tool.js';
 import { OfficialTradeAdapter } from './adapters/officialTrade/officialTradeAdapter.js';
 import { createSourceComparableTool, sourceComparableSchema } from './features/tradeComparable/sourceTool.js';
 import { createTradeMetadataTools, tradeMetadataSchemas } from './features/tradeMetadata/tools.js';
@@ -114,6 +115,7 @@ class PoBMCPServer {
       ...getToolSchemas(),
       ...foundationSchemas,
       snapshotCostSchema(),
+      shoppingListSchema(),
       sourceComparableSchema(),
       ...tradeMetadataSchemas(),
       tradeSearchSchema(),
@@ -486,7 +488,7 @@ class PoBMCPServer {
       const economy = new PoeNinjaAdapter();
       this.foundationJobs = new JobRunner(jobs, input => foundation.evaluate(input.snapshotId, input.fields, input.options), 2,
         input => rankMasteryEffects(foundation, { snapshot_id: input.snapshotId, node_id: input.nodeId, effect_ids: [input.effectId], metric: input.metric, direction: input.direction }));
-      const migrated = [createSnapshotCostTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), createSnapshotBuildComparisonTool(foundation), ...createTreePathTools(foundation), createBuildIssuesTool(foundation), createBossReadinessTool(foundation), createMasteryRankingTool(foundation), createMasteryDiscoveryTool(foundation), ...createMasteryJobTools(foundation, this.foundationJobs), createTimelessSearchTool(foundation), ...createCurrencyReferenceTools(economy), createCurrencySpreadTool(economy)];
+      const migrated = [createSnapshotCostTool(foundation, economy), createShoppingListTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), createSnapshotBuildComparisonTool(foundation), ...createTreePathTools(foundation), createBuildIssuesTool(foundation), createBossReadinessTool(foundation), createMasteryRankingTool(foundation), createMasteryDiscoveryTool(foundation), ...createMasteryJobTools(foundation, this.foundationJobs), createTimelessSearchTool(foundation), ...createCurrencyReferenceTools(economy), createCurrencySpreadTool(economy)];
       // Until the legacy Trade client is retired, do not run two independent
       // rate limiters in one service against the same official API.
       if (process.env.POE_TRADE_ENABLED === 'true' && !this.legacyEnabled()) {

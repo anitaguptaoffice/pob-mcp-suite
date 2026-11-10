@@ -38,6 +38,7 @@ try {
   assert.ok(!tools.result.tools.some(t => t.name === 'search_resistance_listings'));
   assert.ok(!tools.result.tools.some(t => t.name === 'search_cluster_listings'));
   assert.ok(!tools.result.tools.some(t => t.name === 'estimate_snapshot_cost'));
+  assert.ok(!tools.result.tools.some(t => t.name === 'list_snapshot_equipment'));
   assert.ok(!tools.result.tools.some(t => t.name === 'compare_snapshot_trees'));
   assert.ok(!tools.result.tools.some(t => t.name === 'compare_snapshot_builds'));
   assert.ok(!tools.result.tools.some(t => t.name === 'search_snapshot_timeless_seeds'));
@@ -87,6 +88,7 @@ try {
   assert.equal(invalidSpecOption.result.isError, true);
   assert.match(invalidSpecOption.result.content[0].text, /Invalid passive spec creation option/);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'estimate_snapshot_cost').length, 1);
+  assert.equal(foundationOnly.result.tools.filter(t => t.name === 'list_snapshot_equipment').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'compare_snapshot_trees').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'compare_snapshot_builds').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'search_snapshot_timeless_seeds').length, 1);

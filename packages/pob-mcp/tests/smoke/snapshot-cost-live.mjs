@@ -31,6 +31,13 @@ try {
   assert.deepEqual(report.failures, []);
   assert.equal(report.sources.length, 6);
   assert.ok(report.sources.every(source => source.source === 'poe.ninja' && source.league === 'Standard' && Number.isFinite(Date.parse(source.fetchedAt))));
+  const shopping = await call('list_snapshot_equipment', { snapshot_id: imported.id, league: 'Standard', include_reference: true });
+  assert.equal(shopping.snapshotId, imported.id);
+  assert.equal(shopping.reference.complete, false);
+  assert.deepEqual(shopping.reference.entries, report.entries);
+  assert.deepEqual(shopping.reference.sources, report.sources);
+  assert.ok(shopping.slots.every(slot => slot.purchaseStatus === 'not_checked'));
+  assert.ok(shopping.slots.some(slot => slot.state === 'equipped'));
   const cached = await call('estimate_snapshot_cost', { snapshot_id: imported.id, league: 'Standard' });
   assert.deepEqual(cached.sources, report.sources);
   assert.equal((await call('foundation_read_snapshot', { snapshot_id: imported.id })).id, imported.id);

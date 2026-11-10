@@ -28,14 +28,7 @@ function priceLines(value: unknown): PriceLine[] {
   return value as PriceLine[];
 }
 
-export function createSnapshotCostTool(foundation: Pick<BuildFoundation, 'inspect'>, economy: EconomySource): FeatureTool {
-  return { schema: snapshotCostSchema(), invoke: async args => {
-    const snapshotId = typeof args.snapshot_id === 'string' ? args.snapshot_id : '';
-    const league = typeof args.league === 'string' ? args.league.trim() : '';
-    if (!/^[a-f0-9]{64}$/.test(snapshotId) || !league || league.length > 100) throw new Error('snapshot_id and exact international league are required');
-    const inspected = await foundation.inspect(snapshotId, ['items', 'skills']);
-    const items = inspected.data.items;
-    const skills = inspected.data.skills as { groups?: unknown } | undefined;
+export async function estimateObservedCost(economy: EconomySource, league: string, items: unknown, skills: { groups?: unknown } | undefined) {
     if (!Array.isArray(items) || !Array.isArray(skills?.groups) || skills.groups.some(group => !group || !Array.isArray(group.gems))) {
       throw new Error('Snapshot did not provide complete item and skill-group data');
     }
@@ -58,6 +51,17 @@ export function createSnapshotCostTool(foundation: Pick<BuildFoundation, 'inspec
     const report = await estimateBuildCost(prices, league, items as CostItem[], skills.groups as CostGroup[]);
     sources.sort((a, b) => a.category.localeCompare(b.category));
     failures.sort((a, b) => a.category.localeCompare(b.category));
-    return { content: [{ type: 'text', text: JSON.stringify({ snapshotId, identity: inspected.identity, snapshotWarnings: inspected.warnings, ...report, sources, failures }) }] };
+    return { ...report, sources, failures };
+}
+export type ObservedCostResult = Awaited<ReturnType<typeof estimateObservedCost>>;
+
+export function createSnapshotCostTool(foundation: Pick<BuildFoundation, 'inspect'>, economy: EconomySource): FeatureTool {
+  return { schema: snapshotCostSchema(), invoke: async args => {
+    const snapshotId = typeof args.snapshot_id === 'string' ? args.snapshot_id : '';
+    const league = typeof args.league === 'string' ? args.league.trim() : '';
+    if (!/^[a-f0-9]{64}$/.test(snapshotId) || !league || league.length > 100) throw new Error('snapshot_id and exact international league are required');
+    const inspected = await foundation.inspect(snapshotId, ['items', 'skills']);
+    const report = await estimateObservedCost(economy, league, inspected.data.items, inspected.data.skills as { groups?: unknown } | undefined);
+    return { content: [{ type: 'text', text: JSON.stringify({ snapshotId, identity: inspected.identity, snapshotWarnings: inspected.warnings, ...report }) }] };
   } };
 }

@@ -15,7 +15,7 @@ try {
   const fixture = await readFile(gearedBuildXml, 'utf8');
   const first = fixture.match(/<ItemSet\b[^>]*\bid="1"[^>]*>[\s\S]*?<\/ItemSet>/)?.[0];
   assert.ok(first);
-  const second = first.replace('id="1"', 'id="7" title="Alternative"').replace('<Slot name="Ring 1" itemId="5"/>', '<Slot name="Ring 1" itemId="0"/>');
+  const second = first.replace('id="1"', 'id="7" title="Alternative"').replace('useSecondWeaponSet="false"', 'useSecondWeaponSet="true"').replace('<Slot name="Ring 1" itemId="5"/>', '<Slot name="Ring 1" itemId="0"/>');
   assert.notEqual(first, second); assert.ok(second.includes('name="Ring 1" itemId="0"'));
   const xml = fixture.replace(first, `${first}\n${second}`);
   const foundation = new BuildFoundation(new SnapshotStore(dir), () => openPoBEngine(options));
@@ -43,6 +43,19 @@ try {
     const listing = await mcp.request('tools/call', { name: 'foundation_item_sets', arguments: { snapshot_id: parent.id } });
     assert.ok(!listing.error && !listing.result?.isError, JSON.stringify(listing));
     assert.equal(JSON.parse(listing.result.content[0].text).itemSets.length, 2);
+    const shopping = await mcp.request('tools/call', { name: 'list_snapshot_equipment', arguments: { snapshot_id: child.id, league: 'Standard' } });
+    assert.ok(!shopping.error && !shopping.result?.isError, JSON.stringify(shopping));
+    const equipment = JSON.parse(shopping.result.content[0].text);
+    assert.equal(equipment.activeItemSet.id, 7);
+    assert.equal(equipment.activeItemSet.useSecondWeaponSet, true);
+    assert.equal(equipment.slots.find(slot => slot.slot === 'Weapon 1').weaponSetActive, false);
+    assert.equal(equipment.slots.find(slot => slot.slot === 'Weapon 1 Swap').weaponSetActive, true);
+    assert.equal(equipment.slots.find(slot => slot.slot === 'Ring 1').state, 'empty');
+    assert.equal(equipment.reference, null);
+    assert.ok(equipment.slots.every(slot => slot.purchaseStatus === 'not_checked'));
+    const originalShopping = await mcp.request('tools/call', { name: 'list_snapshot_equipment', arguments: { snapshot_id: parent.id, league: 'Standard' } });
+    assert.ok(!originalShopping.error && !originalShopping.result?.isError, JSON.stringify(originalShopping));
+    assert.equal(JSON.parse(originalShopping.result.content[0].text).slots.find(slot => slot.slot === 'Ring 1').itemId, 5);
     const response = await mcp.request('tools/call', { name: 'foundation_derive_item_set', arguments: { snapshot_id: parent.id, item_set_id: 7, trial: true } });
     assert.ok(!response.error && !response.result?.isError, JSON.stringify(response));
     const trial = JSON.parse(response.result.content[0].text); assert.equal(trial.parentId, parent.id); assert.equal(trial.retention.kind, 'trial');
