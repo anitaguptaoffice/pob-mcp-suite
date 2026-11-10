@@ -19,9 +19,23 @@ return function(params)
     end
     local stats = setmetatable({}, { __jsontype = 'array' })
     for _, line in ipairs(node.sd or {}) do if type(line) == 'string' then table.insert(stats, line) end end
-    return { id = node.id, name = node.name or 'Unnamed', type = node.isKeystone and 'keystone' or node.isNotable and 'notable' or node.isJewelSocket and 'jewel' or (node.isMastery or node.type == 'Mastery') and 'mastery' or node.ascendancyName and 'ascendancy' or 'normal',
+    local name = node.name or node.dn
+    return { id = node.id, name = type(name) == 'string' and name ~= '' and name or 'Unnamed', nameKnown = type(name) == 'string' and name ~= '', type = node.isKeystone and 'keystone' or node.isNotable and 'notable' or node.isJewelSocket and 'jewel' or (node.isMastery or node.type == 'Mastery') and 'mastery' or node.ascendancyName and 'ascendancy' or 'normal',
       ascendancyName = node.ascendancyName, isBlighted = node.isBlighted == true, stats = stats, allocated = allocated,
       status = allocated and 'allocated' or reachable and 'reachable' or 'unreachable', pathNodes = reachable and path or setmetatable({}, { __jsontype = 'array' }), pointCost = reachable and #path or allocated and 0 or nil }
+  end
+  if params.allocatedOnly == true then
+    if params.targetNodeId ~= nil or params.maxDistance ~= nil or params.limit ~= nil or params.filter ~= nil then return nil, 'invalid allocated node options' end
+    local nodes = setmetatable({}, { __jsontype = 'array' })
+    local missing = setmetatable({}, { __jsontype = 'array' })
+    for id, _ in pairs(spec.allocNodes or {}) do
+      local node = spec.nodes[id]
+      if node then table.insert(nodes, describe(node)) else table.insert(missing, id) end
+      if #nodes + #missing > 2000 then return nil, 'too many allocated nodes' end
+    end
+    table.sort(nodes, function(a, b) return a.id < b.id end)
+    table.sort(missing)
+    return { treeVersion = spec.treeVersion, mode = 'allocated', nodes = nodes, missingIds = missing }
   end
   if params.targetNodeId ~= nil then
     if not integer(params.targetNodeId, 1, 2147483647) then return nil, 'invalid target node ID' end

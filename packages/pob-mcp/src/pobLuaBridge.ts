@@ -868,7 +868,7 @@ async setTree(params: {
     return res.results as SearchNodesResult;
   }
 
-  async queryTreePaths(params: { targetNodeId?: number; maxDistance?: number; limit?: number; filter?: string }): Promise<unknown> {
+  async queryTreePaths(params: { targetNodeId?: number; maxDistance?: number; limit?: number; filter?: string; allocatedOnly?: boolean }): Promise<unknown> {
     const res = await this.send({ action: 'query_tree_paths', params });
     if (!res.ok) throw new Error(res.error || 'query_tree_paths failed');
     return res.result;

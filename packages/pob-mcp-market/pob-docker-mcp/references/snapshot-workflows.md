@@ -26,6 +26,12 @@ by server configuration. Never assume legacy tools are exposed alongside it.
 - Call `foundation_inspect` with that `snapshot_id` and the needed `sections`
   from `build`, `tree`, `items`, `skills`, and `config`. Use its real PoB state
   to identify the active tree, equipment, selected skill and conditions.
+- For a broad single-build overview, use `summarize_snapshot_build`. It returns
+  structured sections, selected skills, allocated node details and distinct
+  PoB metrics from one isolated observation. `status: partial`, missing metrics,
+  unresolved node IDs and section errors must remain visible. Occupied hidden
+  or inactive slots are included; set `include_item_text: true` only when full
+  equipment text is needed. Explain results to users in Simplified Chinese.
 - Call `foundation_evaluate` with the same `snapshot_id` and explicit `fields`.
   Include the returned configuration and skill selection when interpreting
   results. Read `metrics` status and report unknown values as unknown, not zero.

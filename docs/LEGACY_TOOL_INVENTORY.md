@@ -30,7 +30,7 @@ Generated from registered schema groups in the current build. Most entries are p
 - `snapshot_build` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: `skills/pob-docker-mcp/SKILL.md`.
 - `list_snapshots` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: no exact name found in packaged skill Markdown.
 - `restore_snapshot` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: `skills/pob-docker-mcp/SKILL.md`.
-- `export_build_summary` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `export_build_summary` — target: analysis and optimization; replacement: `summarize_snapshot_build` with explicit metrics and optional item text; status: partially migrated (legacy callers remain); skill references: no exact name found in packaged skill Markdown.
 
 ## getLuaToolSchemas
 
