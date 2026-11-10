@@ -114,6 +114,9 @@ interface SkillGemEntry {
   qualityId: string;
   enabled: boolean;
   isSupport: boolean;
+  count?: number;
+  enableGlobal1?: boolean;
+  enableGlobal2?: boolean;
 }
 
 export interface SocketGroupEntry {
@@ -782,7 +785,7 @@ async setTree(params: {
     return res.socketGroup as CreatedSocketGroup;
   }
 
-  async addGem(params: { groupIndex: number; gemName: string; level?: number; quality?: number; qualityId?: string; enabled?: boolean; count?: number }): Promise<AddedGem> {
+  async addGem(params: { groupIndex: number; gemName: string; level?: number; quality?: number; qualityId?: string; enabled?: boolean; count?: number; enableGlobal1?: boolean; enableGlobal2?: boolean }): Promise<AddedGem> {
     const res = await this.send({ action: "add_gem", params });
     if (!res.ok) throw new Error(res.error || "add_gem failed");
     return res.gem as AddedGem;

@@ -1236,7 +1236,7 @@ export function getSkillGemToolSchemas(): ToolSchema[] {
     {
       name: "analyze_skill_links",
       truncatable: true,
-      description: "Analyze skill gem setup and evaluate support gem choices. Detects build archetype, rates each support gem, and identifies issues with current setup.",
+      description: "Inspect the selected saved skill group and gem status. Does not rate support compatibility or calculate damage.",
       inputSchema: {
         type: "object",
         properties: {
@@ -1246,7 +1246,7 @@ export function getSkillGemToolSchemas(): ToolSchema[] {
           },
           skill_index: {
             type: "number",
-            description: "Which skill to analyze (0 = main skill, default: 0)",
+            description: "Zero-based socket group index; omit to use the saved main group.",
           },
         },
         required: ["build_name"],
@@ -1255,7 +1255,7 @@ export function getSkillGemToolSchemas(): ToolSchema[] {
     {
       name: "suggest_support_gems",
       truncatable: true,
-      description: "Get intelligent support gem recommendations based on build archetype. Provides ranked suggestions with DPS estimates, cost, and reasoning.",
+      description: "Inspect the saved skill group. Automatic support recommendations, DPS gains, and prices are unavailable; compare explicit candidates with compare_gem_setups.",
       inputSchema: {
         type: "object",
         properties: {
@@ -1265,19 +1265,19 @@ export function getSkillGemToolSchemas(): ToolSchema[] {
           },
           skill_index: {
             type: "number",
-            description: "Which skill to optimize (0 = main skill, default: 0)",
+            description: "Zero-based socket group index; omit to use the saved main group.",
           },
           count: {
             type: "number",
-            description: "Number of suggestions to return (default: 5)",
+            description: "Accepted for compatibility; automatic suggestions are unavailable.",
           },
           include_exceptional: {
             type: "boolean",
-            description: "Include Exceptional gem recommendations (default: true)",
+            description: "Accepted for compatibility; automatic suggestions are unavailable.",
           },
           budget: {
             type: "string",
-            description: "Budget tier: 'league_start', 'mid_league', or 'endgame' (default: 'endgame')",
+            description: "Accepted for compatibility; market price filtering is unavailable.",
           },
         },
         required: ["build_name"],
@@ -1286,7 +1286,7 @@ export function getSkillGemToolSchemas(): ToolSchema[] {
     {
       name: "compare_gem_setups",
       truncatable: true,
-      description: "Compare multiple gem configurations side-by-side to evaluate different options. NOTE: Full DPS comparison requires Lua bridge integration (future enhancement).",
+      description: "Compare 2–5 complete gem setups in an isolated PoB engine using the saved main skill group. Each setup must include the existing active gem. New supports default to level 20 and 0% quality. Reports player and minion DPS metrics separately.",
       inputSchema: {
         type: "object",
         properties: {
@@ -1296,7 +1296,7 @@ export function getSkillGemToolSchemas(): ToolSchema[] {
           },
           skill_index: {
             type: "number",
-            description: "Which skill to test (default: 0)",
+            description: "Zero-based socket group index; omit to use the saved main group. Other groups are not yet supported.",
           },
           setups: {
             type: "array",
@@ -1311,7 +1311,7 @@ export function getSkillGemToolSchemas(): ToolSchema[] {
               },
               required: ["name", "gems"],
             },
-            description: "Array of gem setups to compare (minimum 2)",
+            description: "2–5 complete gem setups; each must contain the saved active gem and at most five supports. Use PoB gem names without the Support suffix.",
           },
         },
         required: ["build_name", "setups"],
@@ -1319,7 +1319,7 @@ export function getSkillGemToolSchemas(): ToolSchema[] {
     },
     {
       name: "validate_gem_quality",
-      description: "Check all gems for quality and level improvements. Identifies missing quality, Exceptional upgrade opportunities, and corruption targets.",
+      description: "List saved gem levels and qualities. Does not infer quality benefit, corruption state, or upgrade priority.",
       inputSchema: {
         type: "object",
         properties: {
@@ -1329,7 +1329,7 @@ export function getSkillGemToolSchemas(): ToolSchema[] {
           },
           include_corrupted: {
             type: "boolean",
-            description: "Include corruption recommendations for 21/23 gems (default: true)",
+            description: "If true, explain that corruption status and probabilities are not inferred.",
           },
         },
         required: ["build_name"],
@@ -1338,7 +1338,7 @@ export function getSkillGemToolSchemas(): ToolSchema[] {
     {
       name: "find_optimal_links",
       truncatable: true,
-      description: "Auto-generate the best support gem combination for a skill based on budget and optimization goal. Provides step-by-step upgrade path.",
+      description: "Inspect the saved skill group; automatic optimal-link search and budget calculation are unavailable. Compare explicit candidates with compare_gem_setups.",
       inputSchema: {
         type: "object",
         properties: {
@@ -1348,7 +1348,7 @@ export function getSkillGemToolSchemas(): ToolSchema[] {
           },
           skill_index: {
             type: "number",
-            description: "Which skill to optimize (default: 0)",
+            description: "Zero-based socket group index; omit to use the saved main group.",
           },
           link_count: {
             type: "number",
@@ -1356,7 +1356,7 @@ export function getSkillGemToolSchemas(): ToolSchema[] {
           },
           budget: {
             type: "string",
-            description: "Budget tier: 'league_start', 'mid_league', or 'endgame' (default: 'endgame')",
+            description: "Accepted for compatibility; market price filtering is unavailable.",
           },
         },
         required: ["build_name", "link_count"],

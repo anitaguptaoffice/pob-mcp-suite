@@ -12,6 +12,7 @@ smokePoBSrc();
 const buildsDir = await mkdtemp(join(tmpdir(), 'pob-mcp-full-'));
 await cp(resolve('example-build.xml'), join(buildsDir, 'example.xml'));
 await cp(resolve('example-build.xml'), join(buildsDir, 'other.xml'));
+await cp(resolve('tests/fixtures/occ-vortex.xml'), join(buildsDir, 'vortex.xml'));
 const { child, request, notify } = startMcpServer({ POB_DIRECTORY: buildsDir });
 const call = async (name, args = {}) => {
   const response = await request('tools/call', { name, arguments: args });
@@ -58,6 +59,13 @@ try {
   if (!otherAnalysis.includes('Live Calculated Stats') || !otherAnalysis.includes('isolated engine')) throw new Error(`isolated live analysis failed: ${otherAnalysis}`);
   const afterAnalysis = await call('lua_get_build_snapshot');
   if (!afterAnalysis.includes('Level 89')) throw new Error(`analysis overwrote unsaved changes: ${afterAnalysis}`);
+  const gemComparison = JSON.parse(await call('compare_gem_setups', { build_name: 'vortex.xml', setups: [
+    { name: 'efficacy', gems: ['Vortex', 'Efficacy'] },
+    { name: 'controlled', gems: ['Vortex', 'Controlled Destruction'] },
+  ] }));
+  if (gemComparison.source !== 'saved_build_isolated_pob' || gemComparison.setups.length !== 2) throw new Error(`gem comparison was incomplete: ${JSON.stringify(gemComparison)}`);
+  const afterGemComparison = await call('lua_get_build_snapshot');
+  if (!afterGemComparison.includes('Level 89')) throw new Error(`gem comparison overwrote unsaved changes: ${afterGemComparison}`);
   const otherDefenses = await call('analyze_defenses', { build_name: 'other.xml' });
   if (!otherDefenses.includes('Defensive Analysis') || !otherDefenses.includes('isolated engine')) throw new Error(`isolated defence analysis failed: ${otherDefenses}`);
   const otherItems = await call('analyze_items', { build_name: 'other.xml' });

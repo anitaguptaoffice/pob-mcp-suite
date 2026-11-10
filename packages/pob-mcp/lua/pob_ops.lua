@@ -708,6 +708,9 @@ function M.get_skills()
           qualityId = gem.qualityId or 'Default',
           enabled = gem.enabled ~= false,
           isSupport = gem.skillId and gem.skillId:find('Support') ~= nil or false,
+          count = tonumber(gem.count) or 1,
+          enableGlobal1 = gem.enableGlobal1 ~= false,
+          enableGlobal2 = gem.enableGlobal2 == true,
         })
       end
     end
@@ -926,8 +929,8 @@ function M.add_gem(params)
     quality = tonumber(params.quality) or 0,
     qualityId = params.qualityId or 'Default',
     enabled = params.enabled ~= false,
-    enableGlobal1 = true,
-    enableGlobal2 = false,
+    enableGlobal1 = params.enableGlobal1 ~= false,
+    enableGlobal2 = params.enableGlobal2 == true,
     count = tonumber(params.count) or 1,
   }
 
