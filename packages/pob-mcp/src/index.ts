@@ -35,6 +35,7 @@ import { NinjaPrices } from "./features/buildCost/ninjaPrices.js";
 import { buildCostSchemas } from "./features/buildCost/tool.js";
 import { comparableToolSchemas } from "./features/tradeComparable/tool.js";
 import { craftBudgetSchemas } from "./features/craftBudget/tool.js";
+import { craftSimulatorSchemas } from "./features/craftSimulator/tool.js";
 
 // Import utilities
 import { ContextBuilder } from "./utils/contextBuilder.js";
@@ -87,6 +88,7 @@ class PoBMCPServer {
       ...getTradeToolSchemas(),
       ...comparableToolSchemas(),
       ...craftBudgetSchemas(),
+      ...craftSimulatorSchemas(),
       ...getPoeNinjaToolSchemas(),
       ...getBuildGoalsToolSchemas(),
     ];
@@ -282,6 +284,7 @@ class PoBMCPServer {
       // Add poe.ninja API tools (always available)
       tools.push(...getPoeNinjaToolSchemas());
       tools.push(...craftBudgetSchemas());
+      tools.push(...craftSimulatorSchemas());
 
       // The truncatable flag is server-side policy, not part of the MCP wire
       // contract - strip it from what clients see.

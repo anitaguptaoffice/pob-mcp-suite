@@ -14,7 +14,7 @@ try {
   await request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'economy-smoke', version: '1.0' } });
   notify('notifications/initialized', {});
   const tools = await request('tools/list', {});
-  for (const name of ['estimate_build_cost', 'estimate_comparable_item', 'compare_craft_budget']) {
+  for (const name of ['estimate_build_cost', 'estimate_comparable_item', 'compare_craft_budget', 'simulate_simple_annul']) {
     assert.ok(tools.result.tools.some(tool => tool.name === name), `missing ${name}`);
   }
   const fixture = await readFile(new URL('../fixtures/occ-vortex.xml', import.meta.url), 'utf8');
@@ -31,6 +31,8 @@ try {
   assert.ok(trade.searchUrl.includes('/Standard/'));
   const model = await call('compare_craft_budget', { buy_chaos: 30, scenarios: [{ name: 'example', success_probability: 0.1, chaos_per_attempt: 2, probability_source: 'synthetic test input' }] });
   assert.equal(model.scenarios[0].expectedChaos, 20);
+  const annul = await call('simulate_simple_annul', { rarity: 'rare', affixes: [{ name: 'keep', disposition: 'keep' }, { name: 'remove', disposition: 'remove' }], no_fractured: true, no_protection: true, no_catalyst: true, no_corruption: true, no_mirrored: true, no_special_rules: true });
+  assert.equal(annul.desiredRemovalProbability, 0.5);
   console.log(`economy MCP passed: ${cost.pricedCount} reference prices, ${cost.unknownCount} unknown, ${trade.fetchedCount} trade samples`);
 } finally {
   child.kill();
