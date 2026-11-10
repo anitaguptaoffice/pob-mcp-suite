@@ -34,6 +34,7 @@ try {
   assert.ok(!tools.result.tools.some(t => t.name === 'screen_currency_spreads'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_preview_item'));
   assert.ok(!tools.result.tools.some(t => t.name === 'preview_trade_listings'));
+  assert.ok(!tools.result.tools.some(t => t.name === 'compare_official_trade_listings'));
   assert.ok(!tools.result.tools.some(t => t.name === 'search_resistance_listings'));
   assert.ok(!tools.result.tools.some(t => t.name === 'search_cluster_listings'));
   assert.ok(!tools.result.tools.some(t => t.name === 'estimate_snapshot_cost'));
@@ -76,6 +77,7 @@ try {
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'screen_currency_spreads').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_preview_item').length, 1);
   assert.ok(!foundationOnly.result.tools.some(t => t.name === 'preview_trade_listings'));
+  assert.ok(!foundationOnly.result.tools.some(t => t.name === 'compare_official_trade_listings'));
   assert.ok(!foundationOnly.result.tools.some(t => t.name === 'search_resistance_listings'));
   assert.ok(!foundationOnly.result.tools.some(t => t.name === 'search_cluster_listings'));
   const invalidSpecOption = await first.request('tools/call', { name: 'foundation_create_spec', arguments: { snapshot_id: snapshot.id, copyFrom: 1 } });
@@ -124,6 +126,7 @@ try {
   assert.equal(tradeTools.result.tools.filter(t => t.name === 'search_official_trade').length, 1);
   assert.equal(tradeTools.result.tools.filter(t => t.name === 'sample_trade_item_price').length, 1);
   assert.equal(tradeTools.result.tools.filter(t => t.name === 'preview_trade_listings').length, 1);
+  assert.equal(tradeTools.result.tools.filter(t => t.name === 'compare_official_trade_listings').length, 1);
   assert.equal(tradeTools.result.tools.filter(t => t.name === 'search_resistance_listings').length, 1);
   assert.equal(tradeTools.result.tools.filter(t => t.name === 'search_cluster_listings').length, 1);
   assert.equal(tradeTools.result.tools.filter(t => t.name === 'search_trade_stats').length, 1);
@@ -145,6 +148,7 @@ try {
   assert.ok(!combined.result.tools.some(t => t.name === 'search_official_trade'));
   assert.ok(!combined.result.tools.some(t => t.name === 'sample_trade_item_price'));
   assert.ok(!combined.result.tools.some(t => t.name === 'preview_trade_listings'));
+  assert.ok(!combined.result.tools.some(t => t.name === 'compare_official_trade_listings'));
   assert.ok(!combined.result.tools.some(t => t.name === 'search_resistance_listings'));
   assert.ok(!combined.result.tools.some(t => t.name === 'search_cluster_listings'));
   assert.equal(combined.result.tools.filter(t => t.name === 'compare_craft_budget').length, 1);

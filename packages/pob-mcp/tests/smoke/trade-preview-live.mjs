@@ -16,8 +16,15 @@ try {
   const parent = await call('foundation_import_build', { xml, source: 'trade-preview-fixture' });
   const search = await call('search_official_trade', { league: 'Standard', item_type: 'Gold Ring', item_rarity: 'rare', identified: true, limit: 5 });
   assert.equal(search.listingScope, 'instant_buyout'); assert.ok(search.listings.length > 0);
+  assert.equal(search.query.query.status.option, 'securable');
+  assert.equal(search.query.query.filters.trade_filters.filters.sale_type.option, 'priced');
   const searchId = decodeURIComponent(new URL(search.searchUrl).pathname.split('/').at(-1));
   const ids = search.listings.map(listing => listing.id);
+  const raw = await call('compare_official_trade_listings', { league: 'Standard', search_id: searchId, item_ids: ids });
+  assert.equal(raw.listingScope, 'unknown'); assert.equal(raw.requestedCount, ids.length);
+  assert.ok(Number.isFinite(Date.parse(raw.fetchedAt)));
+  assert.deepEqual(raw.results.map(result => result.itemId), ids);
+  assert.ok(raw.results.some(result => result.status === 'ok' && result.leagueStatus === 'match'));
   const report = await call('preview_trade_listings', { snapshot_id: parent.id, league: 'Standard', slot: 'Ring 1', search_id: searchId, item_ids: ids });
   assert.equal(report.snapshotId, parent.id); assert.equal(report.requestedCount, ids.length); assert.ok(Number.isFinite(Date.parse(report.fetchedAt)));
   const success = report.results.find(result => result.status === 'ok');

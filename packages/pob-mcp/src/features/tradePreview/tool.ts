@@ -2,6 +2,7 @@ import type { BuildFoundation } from '../../foundation/buildFoundation.js';
 import type { OfficialTradeSource } from '../../ports/officialTrade.js';
 import type { FeatureTool } from '../../server/featureRegistry.js';
 import { tradeClipboardText } from '../../domain/trade/clipboard.js';
+import { fetchVerifiedListingBatch } from '../tradeCommon/listingFetch.js';
 
 export function tradePreviewSchema(): FeatureTool['schema'] {
   return { name: 'preview_trade_listings', description: 'Fetch up to five official trade listings and compare each exact clipboard item against an immutable PoB snapshot. No ranking, legality or instant-buyout eligibility is inferred.',
@@ -17,11 +18,8 @@ export function createTradePreviewTool(foundation: Pick<BuildFoundation, 'previe
     const league = args.league.trim(), slot = args.slot.trim(), searchId = args.search_id, ids = args.item_ids as string[], snapshotId = args.snapshot_id;
     const snapshot = await foundation.readSnapshot(snapshotId);
     if (!snapshot || snapshot.id !== snapshotId) throw new Error('Snapshot identity mismatch');
-    const fetched = await trade.fetchListings(ids, searchId);
-    if (fetched.source !== 'official-trade' || fetched.request.queryId !== searchId || JSON.stringify(fetched.request.ids) !== JSON.stringify(ids) || typeof fetched.fetchedAt !== 'string' || !Number.isFinite(Date.parse(fetched.fetchedAt)) ||
-        !Array.isArray(fetched.data?.listings) || !Array.isArray(fetched.data?.missingIds)) throw new Error('Trade source returned mismatched provenance');
-    const map = new Map(fetched.data.listings.map(listing => [listing.id, listing]));
-    if (map.size !== fetched.data.listings.length || [...map.keys()].some(id => !ids.includes(id)) || JSON.stringify(fetched.data.missingIds) !== JSON.stringify(ids.filter(id => !map.has(id)))) throw new Error('Trade source returned inconsistent listings');
+    const fetched = await fetchVerifiedListingBatch(trade, ids, searchId);
+    const map = fetched.listings;
     const results = [];
     for (const itemId of ids) {
       try {
