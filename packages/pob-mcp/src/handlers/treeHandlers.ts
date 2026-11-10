@@ -492,7 +492,7 @@ export async function handleGetPassiveUpgrades(
     `=== Passive Upgrades (focus: ${focus}) ===`,
     '',
     `基准：${damageKey ?? '伤害未提供'} = ${baseDPS ?? '未提供'}；${defenceKey ?? '防御未提供'} = ${baseEHP ?? '未提供'}`,
-    `按 PoB 路径的每点收益排序；候选 ${candidates.length} 项，显示 ${top.length} 项。`,
+    `按 PoB 路径的每点收益排序；候选 ${candidates.length} 项，显示 ${top.length} 项。搜索按关键词限量，并非全树穷举。`,
     ...(skippedForeign > 0
       ? [`（跳过 ${skippedForeign} 个没有可用普通天赋路径或不适合试算的节点）`]
       : []),
@@ -504,8 +504,8 @@ export async function handleGetPassiveUpgrades(
     textLines.push(`${i + 1}. **${node.name}** [${node.id}]`);
     textLines.push(`   路径（${node.pathNodes!.length} 点）：${node.pathNodes!.join(' → ')}`);
     let scoreLine = `   Score: ${score.toFixed(4)}`;
-    if (dpsDelta !== 0) scoreLine += `  |  DPS Δ: ${dpsDelta > 0 ? '+' : ''}${Math.round(dpsDelta).toLocaleString()}`;
-    if (ehpDelta !== 0) scoreLine += `  |  EHP Δ: ${ehpDelta > 0 ? '+' : ''}${Math.round(ehpDelta).toLocaleString()}`;
+    if (dpsDelta !== 0) scoreLine += `  |  ${damageKey} Δ: ${dpsDelta > 0 ? '+' : ''}${Math.round(dpsDelta).toLocaleString()}`;
+    if (ehpDelta !== 0) scoreLine += `  |  ${defenceKey} Δ: ${ehpDelta > 0 ? '+' : ''}${Math.round(ehpDelta).toLocaleString()}`;
     textLines.push(scoreLine);
     if (node.stats && node.stats.length > 0) {
       for (const stat of (node.stats as string[]).slice(0, 2)) {

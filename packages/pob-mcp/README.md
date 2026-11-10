@@ -47,7 +47,7 @@ Uses an **unmodified [PathOfBuildingCommunity](https://github.com/PathOfBuilding
 ### Build Optimization
 - **Defensive Analysis**: 3-layer framework (avoidance / mitigation / recovery) — evaluates EHP, spell suppression, armour/PDR, evasion, block, life regen, and leech
 - **Node Suggestions**: Archetype-aware suggestions by goal (damage, life, ES, defense, resist)
-- **Passive Simulations**: Rank passive upgrades and mastery choices by live stat impact
+- **Passive Simulations**: Rank reachable passive paths by live stat impact per point and evaluate mastery choices. Candidate search is bounded, not an exhaustive global optimum; verify paths and constraints in PoB before applying.
 - **Tree Optimization**: Recommend nodes within reach of the current allocation
 - **Item Upgrade Analysis**: Slot-by-slot upgrade recommendations based on live stats
 - **Shopping Specs**: Describe bases and mods to look for based on the loaded build's gaps, without requiring the Trade API
