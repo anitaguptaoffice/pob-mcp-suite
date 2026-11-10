@@ -737,6 +737,8 @@ function M.get_skills()
       for gemIdx, gem in ipairs(g.gemList) do
         local granted = gem.gemData and gem.gemData.grantedEffect or gem.grantedEffect
         local isSupport = granted and granted.support or (gem.skillId and gem.skillId:find('Support') ~= nil) or false
+        local gemName = gem.nameSpec or gem.name or ''
+        local supportClassificationKnown = type(gemName) == 'string' and gemName:match('%S') ~= nil and (type(granted) == 'table' or (type(gem.skillId) == 'string' and gem.skillId:find('Support') ~= nil))
         local appliedToSelectedSkill = nil
         local selected = g.displaySkillList and g.displaySkillList[tonumber(g.mainActiveSkill) or 1]
         if isSupport and gem.enabled ~= false and g.enabled ~= false and g.slotEnabled ~= false and calcReady
@@ -754,12 +756,13 @@ function M.get_skills()
         end
         table.insert(gems, {
           index = gemIdx,
-          name = gem.nameSpec or gem.name or '',
+          name = gemName,
           level = gem.level or 1,
           quality = gem.quality or 0,
           qualityId = gem.qualityId or 'Default',
           enabled = gem.enabled ~= false,
           isSupport = not not isSupport,
+          supportClassificationKnown = not not supportClassificationKnown,
           appliedToSelectedSkill = appliedToSelectedSkill,
           count = tonumber(gem.count) or 1,
           enableGlobal1 = gem.enableGlobal1 ~= false,

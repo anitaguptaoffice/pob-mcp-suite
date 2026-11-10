@@ -84,7 +84,7 @@ Generated from registered schema groups in the current build. Most entries are p
 - `suggest_optimal_nodes` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: `references/tool-workflows.md`, `references/tree-optimization.md`, `skills/pob-docker-mcp/SKILL.md`.
 - `optimize_tree` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: `references/tree-optimization.md`, `skills/pob-docker-mcp/SKILL.md`.
 - `analyze_items` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
-- `optimize_skill_links` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `optimize_skill_links` — target: analysis and optimization; replacement: `inspect_snapshot_skill_groups` and explicit support comparisons; status: partially migrated (legacy callers remain; no global optimizer implied); skill references: no exact name found in packaged skill Markdown.
 - `create_budget_build` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
 
 ## getPoeNinjaToolSchemas
@@ -96,13 +96,13 @@ Generated from registered schema groups in the current build. Most entries are p
 
 ## getSkillGemToolSchemas
 
-- `analyze_skill_links` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
-- `suggest_support_gems` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `analyze_skill_links` — target: analysis and optimization; replacement: `inspect_snapshot_skill_groups`; status: partially migrated (legacy callers remain); skill references: no exact name found in packaged skill Markdown.
+- `suggest_support_gems` — target: analysis and optimization; replacement: `foundation_compatible_supports`; status: partially migrated (legacy callers remain; compatible does not imply better); skill references: no exact name found in packaged skill Markdown.
 - `compare_gem_setups` — target: analysis and optimization; replacement: `submit_snapshot_gem_setups` and `summarize_snapshot_gem_setups`, backed by `foundation_derive_gem_setup` and `compare_snapshot_gem_setups`; status: partially migrated (legacy callers remain); skill references: no exact name found in packaged skill Markdown.
 - `rank_support_gems` — target: analysis and optimization; replacement: `foundation_replace_support` and `rank_snapshot_supports`; status: partially migrated (legacy callers remain); skill references: no exact name found in packaged skill Markdown.
-- `validate_gem_quality` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
-- `find_optimal_links` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
-- `gem_upgrade_path` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `validate_gem_quality` — target: analysis and optimization; replacement: `inspect_snapshot_skill_groups` with `all_groups`; status: partially migrated (legacy callers remain; no quality benefit or corruption inferred); skill references: no exact name found in packaged skill Markdown.
+- `find_optimal_links` — target: analysis and optimization; replacement: `inspect_snapshot_skill_groups` plus explicit candidate comparisons; status: partially migrated (legacy callers remain; no optimality claim); skill references: no exact name found in packaged skill Markdown.
+- `gem_upgrade_path` — target: analysis and optimization; replacement: `inspect_snapshot_skill_groups` plus explicit comparisons; status: partially migrated (legacy callers remain; prices and upgrade priorities remain unknown); skill references: no exact name found in packaged skill Markdown.
 
 ## getToolSchemas
 

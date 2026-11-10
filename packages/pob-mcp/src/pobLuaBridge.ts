@@ -119,6 +119,8 @@ interface SkillGemEntry {
   qualityId: string;
   enabled: boolean;
   isSupport: boolean;
+  /** False when missing PoB metadata prevents reliable active/support classification. */
+  supportClassificationKnown?: boolean;
   /** True/false only when PoB exposes the selected skill effect list. */
   appliedToSelectedSkill?: boolean;
   count?: number;

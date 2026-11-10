@@ -64,6 +64,7 @@ import { masteryJobSchemas, createMasteryJobTools } from './features/masteryRank
 import { passiveRankingSchemas, createPassiveRankingTools, evaluatePassive } from './features/passiveRanking/tool.js';
 import { anointmentSchema, createAnointmentTool } from './features/anointment/tool.js';
 import { snapshotSummarySchema, createSnapshotSummaryTool } from './features/buildSummary/tool.js';
+import { skillInspectionSchema, createSkillInspectionTool } from './features/skillInspection/tool.js';
 import { createModifierDataTools } from './features/modifierData/tools.js';
 import { PoBModifierData } from './adapters/modifierData/pobModifierData.js';
 import { LocalBuildFileCatalog } from './adapters/localBuild/fileCatalog.js';
@@ -150,6 +151,7 @@ class PoBMCPServer {
       ...passiveRankingSchemas(),
       anointmentSchema(),
       snapshotSummarySchema(),
+      skillInspectionSchema(),
       ...this.modifierFeatures.schemas(),
       ...this.buildFileCatalog.schemas(),
       ...currencyReferenceSchemas(),
@@ -547,7 +549,7 @@ class PoBMCPServer {
           try { return await compareSnapshotGemSetups(foundation, { snapshot_id: input.snapshotId, group_index: input.groupIndex, candidate_snapshot_ids: [candidate.id] }); }
           catch (error) { return { setupError: error instanceof Error ? error.message : String(error), candidateSnapshotId: candidate.id }; }
         }, input => evaluatePassive(foundation, input));
-      const migrated = [createSnapshotCostTool(foundation, economy), createShoppingListTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), createSnapshotBuildComparisonTool(foundation), createSnapshotGemComparisonTool(foundation), ...createGemSetupJobTools(foundation, this.foundationJobs), createSnapshotSupportRankingTool(foundation), ...createTreePathTools(foundation), createBuildIssuesTool(foundation), createBossReadinessTool(foundation), createMasteryRankingTool(foundation), createMasteryDiscoveryTool(foundation), ...createMasteryJobTools(foundation, this.foundationJobs), ...createPassiveRankingTools(foundation, this.foundationJobs), createAnointmentTool(foundation), createSnapshotSummaryTool(foundation), createTimelessSearchTool(foundation)];
+      const migrated = [createSnapshotCostTool(foundation, economy), createShoppingListTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), createSnapshotBuildComparisonTool(foundation), createSnapshotGemComparisonTool(foundation), ...createGemSetupJobTools(foundation, this.foundationJobs), createSnapshotSupportRankingTool(foundation), ...createTreePathTools(foundation), createBuildIssuesTool(foundation), createBossReadinessTool(foundation), createMasteryRankingTool(foundation), createMasteryDiscoveryTool(foundation), ...createMasteryJobTools(foundation, this.foundationJobs), ...createPassiveRankingTools(foundation, this.foundationJobs), createAnointmentTool(foundation), createSnapshotSummaryTool(foundation), createSkillInspectionTool(foundation), createTimelessSearchTool(foundation)];
       if (trade) migrated.push(createTradePreviewTool(foundation, trade));
       this.foundationFeatures = new FeatureRegistry(migrated);
     }

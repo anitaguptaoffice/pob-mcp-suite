@@ -117,7 +117,12 @@ by server configuration. Never assume legacy tools are exposed alongside it.
 
 ## Compare explicit gem setups
 
-- Inspect `skills` and use the selected main group's one-based index. Submit
+- Use `inspect_snapshot_skill_groups` to inspect the saved main group, an
+  explicit one-based `group_index`, or every group with `all_groups: true`.
+  Disabled groups and gems remain visible. Unknown gem classification and
+  support-application state must not be interpreted as confirmed compatibility.
+  Level and quality alone do not establish corruption state, benefit or price.
+- Use the selected main group's one-based index. Submit
   `submit_snapshot_gem_setups` with `snapshot_id`, `group_index`, and 2–5
   `setups`: each has a unique `name` and a complete `gems` array of 1–6
   objects with `gemName` and optional `level`, `quality`, and `enabled`.
