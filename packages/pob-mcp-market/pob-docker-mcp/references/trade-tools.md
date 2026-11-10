@@ -25,7 +25,7 @@ Trade tools are environment-gated.
 2. Use `search_stats` with `official_sources=true` before building detailed filters. Identical text under `Explicit`, `Implicit`, `Fractured`, `Crafted`, or `Enchant` represents distinct trade stat IDs.
 3. Prefer an appropriate `Pseudo` total when the official API provides one. Otherwise put compatible source variants for one semantic requirement in one `count`/`or` group.
 4. Keep separate mandatory requirements in separate groups. Do not put every alternative in one global Count because two sources of one requirement can satisfy the count incorrectly.
-5. Keep searches bounded with price caps, listing status, rarity, links, and stat minimums. Use `status=securable` when the user wants instant-buyout listings.
+5. Keep searches bounded with price caps, listing status, rarity, links, and stat minimums. For this user, default to `status=securable` for instant-buyout listings; sellers may be offline. `available` also includes in-person trades, while `online` is in-person only.
 6. Prefer a small ranked shortlist over broad market dumps.
 7. If recommending an item, explain what it improves and what it may cost the build.
 8. Recalculate with Lua after applying pasted item text when possible.
@@ -72,7 +72,7 @@ Do not mechanically add every identical-text source. A named unique item normall
 
 Do not treat trade search output as complete market truth.
 
-- Mention whether results are online-only.
+- State whether results are instant-buyout or in-person; instant-buyout sellers may be offline.
 - Mention the currency and league.
 - Avoid extrapolating from tiny sample sizes.
 - For crafted rares, report comparable listing ranges instead of a single exact value.

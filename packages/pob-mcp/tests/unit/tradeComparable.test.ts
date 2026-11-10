@@ -26,6 +26,39 @@ describe('comparable trade prices', () => {
     expect(report.warnings.join(' ')).toContain('可能来自缓存');
   });
 
+  it('audits source coverage and counts exact matching sources only when hashes are available', async () => {
+    const client = {
+      getStats: async () => ({ result: [{ entries: [
+        { id: 'explicit.stat_1', text: '+# Life', type: 'explicit' },
+        { id: 'fractured.stat_1', text: '+# Life', type: 'fractured' },
+      ] }] }),
+      searchItems: async () => ({ id: 'abc', complexity: 1, total: 3, result: ['1', '2', '3'] }),
+      fetchItems: async () => [
+        { item: { extended: { hashes: { explicit: [['explicit.stat_1', [0]]], fractured: [['fractured.stat_1', [0]]] } } }, listing: {} },
+        { item: { extended: { hashes: { explicit: [['explicit.unrelated', [0]]] } } }, listing: {} },
+        { item: {}, listing: {} },
+      ],
+    } as unknown as Pick<TradeApiClient, 'searchItems' | 'fetchItems' | 'getStats'>;
+    const report = await estimateComparable(client, { league: 'Standard', base_type: 'Hubris Circlet', stat_groups: [
+      { type: 'and', filters: [{ stat_id: 'explicit.stat_1', min: 50 }] },
+    ] });
+    expect(report.query.query.status?.option).toBe('securable');
+    expect(report.sourceWarnings.join(' ')).toContain('fractured');
+    expect(report.sourceStatistics).toEqual({ sampleCount: 3, inspectableCount: 2, unavailableCount: 1,
+      matchingListingsBySource: { explicit: 1, implicit: 0, fractured: 0, crafted: 0, enchant: 0 },
+      listingsContainingSource: { explicit: 2, implicit: 0, fractured: 1, crafted: 0, enchant: 0 } });
+  });
+
+  it('reports an unavailable source audit instead of claiming complete coverage', async () => {
+    const client = { getStats: async () => { throw new Error('network'); },
+      searchItems: async () => ({ id: 'abc', total: 0, result: [] }), fetchItems: async () => []
+    } as unknown as Pick<TradeApiClient, 'searchItems' | 'fetchItems' | 'getStats'>;
+    const report = await estimateComparable(client, { league: 'Standard', base_type: 'Hubris Circlet', stat_groups: [
+      { type: 'and', filters: [{ stat_id: 'explicit.stat_1', min: 50 }] },
+    ] });
+    expect(report.sourceWarnings.join(' ')).toContain('could not be verified');
+  });
+
   it('refuses an unspecified search instead of pricing unrelated items', async () => {
     const client = { searchItems: jest.fn(), fetchItems: jest.fn() } as unknown as Pick<TradeApiClient, 'searchItems' | 'fetchItems'>;
     await expect(estimateComparable(client, { league: 'Standard', base_type: 'Hubris Circlet', stat_groups: [] })).rejects.toThrow();

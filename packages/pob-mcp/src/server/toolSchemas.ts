@@ -1574,7 +1574,7 @@ export function getTradeToolSchemas(): ToolSchema[] {
           },
           online_only: {
             type: "boolean",
-            description: "Only return listings from online sellers (default: true)",
+            description: "Legacy option: true selects available (instant buyout or in-person); false selects any. Use status for an exact filter.",
           },
           min_links: {
             type: "number",
@@ -1591,7 +1591,7 @@ export function getTradeToolSchemas(): ToolSchema[] {
           online_status: {
             type: "string",
             enum: ["available", "online", "onlineleague", "securable", "any"],
-            description: "Online-status filter (default: 'available'). Use 'securable' to restrict to instant-buyout listings from currently-online sellers (i.e. a click-and-buy result).",
+            description: "Online-status filter (default: 'available'). Use 'securable' for instant-buyout listings, including offline sellers; 'online' means in-person trade with online sellers.",
           },
           mods: {
             type: "array",

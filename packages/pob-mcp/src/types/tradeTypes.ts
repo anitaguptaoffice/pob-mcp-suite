@@ -458,7 +458,7 @@ export interface SearchOptions {
   league: string;
   status?: TradeStatus;
   onlineOnly?: boolean;
-  /** Optional override for the online-status filter (default: 'available'). Use 'securable' for instant-buyout-from-online-seller listings only. */
+  /** Optional override for the online-status filter (default: 'available'). Use 'securable' for instant-buyout listings (sellers may be offline). */
   onlineStatus?: 'available' | 'online' | 'onlineleague' | 'securable' | 'any';
   minPrice?: number;
   maxPrice?: number;

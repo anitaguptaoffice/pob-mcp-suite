@@ -112,7 +112,8 @@ export class TradeQueryBuilder {
   /**
    * Filter by online status
    * - 'available': Shows both instant buyout and in-person trade items (recommended)
-   * - 'online': Only shows items from currently online sellers
+   * - 'securable': Instant buyout, including offline sellers
+   * - 'online': In-person trade with currently online sellers
    * - 'onlineleague': Only shows items from sellers online in the same league
    * - 'any': Shows all items regardless of seller status
    */
