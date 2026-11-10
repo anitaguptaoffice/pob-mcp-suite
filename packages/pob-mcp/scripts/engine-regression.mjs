@@ -100,6 +100,19 @@ try {
   await client.createSocketGroup({ label: 'spell', slot: 'Weapon 1' });
   await client.addGem({ groupIndex: 1, gemName: 'Arc', level: 20 });
   await client.setMainSelection({ mainSocketGroup: 1 });
+  const beforeInvalidGems = await client.getSkills();
+  for (const invalid of [{ level: 0 }, { level: 1.5 }, { quality: -1 }, { quality: 100 }, { count: 0 }]) {
+    await assert.rejects(() => client.addGem({ groupIndex: 1, gemName: 'Arc', ...invalid }), /invalid/);
+  }
+  await assert.rejects(() => client.setGemLevel({ groupIndex: 1, gemIndex: 1, level: 1.5 }), /invalid level/);
+  await assert.rejects(() => client.setGemQuality({ groupIndex: 1, gemIndex: 1, quality: 0.5 }), /invalid quality/);
+  assert.deepEqual(await client.getSkills(), beforeInvalidGems, 'invalid gem parameters changed skill state');
+  await client.setGemQuality({ groupIndex: 1, gemIndex: 1, quality: 30 });
+  assert.equal((await client.getSkills()).groups[0].gems[0].quality, 30, 'PoB simulation quality was not retained');
+  await client.setGemQuality({ groupIndex: 1, gemIndex: 1, quality: 0 });
+  const thirtyQuality = await client.addGem({ groupIndex: 1, gemName: 'Efficacy', quality: 30 });
+  assert.equal((await client.getSkills()).groups[0].gems[thirtyQuality.gemIndex - 1].quality, 30, 'added gem quality was not retained');
+  await client.removeGem({ groupIndex: 1, gemIndex: thirtyQuality.gemIndex });
   const spell = await client.getStats();
   const selectionBefore = await client.getSkills();
   for (const invalid of [{ mainSocketGroup: 999 }, { mainSocketGroup: 1, mainActiveSkill: 999 }, { mainSocketGroup: 1, skillPart: 999 }, { mainSocketGroup: 1.5 }]) {

@@ -407,6 +407,8 @@ export async function handleAddGem(
     if (!gemName || gemName.trim().length === 0) {
       throw new Error('gem_name cannot be empty');
     }
+    if (level !== undefined && (!Number.isInteger(level) || level < 1 || level > 40)) throw new Error('level must be an integer from 1 to 40');
+    if (quality !== undefined && (!Number.isInteger(quality) || quality < 0 || quality > 99)) throw new Error('quality must be an integer from 0 to 99');
 
     const result = await luaClient.addGem({
       groupIndex,
@@ -417,7 +419,7 @@ export async function handleAddGem(
       enabled,
     });
 
-    let text = `✅ Added ${result.name} (L${level || 20}, Q${quality || 0}) to group ${groupIndex}.`;
+    let text = `✅ Added ${result.name} (L${level ?? 20}, Q${quality ?? 0}) to group ${groupIndex}. PoB input does not verify in-game availability.`;
 
     return {
       content: [
@@ -452,8 +454,8 @@ export async function handleSetGemLevel(
       throw new Error('gem_index must be >= 1');
     }
 
-    if (level < 1 || level > 40) {
-      throw new Error('level must be between 1 and 40');
+    if (!Number.isInteger(level) || level < 1 || level > 40) {
+      throw new Error('level must be an integer from 1 to 40');
     }
 
     await luaClient.setGemLevel({ groupIndex, gemIndex, level });
@@ -494,13 +496,13 @@ export async function handleSetGemQuality(
       throw new Error('gem_index must be >= 1');
     }
 
-    if (quality < 0 || quality > 30) {
-      throw new Error('quality must be between 0 and 30');
+    if (!Number.isInteger(quality) || quality < 0 || quality > 99) {
+      throw new Error('quality must be an integer from 0 to 99');
     }
 
     await luaClient.setGemQuality({ groupIndex, gemIndex, quality, qualityId });
 
-    let text = `✅ Set gem quality to ${quality}${qualityId && qualityId !== 'Default' ? ` (${qualityId})` : ''} (group ${groupIndex}, gem ${gemIndex}).`;
+    let text = `✅ Set gem quality to ${quality}${qualityId && qualityId !== 'Default' ? ` (${qualityId})` : ''} (group ${groupIndex}, gem ${gemIndex}). PoB input does not verify in-game availability.`;
 
     return {
       content: [
@@ -664,7 +666,7 @@ export async function handleSetupSkillWithGems(
     }
     if (gems.some(gem => !gem || typeof gem.name !== 'string' || !gem.name.trim() ||
       (gem.level !== undefined && (!Number.isInteger(gem.level) || gem.level < 1 || gem.level > 40)) ||
-      (gem.quality !== undefined && (!Number.isInteger(gem.quality) || gem.quality < 0 || gem.quality > 23)) ||
+      (gem.quality !== undefined && (!Number.isInteger(gem.quality) || gem.quality < 0 || gem.quality > 99)) ||
       (gem.quality_id !== undefined && (typeof gem.quality_id !== 'string' || !gem.quality_id.trim())) ||
       (gem.enabled !== undefined && typeof gem.enabled !== 'boolean'))) {
       throw new Error('invalid gem input; no socket group was created');

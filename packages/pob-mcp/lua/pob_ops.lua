@@ -1126,6 +1126,12 @@ function M.add_gem(params)
   if not build or not build.skillsTab then return nil, 'skills not initialized' end
   if type(params) ~= 'table' then return nil, 'invalid params' end
   if not params.groupIndex or not params.gemName then return nil, 'missing groupIndex or gemName' end
+  local function validInteger(value, min, max)
+    return type(value) == 'number' and value >= min and value <= max and value == math.floor(value)
+  end
+  if params.level ~= nil and not validInteger(params.level, 1, 40) then return nil, 'invalid level (must be an integer from 1 to 40)' end
+  if params.quality ~= nil and not validInteger(params.quality, 0, 99) then return nil, 'invalid quality (must be an integer from 0 to 99)' end
+  if params.count ~= nil and not validInteger(params.count, 1, 10000) then return nil, 'invalid count (must be a positive integer up to 10000)' end
 
   local skillSetId = build.skillsTab.activeSkillSetId or 1
   local skillSet = build.skillsTab.skillSets[skillSetId]
@@ -1211,7 +1217,7 @@ function M.set_gem_level(params)
   local gemInstance = socketGroup.gemList[gemIndex]
   if not gemInstance then return nil, 'gem not found' end
 
-  if level < 1 or level > 40 then return nil, 'invalid level (must be 1-40)' end
+  if not level or level < 1 or level > 40 or level ~= math.floor(level) then return nil, 'invalid level (must be an integer from 1 to 40)' end
 
   gemInstance.level = level
 
@@ -1247,7 +1253,7 @@ function M.set_gem_quality(params)
   local gemInstance = socketGroup.gemList[gemIndex]
   if not gemInstance then return nil, 'gem not found' end
 
-  if quality < 0 or quality > 23 then return nil, 'invalid quality (must be 0-23)' end
+  if not quality or quality < 0 or quality > 99 or quality ~= math.floor(quality) then return nil, 'invalid quality (must be an integer from 0 to 99)' end
 
   gemInstance.quality = quality
   if params.qualityId then

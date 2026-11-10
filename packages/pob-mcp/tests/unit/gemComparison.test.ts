@@ -10,7 +10,7 @@ describe('isolated gem comparison', () => {
   beforeEach(async () => { dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pob-gem-test-')); await fs.writeFile(path.join(dir, 'saved.xml'), '<PathOfBuilding/>'); });
   afterEach(async () => { await fs.rm(dir, { recursive: true, force: true }); });
   it.each([
-    { Ghost: { level: 20 } }, { Active: { quality: 24 } }, { Active: { level: 0 } },
+    { Ghost: { level: 20 } }, { Active: { quality: 100 } }, { Active: { level: 0 } },
     { Active: { level: 20 }, active: { quality: 20 } },
   ])('rejects invalid or ambiguous overrides before starting PoB: %j', async (gem_overrides) => {
     const factory = jest.fn();

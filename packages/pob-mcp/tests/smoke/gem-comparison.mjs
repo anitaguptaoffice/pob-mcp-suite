@@ -56,13 +56,13 @@ try {
     ] });
     assert.deepEqual(roundTrip.setups[0].stats, roundTrip.baseline, 'rebuilding the same setup must preserve every damage metric');
     const overridden = await compareGemSetups(context, { build_name: 'vortex.xml', setups: [
-      { name: 'changed', gems: unchangedNames, gem_overrides: { Vortex: { level: 20 }, Efficacy: { quality: 0 } } },
+      { name: 'changed', gems: unchangedNames, gem_overrides: { Vortex: { level: 20 }, Efficacy: { quality: 30 } } },
       { name: 'original', gems: unchangedNames },
     ] });
     const vortexIndex = group.gems.find(g => g.name === 'Vortex').index;
     const efficacyIndex = group.gems.find(g => g.name === 'Efficacy').index;
     await direct.client.setGemLevel({ groupIndex: 5, gemIndex: vortexIndex, level: 20 });
-    await direct.client.setGemQuality({ groupIndex: 5, gemIndex: efficacyIndex, quality: 0 });
+    await direct.client.setGemQuality({ groupIndex: 5, gemIndex: efficacyIndex, quality: 30 });
     const changedStats = await direct.client.getStats(['CombinedDPS', 'TotalDPS']);
     assert.equal(overridden.setups[0].stats.CombinedDPS, changedStats.CombinedDPS, 'gem override must match a direct PoB edit');
     assert.equal(overridden.setups[0].stats.TotalDPS, changedStats.TotalDPS, 'gem override must match a direct PoB edit');

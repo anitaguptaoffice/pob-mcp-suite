@@ -762,11 +762,11 @@ export function getLuaToolSchemas(): ToolSchema[] {
           },
           level: {
             type: "number",
-            description: "Gem level (default: 20)",
+            description: "PoB simulation level, integer 1-40 (default: 20). This does not verify in-game availability.",
           },
           quality: {
             type: "number",
-            description: "Gem quality % (default: 0)",
+            description: "PoB simulation quality, integer 0-99 (default: 0). This does not verify in-game availability.",
           },
           quality_type: {
             type: "string",
@@ -818,7 +818,7 @@ export function getLuaToolSchemas(): ToolSchema[] {
           },
           quality: {
             type: "number",
-            description: "Quality percentage (0-23 for normal, up to 30+ for corrupted)",
+            description: "PoB simulation quality, integer 0-99. This does not verify in-game availability.",
           },
           quality_type: {
             type: "string",
@@ -1335,7 +1335,7 @@ export function getSkillGemToolSchemas(): ToolSchema[] {
                 },
                 gem_overrides: {
                   type: "object",
-                  description: "Optional map from a listed gem name to {level, quality}; level 1–40 and quality 0–23. Overrides apply only in this comparison.",
+                  description: "Optional map from a listed gem name to {level, quality}; integer level 1-40 and quality 0-99. Overrides are simulation inputs and do not establish in-game availability.",
                   additionalProperties: { type: "object", properties: { level: { type: "number" }, quality: { type: "number" } } },
                 },
               },

@@ -27,7 +27,7 @@ export async function compareGemSetups(context: CompareContext, args: { build_na
       if (!names.has(key) || seen.has(key) || !override || typeof override !== 'object' || Array.isArray(override) ||
           (override.level === undefined && override.quality === undefined) ||
           (override.level !== undefined && (!Number.isInteger(override.level) || override.level < 1 || override.level > 40)) ||
-          (override.quality !== undefined && (!Number.isInteger(override.quality) || override.quality < 0 || override.quality > 23))) {
+          (override.quality !== undefined && (!Number.isInteger(override.quality) || override.quality < 0 || override.quality > 99))) {
         throw new Error(`invalid gem override: ${name}`);
       }
       seen.add(key);
