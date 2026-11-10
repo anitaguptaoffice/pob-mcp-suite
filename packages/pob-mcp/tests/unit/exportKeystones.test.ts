@@ -48,8 +48,8 @@ describe('export build summary keystone section', () => {
     });
 
     const text = textOf(await handleExportBuildSummary(ctx));
-    expect(text).toContain('## Keystones');
-    expect(text).toContain('- Glancing Blows');
+    expect(text).toContain('## 天赋树');
+    expect(text).toContain('已解析关键天赋：Glancing Blows');
     expect(text).not.toContain('- Some Notable');
     // derivation asked for the build's own tree version
     expect(mapNodesToDetails).toHaveBeenCalledWith(['1', '2'], {});
@@ -61,8 +61,8 @@ describe('export build summary keystone section', () => {
       mapNodesToDetails: async () => ({ nodes: [], invalidIds: [] }),
     });
     const text = textOf(await handleExportBuildSummary(ctx));
-    expect(text).toContain('## Keystones');
-    expect(text).toContain('_None allocated_');
+    expect(text).toContain('## 天赋树');
+    expect(text).toContain('已分配关键天赋：无');
   });
 
   it('omits the section when tree data cannot be resolved, keeping the rest of the summary', async () => {
@@ -71,7 +71,8 @@ describe('export build summary keystone section', () => {
       mapNodesToDetails: async () => ({ nodes: [], invalidIds: [] }),
     });
     const text = textOf(await handleExportBuildSummary(ctx));
-    expect(text).not.toContain('## Keystones');
+    expect(text).toContain('天赋名称解析');
+    expect(text).not.toContain('已解析关键天赋：');
     expect(text).toContain('# Test Build'); // summary still produced
   });
 
@@ -81,6 +82,16 @@ describe('export build summary keystone section', () => {
       mapNodesToDetails: async () => ({ nodes: [], invalidIds: [] }),
     });
     const text = textOf(await handleExportBuildSummary(ctx));
-    expect(text).not.toContain('## Keystones');
+    expect(text).toContain('未取得天赋树数据');
+  });
+
+  it('rejects silently substituted tree versions', async () => {
+    const ctx = makeContext(baseTree, {
+      getTreeData: async () => ({ version: '3_29' }),
+      mapNodesToDetails: async () => ({ nodes: [{ name: 'Wrong tree', isKeystone: true }], invalidIds: [] }),
+    });
+    const text = textOf(await handleExportBuildSummary(ctx));
+    expect(text).toContain('天赋名称解析');
+    expect(text).not.toContain('Wrong tree');
   });
 });

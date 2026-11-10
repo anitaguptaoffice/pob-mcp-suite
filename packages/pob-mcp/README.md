@@ -502,7 +502,7 @@ named saved build; their DPS estimates are heuristic rather than live simulation
 | `snapshot_build` | Create a versioned snapshot with description and tag |
 | `list_snapshots` | List all snapshots for a build |
 | `restore_snapshot` | Restore from a snapshot (auto-backs up current state) |
-| `export_build_summary` | Export a human-readable build summary |
+| `export_build_summary` | Export a Simplified Chinese build report with calculated stats, skill groups, equipment, tree and raw configuration |
 
 Snapshots are stored in `POB_DIRECTORY/.pob-mcp/snapshots/`.
 Their stat metadata comes from cached `<PlayerStat>` entries in the saved XML.

@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
+import { readFile } from "node:fs/promises";
 
 const command = process.argv[2] ?? "node";
 const args = process.argv.slice(3);
@@ -125,6 +126,17 @@ try {
   const matches = JSON.parse(readText(jewel));
   if (!matches.some((match) => match.seed === 130660 && match.hits?.length > 0)) {
     throw new Error("Timeless jewel lookup did not return the known seed");
+  }
+
+  const fixture = await readFile(new URL('../tests/fixtures/occ-vortex.xml', import.meta.url), 'utf8');
+  await callTool('lua_load_build', { build_xml: fixture });
+  const report = await request('tools/call', { name: 'export_build_summary', arguments: {} });
+  const reportText = readText(report);
+  if (report.isError || !reportText.includes('## 技能组') || !reportText.includes('Vortex') ||
+      !reportText.includes('## 装备') || !reportText.includes('Rarity: RARE') ||
+      !reportText.includes('## 计算配置') || reportText.includes('未取得装备数据') ||
+      reportText.includes('未取得计算配置')) {
+    throw new Error(`Build report smoke failed: ${reportText.slice(0, 1000)}`);
   }
 
   console.log("pob-mcp smoke passed");
