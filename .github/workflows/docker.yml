@@ -10,6 +10,7 @@ on:
       - "Dockerfile"
       - ".dockerignore"
       - "packages/pob-mcp/**"
+      - "!packages/pob-mcp/**/*.md"
       - "vendor/PathOfBuilding/**"
       - "scripts/collect-metadata.py"
       - ".github/workflows/docker.yml"
@@ -18,6 +19,7 @@ on:
       - "Dockerfile"
       - ".dockerignore"
       - "packages/pob-mcp/**"
+      - "!packages/pob-mcp/**/*.md"
       - "vendor/PathOfBuilding/**"
       - "scripts/collect-metadata.py"
       - ".github/workflows/docker.yml"
@@ -33,17 +35,22 @@ env:
 jobs:
   build-test-image:
     runs-on: ubuntu-latest
+    concurrency:
+      group: docker-${{ github.event.pull_request.number || github.run_id }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0
+          fetch-depth: ${{ github.event_name == 'pull_request' && 1 || 0 }}
           token: ${{ secrets.PATH_CHAIN_TOKEN || secrets.GITHUB_TOKEN }}
 
       - uses: docker/setup-qemu-action@v4
+        if: github.event_name != 'pull_request'
 
       - uses: docker/setup-buildx-action@v4
 
       - name: Collect metadata
+        if: github.event_name != 'pull_request'
         id: meta
         run: python3 scripts/collect-metadata.py >> "$GITHUB_OUTPUT"
 
@@ -53,7 +60,10 @@ jobs:
           context: .
           load: true
           tags: ${{ env.IMAGE_NAME }}:ci
-          cache-from: type=gha,scope=pob-mcp-suite
+          cache-from: |
+            type=gha,scope=pob-mcp-suite
+            type=gha,scope=pob-mcp-suite-pr-${{ github.event.pull_request.number }}
+          cache-to: ${{ github.event_name == 'pull_request' && format('type=gha,scope=pob-mcp-suite-pr-{0},mode=max', github.event.pull_request.number) || '' }}
 
       - name: Smoke image
         run: |
