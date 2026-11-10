@@ -25,6 +25,12 @@ try {
   assert.equal(chain.fetchedAt, rates.fetchedAt); assert.equal(chain.result.amount, divine.chaosValue);
   const missing = await call('simulate_reference_currency_chain', { league: 'Standard', currency_chain: ['Chaos Orb', 'No Such Currency Fixture'] });
   assert.equal(missing.complete, false); assert.equal(missing.result, null); assert.deepEqual(missing.missingRates, ['No Such Currency Fixture']);
+  const spread = await call('screen_currency_spreads', { league: 'Standard' });
+  assert.equal(spread.listingScope, 'stash_aggregate_unverified'); assert.ok(spread.availableCurrencies > 0);
+  assert.ok(Number.isFinite(Date.parse(spread.fetchedAt)));
+  assert.ok(spread.quotes.every(quote => quote.sellChaos === 1 / quote.pay.value && quote.buyChaos === quote.receive.value));
+  const cachedSpread = await call('screen_currency_spreads', { league: 'Standard' });
+  assert.equal(cachedSpread.fetchedAt, spread.fetchedAt);
   mcp.child.stdin.end(); assert.equal((await exited)[0], 0);
   console.log('currency reference live integration passed');
 } finally {

@@ -29,7 +29,7 @@ describe('poe.ninja source adapter', () => {
     await source.read({ kind: 'currency', league: 'Standard' });
     await source.read({ kind: 'currency-spread', league: 'Standard' });
     expect(urls[0]).toContain('/poe1/api/economy/exchange/current/overview?');
-    expect(urls[1]).toContain('/api/data/currencyoverview?');
+    expect(urls[1]).toContain('/poe1/api/economy/stash/current/currency/overview?');
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
 

@@ -115,7 +115,7 @@ export async function handleFindArbitrage(
       output += `- Try lowering min_profit_percent to find smaller opportunities\n`;
       output += `- Check back later as rates fluctuate throughout the day\n`;
     } else {
-      output += `Found ${opportunities.length} opportunities:\n\n`;
+      output += `Found ${opportunities.length} theoretical candidates from stash aggregates; verify live prices, listing scope, liquidity and fees before acting:\n\n`;
 
       for (let i = 0; i < opportunities.length; i++) {
         const opp = opportunities[i];
@@ -124,23 +124,9 @@ export async function handleFindArbitrage(
         output += `   \n`;
         output += `   Trading Steps:\n`;
 
-        // Simplify steps - combine pairs
-        const simplifiedSteps: Array<{ from: string; to: string; amount: number }> = [];
-        for (let j = 0; j < opp.steps.length - 1; j += 2) {
-          const step1 = opp.steps[j];
-          const step2 = opp.steps[j + 1];
-          if (step2) {
-            simplifiedSteps.push({
-              from: step1.from,
-              to: step2.to,
-              amount: step2.amount,
-            });
-          }
-        }
-
-        for (let j = 0; j < simplifiedSteps.length; j++) {
-          const step = simplifiedSteps[j];
-          output += `   ${j + 1}. Trade ${step.amount.toFixed(4)} ${step.from} → ${step.to}\n`;
+        for (let j = 0; j < opp.steps.length; j++) {
+          const step = opp.steps[j];
+          output += `   ${j + 1}. ${step.from} → ${step.to}: reference output ${step.amount.toFixed(4)} ${step.to}\n`;
         }
 
         output += `\n`;
@@ -263,7 +249,7 @@ export async function handleCalculateTradingProfit(
       output += `Profit:       ${profit.toFixed(4)} ${finalCurrency} (${profitPercent.toFixed(2)}%)\n\n`;
 
       if (profitPercent > 0) {
-        output += `✅ Profitable arbitrage opportunity!\n`;
+        output += `Positive reference conversion only; executable profit is not established.\n`;
       } else if (profitPercent < 0) {
         output += `❌ This trade results in a loss.\n`;
       } else {

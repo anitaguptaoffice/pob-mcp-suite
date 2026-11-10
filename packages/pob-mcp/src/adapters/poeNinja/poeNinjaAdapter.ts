@@ -40,7 +40,7 @@ export class PoeNinjaAdapter implements EconomySource {
   private async fetchSnapshot(query: EconomyQuery): Promise<EconomySnapshot> {
     const endpoint = query.kind === 'items' ? 'https://poe.ninja/poe1/api/economy/stash/current/item/overview'
       : query.kind === 'currency' ? 'https://poe.ninja/poe1/api/economy/exchange/current/overview'
-        : 'https://poe.ninja/api/data/currencyoverview';
+        : 'https://poe.ninja/poe1/api/economy/stash/current/currency/overview';
     const params = new URLSearchParams({ league: query.league, type: query.kind === 'items' ? query.category : 'Currency' });
     let response: Response;
     try {

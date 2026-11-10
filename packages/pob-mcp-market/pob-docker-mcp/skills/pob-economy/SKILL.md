@@ -23,4 +23,9 @@ otherwise `get_currency_rates`. For a reference conversion chain, use
 arbitrage profit; report source time and missing steps, and check live prices,
 spreads and fees before any trading recommendation.
 
+For spread screening, use `screen_currency_spreads` when advertised, otherwise
+`find_arbitrage`. Treat stash aggregates as unverified leads, not instant-buyout
+offers; report the sampled currency scope, quote times and limits, and confirm
+actual availability and transaction costs independently.
+
 Trade search is optional and only advertised when `POE_TRADE_ENABLED=true` in the MCP server's environment; the Docker wrapper defaults it to `false`. Explain that the MCP server must be restarted after changing the setting. Public reference-price and craft-budget tools do not require a trade session cookie.

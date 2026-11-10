@@ -90,7 +90,7 @@ Generated from registered schema groups in the current build. Most entries are p
 ## getPoeNinjaToolSchemas
 
 - `get_currency_rates` — target: market and workflows; replacement: `reference_currency_rates`; status: independent source workflow live-tested, legacy callers require migration; skill references: `skills/pob-economy/SKILL.md`.
-- `find_arbitrage` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `find_arbitrage` — target: market and workflows; replacement: `screen_currency_spreads`; status: bounded theoretical screening live-tested, instant-buyout verification and legacy callers remain pending; skill references: `skills/pob-economy/SKILL.md`.
 - `calculate_trading_profit` — target: market and workflows; replacement: `simulate_reference_currency_chain`; status: reference-only workflow live-tested, executable profit and legacy callers remain pending; skill references: `skills/pob-economy/SKILL.md`.
 - `find_timeless_jewel_seeds` — target: timeless jewels; replacement: independent timeless-jewel search module; status: not migrated; skill references: no exact name found in packaged skill Markdown.
 

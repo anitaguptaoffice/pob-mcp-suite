@@ -129,7 +129,7 @@ interface ArbitrageOpportunity {
  */
 export class PoeNinjaClient {
   private baseUrl = 'https://poe.ninja/poe1/api/economy/exchange/current';
-  private legacyBaseUrl = 'https://poe.ninja/api/data';
+  private legacyBaseUrl = 'https://poe.ninja/poe1/api/economy/stash/current/currency';
   private cache = new Map<string, { data: CurrencyOverview; timestamp: number }>();
   private cacheTTL = 300000; // 5 minutes
 
@@ -190,7 +190,7 @@ export class PoeNinjaClient {
       return cached;
     }
 
-    const url = `${this.legacyBaseUrl}/currencyoverview?league=${encodeURIComponent(league)}&type=Currency`;
+    const url = `${this.legacyBaseUrl}/overview?league=${encodeURIComponent(league)}&type=Currency`;
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'pob-mcp-server/1.0',
@@ -215,8 +215,8 @@ export class PoeNinjaClient {
    * Find arbitrage opportunities using bid/ask spread from currency exchange rates.
    *
    * Real arbitrage requires separate buy and sell rates. poe.ninja provides:
-   *   receive.value = chaos received per unit sold (sell/ask rate)
-   *   pay.value     = units of this currency per chaos paid (buy/bid rate, inverted)
+   *   pay.value     = units of this currency given per chaos received (inverted for selling)
+   *   receive.value = chaos paid per unit of this currency received (buying)
    *
    * For a round-trip A→chaos→B→chaos→A to be profitable:
    *   (sellRate[A] / buyRate[B]) * (sellRate[B] / buyRate[A]) > 1
@@ -241,14 +241,12 @@ export class PoeNinjaClient {
       const name = line.currencyTypeName;
       if (!name) continue;
 
-      // receive.value: chaos per unit of this currency (sell side)
-      const sell = line.receive?.value;
-      // pay.value: expressed as [units-of-currency per chaos], so invert it
-      // to get chaos per unit of this currency when buying (buy side).
+      // pay.value is currency per Chaos Orb; receive.value is Chaos Orbs per currency.
       const pay = line.pay?.value;
+      const buy = line.receive?.value;
 
-      if (sell != null && sell > 0 && pay != null && pay > 0) {
-        rates.set(name, { sell, buy: 1 / pay });
+      if (buy != null && Number.isFinite(buy) && buy > 0 && pay != null && Number.isFinite(pay) && pay > 0 && Number.isFinite(1 / pay)) {
+        rates.set(name, { sell: 1 / pay, buy });
       }
     }
 
