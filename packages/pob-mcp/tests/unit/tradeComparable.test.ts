@@ -56,7 +56,7 @@ describe('comparable trade prices', () => {
     const report = await estimateComparable(client, { league: 'Standard', base_type: 'Hubris Circlet', stat_groups: [
       { type: 'and', filters: [{ stat_id: 'explicit.stat_1', min: 50 }] },
     ] });
-    expect(report.sourceWarnings.join(' ')).toContain('could not be verified');
+    expect(report.sourceWarnings.join(' ')).toContain('未能核对来源覆盖');
   });
 
   it('refuses an unspecified search instead of pricing unrelated items', async () => {

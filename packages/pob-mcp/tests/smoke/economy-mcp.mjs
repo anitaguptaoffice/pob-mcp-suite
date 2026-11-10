@@ -29,6 +29,10 @@ try {
   const trade = await call('estimate_comparable_item', { league: 'Standard', base_type: 'Hubris Circlet', stat_groups: [{ type: 'and', filters: [{ stat_id: 'explicit.stat_3299347043', min: 40 }] }], limit: 3 });
   assert.equal(trade.baseType, 'Hubris Circlet');
   assert.ok(trade.searchUrl.includes('/Standard/'));
+  assert.equal(trade.query.query.status.option, 'securable');
+  assert.equal(trade.listingScope, 'instant_buyout');
+  assert.equal(trade.sourceStatistics.sampleCount, trade.fetchedCount);
+  assert.ok(Array.isArray(trade.sourceWarnings));
   const model = await call('compare_craft_budget', { buy_chaos: 30, scenarios: [{ name: 'example', success_probability: 0.1, chaos_per_attempt: 2, probability_source: 'synthetic test input' }] });
   assert.equal(model.scenarios[0].expectedChaos, 20);
   const annul = await call('simulate_simple_annul', { rarity: 'rare', affixes: [{ name: 'keep', disposition: 'keep' }, { name: 'remove', disposition: 'remove' }], no_fractured: true, no_protection: true, no_catalyst: true, no_corruption: true, no_mirrored: true, no_special_rules: true });

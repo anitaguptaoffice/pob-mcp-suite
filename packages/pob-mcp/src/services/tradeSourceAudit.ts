@@ -32,7 +32,7 @@ export async function auditStatSourceCoverage(
       for (const filter of group.filters) {
         const definition = byId.get(filter.id);
         if (!definition) {
-          warnings.add(`Official stat definition not found for ${filter.id}; source coverage could not be verified.`);
+          warnings.add(`官方词缀数据中找不到 ${filter.id}，无法核对其来源覆盖。`);
           continue;
         }
         if (!compatibleSources.has(definition.type)) continue;
@@ -43,7 +43,7 @@ export async function auditStatSourceCoverage(
 
       for (const [text, ids] of filtersByText) {
         if (group.type === 'and' && ids.length > 1) {
-          warnings.add(`"${text}" has equivalent source variants joined with AND; use a separate count/or group for this requirement.`);
+          warnings.add(`"${text}" 的相同效果使用 AND 同时要求多个来源；若它们是备选来源，应为该需求单独使用 count/or 分组。`);
         }
 
         if (!ids.some(id => id.startsWith('explicit.'))) continue;
@@ -53,7 +53,7 @@ export async function auditStatSourceCoverage(
 
         if (missingSources.length > 0) {
           const uniqueSources = [...new Set(missingSources)].sort();
-          warnings.add(`"${text}" only covers selected stat sources; official data also exposes ${uniqueSources.join(', ')}. Add compatible variants to this requirement's count/or group when searching non-unique items.`);
+          warnings.add(`"${text}" 只覆盖所选词缀来源；官方数据还列出 ${uniqueSources.join(', ')}。搜索非暗金装备时，可确认适用性后将可替代来源加入该需求的 count/or 分组。`);
         }
       }
     }
@@ -61,7 +61,7 @@ export async function auditStatSourceCoverage(
     return [...warnings];
   } catch {
     // Source auditing is advisory and must not make a valid trade search fail.
-    return ['Official stat data unavailable; source coverage could not be verified.'];
+    return ['无法读取官方词缀数据，未能核对来源覆盖。'];
   }
 }
 
