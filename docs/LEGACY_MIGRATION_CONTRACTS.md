@@ -153,7 +153,7 @@ acceptance work to perform during migration, not claims of completed tests.
 
 | Legacy tool | Intended replacement and missing behavior | Tool-specific acceptance |
 | --- | --- | --- |
-| `start_watching` | Optional file-observation adapter; explicit import is needed to change snapshots. | Detect replacement and duplicate events without mutating an existing snapshot. |
-| `stop_watching` | Stop the optional watcher. | Pending events and handles drain on shutdown without changing snapshots. |
-| `get_recent_changes` | Bounded watcher event query. | Preserve ordering and limits; distinguish no events from unavailable watcher. |
-| `watch_status` | Read-only watcher status. | Report configured directory and actual running state without implying a build was imported. |
+| `start_watching` | `start_local_build_watch` starts a process-local file observer; explicit import is required to create a snapshot. | `localBuildWatcher.test.ts` covers nested files, atomic replacement, filtering and startup failure; `foundation-file-catalog.mjs` verifies an existing snapshot remains unchanged. Legacy callers remain. |
+| `stop_watching` | `stop_local_build_watch` stops the independent observer and flushes recorded pending events; shutdown also closes it. | `localBuildWatcher.test.ts` covers serialized start/stop; actual client lifecycle is exercised by `foundation-file-catalog.mjs`. Legacy callers remain. |
+| `get_recent_changes` | `list_local_build_changes` returns ordered bounded events and a session-bound sequence cursor with an explicit overflow indicator. | `localBuildWatcher.test.ts` covers event order, buffer overflow and invalid cursors. Legacy callers remain. |
+| `watch_status` | `get_local_build_watch` reports process-local state, directory, cursor and error. | `localBuildWatcher.test.ts` covers running, stopped and failed state; foundation gating tests check it without PoB. Legacy callers remain. |

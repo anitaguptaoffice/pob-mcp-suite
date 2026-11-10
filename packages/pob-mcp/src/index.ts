@@ -67,6 +67,8 @@ import { createModifierDataTools } from './features/modifierData/tools.js';
 import { PoBModifierData } from './adapters/modifierData/pobModifierData.js';
 import { LocalBuildFileCatalog } from './adapters/localBuild/fileCatalog.js';
 import { createBuildFileCatalogTool } from './features/localBuildCatalog/tool.js';
+import { LocalBuildFileWatcher } from './adapters/localBuild/fileWatcher.js';
+import { createBuildWatchTools } from './features/localBuildWatch/tools.js';
 import { createCurrencyReferenceTools, currencyReferenceSchemas } from './features/currencyReference/tools.js';
 import { createCurrencySpreadTool, currencySpreadSchema } from './features/currencySpread/tool.js';
 import { createTradePreviewTool, tradePreviewSchema } from './features/tradePreview/tool.js';
@@ -92,6 +94,7 @@ class PoBMCPServer {
   private foundationFeatures: FeatureRegistry | null = null;
   private readonly modifierFeatures = new FeatureRegistry(createModifierDataTools(new PoBModifierData()));
   private buildFileCatalog!: FeatureRegistry;
+  private localBuildWatcher!: LocalBuildFileWatcher;
   private marketFeatures: FeatureRegistry | null = null;
   private foundationJobs: JobRunner | null = null;
   private releaseFoundationLock: (() => Promise<void>) | null = null;
@@ -188,7 +191,8 @@ class PoBMCPServer {
 
     // Default Path of Building directory (can be customized)
     this.pobDirectory = process.env.POB_DIRECTORY || defaultBuildsDirectory();
-    this.buildFileCatalog = new FeatureRegistry([createBuildFileCatalogTool(new LocalBuildFileCatalog(this.pobDirectory))]);
+    this.localBuildWatcher = new LocalBuildFileWatcher(this.pobDirectory);
+    this.buildFileCatalog = new FeatureRegistry([createBuildFileCatalogTool(new LocalBuildFileCatalog(this.pobDirectory)), ...createBuildWatchTools(this.localBuildWatcher)]);
 
     // Initialize services
     this.buildService = new BuildService(this.pobDirectory);
@@ -288,7 +292,7 @@ class PoBMCPServer {
       let jobsError: unknown;
       try { await this.foundationJobs?.close(); } catch (error) { jobsError = error; }
       const results = await Promise.allSettled([
-        this.watchService.stopWatching(), this.luaClientManager.stopClient(), this.server.close(),
+        this.watchService.stopWatching(), this.localBuildWatcher.stop(), this.luaClientManager.stopClient(), this.server.close(),
       ]);
       if (jobsError !== undefined) results.push({ status: 'rejected', reason: jobsError });
       if (this.releaseFoundationLock) {

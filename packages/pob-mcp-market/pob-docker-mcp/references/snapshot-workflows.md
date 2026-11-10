@@ -13,6 +13,12 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   pass both `nextCursor` as `after` and the `catalogFingerprint` as
   `catalog_fingerprint`; restart the listing if it changed. Listing files does
   not import them, and hidden paths and symlinks are excluded.
+- To observe subsequent local edits, use `start_local_build_watch`, inspect
+  `get_local_build_watch`, and read `list_local_build_changes`. Pass the returned
+  session ID with a nonzero `after_sequence`; `lostBefore` signals that older
+  events were evicted. Events are process-local and best effort. They do not
+  change snapshots: import a selected file again to capture its new content.
+  Stop observation with `stop_local_build_watch` when no longer needed.
 - Import XML with `foundation_import_build` (`xml`, `source`), an existing local
   file with `foundation_import_file` (`build_name`), or a PoB share code with
   `foundation_import_code` (`code`). A URL is not a share code: obtain its code

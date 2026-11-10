@@ -60,10 +60,15 @@ try {
   const hidden = await disabled.request('tools/call', { name: 'foundation_import_build', arguments: { xml: '<x/>', source: 'test' } });
   assert.equal(hidden.result.isError, true);
   disabled.child.stdin.end(); await once(disabled.child, 'exit');
-  const marketOnly = start({ POB_FOUNDATION_ENABLED: 'false', POB_LEGACY_ENABLED: 'false', POB_LUA_ENABLED: 'false', POE_TRADE_ENABLED: 'true' });
+  const marketOnly = start({ POB_FOUNDATION_ENABLED: 'false', POB_LEGACY_ENABLED: 'false', POB_LUA_ENABLED: 'false', POE_TRADE_ENABLED: 'true', POB_DIRECTORY: dir });
   await init(marketOnly);
   const marketTools = (await marketOnly.request('tools/list', {})).result.tools;
   assert.equal(marketTools.filter(t => t.name === 'list_local_build_files').length, 1);
+  for (const name of ['start_local_build_watch', 'stop_local_build_watch', 'get_local_build_watch', 'list_local_build_changes']) assert.equal(marketTools.filter(t => t.name === name).length, 1);
+  const watchStatus = await marketOnly.request('tools/call', { name: 'get_local_build_watch', arguments: {} });
+  assert.equal(JSON.parse(watchStatus.result.content[0].text).state, 'stopped');
+  const watchStart = await marketOnly.request('tools/call', { name: 'start_local_build_watch', arguments: {} });
+  assert.equal(JSON.parse(watchStart.result.content[0].text).state, 'running');
   for (const name of ['estimate_trade_comparable', 'search_official_trade', 'sample_trade_item_price', 'compare_official_trade_listings', 'search_resistance_listings', 'search_cluster_listings', 'search_trade_stats', 'list_trade_leagues', 'reference_currency_rates', 'screen_currency_spreads']) assert.equal(marketTools.filter(t => t.name === name).length, 1);
   assert.ok(!marketTools.some(t => t.name === 'foundation_import_build' || t.name === 'preview_trade_listings'));
   const invalidMarketCall = await marketOnly.request('tools/call', { name: 'sample_trade_item_price', arguments: {} });

@@ -16,7 +16,14 @@ try {
   const catalog = await call('list_local_build_files', {});
   assert.equal(catalog.complete, true); assert.deepEqual(catalog.names, [join('league', 'build.xml')]);
   const snapshot = await call('foundation_import_file', { build_name: catalog.names[0] });
-  await writeFile(join(dir, 'league', 'build.xml'), '<changed/>');
+  const watch = await call('start_local_build_watch', {}); assert.equal(watch.state, 'running');
+  await writeFile(join(dir, 'league', 'build.xml'), `${xml}\n`);
+  const deadline = Date.now() + 15000; let changes;
+  do { changes = await call('list_local_build_changes', { session_id: watch.sessionId }); if (changes.events.length) break; await new Promise(resolve => setTimeout(resolve, 100)); } while (Date.now() < deadline);
+  assert.equal(changes.events[0]?.type, 'modified'); assert.equal(changes.events[0]?.path, catalog.names[0]);
   assert.equal((await call('foundation_export_build', { snapshot_id: snapshot.id })).xml, xml);
+  const updated = await call('foundation_import_file', { build_name: catalog.names[0] });
+  assert.notEqual(updated.id, snapshot.id); assert.equal((await call('foundation_export_build', { snapshot_id: updated.id })).xml, `${xml}\n`);
+  assert.equal((await call('stop_local_build_watch', {})).state, 'stopped');
   child.stdin.end(); assert.equal((await exited)[0], 0); console.log('foundation file catalog passed');
 } finally { if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM'); await rm(dir, { recursive: true, force: true }); }
