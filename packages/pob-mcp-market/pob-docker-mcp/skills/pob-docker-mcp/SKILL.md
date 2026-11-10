@@ -54,6 +54,8 @@ For detailed tool selection, verification, and known edge cases, read the releva
 - `../../references/tree-optimization.md` for passive tree recommendations and reallocation.
 - `../../references/trade-tools.md` for trade searches, price checks, and gear upgrades.
 - `../../references/troubleshooting.md` for Docker, Lua bridge, pobb.in, and mismatch triage.
+- For build budgets, trade estimates, and crafting costs, use the separate `pob-economy` skill in `../pob-economy/SKILL.md`.
+- For crafting rules and probability assumptions, use the separate `pob-crafting` skill in `../pob-crafting/SKILL.md`.
 
 ## Tool Trust Model
 

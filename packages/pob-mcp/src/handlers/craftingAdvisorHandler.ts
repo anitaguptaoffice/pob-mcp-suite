@@ -13,7 +13,7 @@ interface CraftingResponseInput {
   slot: string;
   desiredMods: string[];
   modData: string;
-  currencyRates: { chaos: number; divine: number; live: boolean };
+  currencyRates: { chaos: number; divine?: number; live: boolean };
   buildContext: StatsExport | null;
   ilvl?: number;
   budget?: 'low' | 'medium' | 'high';
@@ -27,7 +27,7 @@ const CRAFTING_METHODS = `
 3. **Essence** — guarantees one specific mod. Best anchor point for crafting.
 4. **Fossil/resonator** — biases mod pool toward/away from tags. Best for specific combos.
 5. **Bench craft** — deterministically adds/removes one mod. Always used to finish an item.
-6. **Scour + annul** — remove unwanted mods from a rare. Pairs with exalt slam.
+6. **Scour / annul** — Scouring normally removes all explicit modifiers and returns the item to normal rarity; an Annulment removes one random modifier. Check protection and special-item rules before using either.
 7. **Exalt slam** — adds a random mod to a rare. High variance but can finish items.
 8. **Meta-crafting** — "Prefixes Cannot Be Changed" / "Suffixes Cannot Be Changed" / "Cannot Roll Attack Mods". Lets you safely scour half the item.
 `;
@@ -65,7 +65,9 @@ export function buildCraftingResponse(input: CraftingResponseInput): string {
   }
 
   text += `## Currency Rates\n`;
-  text += `- 1 Divine Orb = ${currencyRates.divine} Chaos Orb${currencyRates.live ? '' : '  ⚠ fallback rate — poe.ninja was unavailable; verify before costing the craft'}\n\n`;
+  text += currencyRates.live
+    ? `- 1 Divine Orb = ${currencyRates.divine} Chaos Orb\n\n`
+    : '- Market rate unavailable; do not estimate currency costs using a placeholder.\n\n';
 
   text += CRAFTING_METHODS + '\n';
 
@@ -74,7 +76,7 @@ export function buildCraftingResponse(input: CraftingResponseInput): string {
   }
 
   text += `\n---\nUsing the mod data above, recommend the best crafting method for the target mods on this base. `;
-  text += `Provide: (1) recommended method with reasoning, (2) step-by-step instructions, (3) estimated cost in chaos, (4) fallback if it bricks.`;
+  text += `Provide: (1) recommended method with reasoning, (2) step-by-step instructions, (3) cost only when supported by verified prices and probabilities, and (4) fallback if it bricks. This tool does not simulate probabilities; explicitly identify unknowns.`;
 
   return text;
 }
@@ -135,12 +137,12 @@ export async function handleSuggestCrafting(
       };
     }
 
-    let currencyRates = { chaos: 1, divine: 200, live: false };
+    let currencyRates: CraftingResponseInput['currencyRates'] = { chaos: 1, live: false };
     try {
       const rateMap = await context.ninjaClient.getCurrencyExchangeMap(league);
       const divineRate = rateMap.get('Divine Orb');
       if (divineRate) currencyRates = { chaos: 1, divine: Math.round(divineRate), live: true };
-    } catch (e) { noteIgnoredError("poe.ninja unavailable — use fallback rates (labelled as such in the response)", e); }
+    } catch (e) { noteIgnoredError("poe.ninja unavailable — currency price omitted", e); }
 
     let modData = '';
     try {

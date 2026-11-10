@@ -10,6 +10,11 @@ import type { TradeApiClient } from "../services/tradeClient.js";
 import type { StatMapper } from "../services/statMapper.js";
 import type { ItemRecommendationEngine } from "../services/itemRecommendationEngine.js";
 import type { PoeNinjaClient } from "../services/poeNinjaClient.js";
+import type { PriceSource } from "../features/buildCost/estimate.js";
+import { handleEstimateBuildCost } from "../features/buildCost/tool.js";
+import { estimateComparable } from "../features/tradeComparable/tool.js";
+import { handleCraftBudget } from "../features/craftBudget/tool.js";
+import { handleSimpleAnnul } from "../features/craftSimulator/tool.js";
 
 // Import handlers
 import { handleListBuilds, handleAnalyzeBuild, handleCompareBuilds, handleGetBuildStats, handleGetBuildNotes, handleSetBuildNotes } from "../handlers/buildHandlers.js";
@@ -44,6 +49,7 @@ export interface ToolRouterDependencies {
   statMapper: StatMapper | null;
   recommendationEngine: ItemRecommendationEngine | null;
   ninjaClient: PoeNinjaClient;
+  buildCostPrices: PriceSource;
   getLuaClient: () => import("../pobLuaBridge.js").PoBLuaApiClient | null;
   ensureLuaClient: () => Promise<void>;
 }
@@ -76,6 +82,17 @@ export async function routeToolCall(
   const skillGemContext = deps.contextBuilder.buildSkillGemContext();
 
   switch (name) {
+    case "estimate_build_cost":
+      return await handleEstimateBuildCost(deps.getLuaClient, deps.ensureLuaClient, deps.buildCostPrices, args);
+    case "estimate_comparable_item": {
+      if (!deps.tradeClient) throw new Error('Trade API is disabled');
+      const report = await estimateComparable(deps.tradeClient, args ?? {});
+      return { content: [{ type: 'text' as const, text: JSON.stringify(report, null, 2) }] };
+    }
+    case "compare_craft_budget":
+      return handleCraftBudget(args ?? {});
+    case "simulate_simple_annul":
+      return handleSimpleAnnul(args ?? {});
     case "find_timeless_jewel_seeds":
       return await handleFindTimelessJewelSeeds(deps.getLuaClient(), args as any);
     case "list_builds":

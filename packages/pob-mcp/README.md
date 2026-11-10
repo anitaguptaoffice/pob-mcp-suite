@@ -85,6 +85,7 @@ Uses an **unmodified [PathOfBuildingCommunity](https://github.com/PathOfBuilding
 These tools need the corresponding data files from a PoB installation or checkout.
 
 ### Currency & Market Data (poe.ninja)
+- **Build cost**: `estimate_build_cost` prices identifiable uniques and skill gems in the loaded build using public PoE 1 economy data. It requires the exact international league and reports unknowns; its reference subtotal is never a complete build price.
 - **Exchange Rates**: Real-time currency prices in Chaos Orb equivalent
 - **Arbitrage Detection**: Find profitable currency trading loops
 - **Trade Profit Calculator**: Evaluate custom trading chains
@@ -310,10 +311,9 @@ Finally, update the Claude Desktop configuration above and restart Claude Deskto
 
 ## Available Tools
 
-With `POB_LUA_ENABLED=true`, `POE_TRADE_ENABLED=true`, and `POE_SESSION_ID` set,
-the server advertises **104 tools**. It advertises **39** with Lua and Trade disabled,
-and **95** with Lua enabled and Trade disabled. Tool discovery is not a guarantee
-that the required engine, data files, credentials, or network service are usable.
+The advertised tool set depends on `POB_LUA_ENABLED`, `POE_TRADE_ENABLED`, and
+`POE_SESSION_ID`. Tool discovery is not a guarantee that the required engine,
+data files, credentials, or network service are usable.
 
 ### XML-Based Tools (Always Available)
 

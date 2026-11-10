@@ -43,6 +43,8 @@ def main():
 
         assert_file(plugin_dir / ".mcp.json")
         assert_file(plugin_dir / "skills" / plugin.get("name") / "SKILL.md")
+        for skill in ("pob-economy", "pob-crafting"):
+            assert_file(plugin_dir / "skills" / skill / "SKILL.md")
         assert_file(plugin_dir / "scripts" / "pob-mcp-docker.sh")
 
     print("market validation passed")
