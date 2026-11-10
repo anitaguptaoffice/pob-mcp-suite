@@ -10,6 +10,8 @@ This monorepo contains the complete Path of Building MCP delivery chain:
 
 The goal of this repository is to replace the previous three-repository release chain with one source of truth. Docker images are built from the checked-in PoB vendor tree instead of cloning another repository during image build. The repo-owned Lua adapter under `packages/pob-mcp/lua` is based on ianderse/pob-mcp revision `67c3404fc6062bcfe3f690073ec25fd0daa454de`. The suite-specific Timeless Jewel seed search lives in its own `timeless_jewel.lua` module, and dynamic class and ascendancy names are returned by the adapter. Docker builds the PoB-compatible LuaJIT revision used by SimpleGraphic.
 
+See [UPSTREAM_MCP_CHANGES.md](UPSTREAM_MCP_CHANGES.md) for the upstream baseline, suite-specific changes, and regression coverage.
+
 ## Local Validation
 
 ```bash
