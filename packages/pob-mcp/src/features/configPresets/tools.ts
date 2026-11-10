@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import type { BuildFoundation } from '../../foundation/buildFoundation.js';
 import { snapshotMetadata } from '../../foundation/snapshotStore.js';
 import type { ConfigPresetStore, PresetOrigin } from '../../ports/configPresets.js';
-import { validPresetName, validatePresetConfig } from '../../domain/configPreset.js';
+import { validPresetName, validatePresetConfig, validEnemyLevelSetting } from '../../domain/configPreset.js';
 import type { FeatureTool } from '../../server/featureRegistry.js';
 
 const json = (value: unknown) => ({ content: [{ type: 'text' as const, text: JSON.stringify(value) }] });
@@ -14,7 +14,7 @@ export function configPresetSchemas(): FeatureTool['schema'][] {
     { name: 'list_local_config_presets', description: 'List versioned and legacy local PoB MCP configuration presets, with explicit origins and collision-safe pagination.', inputSchema: { type: 'object', additionalProperties: false, properties: { offset: { type: 'integer', minimum: 0 }, limit: { type: 'integer', minimum: 1, maximum: 100 }, catalog_fingerprint: { type: 'string' } } } },
     { name: 'read_local_config_preset', description: 'Read a configuration preset without changing a build. Specify origin when names exist in both stores.', inputSchema: { type: 'object', additionalProperties: false, properties: { name: { type: 'string' }, origin: { type: 'string', enum: ['versioned', 'legacy'] } }, required: ['name'] } },
     { name: 'save_snapshot_config_preset', description: 'Save all current snapshot config values to a versioned local preset; legacy preset files are never modified.', inputSchema: { type: 'object', additionalProperties: false, properties: { snapshot_id: { type: 'string' }, name: { type: 'string' }, overwrite: { type: 'boolean' } }, required: ['snapshot_id', 'name'] } },
-    { name: 'apply_snapshot_config_preset', description: 'Apply all preset values exactly in a derived snapshot. Unchanged historical keys are retained; rejected or changed unrelated settings prevent publication.', inputSchema: { type: 'object', additionalProperties: false, properties: { snapshot_id: { type: 'string' }, name: { type: 'string' }, origin: { type: 'string', enum: ['versioned', 'legacy'] }, trial: { type: 'boolean' } }, required: ['snapshot_id', 'name'] } },
+    { name: 'apply_snapshot_config_preset', description: 'Apply saved settings in a derived snapshot, preserving automatic enemy level where recorded. Unchanged historical keys are retained; rejected or changed unrelated settings prevent publication.', inputSchema: { type: 'object', additionalProperties: false, properties: { snapshot_id: { type: 'string' }, name: { type: 'string' }, origin: { type: 'string', enum: ['versioned', 'legacy'] }, trial: { type: 'boolean' } }, required: ['snapshot_id', 'name'] } },
   ];
 }
 export function createConfigPresetCatalogTools(store: ConfigPresetStore): FeatureTool[] {
@@ -30,31 +30,33 @@ export function createConfigPresetCatalogTools(store: ConfigPresetStore): Featur
     } },
     { schema: read, invoke: async args => {
       if (Object.keys(args).some(key => !['name', 'origin'].includes(key)) || !validPresetName(args.name) || !validOrigin(args.origin)) throw new Error('Invalid preset read options');
-      return json({ preset: await store.read(args.name, args.origin as PresetOrigin | undefined), warnings: ['Reading a preset does not change a build. Legacy presets do not carry PoB identity or snapshot provenance.'] });
+      const preset = await store.read(args.name, args.origin as PresetOrigin | undefined);
+      return json({ preset, warnings: ['Reading a preset does not change a build.', ...(preset.origin === 'legacy' ? ['Legacy presets do not carry PoB identity or snapshot provenance.'] : []), ...(!preset.enemyLevelSetting ? ['This older preset does not record whether enemy level was automatic.'] : [])] });
     } },
   ];
 }
-export function createSnapshotConfigPresetTools(foundation: Pick<BuildFoundation, 'inspect' | 'deriveExactConfig'>, store: ConfigPresetStore): FeatureTool[] {
+export function createSnapshotConfigPresetTools(foundation: Pick<BuildFoundation, 'runReadOnlySnapshot' | 'deriveExactConfig'>, store: ConfigPresetStore): FeatureTool[] {
   const [, , save, apply] = configPresetSchemas();
   return [
     { schema: save, invoke: async args => {
       if (Object.keys(args).some(key => !['snapshot_id', 'name', 'overwrite'].includes(key)) || !validId(args.snapshot_id) || !validPresetName(args.name) || (args.overwrite !== undefined && typeof args.overwrite !== 'boolean')) throw new Error('Invalid preset save options');
-      const observation = await foundation.inspect(args.snapshot_id as string, ['config']);
-      const config = Array.isArray(observation.data.config) && observation.data.config.length === 0 ? {} : observation.data.config;
+      const observation = await foundation.runReadOnlySnapshot(args.snapshot_id as string, async engine => ({ config: await engine.getConfig(), enemyLevelSetting: await engine.getEnemyLevelSetting() }));
+      const config = Array.isArray(observation.result.config) && observation.result.config.length === 0 ? {} : observation.result.config;
       validatePresetConfig(config);
+      if (!validEnemyLevelSetting(observation.result.enemyLevelSetting) || typeof config.enemyLevel !== 'number' || !Number.isFinite(config.enemyLevel)) throw new Error('PoB did not provide a valid enemy level setting');
       const identity = Object.fromEntries(identityKeys.map(key => [key, observation.identity[key] ?? null]));
-      const preset = { name: args.name, origin: 'versioned' as const, config, sourceSnapshotId: observation.snapshotId, sourceIdentity: identity, savedAt: new Date().toISOString() };
+      const preset = { name: args.name, origin: 'versioned' as const, config, enemyLevelSetting: observation.result.enemyLevelSetting, sourceSnapshotId: observation.snapshotId, sourceIdentity: identity, savedAt: new Date().toISOString() };
       await store.save(preset, args.overwrite === true);
-      return json({ name: preset.name, origin: preset.origin, sourceSnapshotId: preset.sourceSnapshotId, sourceIdentity: preset.sourceIdentity, savedAt: preset.savedAt, keyCount: Object.keys(config).length, warnings: [...observation.warnings, 'The legacy preset store is not modified. Applying this preset requires a separate snapshot operation.'] });
+      return json({ name: preset.name, origin: preset.origin, sourceSnapshotId: preset.sourceSnapshotId, sourceIdentity: preset.sourceIdentity, savedAt: preset.savedAt, enemyLevelSetting: preset.enemyLevelSetting, keyCount: Object.keys(config).length, warnings: [...observation.warnings, 'The legacy preset store is not modified. Applying this preset requires a separate snapshot operation.'] });
     } },
     { schema: apply, invoke: async args => {
       if (Object.keys(args).some(key => !['snapshot_id', 'name', 'origin', 'trial'].includes(key)) || !validId(args.snapshot_id) || !validPresetName(args.name) || !validOrigin(args.origin) || (args.trial !== undefined && typeof args.trial !== 'boolean')) throw new Error('Invalid preset apply options');
       const preset = await store.read(args.name, args.origin as PresetOrigin | undefined);
-      const result = await foundation.deriveExactConfig(args.snapshot_id as string, preset.config, args.trial === true);
+      const result = await foundation.deriveExactConfig(args.snapshot_id as string, preset.config, args.trial === true, preset.enemyLevelSetting ?? undefined);
       const mismatched = identityKeys.filter(key => preset.sourceIdentity?.[key] && result.snapshot[key] && preset.sourceIdentity[key] !== result.snapshot[key]);
       const unknown = identityKeys.filter(key => !preset.sourceIdentity?.[key] || !result.snapshot[key]);
-      return json({ preset: { name: preset.name, origin: preset.origin, sourceSnapshotId: preset.sourceSnapshotId, sourceIdentity: preset.sourceIdentity, savedAt: preset.savedAt }, snapshot: snapshotMetadata(result.snapshot), changedKeys: result.changedKeys, identityDifferences: mismatched, identityUnknown: unknown,
-        warnings: ['All saved values were checked after application and reload. Target settings absent from the preset were preserved.', 'Preset files and the parent snapshot were not changed.', ...(mismatched.length ? ['Preset source and target PoB identities differ; exact application does not establish equivalent game mechanics.'] : []), ...(unknown.length ? ['Some source or target PoB identities are unknown.'] : [])] });
+      return json({ preset: { name: preset.name, origin: preset.origin, sourceSnapshotId: preset.sourceSnapshotId, sourceIdentity: preset.sourceIdentity, savedAt: preset.savedAt, enemyLevelSetting: preset.enemyLevelSetting }, snapshot: snapshotMetadata(result.snapshot), changedKeys: result.changedKeys, identityDifferences: mismatched, identityUnknown: unknown,
+        warnings: ['Saved settings were checked after application and reload. Target settings absent from the preset were preserved.', 'Preset files and the parent snapshot were not changed.', ...(preset.enemyLevelSetting?.mode === 'automatic' ? ['Enemy level remains automatic and can differ from the source build’s effective value.'] : []), ...(!preset.enemyLevelSetting && Object.hasOwn(preset.config, 'enemyLevel') ? ['This older preset does not record whether enemy level was automatic; its saved effective value is applied as a fixed value if different.'] : []), ...(mismatched.length ? ['Preset source and target PoB identities differ; exact application does not establish equivalent game mechanics.'] : []), ...(unknown.length ? ['Some source or target PoB identities are unknown.'] : [])] });
     } },
   ];
 }

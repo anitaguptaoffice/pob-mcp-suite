@@ -4,9 +4,12 @@ import { EngineLimiter } from './engineLimiter.js';
 import { normalizeObservation } from './observation.js';
 import { MAX_BUILD_BYTES, decodeShareCode } from './shareCode.js';
 import { toFiniteNumber, type PoBLuaApiClient } from '../pobLuaBridge.js';
+import type { EnemyLevelSetting } from '../ports/configPresets.js';
+import { validEnemyLevelSetting } from '../domain/configPreset.js';
 
 /** The adapter owns a disposable PoB instance; it must never share live state. */
 export interface BuildEngine {
+  getEnemyLevelSetting(): Promise<EnemyLevelSetting>;
   evaluateAnointCandidates(params: Parameters<PoBLuaApiClient['evaluateAnointCandidates']>[0]): ReturnType<PoBLuaApiClient['evaluateAnointCandidates']>;
   queryTreePaths(params: { targetNodeId?: number; maxDistance?: number; limit?: number; filter?: string; allocatedOnly?: boolean }): Promise<unknown>;
   getBuildNotes(): Promise<string>;
@@ -967,26 +970,32 @@ export class BuildFoundation {
   }
 
   /** Apply every preset value exactly; unchanged legacy keys need not be writable. */
-  async deriveExactConfig(id: string, config: Record<string, string | number | boolean>, trial = false): Promise<{ snapshot: SnapshotRecord; changedKeys: string[] }> {
+  async deriveExactConfig(id: string, config: Record<string, string | number | boolean>, trial = false, enemyLevelSetting?: EnemyLevelSetting): Promise<{ snapshot: SnapshotRecord; changedKeys: string[] }> {
     if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('Invalid config');
     validateEvaluationOptions({ config });
+    if (enemyLevelSetting !== undefined && (!validEnemyLevelSetting(enemyLevelSetting) || !Object.hasOwn(config, 'enemyLevel'))) throw new Error('Invalid enemy level setting');
+    const expected = Object.fromEntries(Object.entries(config).filter(([key]) => !enemyLevelSetting || key !== 'enemyLevel'));
+    const specified = (key: string) => Object.hasOwn(expected, key) || !!enemyLevelSetting && key === 'enemyLevel';
     let changedKeys: string[] = [], unrelated: Record<string, unknown> = {};
     const verify = async (engine: BuildEngine) => {
       const actual = await engine.getConfig();
       if (!actual || typeof actual !== 'object' || Array.isArray(actual) && actual.length !== 0) throw new Error('PoB returned invalid config');
       const record = actual as Record<string, unknown>;
-      if (Object.entries(config).some(([key, value]) => !Object.hasOwn(record, key) || !isDeepStrictEqual(record[key], value))) throw new Error('PoB did not preserve every preset value');
-      const actualUnrelated = Object.fromEntries(Object.entries(record).filter(([key]) => !Object.hasOwn(config, key)));
+      if (Object.entries(expected).some(([key, value]) => !Object.hasOwn(record, key) || !isDeepStrictEqual(record[key], value))) throw new Error('PoB did not preserve every preset value');
+      if (enemyLevelSetting && !isDeepStrictEqual(await engine.getEnemyLevelSetting(), enemyLevelSetting)) throw new Error('PoB did not preserve the enemy level setting; PoB may omit an explicit level equal to its default on save');
+      const actualUnrelated = Object.fromEntries(Object.entries(record).filter(([key]) => !specified(key)));
       if (!isDeepStrictEqual(unrelated, actualUnrelated)) throw new Error('Preset changed an unrelated configuration value');
     };
     const snapshot = await this.derive(id, 'derived:config-preset', async engine => {
       const before = await engine.getConfig();
       if (!before || typeof before !== 'object' || Array.isArray(before) && before.length !== 0) throw new Error('PoB returned invalid config');
       const record = before as Record<string, unknown>;
-      changedKeys = Object.keys(config).filter(key => !Object.hasOwn(record, key) || !isDeepStrictEqual(record[key], config[key]));
-      unrelated = Object.fromEntries(Object.entries(record).filter(([key]) => !Object.hasOwn(config, key)));
+      changedKeys = Object.keys(expected).filter(key => !Object.hasOwn(record, key) || !isDeepStrictEqual(record[key], expected[key]));
+      const currentLevelSetting = enemyLevelSetting ? await engine.getEnemyLevelSetting() : undefined;
+      if (enemyLevelSetting && !isDeepStrictEqual(currentLevelSetting, enemyLevelSetting)) changedKeys.push('enemyLevel');
+      unrelated = Object.fromEntries(Object.entries(record).filter(([key]) => !specified(key)));
       if (changedKeys.length) {
-        const changes = Object.fromEntries(changedKeys.map(key => [key, config[key]]));
+        const changes = Object.fromEntries(changedKeys.map(key => [key, enemyLevelSetting && key === 'enemyLevel' ? enemyLevelSetting.mode === 'automatic' ? 0 : enemyLevelSetting.value : expected[key]]));
         const result = await engine.setConfig(changes);
         if (!result || !result.rejected || Object.keys(result.rejected).length) throw new Error(`PoB rejected preset config: ${JSON.stringify(result?.rejected ?? {})}`);
         if (!result.applied || changedKeys.some(key => !Object.hasOwn(result.applied!, key))) throw new Error('PoB did not apply every changed preset value');

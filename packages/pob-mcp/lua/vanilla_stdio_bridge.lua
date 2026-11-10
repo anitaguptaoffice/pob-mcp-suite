@@ -330,7 +330,7 @@ handlers.set_build_notes = op(BuildOps.set_build_notes)
 handlers.get_config = function()
   local cfg, err = BuildOps.get_config()
   if cfg == nil then return { ok = false, error = err or 'operation failed' } end
-  return { ok = true, config = cfg, labels = (BuildOps.get_config_labels()) }
+  return { ok = true, config = cfg, labels = (BuildOps.get_config_labels()), enemyLevelSetting = (BuildOps.get_enemy_level_setting()) }
 end
 handlers.calc_with = op(BuildOps.calc_with, 'output')
 handlers.compare_item = op(BuildOps.compare_item, 'result')

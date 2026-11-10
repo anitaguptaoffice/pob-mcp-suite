@@ -2,7 +2,7 @@ import { constants, promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { ConfigPreset, ConfigPresetStore, PresetOrigin } from '../../ports/configPresets.js';
 import { atomicWriteFile } from '../../utils/atomicWrite.js';
-import { MAX_PRESET_FILE_BYTES, validPresetName, validatePresetConfig } from '../../domain/configPreset.js';
+import { MAX_PRESET_FILE_BYTES, validPresetName, validatePresetConfig, validEnemyLevelSetting } from '../../domain/configPreset.js';
 
 const dirs: Record<PresetOrigin, string> = { versioned: '.pob-mcp-presets-v2', legacy: '.pob-mcp-presets' };
 const validIdentity = (value: unknown): value is Record<string, string | null> => !!value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length > 0 && Object.values(value).every(item => item === null || typeof item === 'string' && !!item);
@@ -51,14 +51,16 @@ export class LocalConfigPresetStore implements ConfigPresetStore {
     } finally { await file.close(); }
     let value: any;
     try { value = JSON.parse(raw); } catch { throw new Error('Preset contains invalid JSON'); }
-    if (chosen === 'legacy') { validatePresetConfig(value); return { name, origin: chosen, config: value, sourceSnapshotId: null, sourceIdentity: null, savedAt: null }; }
-    if (!value || typeof value !== 'object' || Array.isArray(value) || value.format !== 'pob-config-preset/v1' || typeof value.sourceSnapshotId !== 'string' || !/^[a-f0-9]{64}$/.test(value.sourceSnapshotId) || !validIdentity(value.sourceIdentity) || typeof value.savedAt !== 'string' || !Number.isFinite(Date.parse(value.savedAt))) throw new Error('Invalid versioned preset metadata');
+    if (chosen === 'legacy') { validatePresetConfig(value); return { name, origin: chosen, config: value, sourceSnapshotId: null, sourceIdentity: null, savedAt: null, enemyLevelSetting: null }; }
+    if (!value || typeof value !== 'object' || Array.isArray(value) || !['pob-config-preset/v1', 'pob-config-preset/v2'].includes(value.format) || typeof value.sourceSnapshotId !== 'string' || !/^[a-f0-9]{64}$/.test(value.sourceSnapshotId) || !validIdentity(value.sourceIdentity) || typeof value.savedAt !== 'string' || !Number.isFinite(Date.parse(value.savedAt)) || (value.format === 'pob-config-preset/v2' && !validEnemyLevelSetting(value.enemyLevelSetting))) throw new Error('Invalid versioned preset metadata');
     validatePresetConfig(value.config);
-    return { name, origin: chosen, config: value.config, sourceSnapshotId: value.sourceSnapshotId, sourceIdentity: value.sourceIdentity, savedAt: value.savedAt };
+    if (value.format === 'pob-config-preset/v2' && (typeof value.config.enemyLevel !== 'number' || !Number.isFinite(value.config.enemyLevel) || value.config.enemyLevel < 1)) throw new Error('Invalid preset enemy level');
+    return { name, origin: chosen, config: value.config, sourceSnapshotId: value.sourceSnapshotId, sourceIdentity: value.sourceIdentity, savedAt: value.savedAt, enemyLevelSetting: value.format === 'pob-config-preset/v2' ? value.enemyLevelSetting : null };
   }
   async save(preset: ConfigPreset, overwrite: boolean): Promise<void> {
-    if (!validPresetName(preset.name) || preset.origin !== 'versioned' || typeof overwrite !== 'boolean' || !preset.sourceSnapshotId || !/^[a-f0-9]{64}$/.test(preset.sourceSnapshotId) || !validIdentity(preset.sourceIdentity) || !preset.savedAt || !Number.isFinite(Date.parse(preset.savedAt))) throw new Error('Invalid versioned preset');
+    if (!validPresetName(preset.name) || preset.origin !== 'versioned' || typeof overwrite !== 'boolean' || !preset.sourceSnapshotId || !/^[a-f0-9]{64}$/.test(preset.sourceSnapshotId) || !validIdentity(preset.sourceIdentity) || !preset.savedAt || !Number.isFinite(Date.parse(preset.savedAt)) || !validEnemyLevelSetting(preset.enemyLevelSetting)) throw new Error('Invalid versioned preset');
     validatePresetConfig(preset.config);
+    if (typeof preset.config.enemyLevel !== 'number' || !Number.isFinite(preset.config.enemyLevel) || preset.config.enemyLevel < 1) throw new Error('Invalid preset enemy level');
     const root = await this.root();
     try { await fs.mkdir(path.join(root, dirs.versioned), { mode: 0o700 }); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
     const directory = await this.presetDir(root, 'versioned');
@@ -66,6 +68,6 @@ export class LocalConfigPresetStore implements ConfigPresetStore {
     const destination = path.join(directory, `${preset.name}.json`);
     try { if (!(await fs.lstat(destination)).isFile()) throw new Error('Preset destination is not a regular file'); }
     catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
-    await atomicWriteFile(destination, JSON.stringify({ format: 'pob-config-preset/v1', sourceSnapshotId: preset.sourceSnapshotId, sourceIdentity: preset.sourceIdentity, savedAt: preset.savedAt, config: preset.config }), overwrite);
+    await atomicWriteFile(destination, JSON.stringify({ format: 'pob-config-preset/v2', sourceSnapshotId: preset.sourceSnapshotId, sourceIdentity: preset.sourceIdentity, savedAt: preset.savedAt, enemyLevelSetting: preset.enemyLevelSetting, config: preset.config }), overwrite);
   }
 }

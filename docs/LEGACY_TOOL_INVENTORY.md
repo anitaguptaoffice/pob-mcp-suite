@@ -18,7 +18,7 @@ Generated from registered schema groups in the current build. Most entries are p
 
 - `get_config` — target: calculation and configuration; replacement: snapshot evaluation or typed configuration change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
 - `set_config` — target: calculation and configuration; replacement: snapshot evaluation or typed configuration change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
-- `set_enemy_stats` — target: calculation and configuration; replacement: snapshot evaluation or typed configuration change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `set_enemy_stats` — target: calculation and configuration; replacement: `derive_snapshot_enemy_config` with verified inputs and optional separate damage comparison; status: partially migrated (legacy callers remain); skill references: no exact name found in packaged skill Markdown.
 - `save_config_preset` — target: calculation and configuration; replacement: `save_snapshot_config_preset` in a versioned store; status: partially migrated (legacy callers remain); skill references: no exact name found in packaged skill Markdown.
 - `load_config_preset` — target: calculation and configuration; replacement: `apply_snapshot_config_preset` creating a verified child; status: partially migrated (legacy callers remain); skill references: no exact name found in packaged skill Markdown.
 - `list_config_presets` — target: calculation and configuration; replacement: `list_local_config_presets` and `read_local_config_preset`; status: partially migrated (legacy callers remain); skill references: no exact name found in packaged skill Markdown.

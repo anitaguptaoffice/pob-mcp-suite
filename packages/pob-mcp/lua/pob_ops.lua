@@ -626,6 +626,20 @@ function M.get_config()
   return cfg
 end
 
+-- Unlike the effective enemyLevel exposed by get_config, this preserves
+-- whether the active config set has an explicit override.
+function M.get_enemy_level_setting()
+  if not build or not build.configTab then return nil, 'build/config not initialized' end
+  local tab = build.configTab
+  local set = tab.configSets and tab.configSets[tab.activeConfigSetId]
+  local input = set and set.input or tab.input
+  if type(input) ~= 'table' then return nil, 'active config input unavailable' end
+  local value = input.enemyLevel
+  if value == nil or value == 0 then return { mode = 'automatic' } end
+  if type(value) == 'number' and value == value and value ~= math.huge and value ~= -math.huge and value == math.floor(value) and value > 0 then return { mode = 'explicit', value = value } end
+  return nil, 'invalid enemy level input'
+end
+
 -- Dropdown options store a val that often differs from what the UI shows: the
 -- bandit quest stores "None" but reads "Kill all". Expose the labels so callers
 -- can display what PoB displays instead of the raw stored value.
@@ -666,7 +680,8 @@ function M.set_config(params)
       local alias = LEGACY_BOSS_ALIASES[value:lower()]
       if alias then value = alias end
     end
-    -- enemyLevel lives on the tab itself, not in the input table.
+    -- enemyLevel is computed from the active config-set input. Writing only
+    -- configTab.enemyLevel is overwritten by BuildModList and not serialized.
     if key == 'customMods' and type(value) == 'string' and build.configTab.configSets then
       local set = build.configTab.configSets[build.configTab.activeConfigSetId]
       if not set then
@@ -690,12 +705,13 @@ function M.set_config(params)
       end
     elseif key == 'enemyLevel' then
       local n = tonumber(value)
-      if n then
-        build.configTab.enemyLevel = n
+      local maximum = data and data.misc and tonumber(data.misc.MaxEnemyLevel)
+      if n and n == n and n ~= math.huge and n ~= -math.huge and n == math.floor(n) and n >= 0 and (not maximum or n <= maximum) then
+        input.enemyLevel = n
         applied[key] = n
         changed = true
       else
-        rejected[key] = 'expected number'
+        rejected[key] = 'expected a non-negative integer within PoB enemy level bounds'
       end
     elseif index[key] then
       local coerced, err = coerceConfigValue(index[key], value)

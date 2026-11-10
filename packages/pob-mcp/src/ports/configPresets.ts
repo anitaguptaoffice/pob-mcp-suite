@@ -1,5 +1,6 @@
 export type ConfigValues = Record<string, string | number | boolean>;
 export type PresetOrigin = 'versioned' | 'legacy';
+export type EnemyLevelSetting = { mode: 'automatic' } | { mode: 'explicit'; value: number };
 export interface ConfigPreset {
   name: string;
   origin: PresetOrigin;
@@ -7,6 +8,7 @@ export interface ConfigPreset {
   sourceSnapshotId: string | null;
   sourceIdentity: Record<string, string | null> | null;
   savedAt: string | null;
+  enemyLevelSetting: EnemyLevelSetting | null;
 }
 export interface ConfigPresetStore {
   list(): Promise<Array<{ name: string; origins: PresetOrigin[] }>>;

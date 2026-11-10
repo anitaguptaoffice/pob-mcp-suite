@@ -7,6 +7,8 @@ import fs from "fs/promises";
 import { randomUUID } from "crypto";
 import { atomicWriteFile } from "./utils/atomicWrite.js";
 import { resolvePoBLayout } from "./utils/pobLayout.js";
+import type { EnemyLevelSetting } from './ports/configPresets.js';
+import { validEnemyLevelSetting } from './domain/configPreset.js';
 
 /** Lua bridge request envelope */
 type LuaRequest = { action: string; params?: Record<string, unknown> };
@@ -798,6 +800,13 @@ async setTree(params: {
     const res = await this.send({ action: "get_config" });
     if (!res.ok) throw new Error(res.error || "get_config failed");
     return res.config as ConfigValues;
+  }
+
+  async getEnemyLevelSetting(): Promise<EnemyLevelSetting> {
+    const res = await this.send({ action: 'get_config' });
+    if (!res.ok) throw new Error(res.error || 'get_config failed');
+    if (!validEnemyLevelSetting(res.enemyLevelSetting)) throw new Error('PoB returned an invalid enemy level setting');
+    return res.enemyLevelSetting;
   }
 
   /** Human-facing labels for dropdown config values (bandit "None" -> "Kill all"). */

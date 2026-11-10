@@ -46,8 +46,15 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   same name; legacy presets lack source-version provenance. Apply with
   `apply_snapshot_config_preset`, which verifies all saved values and preserves
   target settings absent from the preset before publishing a child snapshot.
+  Current presets also preserve automatic versus explicit enemy-level mode;
+  an automatic level can resolve differently for the target build. Older preset
+  formats did not record this mode and report it as unknown.
   PoB-rejected changed values fail the whole operation; an unchanged obsolete
   value can remain in place. Inspect and evaluate the resulting child.
+- For explicit enemy level, resistance, armour and evasion changes, use
+  `derive_snapshot_enemy_config`; only submitted values are changed. Its optional
+  comparison reports separate player and minion metrics. An unavailable metric
+  or failed comparison is not zero; the derived snapshot ID remains available.
 - To save a selection, use `foundation_derive_selection` with a nonempty
   `selection`: `mainSocketGroup`, `mainActiveSkill`, and `skillPart` are separate
   one-based PoB indices. Inspect and evaluate the child to confirm the result.
