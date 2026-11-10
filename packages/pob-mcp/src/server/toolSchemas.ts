@@ -1512,7 +1512,7 @@ export function getExportToolSchemas(): ToolSchema[] {
     },
     {
       name: "export_build_summary",
-      description: "Generate a clean markdown summary of the loaded build suitable for sharing on Reddit, Discord, or as build documentation",
+      description: "Generate a Simplified Chinese Markdown report of the loaded build, including PoB stats, skills, equipment, tree and raw configuration. Original game names and configuration keys are retained; missing data is explicitly marked.",
       inputSchema: {
         type: "object",
         properties: {},
