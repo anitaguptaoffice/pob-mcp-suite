@@ -5,7 +5,6 @@ import fs from "fs/promises";
 import { wrapHandler } from "../utils/errorHandling.js";
 import { atomicWriteFile } from "../utils/atomicWrite.js";
 import { resolveBuildFile } from "../utils/pathSanitizer.js";
-import { BOOTSTRAP_BUILD_NAME } from "../server/bootstrapBuild.js";
 import type { ItemSetEntry, PoBLuaApiClient, SpecEntry, StatsExport } from "../pobLuaBridge.js";
 import { toFiniteNumber } from "../pobLuaBridge.js";
 export type { HandlerContext } from "../utils/contextBuilder.js";
@@ -50,7 +49,7 @@ export async function handleAnalyzeBuild(context: HandlerContext, buildName: str
         // Strip .xml suffix for comparison since PoB may omit it
         const requested = buildName.replace(/\.xml$/i, '');
         const loaded    = loadedName.replace(/\.xml$/i, '');
-        if (loaded && loaded !== BOOTSTRAP_BUILD_NAME) {
+        if (loaded) {
           const sourcePath = luaClient.getLoadedFilePath?.();
           const sameBuild = sourcePath
             ? sourcePath === resolveBuildFile(buildName, context.pobDirectory)
@@ -63,8 +62,15 @@ export async function handleAnalyzeBuild(context: HandlerContext, buildName: str
             // Same build already loaded — preserve current spec/item set selection
             shouldLoad = false;
           }
+        } else {
+          shouldLoad = false;
+          luaSkipped = true;
         }
-      } catch (e) { noteIgnoredError("no build loaded yet — safe to load", e); }
+      } catch (e) {
+        noteIgnoredError("cannot verify current build — preserve bridge state", e);
+        shouldLoad = false;
+        luaSkipped = true;
+      }
 
       if (shouldLoad) {
         const buildPath = resolveBuildFile(buildName, context.pobDirectory);
@@ -118,7 +124,7 @@ export async function handleAnalyzeBuild(context: HandlerContext, buildName: str
 
   if (luaSkipped) {
     summaryParts.push(
-      "\n⚠️  Note: A different build is loaded in the Lua bridge. Live stats and selections were skipped; this analysis uses the requested saved file.\n" +
+      "\n⚠️  Note: The current bridge state cannot safely be used for this build. Live stats and selections were skipped; this analysis uses the requested saved file.\n" +
       "    Use lua_load_build to load this build for accurate live stats."
     );
   }
@@ -273,42 +279,20 @@ export async function handleCompareBuilds(context: HandlerContext, build1Name: s
   let luaOk = false;
   let r1: Awaited<ReturnType<typeof loadEndgame>> | null = null;
   let r2: Awaited<ReturnType<typeof loadEndgame>> | null = null;
-  let luaClient: PoBLuaApiClient | null = null;
-  let comparisonWarning = '';
+  let comparisonWarning = '独立计算引擎不可用；以下是保存的 XML 数据，可能不是当前实时计算结果。';
+  let isolated: Awaited<ReturnType<NonNullable<HandlerContext['createComparisonClient']>>> | undefined;
   try {
-    await context.ensureLuaClient();
-    luaClient = context.getLuaClient();
-  } catch (e) { noteIgnoredError("Lua unavailable — fall through to XML", e); }
-
-  if (luaClient) {
-    // Never replace a *different* in-memory build (data-loss risk) — comparing
-    // loads both builds into the bridge, which would clobber unsaved work.
-    let loadedName = '';
-    try {
-      const info = await luaClient.getBuildInfo();
-      loadedName = info?.name ?? '';
-    } catch (e) {
-      noteIgnoredError("cannot verify current bridge state", e);
-      comparisonWarning = '无法确认当前内存构筑状态，已保留现场并使用保存的 XML 数据比较。';
-      luaClient = null;
+    isolated = await context.createComparisonClient?.();
+    if (isolated) {
+      r1 = await loadEndgame(isolated.client, build1Name);
+      r2 = await loadEndgame(isolated.client, build2Name);
+      luaOk = true;
     }
-    // The bootstrap build is not user work — a freshly started bridge always holds
-    // it, so treating it as unsaved changes would block compare_builds outright.
-    if (luaClient && !loadedName) {
-      comparisonWarning = '无法确认当前内存构筑状态，已保留现场并使用保存的 XML 数据比较。';
-      luaClient = null;
-    }
-    if (luaClient && loadedName !== BOOTSTRAP_BUILD_NAME) {
-      comparisonWarning = `内存中已加载构筑 "${loadedName}"，可能包含未保存修改；已保留现场，使用保存的 XML 数据比较。`;
-      luaClient = null;
-    }
-
-    if (luaClient) {
-      try {
-        r1 = await loadEndgame(luaClient, build1Name);
-        r2 = await loadEndgame(luaClient, build2Name);
-        luaOk = true;
-      } catch (e) { noteIgnoredError("fall through to XML", e); }
+  } catch (e) {
+    noteIgnoredError("isolated comparison unavailable — fall through to XML", e);
+  } finally {
+    if (isolated) {
+      try { await isolated.close(); } catch (e) { noteIgnoredError("close isolated comparison bridge", e); }
     }
   }
 
@@ -375,7 +359,7 @@ export async function handleCompareBuilds(context: HandlerContext, build1Name: s
     lines.push(row('Chaos Resist %', s1.ChaosResist, s2.ChaosResist));
     lines.push('');
 
-    lines.push(`Note: "${r2.displayName}" is now active in the Lua bridge.`);
+    lines.push("Note: Comparison ran in an isolated engine; the current build was preserved.");
 
     return { content: [{ type: 'text' as const, text: lines.join('\n') }] };
   }
@@ -405,7 +389,7 @@ export async function handleCompareBuilds(context: HandlerContext, build1Name: s
     const map2 = new Map(arr2.map(s => [s.stat, s.value]));
     for (const { stat, value } of arr1) {
       const v2 = map2.get(stat);
-      if (v2) compLines.push(`${stat}: ${value} vs ${v2}`);
+      if (v2 !== undefined && v2 !== null) compLines.push(`${stat}: ${value} vs ${v2}`);
     }
   }
 

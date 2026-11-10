@@ -53,6 +53,10 @@ try {
   await call('set_character_level', { level: 89 });
   const changed = await call('lua_get_build_snapshot');
   if (!changed.includes('Level 89')) throw new Error(`snapshot did not reflect level edit: ${changed}`);
+  const comparison = await call('compare_builds', { build1: 'example.xml', build2: 'example.xml' });
+  if (!comparison.includes('Build Comparison (Live Stats)') || !comparison.includes('isolated engine')) throw new Error(`isolated live comparison failed: ${comparison}`);
+  const afterComparison = await call('lua_get_build_snapshot');
+  if (!afterComparison.includes('Level 89')) throw new Error(`comparison overwrote unsaved changes: ${afterComparison}`);
   await call('set_character_level', { level: 90 });
   const restored = await call('lua_get_build_snapshot');
   if (!restored.includes('Level 90')) throw new Error(`snapshot did not reflect level restoration: ${restored}`);

@@ -35,11 +35,11 @@ describe('analyze_build state isolation', () => {
     return { client, generateBuildSummary, validateBuild, context: context as unknown as HandlerContext };
   }
 
-  it('loads the requested file when the bridge only holds the bootstrap', async () => {
+  it('preserves a bootstrap-named build that may have been edited', async () => {
     const f = fixture(BOOTSTRAP_BUILD_NAME);
     await handleAnalyzeBuild(f.context, 'target');
-    expect(f.client.loadBuildXml).toHaveBeenCalledWith('<PathOfBuilding/>', 'target', path.join(directory, 'target.xml'));
-    expect(f.client.getStats).toHaveBeenCalled();
+    expect(f.client.loadBuildXml).not.toHaveBeenCalled();
+    expect(f.client.getStats).not.toHaveBeenCalled();
   });
 
   it('does not borrow any live stats or selections from a different source', async () => {

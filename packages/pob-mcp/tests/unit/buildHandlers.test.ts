@@ -13,7 +13,6 @@ import {
   handleGetBuildStats,
   type HandlerContext,
 } from '../../src/handlers/buildHandlers.js';
-import { BOOTSTRAP_BUILD_NAME } from '../../src/server/bootstrapBuild.js';
 import { BuildService } from '../../src/services/buildService.js';
 import { TreeService } from '../../src/services/treeService.js';
 import type { PoBBuild } from '../../src/types.js';
@@ -84,6 +83,26 @@ describe('BuildHandlers', () => {
         level: '90',
       },
     };
+
+    it.each(['Init Test', ''])('does not overwrite a potentially edited current build: %s', async (name) => {
+      mockBuildService.readBuild.mockResolvedValue(mockBuild);
+      mockBuildService.generateBuildSummary.mockReturnValue('Build Summary');
+      mockTreeService.analyzePassiveTree.mockResolvedValue(null);
+      const loadBuildXml = jest.fn();
+      context.getLuaClient = () => ({ getBuildInfo: async () => ({ name }), loadBuildXml }) as unknown as ReturnType<typeof context.getLuaClient>;
+      await handleAnalyzeBuild(context, 'test.xml');
+      expect(loadBuildXml).not.toHaveBeenCalled();
+    });
+
+    it('preserves the current build when its state cannot be read', async () => {
+      mockBuildService.readBuild.mockResolvedValue(mockBuild);
+      mockBuildService.generateBuildSummary.mockReturnValue('Build Summary');
+      mockTreeService.analyzePassiveTree.mockResolvedValue(null);
+      const loadBuildXml = jest.fn();
+      context.getLuaClient = () => ({ getBuildInfo: async () => { throw new Error('unavailable'); }, loadBuildXml }) as unknown as ReturnType<typeof context.getLuaClient>;
+      await handleAnalyzeBuild(context, 'test.xml');
+      expect(loadBuildXml).not.toHaveBeenCalled();
+    });
 
     it('should return build summary with tree analysis', async () => {
       mockBuildService.readBuild.mockResolvedValue(mockBuild);
@@ -308,37 +327,25 @@ describe('BuildHandlers', () => {
       expect(result.content[0].text).toContain('TotalDPS: 1000000 vs 800000');
     });
 
-    it('should compare when the bridge only holds the bootstrap build', async () => {
-      // A freshly started bridge always holds the bootstrap build. Treating it as
-      // unsaved user work made compare_builds fail until a build was loaded first.
+    it.each(['Init Test', 'My Unsaved League Starter', 'build1'])(
+      'preserves the current build %s when the isolated engine is unavailable', async (name) => {
+        mockBuildService.readBuild.mockResolvedValueOnce(build1).mockResolvedValueOnce(build2);
+        const loadBuildXml = jest.fn();
+        context.getLuaClient = () => ({ getBuildInfo: async () => ({ name }), loadBuildXml }) as unknown as ReturnType<typeof context.getLuaClient>;
+        context.createComparisonClient = async () => { throw new Error('unavailable'); };
+        const result = await handleCompareBuilds(context, 'build1.xml', 'build2.xml');
+        expect(loadBuildXml).not.toHaveBeenCalled();
+        expect(result.content[0].text).toContain('XML / saved stats');
+        expect(result.content[0].text).toContain('可能不是当前实时计算结果');
+      },
+    );
+
+    it('closes the isolated engine after a failed comparison', async () => {
       mockBuildService.readBuild.mockResolvedValueOnce(build1).mockResolvedValueOnce(build2);
-      context.getLuaClient = () => ({
-        getBuildInfo: async () => ({ name: BOOTSTRAP_BUILD_NAME }),
-      }) as unknown as ReturnType<typeof context.getLuaClient>;
-
+      const close = jest.fn(async () => undefined);
+      context.createComparisonClient = async () => ({ client: { loadBuildXml: async () => { throw new Error('failed'); } } as any, close });
       const result = await handleCompareBuilds(context, 'build1.xml', 'build2.xml');
-
-      expect(result.content[0].text).toContain('Build Comparison');
-    });
-
-    it('preserves a different loaded build and compares saved XML instead', async () => {
-      mockBuildService.readBuild.mockResolvedValueOnce(build1).mockResolvedValueOnce(build2);
-      context.getLuaClient = () => ({
-        getBuildInfo: async () => ({ name: 'My Unsaved League Starter' }),
-      }) as unknown as ReturnType<typeof context.getLuaClient>;
-
-      const result = await handleCompareBuilds(context, 'build1.xml', 'build2.xml');
-      expect(result.content[0].text).toContain('My Unsaved League Starter');
-      expect(result.content[0].text).toContain('XML / saved stats');
-    });
-
-    it('preserves a same-name loaded build that may have unsaved edits', async () => {
-      mockBuildService.readBuild.mockResolvedValueOnce(build1).mockResolvedValueOnce(build2);
-      const loadBuildXml = jest.fn();
-      context.getLuaClient = () => ({ getBuildInfo: async () => ({ name: 'build1' }), loadBuildXml }) as unknown as ReturnType<typeof context.getLuaClient>;
-      const result = await handleCompareBuilds(context, 'build1.xml', 'build2.xml');
-      expect(loadBuildXml).not.toHaveBeenCalled();
-      expect(result.content[0].text).toContain('未保存修改');
+      expect(close).toHaveBeenCalledTimes(1);
       expect(result.content[0].text).toContain('XML / saved stats');
     });
 
@@ -348,8 +355,7 @@ describe('BuildHandlers', () => {
       let requestedFields: string[] | undefined;
       const statsFor = (dps: number) => ({ Life: 4000, CombinedDPS: dps, CritChance: 50 });
       let call = 0;
-      context.getLuaClient = () => ({
-        getBuildInfo: async () => ({ name: BOOTSTRAP_BUILD_NAME }),
+      context.createComparisonClient = async () => ({ close: async () => undefined, client: ({
         loadBuildXml: async () => ({ ok: true }),
         listSpecs: async () => ({ specs: [] }),
         listItemSets: async () => ({ itemSets: [] }),
@@ -357,7 +363,7 @@ describe('BuildHandlers', () => {
           requestedFields = fields;
           return statsFor(call++ === 0 ? 1_500_000 : 900_000);
         },
-      }) as unknown as ReturnType<typeof context.getLuaClient>;
+      }) as unknown as NonNullable<ReturnType<typeof context.getLuaClient>> });
 
       const result = await handleCompareBuilds(context, 'build1.xml', 'build2.xml');
 
@@ -369,11 +375,11 @@ describe('BuildHandlers', () => {
 
     it('compares poison-inclusive minion damage separately and does not rank missing values', async () => {
       let call = 0;
-      context.getLuaClient = () => ({
-        getBuildInfo: async () => ({ name: BOOTSTRAP_BUILD_NAME }), loadBuildXml: async () => ({}),
+      context.createComparisonClient = async () => ({ close: async () => undefined, client: ({
+        loadBuildXml: async () => ({}),
         listSpecs: async () => ({ specs: [] }), listItemSets: async () => ({ itemSets: [] }),
         getStats: async () => call++ === 0 ? { MinionCombinedDPS: 300, MinionTotalDPS: 200, Life: 0 } : { MinionCombinedDPS: 500, MinionTotalDPS: 200 },
-      }) as unknown as ReturnType<typeof context.getLuaClient>;
+      }) as unknown as NonNullable<ReturnType<typeof context.getLuaClient>> });
       const text = (await handleCompareBuilds(context, 'build1.xml', 'build2.xml')).content[0].text;
       expect(text).toMatch(/MinionCombinedDPS\s+300\s+vs\s+500\s+▲2/);
       expect(text).toMatch(/MinionTotalDPS\s+200\s+vs\s+200\s+=/);

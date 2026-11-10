@@ -157,6 +157,18 @@ class PoBMCPServer {
       getLuaClient: () => this.luaClientManager.getClient(),
       ensureLuaClient: () => this.luaClientManager.ensureClient(),
       stopLuaClient: () => this.luaClientManager.stopClient(),
+      createComparisonClient: async () => {
+        const manager = new LuaClientManager(luaEnabled);
+        try {
+          await manager.ensureClient();
+          const client = manager.getClient();
+          if (!client) throw new Error('Comparison bridge failed to start');
+          return { client, close: () => manager.stopClient() };
+        } catch (error) {
+          await manager.stopClient();
+          throw error;
+        }
+      },
     });
 
     if (luaEnabled) {
