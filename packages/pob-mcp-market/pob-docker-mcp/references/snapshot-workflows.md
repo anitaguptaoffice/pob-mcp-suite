@@ -33,8 +33,10 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   candidates. `foundation_derive_item` equips an explicit slot. Config and
   character level have dedicated derivations. `foundation_derive_gem` changes
   an existing gem's level, quality or enabled state using explicit one-based
-  group and gem indices; its existing quality type is retained. Gem creation,
-  removal and quality-type changes are not yet available in this mode.
+  group and gem indices; its existing quality type is retained. Changing a
+  quality type is not yet available in this mode. Use
+  `foundation_derive_gem_list` to add a uniquely resolved gem or remove an
+  existing one by index; it does not verify socket legality or game availability.
 - Use `compare_snapshot_trees` for allocated node and mastery differences between
   two snapshots with the same known tree version. It does not prove legality,
   compute point cost, or measure the resulting damage.

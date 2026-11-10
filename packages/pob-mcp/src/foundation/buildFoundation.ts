@@ -29,6 +29,8 @@ export interface BuildEngine {
   setGemLevel(params: { groupIndex: number; gemIndex: number; level: number }): Promise<void>;
   setGemQuality(params: { groupIndex: number; gemIndex: number; quality: number; qualityId?: string }): Promise<void>;
   setGemEnabled(params: { groupIndex: number; gemIndex: number; enabled: boolean }): Promise<void>;
+  addGem(params: { groupIndex: number; gemName: string; level?: number; quality?: number; enabled?: boolean; count?: number; enableGlobal1?: boolean; enableGlobal2?: boolean; insertIndex?: number }): Promise<{ gemIndex: number; name?: string }>;
+  removeGem(params: { groupIndex: number; gemIndex: number }): Promise<void>;
   getCompatibleSupports(params: { groupIndex?: number; query?: string; limit?: number; includeExceptional?: boolean }): Promise<{
     groupIndex: number; skillName?: string; candidates: Array<{ id: string; name: string; exceptional: boolean; alreadySocketed: boolean }>;
     total: number; failed: number;
@@ -302,7 +304,7 @@ export class BuildFoundation {
       type Group = { index?: number; gems?: Gem[] };
       const groups = (value: unknown): Group[] => {
         const list = (value as { groups?: Group[] })?.groups;
-        if (!Array.isArray(list) || list.some(group => !Array.isArray(group.gems))) throw new Error('PoB returned invalid skill groups');
+        if (!Array.isArray(list) || list.some((group, i) => group.index !== i + 1 || !Array.isArray(group.gems) || group.gems.some((gem, j) => gem.index !== j + 1))) throw new Error('PoB returned invalid skill groups');
         return list;
       };
       const original = groups(before.skills);
@@ -323,6 +325,55 @@ export class BuildFoundation {
         return copy;
       }) }));
       if (!isDeepStrictEqual(canonical(original), canonical(updated))) throw new Error('Gem change modified unrelated skill or gem data');
+    }, trial);
+  }
+
+  async deriveGemList(id: string, groupIndex: number, operation: { type: 'add'; gemName: string; level?: number; quality?: number; enabled?: boolean; count?: number; enableGlobal1?: boolean; enableGlobal2?: boolean; insertIndex?: number } | { type: 'remove'; gemIndex: number }, trial = false): Promise<SnapshotRecord> {
+    if (!Number.isSafeInteger(groupIndex) || groupIndex < 1 || !operation || typeof operation !== 'object' || Array.isArray(operation)) throw new Error('Invalid gem operation');
+    const validInt = (value: unknown, min: number, max: number) => typeof value === 'number' && Number.isSafeInteger(value) && value >= min && value <= max;
+    if (operation.type === 'add') {
+      if (Object.keys(operation).some(key => !['type', 'gemName', 'level', 'quality', 'enabled', 'count', 'enableGlobal1', 'enableGlobal2', 'insertIndex'].includes(key)) ||
+          typeof operation.gemName !== 'string' || !operation.gemName.trim() || operation.gemName.length > 200 ||
+          (operation.level !== undefined && !validInt(operation.level, 1, 40)) || (operation.quality !== undefined && !validInt(operation.quality, 0, 99)) ||
+          (operation.count !== undefined && !validInt(operation.count, 1, 10000)) || (operation.insertIndex !== undefined && !validInt(operation.insertIndex, 1, 10000)) ||
+          [operation.enabled, operation.enableGlobal1, operation.enableGlobal2].some(value => value !== undefined && typeof value !== 'boolean') || Object.values(operation).some(value => value === undefined)) throw new Error('Invalid gem addition');
+    } else if (operation.type !== 'remove' || Object.keys(operation).some(key => !['type', 'gemIndex'].includes(key)) || !validInt(operation.gemIndex, 1, 10000)) throw new Error('Invalid gem removal');
+    return this.derive(id, `derived:gem-${operation.type}`, async engine => {
+      const read = async () => normalizeObservation({ tree: await engine.getTree(), items: await engine.getItems(), config: await engine.getConfig(), skills: await engine.getSkills() });
+      const before = await read();
+      type Gem = Record<string, unknown> & { index?: number };
+      type Group = Record<string, unknown> & { index?: number; gems?: Gem[] };
+      const readGroups = (skills: unknown): Group[] => {
+        const list = (skills as { groups?: Group[] })?.groups;
+        if (!Array.isArray(list) || list.some((group, i) => group.index !== i + 1 || !Array.isArray(group.gems) || group.gems.some((gem, j) => gem.index !== j + 1))) throw new Error('PoB returned invalid skill groups');
+        return list;
+      };
+      const original = readGroups(before.skills), oldGroup = original.find(group => group.index === groupIndex);
+      if (!oldGroup?.gems) throw new Error('Skill group not found');
+      let index: number;
+      let addedName: string | undefined;
+      if (operation.type === 'add') {
+        index = operation.insertIndex ?? oldGroup.gems.length + 1;
+        if (index > oldGroup.gems.length + 1) throw new Error('Invalid gem insertion position');
+        const { type: _type, ...params } = operation;
+        const added = await engine.addGem({ ...params, groupIndex });
+        if (added.gemIndex !== index || typeof added.name !== 'string' || !added.name) throw new Error('PoB did not confirm the inserted gem');
+        addedName = added.name;
+      } else {
+        index = operation.gemIndex;
+        if (!oldGroup.gems.find(gem => gem.index === index)) throw new Error('Gem not found in requested group');
+        await engine.removeGem({ groupIndex, gemIndex: index });
+      }
+      const after = await read();
+      for (const section of ['tree', 'items', 'config'] as const) if (!isDeepStrictEqual(before[section], after[section])) throw new Error(`Gem operation modified unrelated ${section}`);
+      for (const key of ['mainSocketGroup', 'calcsSkillNumber']) if ((before.skills as Record<string, unknown>)[key] !== (after.skills as Record<string, unknown>)[key]) throw new Error(`Gem operation modified unrelated ${key}`);
+      const updated = readGroups(after.skills), newGroup = updated.find(group => group.index === groupIndex);
+      const newGem = newGroup?.gems?.find(gem => gem.index === index);
+      if (operation.type === 'add' && (!newGem || newGem.name !== addedName || newGem.level !== (operation.level ?? 20) || newGem.quality !== (operation.quality ?? 0) || newGem.enabled !== (operation.enabled ?? true) || newGem.count !== (operation.count ?? 1) || newGem.enableGlobal1 !== (operation.enableGlobal1 ?? true) || newGem.enableGlobal2 !== (operation.enableGlobal2 ?? false) || newGem.qualityId !== 'Default')) throw new Error('PoB did not confirm the requested gem properties');
+      const canonical = (list: Group[], omit: boolean) => list.map(group => ({ ...group, ...(group.index === groupIndex ? { skills: undefined, selectedSkillPart: undefined } : {}), gems: group.gems!.filter(gem => !(omit && group.index === groupIndex && gem.index === index)).map(gem => {
+        const copy = { ...gem }; delete copy.index; delete copy.appliedToSelectedSkill; return copy;
+      }) }));
+      if (!isDeepStrictEqual(canonical(original, operation.type === 'remove'), canonical(updated, operation.type === 'add'))) throw new Error('Gem operation modified unrelated skill or gem data');
     }, trial);
   }
 

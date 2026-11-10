@@ -42,6 +42,16 @@ try {
   assert.equal(await foundation.exportBuild(parent.id), xml);
   await assert.rejects(foundation.deriveGem(parent.id, 1, 99, { level: 2 }), /Gem not found/);
   await assert.rejects(foundation.deriveGem(parent.id, 1, 2, { quality: 100 }), /Invalid gem change/);
+  const added = await foundation.deriveGemList(parent.id, 1, { type: 'add', gemName: 'Fireball', level: 12, quality: 5, insertIndex: 2 });
+  const withAdded = (await foundation.inspect(added.id, ['skills'])).data.skills;
+  assert.equal(withAdded.groups[0].gems.length, 3);
+  assert.equal(withAdded.groups[0].gems[1].name, 'Fireball');
+  assert.equal(withAdded.groups[0].gems[1].level, 12);
+  assert.equal(withAdded.groups[0].gems[1].quality, 5);
+  const removed = await foundation.deriveGemList(added.id, 1, { type: 'remove', gemIndex: 2 });
+  assert.deepEqual((await foundation.inspect(removed.id, ['skills'])).data.skills, before.data.skills);
+  await assert.rejects(foundation.deriveGemList(parent.id, 1, { type: 'add', gemName: 'No Such Gem Fixture' }), /unrecognized gem/);
+  await assert.rejects(foundation.deriveGemList(parent.id, 1, { type: 'remove', gemIndex: 99 }), /Gem not found/);
   const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
   mcp.child.stderr.on('data', () => {});
   const exited = once(mcp.child, 'exit');
@@ -56,6 +66,9 @@ try {
     const inspected = await mcp.request('tools/call', { name: 'foundation_inspect', arguments: { snapshot_id: trial.id, sections: ['skills'] } });
     assert.ok(!inspected.error && !inspected.result?.isError, JSON.stringify(inspected));
     assert.equal(JSON.parse(inspected.result.content[0].text).data.skills.groups[0].gems[1].quality, 12);
+    const addResult = await mcp.request('tools/call', { name: 'foundation_derive_gem_list', arguments: { snapshot_id: parent.id, group_index: 1, operation: { type: 'add', gemName: 'Fireball', insertIndex: 2 }, trial: true } });
+    assert.ok(!addResult.error && !addResult.result?.isError, JSON.stringify(addResult));
+    assert.equal(JSON.parse(addResult.result.content[0].text).retention.kind, 'trial');
     mcp.child.stdin.end(); assert.equal((await exited)[0], 0);
   } finally { if (mcp.child.exitCode === null && mcp.child.signalCode === null) { mcp.child.kill('SIGTERM'); await exited; } }
   console.log('foundation gem mutation passed');
