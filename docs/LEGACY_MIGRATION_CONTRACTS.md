@@ -112,7 +112,7 @@ acceptance work to perform during migration, not claims of completed tests.
 | `find_optimal_links` | Skill-group inspection; optimizer would be a separate future feature. | Do not claim optimization or budget coverage where unavailable. |
 | `gem_upgrade_path` | Enabled-gem inspection feature. | Report unknown cost, damage and corruption odds instead of fabricated advice. |
 | `analyze_build` | Snapshot build-analysis workflow. | Extract gear, skills and tree from the requested version; label heuristic conclusions. |
-| `compare_builds` | Compare two explicit snapshot IDs. | Keep each build's configuration and data version visible; report incomparable or missing metrics. |
+| `compare_builds` | `compare_snapshot_builds` compares explicit snapshot IDs using each snapshot's saved skill and configuration, with tree versions and engine identities. | `snapshotBuildComparison.test.ts` covers changed configuration, tree versions, missing metrics, identity mismatches and unknown identities; `foundation-mcp.mjs` compares real PoB calculations. Legacy file-name callers and skill workflows still require migration. |
 | `refresh_tree_data` | Versioned passive-data adapter refresh is needed. | Invalidate only the requested version and surface failures rather than returning stale data as fresh. |
 | `compare_trees` | `compare_snapshot_trees` compares two explicit snapshot IDs; legacy file callers require migration. | `snapshotTreeComparison.test.ts` verifies mastery changes, missing data and version rejection; `foundation-mcp.mjs` verifies node changes against real PoB. Incompatible or unknown versions are rejected. |
 | `get_nearby_nodes` | Snapshot-bound versioned tree-neighborhood query. | Distance, filter and candidate scope match requested tree. |

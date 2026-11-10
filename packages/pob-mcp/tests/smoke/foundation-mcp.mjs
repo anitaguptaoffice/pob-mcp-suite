@@ -110,6 +110,14 @@ try {
   const derived = await call('foundation_derive_level', { snapshot_id: imported.id, level: 50 });
   const changed = await call('foundation_evaluate', { snapshot_id: derived.id, fields: ['Life'] });
   assert.notEqual(baseline.stats.Life, changed.stats.Life);
+  const comparison = await call('compare_snapshot_builds', { baseline_snapshot_id: imported.id, candidate_snapshot_id: derived.id, fields: ['Life', 'NonexistentMetric'] });
+  assert.equal(comparison.baseline.snapshotId, imported.id);
+  assert.equal(comparison.candidate.snapshotId, derived.id);
+  assert.equal(comparison.metrics.Life.delta, changed.metrics.Life.value - baseline.metrics.Life.value);
+  assert.equal(comparison.metrics.NonexistentMetric.status, 'unavailable');
+  assert.equal(comparison.comparability.configDifferent, false);
+  assert.equal(comparison.comparability.treeVersionStatus, 'same');
+  assert.deepEqual(comparison.baseline.context.config, baseline.context.config);
   const exported = await call('foundation_export_build', { snapshot_id: derived.id });
   await call('foundation_save_file', { snapshot_id: derived.id, build_name: 'saved' });
   const duplicate = await request('tools/call', { name: 'foundation_save_file', arguments: { snapshot_id: imported.id, build_name: 'saved' } });

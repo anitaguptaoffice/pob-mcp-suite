@@ -92,7 +92,7 @@ Generated from registered schema groups in the current build. Most entries are p
 - `get_currency_rates` — target: market and workflows; replacement: `reference_currency_rates`; status: independent source workflow live-tested, legacy callers require migration; skill references: `skills/pob-economy/SKILL.md`.
 - `find_arbitrage` — target: market and workflows; replacement: `screen_currency_spreads`; status: bounded theoretical screening live-tested, instant-buyout verification and legacy callers remain pending; skill references: `skills/pob-economy/SKILL.md`.
 - `calculate_trading_profit` — target: market and workflows; replacement: `simulate_reference_currency_chain`; status: reference-only workflow live-tested, executable profit and legacy callers remain pending; skill references: `skills/pob-economy/SKILL.md`.
-- `find_timeless_jewel_seeds` — target: timeless jewels; replacement: `search_snapshot_timeless_seeds`, independent snapshot-based feature; status: partially migrated (Elegant Hubris notable seeds and Caspiro fixed keystone only; further native transformation and keystone comparison remains); skill references: no exact name found in packaged skill Markdown.
+- `find_timeless_jewel_seeds` — target: timeless jewels; replacement: `search_snapshot_timeless_seeds`, independent snapshot-based feature; status: partially migrated (Elegant Hubris notable seeds and Caspiro fixed keystone only; further independent native transformation comparison remains); skill references: no exact name found in packaged skill Markdown.
 
 ## getSkillGemToolSchemas
 
@@ -107,7 +107,7 @@ Generated from registered schema groups in the current build. Most entries are p
 ## getToolSchemas
 
 - `analyze_build` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: `references/tool-workflows.md`, `skills/pob-docker-mcp/SKILL.md`.
-- `compare_builds` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: `skills/pob-docker-mcp/SKILL.md`.
+- `compare_builds` — target: analysis and optimization; replacement: `compare_snapshot_builds` with explicit snapshot IDs and saved calculation contexts; status: partially migrated (legacy file-name callers and skills still require migration); skill references: `skills/pob-docker-mcp/SKILL.md`.
 - `list_builds` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: `references/tool-workflows.md`, `references/troubleshooting.md`, `skills/pob-docker-mcp/SKILL.md`.
 - `get_build_stats` — target: calculation and configuration; replacement: snapshot evaluation or typed configuration change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
 - `start_watching` — target: file observation; replacement: optional local file observation adapter; status: not migrated; skill references: no exact name found in packaged skill Markdown.
