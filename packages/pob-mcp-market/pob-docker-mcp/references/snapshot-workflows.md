@@ -11,6 +11,13 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   name and optionally an ascendancy and `tree_version`. Special-season
   ascendancies require the matching tree version; the name is checked against
   that version. The durable root snapshot is published only after reload checks.
+- Discover old named history with `list_legacy_build_history`, checking
+  `complete`, `issues` and the catalog fingerprint when paging. To analyze one
+  entry, call `import_legacy_build_history` with its exact origin, ID and
+  metadata digest. Import does not delete or alter the old XML and metadata.
+  Legacy cached stats are historical values, not recalculated results. Their
+  metadata remains in the old files; moving or deleting those files loses that
+  metadata even though the imported snapshot itself remains durable.
 - Use `foundation_derive_items` to test up to ten explicitly specified items in
   distinct equipment slots together. A failure publishes no partial child;
   inspect the resulting equipment and compare calculations before retaining it.

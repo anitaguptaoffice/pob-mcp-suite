@@ -3,9 +3,13 @@ import type { BuildFoundation, EvaluationOptions } from './buildFoundation.js';
 import type { EvaluationInput, JobRunner } from './jobRunner.js';
 import { snapshotMetadata } from './snapshotStore.js';
 import { readLocalBuild, saveLocalBuild } from './localBuildFile.js';
+import { listLegacyHistory, readLegacyHistory } from './legacyHistory.js';
+import { createHash } from 'node:crypto';
 
 /** Experimental surface; enabled only by explicit configuration. */
 export const foundationSchemas: ToolSchema[] = [
+  { name: 'list_legacy_build_history', description: 'List old local build snapshots and their original metadata without modifying them. Restart pagination if the catalog fingerprint changes.', inputSchema: { type: 'object', additionalProperties: false, properties: { build_name: { type: 'string' }, tag: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 50 }, after: { type: 'integer', minimum: 0 }, catalog_fingerprint: { type: 'string' } }, required: ['build_name'] } },
+  { name: 'import_legacy_build_history', description: 'Import one explicitly selected old history XML as a new durable snapshot; the old XML and metadata remain unchanged.', inputSchema: { type: 'object', additionalProperties: false, properties: { build_name: { type: 'string' }, origin: { type: 'string' }, legacy_id: { type: 'string' }, metadata_digest: { type: 'string' } }, required: ['build_name', 'origin', 'legacy_id', 'metadata_digest'] } },
   { name: 'foundation_derive_items', description: 'Atomically equip 1–10 explicit items in distinct slots and create a verified snapshot. Does not establish in-game item legality.', inputSchema: { type: 'object', additionalProperties: false, properties: { trial: { type: 'boolean' }, snapshot_id: { type: 'string' }, items: { type: 'array', minItems: 1, maxItems: 10, items: { type: 'object', additionalProperties: false, properties: { slot: { type: 'string' }, item_text: { type: 'string' } }, required: ['slot', 'item_text'] } } }, required: ['snapshot_id', 'items'] } },
   { name: 'foundation_create_build', description: 'Create a new PoB build as a durable immutable snapshot after verifying the requested class, ascendancy and tree version survive reload. Special ascendancies require their matching tree version.', inputSchema: { type: 'object', additionalProperties: false, properties: { class_name: { type: 'string' }, ascendancy: { type: 'string' }, tree_version: { type: 'string' } }, required: ['class_name'] } },
   { name: 'foundation_import_build', description: 'Import a PoB XML document into an immutable snapshot.', inputSchema: { type: 'object', properties: { xml: { type: 'string' }, source: { type: 'string' } }, required: ['xml', 'source'] } },
@@ -64,6 +68,26 @@ export async function invokeFoundation(foundation: BuildFoundation, name: string
     return args.trial === true;
   };
   switch (name) {
+    case 'list_legacy_build_history': {
+      if (!buildsDirectory) throw new Error('Local build directory is unavailable');
+      const limit = args.limit ?? 20, after = args.after ?? 0;
+      if (Object.keys(args).some(key => !['build_name', 'tag', 'limit', 'after', 'catalog_fingerprint'].includes(key)) || typeof limit !== 'number' || !Number.isSafeInteger(limit) || limit < 1 || limit > 50 || typeof after !== 'number' || !Number.isSafeInteger(after) || after < 0 || (args.tag !== undefined && (typeof args.tag !== 'string' || args.tag.length > 1000)) || (args.catalog_fingerprint !== undefined && (typeof args.catalog_fingerprint !== 'string' || !/^[a-f0-9]{64}$/.test(args.catalog_fingerprint))) || (after > 0 && !args.catalog_fingerprint)) throw new Error('Invalid legacy history pagination');
+      const result = await listLegacyHistory(buildsDirectory, stringArg('build_name'));
+      const entries = result.entries.filter(entry => args.tag === undefined || entry.metadata.tag === args.tag);
+      const fingerprint = createHash('sha256').update(JSON.stringify({ entries: entries.map(({ origin, id, metadataDigest, xmlName }) => ({ origin, id, metadataDigest, xmlName })), issues: result.issues, tag: args.tag ?? null })).digest('hex');
+      if (args.catalog_fingerprint !== undefined && args.catalog_fingerprint !== fingerprint) throw new Error('Legacy history changed; restart pagination');
+      if (after > entries.length) throw new Error('Invalid legacy history cursor');
+      const page = entries.slice(after, after + limit).map(({ xmlName: _xmlName, ...entry }) => entry);
+      return { source: 'legacy_build_history', complete: result.complete, issues: result.issues, entries: page, totalObserved: entries.length, nextCursor: after + page.length < entries.length ? after + page.length : null, catalogFingerprint: fingerprint, warnings: ['Cached legacy stats are historical XML values, not current PoB calculations.', 'The catalog fingerprints metadata and names, not XML content; the import reports the XML digest it actually read.', 'Original files remain unchanged; the catalog may change after this read.'] };
+    }
+    case 'import_legacy_build_history': {
+      if (!buildsDirectory) throw new Error('Local build directory is unavailable');
+      if (Object.keys(args).some(key => !['build_name', 'origin', 'legacy_id', 'metadata_digest'].includes(key))) throw new Error('Invalid legacy history selection');
+      const selected = await readLegacyHistory(buildsDirectory, stringArg('build_name'), stringArg('origin'), stringArg('legacy_id'), stringArg('metadata_digest'));
+      const snapshot = await foundation.importBuild(selected.xml, `legacy-history:${selected.buildName}:${selected.origin}:${selected.id}`);
+      const { xml: _xml, ...legacy } = selected;
+      return { snapshot: snapshotMetadata(snapshot), legacy, warnings: ['Legacy metadata remains in its original files; cached stats are not recalculated.'] };
+    }
     case 'foundation_derive_items': {
       if (Object.keys(args).some(key => !['snapshot_id', 'items', 'trial'].includes(key)) || !Array.isArray(args.items) || args.items.some(item => !item || typeof item !== 'object' || Array.isArray(item) || Object.keys(item).some(key => !['slot', 'item_text'].includes(key)) || typeof item.slot !== 'string' || typeof item.item_text !== 'string')) throw new Error('Invalid item changes');
       return snapshotMetadata(await foundation.deriveItems(stringArg('snapshot_id'), args.items.map(item => ({ slot: item.slot, itemText: item.item_text })), trialArg()));
