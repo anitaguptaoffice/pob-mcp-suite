@@ -60,6 +60,10 @@ passed to `search_official_trade`.
 
 1. Confirm league, budget, item slot, and mandatory stats.
 2. Use `search_trade_stats` before building detailed filters, or legacy `search_stats` with `official_sources=true` when the new tool is unavailable. Identical text under `Explicit`, `Implicit`, `Fractured`, `Crafted`, or `Enchant` represents distinct trade stat IDs.
+   For offline PoB-name or abbreviation lookup, `search_bundled_stat_mappings`
+   searches the bundled alias catalog independently. Its candidate IDs are
+   unverified and may be obsolete or invalid; do not build a Trade query until
+   each ID and its source have been confirmed against current official metadata.
 3. Prefer an appropriate `Pseudo` total when the official API provides one. Otherwise put compatible source variants for one semantic requirement in one `count`/`or` group.
 4. Keep separate mandatory requirements in separate groups. Do not put every alternative in one global Count because two sources of one requirement can satisfy the count incorrectly.
 5. Keep searches bounded with price caps, listing status, rarity, links, and stat minimums. For this user, default to `status=securable` for instant-buyout listings; sellers may be offline. `available` also includes in-person trades, while `online` is in-person only.

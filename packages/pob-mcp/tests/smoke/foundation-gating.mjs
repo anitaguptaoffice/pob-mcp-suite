@@ -11,9 +11,15 @@ const clients = [];
 function start(env) { const c = startMcpServer(env); c.child.stderr.on('data', () => {}); clients.push(c.child); return c; }
 async function init(c) { await c.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'gating', version: '1' } }); c.notify('notifications/initialized', {}); }
 try {
-  const disabled = start({ POB_FOUNDATION_ENABLED: 'false' });
+  const disabled = start({ POB_FOUNDATION_ENABLED: 'false', POE_TRADE_ENABLED: 'false' });
   await init(disabled);
   const tools = await disabled.request('tools/list', {});
+  assert.equal(tools.result.tools.filter(t => t.name === 'search_bundled_stat_mappings').length, 1);
+  const bundled = await disabled.request('tools/call', { name: 'search_bundled_stat_mappings', arguments: { query: 'minion damage' } });
+  assert.ok(!bundled.error && !bundled.result?.isError, JSON.stringify(bundled));
+  const bundledData = JSON.parse(bundled.result.content[0].text);
+  assert.equal(bundledData.source, 'bundled_stat_aliases');
+  assert.ok(bundledData.results.some(entry => entry.pobName === 'MinionDamage' && entry.officialStatus === 'unverified'));
   for (const name of ['classify_modifier_lines', 'query_bench_modifiers', 'query_modifier_tiers']) assert.equal(tools.result.tools.filter(t => t.name === name).length, 1);
   assert.equal(tools.result.tools.filter(t => t.name === 'list_local_build_files').length, 1);
   for (const name of ['list_local_config_presets', 'read_local_config_preset']) assert.equal(tools.result.tools.filter(t => t.name === name).length, 1);

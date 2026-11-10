@@ -49,6 +49,8 @@ import { createShoppingListTool, shoppingListSchema } from './features/shoppingL
 import { OfficialTradeAdapter } from './adapters/officialTrade/officialTradeAdapter.js';
 import { createSourceComparableTool, sourceComparableSchema } from './features/tradeComparable/sourceTool.js';
 import { createTradeMetadataTools, tradeMetadataSchemas } from './features/tradeMetadata/tools.js';
+import { createStaticStatMappingTool, staticStatMappingSchema } from './features/tradeMetadata/staticMappings.js';
+import { StatMapper as StaticStatCatalog } from './adapters/staticStats/catalog.js';
 import { createTradeSearchTool, tradeSearchSchema } from './features/tradeSearch/tool.js';
 import { createTradeItemPriceTool, tradeItemPriceSchema } from './features/tradePrice/tool.js';
 import { createSnapshotTreeComparisonTool, snapshotTreeComparisonSchema } from './features/treeComparison/tool.js';
@@ -156,6 +158,7 @@ class PoBMCPServer {
       shoppingListSchema(),
       sourceComparableSchema(),
       ...tradeMetadataSchemas(),
+      staticStatMappingSchema(),
       tradeSearchSchema(),
       tradeItemPriceSchema(),
       snapshotTreeComparisonSchema(),
@@ -554,7 +557,7 @@ class PoBMCPServer {
    */
   private async initialize() {
     const economy = new PoeNinjaAdapter();
-    const market = [...createCurrencyReferenceTools(economy), createCurrencySpreadTool(economy)];
+    const market = [...createCurrencyReferenceTools(economy), createCurrencySpreadTool(economy), createStaticStatMappingTool(new StaticStatCatalog())];
     // Do not create a second Trade rate limiter while the legacy client is enabled.
     const tradeEnabled = process.env.POE_TRADE_ENABLED === 'true' && !this.legacyEnabled();
     const rate = Number(process.env.POE_RATE_LIMIT_PER_SECOND ?? 4);
