@@ -1683,7 +1683,7 @@ export function getTradeToolSchemas(): ToolSchema[] {
     },
     {
       name: "get_item_price",
-      description: "Quick price check for a specific item by name. Returns current market price and recent sales. REQUIRES: POE_TRADE_ENABLED environment variable set to true. IMPORTANT: Use the EXACT league name the user specifies.",
+      description: "Sample up to 10 priced instant-buyout listings for an exact item name and international league. Results are asking prices, not sales or a full-market median.",
       inputSchema: {
         type: "object",
         properties: {
@@ -1705,7 +1705,7 @@ export function getTradeToolSchemas(): ToolSchema[] {
             enum: ["unique", "rare", "magic", "normal"],
           },
         },
-        required: ["item_name"],
+        required: ["item_name", "league"],
       },
     },
     {
@@ -1773,7 +1773,7 @@ export function getTradeToolSchemas(): ToolSchema[] {
     {
       name: "find_resistance_gear",
       truncatable: true,
-      description: "Find trade listings that efficiently cover elemental or chaos resistance gaps within a per-item and total budget. REQUIRES: POE_TRADE_ENABLED=true.",
+      description: "Find individual instant-buyout listings with relevant resistances within a per-item budget. Does not evaluate replacement losses or enforce a combined budget. REQUIRES: POE_TRADE_ENABLED=true.",
       inputSchema: {
         type: "object",
         properties: {
@@ -1783,7 +1783,7 @@ export function getTradeToolSchemas(): ToolSchema[] {
           lightning_resist_needed: { type: "number", description: "Additional lightning resistance needed (default: 0)." },
           chaos_resist_needed: { type: "number", description: "Additional chaos resistance needed (default: 0)." },
           max_price_per_item: { type: "number", description: "Maximum price for a single item (default: 50)." },
-          total_budget: { type: "number", description: "Maximum combined budget (default: 200)." },
+          total_budget: { type: "number", description: "Caps each individual item, but combinations and their combined budget are not calculated." },
           currency: { type: "string", description: "Budget currency (default: chaos)." },
           slots: { type: "array", items: { type: "string" }, description: "Optional slots to search, such as Ring 1, Belt, Boots, or Gloves." },
           limit: { type: "number", description: "Maximum recommendations (default: 8)." },

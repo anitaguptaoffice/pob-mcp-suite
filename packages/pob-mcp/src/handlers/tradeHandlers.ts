@@ -49,7 +49,7 @@ export async function handleFindWeightedTradeItems(context: TradeContext & { get
 // ========================================
 
 function getTradeSearchUrl(league: string, searchId: string): string {
-  return `https://www.pathofexile.com/trade/search/${encodeURIComponent(league)}/${searchId}`;
+  return `https://www.pathofexile.com/trade/search/${encodeURIComponent(league)}/${encodeURIComponent(searchId)}`;
 }
 
 function getTradeItemUrl(league: string, searchId: string, itemId: string): string {
@@ -256,12 +256,16 @@ export async function handleGetItemPrice(
   }>;
 }> {
   return wrapHandler('get item price', async () => {
-    const { item_name, league = 'Standard', item_type, rarity } = args;
+    const { item_name, league, item_type, rarity } = args;
+    if (typeof item_name !== 'string' || !item_name.trim() || typeof league !== 'string' || !league.trim()) {
+      throw new Error('item_name and the exact international league are required');
+    }
 
     // Build query
     const builder = new TradeQueryBuilder()
-      .withName(item_name)
-      .withOnlineStatus('available');
+      .withName(item_name.trim())
+      .withOnlineStatus('securable')
+      .withSaleType('priced');
 
     if (item_type) {
       builder.withType(item_type);
@@ -276,14 +280,16 @@ export async function handleGetItemPrice(
     const query = builder.build();
 
     // Search
-    const searchResult = await context.tradeClient.searchItems(league, query);
+    const searchResult = await context.tradeClient.searchItems(league.trim(), query);
+    const searchUrl = getTradeSearchUrl(league.trim(), searchResult.id);
+    const warning = searchResult.inexact ? '\n⚠️ 官方交易搜索标记为近似匹配，结果可能不满足全部条件。' : '';
 
     if (!searchResult.result || searchResult.result.length === 0) {
       return {
         content: [
           {
             type: 'text',
-            text: `No price data found for "${item_name}" in ${league}.`,
+            text: `No instant-buyout price data found for "${item_name}" in ${league}.\n${searchUrl}${warning}`,
           },
         ],
       };
@@ -296,7 +302,7 @@ export async function handleGetItemPrice(
     // Calculate price statistics — flatMap narrows away unpriced listings,
     // so the price object needs no re-assertion downstream.
     const prices = items.flatMap(item =>
-      item.listing.price
+      item.listing?.price && Number.isFinite(item.listing.price.amount) && item.listing.price.amount > 0 && item.listing.price.currency
         ? [{ amount: item.listing.price.amount, currency: item.listing.price.currency }]
         : [],
     );
@@ -306,7 +312,7 @@ export async function handleGetItemPrice(
         content: [
           {
             type: 'text',
-            text: `No priced listings found for "${item_name}" in ${league}.`,
+            text: `No valid priced instant-buyout listings found for "${item_name}" in ${league}.\n${searchUrl}${warning}`,
           },
         ],
       };
@@ -326,20 +332,25 @@ export async function handleGetItemPrice(
     // Format output
     let output = `=== Price Check: ${item_name} ===\n`;
     output += `League: ${league}\n`;
-    output += `Total Listings: ${searchResult.total}\n\n`;
+    output += `Total Listings: ${searchResult.total}\n`;
+    output += `🔗 ${searchUrl}\n`;
+    output += `仅统计最多 10 条可即时购买的挂牌，卖家可离线；不是成交价或全市场中位数。${warning}\n`;
+    output += `数据可能来自缓存；名称、底材、词缀和腐化等差异可能影响价格。\n\n`;
 
     for (const [currency, amounts] of byCurrency.entries()) {
       amounts.sort((a, b) => a - b);
       const min = amounts[0];
       const max = amounts[amounts.length - 1];
-      const median = amounts[Math.floor(amounts.length / 2)];
+      const middle = Math.floor(amounts.length / 2);
+      const median = amounts.length % 2 ? amounts[middle] : (amounts[middle - 1] + amounts[middle]) / 2;
       const avg = amounts.reduce((sum, val) => sum + val, 0) / amounts.length;
 
+      const formatPrice = (value: number) => value.toLocaleString('en-US', { maximumSignificantDigits: 8 });
       output += `${currency}:\n`;
-      output += `  Low: ${min.toFixed(1)} ${currency}\n`;
-      output += `  Median: ${median.toFixed(1)} ${currency}\n`;
-      output += `  Average: ${avg.toFixed(1)} ${currency}\n`;
-      output += `  High: ${max.toFixed(1)} ${currency}\n`;
+      output += `  Low: ${formatPrice(min)} ${currency}\n`;
+      output += `  Median: ${formatPrice(median)} ${currency}\n`;
+      output += `  Average: ${formatPrice(avg)} ${currency}\n`;
+      output += `  High: ${formatPrice(max)} ${currency}\n`;
       output += `  Sample Size: ${amounts.length} listings\n\n`;
     }
 
@@ -717,6 +728,10 @@ export async function handleFindResistanceGear(
       limit = 8,
     } = args;
 
+    if (typeof league !== 'string' || !league.trim() || typeof currency !== 'string' || !currency.trim() ||
+        !Number.isFinite(max_price_per_item) || max_price_per_item <= 0 || !Number.isFinite(total_budget) || total_budget < 0 ||
+        ![fire_resist_needed, cold_resist_needed, lightning_resist_needed, chaos_resist_needed].every(n => Number.isFinite(n) && n >= 0) ||
+        !Number.isInteger(limit) || limit < 1 || limit > 20) throw new Error('invalid league, currency, resistance target, budget, or limit');
     if (!context.recommendationEngine) {
       return {
         content: [{ type: 'text', text: 'Recommendation engine not available.' }],
@@ -730,26 +745,31 @@ export async function handleFindResistanceGear(
       chaos: chaos_resist_needed,
     };
 
+    if (total_budget === 0) {
+      return { content: [{ type: 'text', text: '总预算为零，无法推荐正价挂牌。' }] };
+    }
     const budget: BudgetConstraints = {
-      maxPricePerItem: max_price_per_item,
+      // Even an individual item cannot exceed the whole budget. Combining
+      // multiple items remains out of scope and is disclosed in the report.
+      maxPricePerItem: Math.min(max_price_per_item, total_budget),
       totalBudget: total_budget,
-      currency,
+      currency: currency.trim().toLowerCase(),
     };
 
     const recommendations = await context.recommendationEngine.findResistanceGear(
       resistanceGaps,
       budget,
-      league,
+      league.trim(),
       slots
     );
 
     if (recommendations.length === 0) {
       return {
-        content: [{ type: 'text', text: `No resistance gear found in ${league} that matches your requirements within budget.` }],
+        content: [{ type: 'text', text: `本次在 ${league} 查询的样本中没有符合指定通货和单件预算的候选；不代表市场没有其他挂单。` }],
       };
     }
 
-    const output = formatResistanceRecommendations(recommendations.slice(0, limit), resistanceGaps, league);
+    const output = formatResistanceRecommendations(recommendations.slice(0, limit), resistanceGaps, league.trim());
     return { content: [{ type: 'text', text: output }] };
   });
 }
@@ -767,7 +787,9 @@ function formatResistanceRecommendations(
 
   let output = `=== Resistance Gear (${league}) ===\n`;
   output += `Need: ${targets.join(', ')}\n`;
-  output += `${recommendations.length} found\n\n`;
+  output += `${recommendations.length} found\n`;
+  output += '仅限即时购买和指定计价通货；结果可能来自缓存。以下为物品列示抗性，未扣除当前装备，不能视为替换后的净收益。\n';
+  output += '各条是独立候选，未组合配装或验证总预算；请在 PoB 中核对。\n\n';
 
   for (const rec of recommendations) {
     const item = rec.listing.item;
@@ -796,7 +818,7 @@ function formatResistanceRecommendations(
       if (rg.chaos) gains.push(`${rg.chaos}% Chaos`);
 
       if (gains.length > 0) {
-        output += `   Provides: ${gains.join(', ')}\n`;
+        output += `   Listed resistance contribution: ${gains.join(', ')}\n`;
       }
     }
 
@@ -811,6 +833,7 @@ function formatResistanceRecommendations(
       }
     }
 
+    for (const warning of rec.warnings ?? []) output += `   ⚠️ ${warning}\n`;
     output += `   ${rec.listing.listing.account?.online ? '🟢' : '🔴'} ${rec.listing.listing.account?.name ?? 'unknown'}\n`;
     output += `   🔗 ${getTradeItemUrl(league, rec.searchId, rec.listing.id)}\n\n`;
   }

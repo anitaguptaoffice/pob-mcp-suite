@@ -77,7 +77,13 @@ export class ItemRecommendationEngine {
       }
 
       const itemIdsToFetch = searchResult.result.slice(0, 10);
-      const items = await this.tradeClient.fetchItems(itemIdsToFetch, searchResult.id);
+      const fetched = await this.tradeClient.fetchItems(itemIdsToFetch, searchResult.id);
+      // Budget is denominated in one currency; never treat another currency's
+      // raw amount as if it were an equivalent chaos price.
+      const items = fetched.filter(item => {
+        const price = item.listing?.price;
+        return price && Number.isFinite(price.amount) && price.amount > 0 && price.amount <= budget.maxPricePerItem && price.currency === budget.currency;
+      });
 
       const context: UpgradeContext = {
         buildNeeds: {
@@ -87,9 +93,11 @@ export class ItemRecommendationEngine {
         league,
       };
 
-      const slotRecs = items.map((item, index) =>
-        this.scoreResistanceItem(item, index, resistanceGaps, context, searchResult.id)
-      );
+      const slotRecs = items.map((item, index) => {
+        const recommendation = this.scoreResistanceItem(item, index, resistanceGaps, context, searchResult.id);
+        if (searchResult.inexact) recommendation.warnings = ['官方搜索标记为近似匹配，需逐项核对条件。'];
+        return recommendation;
+      });
 
       allRecommendations.push(...slotRecs);
     }
@@ -147,7 +155,7 @@ export class ItemRecommendationEngine {
     }
 
     // Calculate efficiency (resistance per chaos)
-    const efficiency = price > 0 ? (totalResistanceProvided / price) * 10 : totalResistanceProvided;
+    const efficiency = totalResistanceProvided / price;
 
     // Calculate score (0-100)
     let score = 0;
@@ -156,7 +164,7 @@ export class ItemRecommendationEngine {
     score += Math.min(50, totalResistanceProvided);
 
     // Efficiency bonus (0-30 points)
-    score += Math.min(30, efficiency * 3);
+    score += Math.min(30, efficiency * 30);
 
     // Price bonus (0-20 points) - cheaper is better
     if (price <= context.budget.maxPricePerItem) {
@@ -176,8 +184,8 @@ export class ItemRecommendationEngine {
       reasons.push('Provides good total resistances');
     }
 
-    if (efficiency > 5) {
-      reasons.push('Excellent efficiency (resistance per chaos)');
+    if (efficiency > 0.5) {
+      reasons.push(`High listed resistance per ${context.budget.currency}`);
     }
 
     if (price <= context.budget.maxPricePerItem * 0.5) {
@@ -191,7 +199,7 @@ export class ItemRecommendationEngine {
     if (resistGain.chaos) resistanceList.push(`${resistGain.chaos}% Chaos`);
 
     if (resistanceList.length > 0) {
-      reasons.push(`Fills gaps: ${resistanceList.join(', ')}`);
+      reasons.push(`Listed resistances relevant to target: ${resistanceList.join(', ')}`);
     }
 
     return {
@@ -206,7 +214,7 @@ export class ItemRecommendationEngine {
         currency: listing.listing.price?.currency || 'chaos',
         resistGain,
         efficiency,
-        pointsPerChaos: efficiency,
+        ...(context.budget.currency === 'chaos' ? { pointsPerChaos: efficiency } : {}),
       },
     };
   }
@@ -241,9 +249,9 @@ export class ItemRecommendationEngine {
     builder.withResistances(resistanceGaps);
 
     // Apply budget
-    builder.withPriceRange(undefined, budget.maxPricePerItem);
+    builder.withPriceRange(undefined, budget.maxPricePerItem, budget.currency);
 
-    builder.withOnlineStatus('available');
+    builder.withOnlineStatus('securable').withSaleType('priced');
     builder.withSort('price', 'asc');
 
     return builder.build();
@@ -267,42 +275,25 @@ export class ItemRecommendationEngine {
     };
 
     const allMods = [
-      ...(item.explicitMods || []),
-      ...(item.implicitMods || []),
-      ...(item.craftedMods || []),
+      ...(item.explicitMods || []), ...(item.implicitMods || []),
+      ...(item.craftedMods || []), ...(item.fracturedMods || []),
     ];
-
     for (const rawMod of allMods) {
-      const mod = getModText(rawMod);
-      const lowerMod = mod.toLowerCase();
-
-      // Look for specific resistances
-      if (lowerMod.includes('fire resistance')) {
-        const match = mod.match(/\+?(\d+)%/);
-        if (match) resistances.fire += parseInt(match[1], 10);
-      }
-      if (lowerMod.includes('cold resistance')) {
-        const match = mod.match(/\+?(\d+)%/);
-        if (match) resistances.cold += parseInt(match[1], 10);
-      }
-      if (lowerMod.includes('lightning resistance')) {
-        const match = mod.match(/\+?(\d+)%/);
-        if (match) resistances.lightning += parseInt(match[1], 10);
-      }
-      if (lowerMod.includes('chaos resistance')) {
-        const match = mod.match(/\+?(\d+)%/);
-        if (match) resistances.chaos += parseInt(match[1], 10);
-      }
-
-      // Handle "all elemental resistances"
-      if (lowerMod.includes('all elemental resistances') || lowerMod.includes('to all resistances')) {
-        const match = mod.match(/\+?(\d+)%/);
-        if (match) {
-          const value = parseInt(match[1], 10);
-          resistances.fire += value;
-          resistances.cold += value;
-          resistances.lightning += value;
-        }
+      const mod = getModText(rawMod).trim();
+      // Conditional, maximum-resistance, or otherwise unfamiliar wording is
+      // not a guaranteed ordinary resistance bonus.
+      const match = mod.match(/^([+-]\d+(?:\.\d+)?)% to (.+?) Resistances?$/i);
+      if (!match) continue;
+      const amount = Number(match[1]);
+      const target = match[2].toLowerCase();
+      if (target === 'all elemental') {
+        resistances.fire += amount; resistances.cold += amount; resistances.lightning += amount;
+      } else if (target === 'all') {
+        resistances.fire += amount; resistances.cold += amount; resistances.lightning += amount; resistances.chaos += amount;
+      } else {
+        const parts = target.split(/\s*(?:,|\band\b)\s*/).filter(Boolean);
+        if (!parts.length || parts.some(part => !['fire', 'cold', 'lightning', 'chaos'].includes(part))) continue;
+        for (const part of new Set(parts)) resistances[part as keyof typeof resistances] += amount;
       }
     }
 

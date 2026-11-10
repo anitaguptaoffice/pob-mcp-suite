@@ -26,9 +26,9 @@ try {
   const search = await call('search_trade_items', { league: 'Standard', item_name: 'Tabula Rasa', item_rarity: 'unique', max_price: 1, price_currency: 'divine', limit: 1 });
   if (!search.includes('=== Trade Search (Standard) ===') && !search.includes('No items found')) throw new Error(`trade search was incomplete: ${search}`);
   const price = await call('get_item_price', { league: 'Standard', item_name: 'Tabula Rasa', rarity: 'unique' });
-  if (!price.includes('=== Price Check: Tabula Rasa ===') && !price.includes('No price data found')) throw new Error(`price check was incomplete: ${price}`);
+  if (!price.includes('=== Price Check: Tabula Rasa ===') && !price.includes('No instant-buyout price data found') && !price.includes('No valid priced instant-buyout listings found')) throw new Error(`price check was incomplete: ${price}`);
   const resistance = await call('find_resistance_gear', { league: 'Standard', fire_resist_needed: 10, slots: ['Ring 1'], limit: 1 });
-  if (!resistance.includes('=== Resistance Gear (Standard) ===') && !resistance.includes('No resistance gear found')) throw new Error(`resistance recommendation was incomplete: ${resistance}`);
+  if (!resistance.includes('=== Resistance Gear (Standard) ===') && !resistance.includes('没有符合指定通货和单件预算的候选')) throw new Error(`resistance recommendation was incomplete: ${resistance}`);
   const rates = await call('get_currency_rates', { league: 'Standard' });
   if (!rates.includes('=== Currency Exchange Rates ===') || !rates.includes('Divine Orb')) throw new Error(`currency rates were incomplete: ${rates}`);
   const profit = await call('calculate_trading_profit', { league: 'Standard', currency_chain: ['Chaos Orb', 'Divine Orb', 'Chaos Orb'], start_amount: 10 });
