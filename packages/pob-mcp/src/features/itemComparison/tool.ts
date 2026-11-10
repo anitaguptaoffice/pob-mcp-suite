@@ -16,6 +16,7 @@ export async function compareItem(client: Pick<PoBLuaApiClient, 'compareItem'>, 
       'This uses PoB item-preview calculation, does not equip or save the item, and does not verify item legality, trade availability or price.',
       'Candidate quality is preserved as parsed; the result does not assume that quality will be upgraded.',
       'PoB may not recognize every modifier or special item mechanic; inspect the item and PoB version before relying on the result.',
+      'parseDiagnostics reports lines PoB marked unsupported on the replaced and candidate items only. Other equipped items and effects have not been audited; an empty list does not prove full game mechanic support.',
       'Only supported equipment slots are accepted; jewels, flasks and swap slots require separate handling. Check skill sockets, requirements, and any other effects before purchasing.',
     ] };
 }

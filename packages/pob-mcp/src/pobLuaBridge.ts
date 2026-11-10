@@ -84,6 +84,11 @@ type CalcOutput = { [stat: string]: number | undefined } & {
   _meta?: StatsMeta;
 };
 
+interface ItemParseDiagnostics {
+  available: boolean;
+  unparsed: Array<{ group: string; line: string; extra: string; active?: boolean }>;
+}
+
 /** get_items entry (M.get_items) */
 interface EquippedItem {
   slot: string;
@@ -860,10 +865,10 @@ async setTree(params: {
     return res.output as CalcOutput;
   }
 
-  async compareItem(slot: string, itemText: string): Promise<{ slot: string; candidate: { name?: string; base?: string; quality?: number }; baseline: Record<string, number>; candidateStats: Record<string, number> }> {
+  async compareItem(slot: string, itemText: string): Promise<{ slot: string; candidate: { name?: string; base?: string; quality?: number }; baseline: Record<string, number>; candidateStats: Record<string, number>; parseDiagnostics?: { current: ItemParseDiagnostics; candidate: ItemParseDiagnostics } }> {
     const res = await this.send({ action: 'compare_item', params: { slot, itemText } });
     if (!res.ok) throw new Error(res.error || 'compare_item failed');
-    return res.result as { slot: string; candidate: { name?: string; base?: string; quality?: number }; baseline: Record<string, number>; candidateStats: Record<string, number> };
+    return res.result as { slot: string; candidate: { name?: string; base?: string; quality?: number }; baseline: Record<string, number>; candidateStats: Record<string, number>; parseDiagnostics?: { current: ItemParseDiagnostics; candidate: ItemParseDiagnostics } };
   }
 
   async getMasteryOptions(): Promise<MasteryOptions> {

@@ -99,6 +99,11 @@ try {
   assert.ok(amuletText?.includes('+46 to maximum Life'), 'amulet fixture changed');
   const candidateText = amuletText.replace('+46 to maximum Life', '+96 to maximum Life');
   const itemPreview = await client.compareItem('Amulet', candidateText);
+  const unknownLine = '+123 to Imaginary Unicorn Protection';
+  const diagnosticPreview = await client.compareItem('Amulet', `${candidateText}\n${unknownLine}`);
+  assert.equal(diagnosticPreview.parseDiagnostics?.candidate.available, true, 'candidate parser diagnostics unavailable');
+  assert.ok(diagnosticPreview.parseDiagnostics.candidate.unparsed.some(entry => entry.line === unknownLine && entry.group === 'explicit'), 'unsupported item mod was not reported');
+  assert.ok(!diagnosticPreview.parseDiagnostics.candidate.unparsed.some(entry => entry.line === '+96 to maximum Life'), 'supported life mod was falsely reported as unsupported');
   assert.ok(itemPreview.candidateStats.Life > itemPreview.baseline.Life, 'item preview did not change life');
   assert.deepEqual(await client.getItems(), beforeItems, 'item preview changed equipped items');
   assert.deepEqual(await client.getStats(['Life', 'EnergyShield', 'TotalDPS', 'CombinedDPS', 'TotalEHP']), fixtureStats, 'item preview changed live stats');

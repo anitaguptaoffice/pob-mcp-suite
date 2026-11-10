@@ -839,7 +839,30 @@ function M.compare_item(params)
       end
       return values
     end
-    return { slot = slotName, candidate = { name = item.name, base = item.baseName, quality = item.quality }, baseline = metrics(before), candidateStats = metrics(after) }
+    -- Item:BuildModList ignores lines with `extra` entirely, even if parseMod
+    -- produced some mods. Follow PoB's active-variant check and disclose those
+    -- lines rather than assuming the preview includes them.
+    local function parseDiagnostics(target)
+      local unparsed = setmetatable({}, { __jsontype = 'array' })
+      if not target then return { available = false, unparsed = unparsed } end
+      for _, group in ipairs({ 'enchant', 'scourge', 'implicit', 'explicit', 'crucible', 'buff' }) do
+        for _, line in ipairs(target[group .. 'ModLines'] or {}) do
+          if line.extra and not line.disabled then
+            local okVariant, active
+            if group == 'buff' then okVariant, active = pcall(function() return target:CheckModLineVariant(line) end)
+            else okVariant, active = pcall(function() return target:GetModLineVariantCount(line) > 0 end) end
+            if not okVariant or active then
+              table.insert(unparsed, { group = group, line = line.line, extra = tostring(line.extra), active = okVariant and true or nil })
+            end
+          end
+        end
+      end
+      return { available = true, unparsed = unparsed }
+    end
+    local current = slot.selItemId and tab.items[slot.selItemId] or nil
+    return { slot = slotName, candidate = { name = item.name, base = item.baseName, quality = item.quality },
+      baseline = metrics(before), candidateStats = metrics(after),
+      parseDiagnostics = { current = parseDiagnostics(current), candidate = parseDiagnostics(item) } }
   end)
   if not ok then return nil, 'item comparison failed: ' .. tostring(result) end
   return result
