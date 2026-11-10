@@ -64,6 +64,12 @@ passed to `search_official_trade`.
    searches the bundled alias catalog independently. Its candidate IDs are
    unverified and may be obsolete or invalid; do not build a Trade query until
    each ID and its source have been confirmed against current official metadata.
+   To explore PoB-generated weights, use `generate_snapshot_weighted_trade` with
+   explicit higher-is-better metrics. Check `weightBaselines`: PoB may combine
+   player and minion output for unprefixed damage metrics, and its FullDPS
+   fallback can differ by candidate. `search_snapshot_weighted_trade` requires
+   authenticated Trade access and uses `securable` plus `priced`. Weighted
+   results are candidates; use PoB previews to verify actual replacement gains.
 3. Prefer an appropriate `Pseudo` total when the official API provides one. Otherwise put compatible source variants for one semantic requirement in one `count`/`or` group.
 4. Keep separate mandatory requirements in separate groups. Do not put every alternative in one global Count because two sources of one requirement can satisfy the count incorrectly.
 5. Keep searches bounded with price caps, listing status, rarity, links, and stat minimums. For this user, default to `status=securable` for instant-buyout listings; sellers may be offline. `available` also includes in-person trades, while `online` is in-person only.

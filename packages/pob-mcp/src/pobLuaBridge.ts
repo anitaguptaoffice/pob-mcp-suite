@@ -1020,6 +1020,13 @@ async setTree(params: {
     return { query, warning: typeof res.warning === 'string' ? res.warning : undefined };
   }
 
+  async generateWeightedTradeQueryV2(slot: string, options: Record<string, unknown>): Promise<{ query: unknown; warning?: string; weightBaselines: unknown }> {
+    const res = await this.send({ action: 'generate_weighted_trade_query_v2', params: { slot, options } });
+    if (!res.ok) throw new Error(res.error || 'generate_weighted_trade_query_v2 failed');
+    const query = typeof res.query === 'string' ? JSON.parse(res.query) : res.query;
+    return { query, warning: typeof res.warning === 'string' ? res.warning : undefined, weightBaselines: (res as unknown as { weightBaselines: unknown }).weightBaselines };
+  }
+
   async createSpec(params?: { title?: string; copyFrom?: number; activate?: boolean }): Promise<SpecList> {
     const res = await this.send({ action: "create_spec", params: params || {} });
     if (!res.ok) throw new Error(res.error || "create_spec failed");

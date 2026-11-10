@@ -50,6 +50,7 @@ import { OfficialTradeAdapter } from './adapters/officialTrade/officialTradeAdap
 import { createSourceComparableTool, sourceComparableSchema } from './features/tradeComparable/sourceTool.js';
 import { createTradeMetadataTools, tradeMetadataSchemas } from './features/tradeMetadata/tools.js';
 import { createStaticStatMappingTool, staticStatMappingSchema } from './features/tradeMetadata/staticMappings.js';
+import { createWeightedTradeTools, weightedTradeSchemas } from './features/weightedTrade/tool.js';
 import { StatMapper as StaticStatCatalog } from './adapters/staticStats/catalog.js';
 import { createTradeSearchTool, tradeSearchSchema } from './features/tradeSearch/tool.js';
 import { createTradeItemPriceTool, tradeItemPriceSchema } from './features/tradePrice/tool.js';
@@ -159,6 +160,7 @@ class PoBMCPServer {
       sourceComparableSchema(),
       ...tradeMetadataSchemas(),
       staticStatMappingSchema(),
+      ...weightedTradeSchemas(),
       tradeSearchSchema(),
       tradeItemPriceSchema(),
       snapshotTreeComparisonSchema(),
@@ -603,6 +605,7 @@ class PoBMCPServer {
       migrated.push(createWatchersEyeTool(foundation, new PoBWatchersEyeSource()));
       migrated.push(createJewelComparisonTool(foundation));
       migrated.push(...createJewelJobTools(foundation, this.foundationJobs));
+      migrated.push(...createWeightedTradeTools(foundation, trade ?? undefined, () => Boolean(process.env.POE_SESSION_ID)));
       if (trade) migrated.push(createTradePreviewTool(foundation, trade));
       this.foundationFeatures = new FeatureRegistry(migrated);
     }

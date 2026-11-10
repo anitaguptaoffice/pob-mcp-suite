@@ -171,6 +171,25 @@ local function generate_weighted_trade_query(params)
   options.statWeights = options.statWeights or build.itemsTab.tradeQuery.statSortSelectionList
   if not options.statWeights or #options.statWeights == 0 then options.statWeights = { { label = 'Full DPS', stat = 'FullDPS', weightMult = 1.0 }, { label = 'Effective Hit Pool', stat = 'TotalEHP', weightMult = 0.5 } } end
   local ok, result = pcall(function()
+    local weightBaselines
+    if params.reportWeightBaselines then
+      local _, baseOutput = build.calcsTab:GetMiscCalculator()
+      if type(baseOutput) ~= 'table' then error('PoB weighted baseline unavailable') end
+      weightBaselines = setmetatable({}, { __jsontype = 'array' })
+      for _, entry in ipairs(options.statWeights) do
+        if type(entry.stat) ~= 'string' then error('invalid weighted stat') end
+        local value, method
+        if entry.stat == 'FullDPS' and baseOutput.FullDPS == nil then
+          value = data.powerStatList.GetFromOutput(baseOutput, { stat = 'TotalDPS' }, true) + data.powerStatList.GetFromOutput(baseOutput, { stat = 'TotalDotDPS' }, true) + data.powerStatList.GetFromOutput(baseOutput, { stat = 'CombinedDPS' }, true)
+          method = 'full_dps_fallback_sum'
+        else
+          value = data.powerStatList.GetFromOutput(baseOutput, entry, true)
+          method = 'pob_power_stat'
+        end
+        if type(value) ~= 'number' or value ~= value or value == math.huge or value == -math.huge or value <= 0 then error('weighted baseline unavailable or nonpositive for ' .. entry.stat) end
+        table.insert(weightBaselines, { stat = entry.stat, value = value, method = method })
+      end
+    end
     local generator = new('TradeQueryGenerator'):TradeQueryGenerator(build.itemsTab.tradeQuery)
     local query, warning
     generator.requesterCallback = function(_, generated, err) query, warning = generated, err end
@@ -186,7 +205,7 @@ local function generate_weighted_trade_query(params)
     if type(query) == 'table' and not query.query and query.stats then
       query = { query = query, sort = { price = 'asc' } }
     end
-    return { ok = true, query = query, warning = warning, frames = frames }
+    return { ok = true, query = query, warning = warning, frames = frames, weightBaselines = weightBaselines }
   end)
   if not ok then return { ok = false, error = 'weighted trade query failed: ' .. tostring(result) } end
   return result
@@ -385,6 +404,11 @@ handlers.set_socket_group_enabled = op(BuildOps.set_socket_group_enabled, 'resul
 
 handlers.evaluate_anoint_candidates = evaluate_anoint_candidates
 handlers.generate_weighted_trade_query = generate_weighted_trade_query
+handlers.generate_weighted_trade_query_v2 = function(params)
+  params = params or {}
+  params.reportWeightBaselines = true
+  return generate_weighted_trade_query(params)
+end
 
 handlers.find_timeless_jewel_seeds = dofile(ADAPTER_DIR .. 'timeless_jewel.lua')
 

@@ -8,7 +8,7 @@ import { resolve } from 'node:path';
  * `env` is merged over the parent environment; POB_LUA_ENABLED is on by default
  * because every caller so far drives the bridge.
  */
-export function startMcpServer(env = {}) {
+export function startMcpServer(env = {}, timeoutMs = 60_000) {
   const child = spawn('node', [resolve('build/index.js')], {
     env: { ...process.env, POB_LUA_ENABLED: 'true', ...env },
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -39,7 +39,7 @@ export function startMcpServer(env = {}) {
     // for a full minute after the smoke test already passed.
     const timer = setTimeout(() => {
       if (pending.delete(id)) reject(new Error(`timed out: ${method}`));
-    }, 60_000);
+    }, timeoutMs);
     timer.unref?.();
   });
 

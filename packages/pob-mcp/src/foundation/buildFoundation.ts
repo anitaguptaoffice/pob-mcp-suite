@@ -34,6 +34,7 @@ export interface BuildEngine {
   updateTreeDelta(params: { addNodes: number[]; removeNodes: number[]; masteryEffects?: Record<string, number> }): Promise<{ tree: unknown; droppedNodes?: number[] }>;
   setTree(params: { classId: number; ascendClassId: number; secondaryAscendClassId: number; nodes: number[]; masteryEffects: Record<string, number>; treeVersion: string }, preserveOverrides?: boolean): Promise<unknown>;
   getTreeOverrides?(): Promise<unknown>;
+  generateWeightedTradeQuery?(slot: string, options: Record<string, unknown>): Promise<{ query: unknown; warning?: string; weightBaselines: unknown }>;
   getMasteryNodeOptions(nodeId: number): Promise<{ nodeId: number; nodeName: string; allocated: boolean; allocatedEffect?: number; ascendancyName?: string; availableEffects: Array<{ effectId: number; stat: string }> }>;
   getMasteryOptions(): Promise<{ masteries: Array<{ nodeId: number | string; nodeName?: string; allocatedEffect?: number; availableEffects: Array<{ effectId: number; stat?: string }> }> }>;
   searchNodes(params: { keyword: string; nodeType?: string; maxResults: number; includeAllocated: boolean }): Promise<{ nodes: unknown[]; count: number }>;

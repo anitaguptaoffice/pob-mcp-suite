@@ -148,6 +148,8 @@ try {
   assert.match(invalidSpecOption.result.content[0].text, /Invalid passive spec creation option/);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'estimate_snapshot_cost').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'list_snapshot_equipment').length, 1);
+  assert.equal(foundationOnly.result.tools.filter(t => t.name === 'generate_snapshot_weighted_trade').length, 1);
+  assert.ok(!foundationOnly.result.tools.some(t => t.name === 'search_snapshot_weighted_trade'));
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'compare_snapshot_trees').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'compare_snapshot_builds').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'submit_snapshot_passive_ranking').length, 1);
@@ -197,7 +199,7 @@ try {
   const [code] = await once(first.child, 'exit');
   assert.equal(code, 0);
   await assert.rejects(access(join(dir, '.writer.lock')));
-  const newTrade = start({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POE_TRADE_ENABLED: 'true', POB_SNAPSHOT_DIRECTORY: dir });
+  const newTrade = start({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POE_TRADE_ENABLED: 'true', POE_SESSION_ID: '', POB_SNAPSHOT_DIRECTORY: dir });
   await init(newTrade);
   const tradeTools = await newTrade.request('tools/list', {});
   assert.equal(tradeTools.result.tools.filter(t => t.name === 'estimate_trade_comparable').length, 1);
@@ -209,6 +211,9 @@ try {
   assert.equal(tradeTools.result.tools.filter(t => t.name === 'search_cluster_listings').length, 1);
   assert.equal(tradeTools.result.tools.filter(t => t.name === 'search_trade_stats').length, 1);
   assert.equal(tradeTools.result.tools.filter(t => t.name === 'list_trade_leagues').length, 1);
+  assert.equal(tradeTools.result.tools.filter(t => t.name === 'search_snapshot_weighted_trade').length, 1);
+  const weightedUnauthenticated = await newTrade.request('tools/call', { name: 'search_snapshot_weighted_trade', arguments: { snapshot_id: snapshot.id, slot: 'Amulet', league: 'Standard', weights: [{ stat: 'Life', weight: 1 }] } });
+  assert.equal(weightedUnauthenticated.result.isError, true); assert.match(weightedUnauthenticated.result.content[0].text, /POE_SESSION_ID/);
   assert.ok(!tradeTools.result.tools.some(t => t.name === 'estimate_comparable_item'));
   newTrade.child.stdin.end(); assert.equal((await once(newTrade.child, 'exit'))[0], 0);
   const compat = start({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'true', POE_TRADE_ENABLED: 'true', POB_SNAPSHOT_DIRECTORY: dir });
