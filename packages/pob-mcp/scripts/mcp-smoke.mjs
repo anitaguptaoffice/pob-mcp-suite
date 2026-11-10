@@ -108,11 +108,20 @@ try {
 
   const tools = await request("tools/list");
   const names = new Set((tools.tools ?? []).map((tool) => tool.name));
-  for (const required of ["lua_new_build", "lua_get_build_info", "lua_get_stats", "compare_equipment_candidate", "inspect_item_affix_weight"]) {
+  for (const required of ["lua_new_build", "lua_get_build_info", "lua_get_stats", "compare_equipment_candidate", "inspect_item_affix_weight", "compare_craft_budget", "simulate_simple_annul"]) {
     if (!names.has(required)) {
       throw new Error(`Required tool missing: ${required}`);
     }
   }
+
+  const budget = JSON.parse(readText(await callTool('compare_craft_budget', { scenarios: [
+    { name: 'fixture', success_probability: 0.5, chaos_per_attempt: 2, probability_source: 'synthetic fixture' },
+  ] })));
+  if (budget.scenarios?.[0]?.expectedChaos !== 4) throw new Error('registered craft budget tool returned an incorrect result');
+  const annul = JSON.parse(readText(await callTool('simulate_simple_annul', { rarity: 'rare', affixes: [
+    { name: 'keep', disposition: 'keep' }, { name: 'remove', disposition: 'remove' },
+  ], no_fractured: true, no_protection: true, no_catalyst: true, no_corruption: true, no_mirrored: true, no_special_rules: true })));
+  if (annul.desiredRemovalProbability !== 0.5) throw new Error('registered annul tool returned an incorrect result');
 
   await callTool("lua_new_build", { className: "Witch", ascendancy: "None" });
   await callTool("lua_get_build_info");

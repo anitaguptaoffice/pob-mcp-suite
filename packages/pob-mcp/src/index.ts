@@ -34,8 +34,7 @@ import { ItemRecommendationEngine } from "./services/itemRecommendationEngine.js
 import { NinjaPrices } from "./features/buildCost/ninjaPrices.js";
 import { buildCostSchemas } from "./features/buildCost/tool.js";
 import { comparableToolSchemas } from "./features/tradeComparable/tool.js";
-import { craftBudgetSchemas } from "./features/craftBudget/tool.js";
-import { craftSimulatorSchemas } from "./features/craftSimulator/tool.js";
+import { featureRegistry } from "./server/featureModules.js";
 
 // Import utilities
 import { ContextBuilder } from "./utils/contextBuilder.js";
@@ -76,7 +75,7 @@ class PoBMCPServer {
    * what clients SEE is assembled per-state in the ListTools handler.
    */
   private allToolSchemas(): ToolSchema[] {
-    return [
+    const legacy = [
       ...getToolSchemas(),
       ...getLuaToolSchemas(),
       ...buildCostSchemas(),
@@ -87,11 +86,11 @@ class PoBMCPServer {
       ...getSkillGemToolSchemas(),
       ...getTradeToolSchemas(),
       ...comparableToolSchemas(),
-      ...craftBudgetSchemas(),
-      ...craftSimulatorSchemas(),
       ...getPoeNinjaToolSchemas(),
       ...getBuildGoalsToolSchemas(),
     ];
+    featureRegistry.assertNoCollisions(legacy);
+    return [...legacy, ...featureRegistry.schemas()];
   }
 
   constructor() {
@@ -295,8 +294,8 @@ class PoBMCPServer {
 
       // Add poe.ninja API tools (always available)
       tools.push(...getPoeNinjaToolSchemas());
-      tools.push(...craftBudgetSchemas());
-      tools.push(...craftSimulatorSchemas());
+      featureRegistry.assertNoCollisions(tools);
+      tools.push(...featureRegistry.schemas());
 
       // The truncatable flag is server-side policy, not part of the MCP wire
       // contract - strip it from what clients see.

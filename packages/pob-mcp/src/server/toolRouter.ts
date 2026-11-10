@@ -13,8 +13,7 @@ import type { PoeNinjaClient } from "../services/poeNinjaClient.js";
 import type { PriceSource } from "../features/buildCost/estimate.js";
 import { handleEstimateBuildCost } from "../features/buildCost/tool.js";
 import { estimateComparable } from "../features/tradeComparable/tool.js";
-import { handleCraftBudget } from "../features/craftBudget/tool.js";
-import { handleSimpleAnnul } from "../features/craftSimulator/tool.js";
+import { featureRegistry } from './featureModules.js';
 
 // Import handlers
 import { handleListBuilds, handleAnalyzeBuild, handleCompareBuilds, handleGetBuildStats, handleGetBuildNotes, handleSetBuildNotes } from "../handlers/buildHandlers.js";
@@ -73,6 +72,8 @@ export async function routeToolCall(
   args: Record<string, unknown> | undefined,
   deps: ToolRouterDependencies
 ): ToolResponse {
+  const featureTool = featureRegistry.get(name);
+  if (featureTool) return featureTool.invoke(args ?? {});
   // Check tool gate first
 
   // Create handler contexts using contextBuilder
@@ -93,10 +94,6 @@ export async function routeToolCall(
       const report = await estimateComparable(deps.tradeClient, args ?? {});
       return { content: [{ type: 'text' as const, text: JSON.stringify(report, null, 2) }] };
     }
-    case "compare_craft_budget":
-      return handleCraftBudget(args ?? {});
-    case "simulate_simple_annul":
-      return handleSimpleAnnul(args ?? {});
     case "find_timeless_jewel_seeds":
       return await handleFindTimelessJewelSeeds(deps.getLuaClient(), args as any);
     case "list_builds":
