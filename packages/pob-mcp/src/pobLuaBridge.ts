@@ -968,6 +968,12 @@ async setTree(params: {
     return result as { ailments: AilmentReport[]; calculationSelectionMatchesMain?: boolean };
   }
 
+  async getClusterJewels(): Promise<unknown> {
+    const res = await this.send({ action: 'get_cluster_jewels' });
+    if (!res.ok) throw new Error(res.error || 'get_cluster_jewels failed');
+    return res.result;
+  }
+
   async evaluateAnointCandidates(params: { slot: string; focus?: 'dps' | 'defence' | 'both'; limit?: number; enchantSlot?: number; damageMetric?: 'CombinedDPS' | 'TotalDPS' | 'MinionCombinedDPS' | 'MinionTotalDPS' }): Promise<{
     candidates: Array<{ nodeId: number | string; name: string; dpsDelta: number; ehpDelta: number; score: number; recipe?: string[] }>;
     base: { CombinedDPS: number; TotalEHP: number; damageStat?: string; damageValue?: number; ehpAvailable?: boolean }; evaluated: number; skipped: number; slot: string; enchantSlot: number; selectedEnchant?: string; baseType: string; focus: string;

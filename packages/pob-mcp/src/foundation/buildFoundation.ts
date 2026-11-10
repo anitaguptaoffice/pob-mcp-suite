@@ -9,6 +9,7 @@ import { validEnemyLevelSetting } from '../domain/configPreset.js';
 
 /** The adapter owns a disposable PoB instance; it must never share live state. */
 export interface BuildEngine {
+  getClusterJewels(): Promise<unknown>;
   newBuild(): Promise<unknown>;
   getCapabilities(): ReturnType<PoBLuaApiClient['getCapabilities']>;
   getAilments(): ReturnType<PoBLuaApiClient['getAilments']>;

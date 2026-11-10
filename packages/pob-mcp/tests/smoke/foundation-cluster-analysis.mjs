@@ -1,0 +1,34 @@
+import { strict as assert } from 'node:assert';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { once } from 'node:events';
+import { PoBLuaApiClient } from '../../build/pobLuaBridge.js';
+import { smokePoBSrc } from './pobSource.mjs';
+import { startMcpServer } from './mcpClient.mjs';
+const dir = await mkdtemp(join(tmpdir(), 'pob-cluster-analysis-'));
+const client = new PoBLuaApiClient({ cwd: smokePoBSrc(), cmd: process.env.POB_CMD, args: [resolve('lua/vanilla_stdio_bridge.lua')], env: { POB_API_STDIO: '0' }, timeoutMs: 60000 });
+let child;
+try {
+  const xml = await readFile(resolve('tests/fixtures/cluster-toxic-rain.xml'), 'utf8');
+  await client.start(); await client.loadBuildXml(xml);
+  const native = await client.getClusterJewels();
+  await client.loadBuildXml(await readFile(resolve('example-build.xml'), 'utf8'));
+  assert.deepEqual((await client.getClusterJewels()).jewels, []);
+  await client.stop();
+  assert.equal(native.treeVersion, '3_13');
+  const large = native.jewels.find(j => j.socketNodeId === 21984);
+  assert.equal(large.baseName, 'Large Cluster Jewel'); assert.equal(large.itemId, 27); assert.equal(large.socketAllocated, true);
+  assert.ok(large.notables.some(n => n.name === 'Wicked Pall' && n.allocated));
+  assert.ok(native.jewels.some(j => j.graphAvailable === false && j.notables === undefined));
+  const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
+  child = mcp.child; child.stderr.on('data', () => {}); const exited = once(child, 'exit');
+  await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'cluster-smoke', version: '1' } }); mcp.notify('notifications/initialized', {});
+  const call = async (name, args) => { const response = await mcp.request('tools/call', { name, arguments: args }); assert.ok(!response.error && !response.result?.isError, JSON.stringify(response).slice(0, 1600)); return JSON.parse(response.result.content[0].text); };
+  const parent = await call('foundation_import_build', { xml, source: 'cluster-fixture' });
+  const result = await call('inspect_snapshot_cluster_jewels', { snapshot_id: parent.id });
+  assert.equal(result.treeVersion, native.treeVersion); assert.deepEqual(result.jewels, native.jewels);
+  assert.equal(result.graphUnavailableCount, native.jewels.filter(j => !j.graphAvailable).length);
+  assert.equal((await call('foundation_export_build', { snapshot_id: parent.id })).xml, xml);
+  child.stdin.end(); assert.equal((await exited)[0], 0); console.log('foundation cluster analysis passed');
+} finally { if (child && child.exitCode === null && child.signalCode === null) child.kill('SIGTERM'); await client.stop(); await rm(dir, { recursive: true, force: true }); }

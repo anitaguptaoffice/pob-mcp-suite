@@ -314,6 +314,7 @@ handlers.remove_skill = op(BuildOps.remove_skill)
 handlers.remove_gem = op(BuildOps.remove_gem)
 
 handlers.get_tree = op(BuildOps.get_tree, 'tree')
+handlers.get_cluster_jewels = op(BuildOps.get_cluster_jewels, 'result')
 handlers.get_items = op(BuildOps.get_items, 'items')
 handlers.get_skills = op(BuildOps.get_skills, 'skills')
 handlers.get_cost_snapshot = function()

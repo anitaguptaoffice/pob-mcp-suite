@@ -338,6 +338,47 @@ function M.get_tree()
   return out
 end
 
+-- PoB's generated subgraphs retain their owning socket and actual allocations.
+-- Read those associations rather than inferring allocation from item text.
+function M.get_cluster_jewels()
+  if not build or not build.spec or type(build.spec.subGraphs) ~= 'table' then return nil, 'cluster subgraphs unavailable' end
+  local spec, jewels, seen = build.spec, setmetatable({}, { __jsontype = 'array' }), {}
+  for _, graph in pairs(spec.subGraphs) do
+    local parent = graph.parentSocket
+    local socketId = parent and tonumber(parent.id)
+    local item = socketId and spec:GetSocketedJewel(socketId)
+    if not socketId or not item or type(graph.nodes) ~= 'table' then return nil, 'cluster subgraph has no identifiable socket or item' end
+    local data = item.jewelData or {}
+    local nodes = setmetatable({}, { __jsontype = 'array' })
+    for _, node in ipairs(graph.nodes) do
+      if node.id and node.type == 'Notable' then
+        nodes[#nodes + 1] = { id = node.id, name = node.dn or node.name, allocated = spec.allocNodes[node.id] ~= nil }
+      end
+    end
+    table.sort(nodes, function(a, b) return a.id < b.id end)
+    seen[socketId] = true
+    jewels[#jewels + 1] = { socketNodeId = socketId, itemId = item.id, name = item.name, baseName = item.baseName,
+      raw = item.raw, skill = data.clusterJewelSkill, nodeCount = data.clusterJewelNodeCount, socketAllocated = spec.allocNodes[socketId] ~= nil, graphAvailable = true, notables = nodes }
+  end
+  -- Include socketed clusters whose socket is not active or whose graph was not
+  -- built; missing subgraphs do not imply that there are no notable skills.
+  for socketId, itemId in pairs(spec.jewels or {}) do
+    local numericId = tonumber(socketId)
+    local item = numericId and spec:GetSocketedJewel(numericId)
+    if numericId and not seen[numericId] and item and item.clusterJewel then
+      local data = item.jewelData or {}
+      local knownSocket = spec.nodes and spec.nodes[numericId] ~= nil
+      local socketAllocated = nil
+      if knownSocket then socketAllocated = spec.allocNodes[numericId] ~= nil end
+      jewels[#jewels + 1] = { socketNodeId = numericId, itemId = item.id or itemId, name = item.name, baseName = item.baseName,
+        raw = item.raw, skill = data.clusterJewelSkill, nodeCount = data.clusterJewelNodeCount,
+        socketAllocated = socketAllocated, graphAvailable = false }
+    end
+  end
+  table.sort(jewels, function(a, b) return a.socketNodeId < b.socketNodeId end)
+  return { treeVersion = spec.treeVersion, jewels = jewels }
+end
+
 -- params: { classId, ascendClassId, secondaryAscendClassId?, nodes:[int], masteryEffects?:{[id]=effect}, treeVersion? }
 function M.set_tree(params)
   if not build or not build.spec then

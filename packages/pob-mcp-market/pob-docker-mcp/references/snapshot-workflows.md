@@ -134,6 +134,12 @@ by server configuration. Never assume legacy tools are exposed alongside it.
 - Use `compare_snapshot_trees` for allocated node and mastery differences between
   two snapshots with the same known tree version. It does not prove legality,
   compute point cost, or measure the resulting damage.
+- Use `inspect_snapshot_cluster_jewels` for the active tree's socketed cluster
+  jewels and PoB-generated notable allocation. `graphAvailable: false` or a
+  missing socket allocation means the corresponding state is unknown; do not
+  report missing graphs as jewels with no notables. This does not assess synergy,
+  DPS, legality or jewels stored outside the active tree. Use a separate
+  `search_cluster_listings` query for bounded international Trade candidates.
 - Use `trial: true` for experiments. Trial snapshots default to seven days;
   retain a wanted result with `foundation_retain_snapshot`. Check returned IDs
   and retention metadata rather than assuming the parent changed. Inspect and

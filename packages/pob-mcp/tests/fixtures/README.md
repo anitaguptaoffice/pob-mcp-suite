@@ -19,3 +19,13 @@ meaning what they mean upstream:
 - `sha256 fb53e38e853a95db7ba1b5b14c66e86123b2c66f78f4ed9151ba57b36adb5dfc`
 
 Do not add an XML comment for attribution: that is what this file is for.
+
+## cluster-toxic-rain.xml
+
+Copied verbatim from the vendored Path of Building Community MIT-licensed test
+build `spec/TestBuilds/3.13/Mirage Archer Toxic Rain.xml`. The 3.13 tree includes
+socketed cluster jewels with both generated and unavailable subgraphs. The copy
+keeps this regression independent of later vendor synchronization and works
+with installed PoB distributions that do not ship `spec/`.
+
+- `sha256 8d840258d8a14983bbb8484ba91ca39d79dacee32863c012484931df9d462fac`
