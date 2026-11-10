@@ -31,6 +31,8 @@ try {
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_delete_spec'));
   assert.ok(!tools.result.tools.some(t => t.name === 'reference_currency_rates'));
   assert.ok(!tools.result.tools.some(t => t.name === 'screen_currency_spreads'));
+  assert.ok(!tools.result.tools.some(t => t.name === 'foundation_preview_item'));
+  assert.ok(!tools.result.tools.some(t => t.name === 'preview_trade_listings'));
   assert.ok(!tools.result.tools.some(t => t.name === 'estimate_snapshot_cost'));
   assert.ok(!tools.result.tools.some(t => t.name === 'compare_snapshot_trees'));
   const hidden = await disabled.request('tools/call', { name: 'foundation_import_build', arguments: { xml: '<x/>', source: 'test' } });
@@ -62,6 +64,8 @@ try {
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'reference_currency_rates').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'simulate_reference_currency_chain').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'screen_currency_spreads').length, 1);
+  assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_preview_item').length, 1);
+  assert.ok(!foundationOnly.result.tools.some(t => t.name === 'preview_trade_listings'));
   const invalidSpecOption = await first.request('tools/call', { name: 'foundation_create_spec', arguments: { snapshot_id: snapshot.id, copyFrom: 1 } });
   assert.equal(invalidSpecOption.result.isError, true);
   assert.match(invalidSpecOption.result.content[0].text, /Invalid passive spec creation option/);
@@ -101,6 +105,7 @@ try {
   assert.equal(tradeTools.result.tools.filter(t => t.name === 'estimate_trade_comparable').length, 1);
   assert.equal(tradeTools.result.tools.filter(t => t.name === 'search_official_trade').length, 1);
   assert.equal(tradeTools.result.tools.filter(t => t.name === 'sample_trade_item_price').length, 1);
+  assert.equal(tradeTools.result.tools.filter(t => t.name === 'preview_trade_listings').length, 1);
   assert.equal(tradeTools.result.tools.filter(t => t.name === 'search_trade_stats').length, 1);
   assert.equal(tradeTools.result.tools.filter(t => t.name === 'list_trade_leagues').length, 1);
   assert.ok(!tradeTools.result.tools.some(t => t.name === 'estimate_comparable_item'));
@@ -115,6 +120,7 @@ try {
   assert.ok(!combined.result.tools.some(t => t.name === 'search_trade_stats'));
   assert.ok(!combined.result.tools.some(t => t.name === 'search_official_trade'));
   assert.ok(!combined.result.tools.some(t => t.name === 'sample_trade_item_price'));
+  assert.ok(!combined.result.tools.some(t => t.name === 'preview_trade_listings'));
   assert.equal(combined.result.tools.filter(t => t.name === 'compare_craft_budget').length, 1);
   assert.equal(combined.result.tools.filter(t => t.name === 'simulate_simple_annul').length, 1);
   assert.equal(combined.result.tools.filter(t => t.name === 'estimate_snapshot_cost').length, 1);

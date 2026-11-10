@@ -14,6 +14,13 @@ Use Simplified Chinese for user-facing answers and verified Simplified Chinese g
 5. For crafting instructions and probability assumptions, use the separate `pob-crafting` skill in `../pob-crafting/SKILL.md`. `compare_craft_budget` compares repeated-attempt costs only when externally verified single-attempt odds and complete per-attempt costs are provided; it is a mathematical model, not a PoE crafting simulator.
 6. Clearly distinguish the item's market asking price, the estimated cost to reproduce it, and an upgrade's PoB-calculated benefit. Disabled or alternate skill groups may not all need to be purchased.
 
+When `preview_trade_listings` is advertised, compare up to five official
+listings against the same immutable snapshot using the search ID and listing
+IDs. Show failures, fetch time, the unchanged currency, and PoB's parsing
+diagnostics. A listing price does not prove instant-buyout eligibility; check
+the originating search and current availability. For a pasted item without a
+listing, use `foundation_preview_item` when available.
+
 The poe.ninja source covers public economy data only. Do not call its internal builds/profile endpoints. Prices and availability change; respect source limits and caching. If data or a rate is unavailable, say so instead of estimating zero.
 
 For currency reference values, use `reference_currency_rates` when advertised,

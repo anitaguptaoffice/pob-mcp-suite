@@ -53,6 +53,7 @@ import { createTradeItemPriceTool, tradeItemPriceSchema } from './features/trade
 import { createSnapshotTreeComparisonTool, snapshotTreeComparisonSchema } from './features/treeComparison/tool.js';
 import { createCurrencyReferenceTools, currencyReferenceSchemas } from './features/currencyReference/tools.js';
 import { createCurrencySpreadTool, currencySpreadSchema } from './features/currencySpread/tool.js';
+import { createTradePreviewTool, tradePreviewSchema } from './features/tradePreview/tool.js';
 
 // Import utilities
 import { ContextBuilder } from "./utils/contextBuilder.js";
@@ -110,6 +111,7 @@ class PoBMCPServer {
       snapshotTreeComparisonSchema(),
       ...currencyReferenceSchemas(),
       currencySpreadSchema(),
+      tradePreviewSchema(),
       ...getLuaToolSchemas(),
       ...buildCostSchemas(),
       ...getOptimizationToolSchemas(),
@@ -468,7 +470,7 @@ class PoBMCPServer {
         const rate = Number(process.env.POE_RATE_LIMIT_PER_SECOND ?? 4);
         const minTimeMs = Number.isFinite(rate) && rate > 0 ? Math.ceil(1000 / Math.min(rate, 4)) : 250;
         const trade = new OfficialTradeAdapter({ minTimeMs, session: () => process.env.POE_SESSION_ID || undefined });
-        migrated.push(createSourceComparableTool(trade), createTradeSearchTool(trade), createTradeItemPriceTool(trade), ...createTradeMetadataTools(trade));
+        migrated.push(createSourceComparableTool(trade), createTradeSearchTool(trade), createTradeItemPriceTool(trade), createTradePreviewTool(foundation, trade), ...createTradeMetadataTools(trade));
       }
       this.foundationFeatures = new FeatureRegistry(migrated);
       this.foundationJobs = new JobRunner(jobs, input => foundation.evaluate(input.snapshotId, input.fields, input.options));

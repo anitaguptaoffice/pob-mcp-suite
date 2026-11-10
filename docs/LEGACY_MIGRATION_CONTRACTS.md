@@ -95,7 +95,7 @@ acceptance work to perform during migration, not claims of completed tests.
 | `analyze_cluster_jewels` | Explicit file import and cluster-jewel analysis. | Saved file and current unsaved state remain distinct; no unnecessary engine requirement. |
 | `suggest_watchers_eye` | Aura-aware jewel recommendation feature. | Match active auras and label heuristic rather than measured gains. |
 | `check_boss_readiness` | Snapshot-based heuristic readiness feature. | Preserve explicit boss difficulty, unknowns and poison-inclusive minion damage. |
-| `compare_equipment_candidate` | Snapshot-bound isolated item comparison workflow. | Compare same baseline and player/minion metrics; preserve unsupported-slot and legality limitations. |
+| `compare_equipment_candidate` | `foundation_preview_item` previews an item against an isolated snapshot; legacy callers require migration. | `trade-preview-live.mjs` checks real PoB baseline and candidate metrics; mutation tests reject changed observations and preserve unsupported-slot and legality limitations. |
 | `plan_leveling` | Build-aware leveling-guide feature. | Preserve class, ascendancy and skill inputs; identify unverified advice. |
 | `find_item_upgrades` | Equipment context query; no verified upgrade recommendation is currently promised. | Slot and current defense context are accurate; no invented market or gain result. |
 | `analyze_defenses` | Snapshot defense analysis feature. | Report missing layers as unknown and handle one-life builds correctly. |
@@ -136,8 +136,8 @@ acceptance work to perform during migration, not claims of completed tests.
 | `search_cluster_jewels` | Cluster-jewel trade workflow with local post-filter. | Size, passive count, exact notables and sample-limited coverage stay explicit. |
 | `generate_shopping_list` | Snapshot equipment-list workflow with optional market enrichment. | Preserve active item set and distinguish unpriced items from priced purchasable listings. |
 | `find_weighted_trade_items` | PoB weight generation combined with official Trade search. | Preserve user league, auth dependencies, candidate scope and no best-in-slot claim. |
-| `compare_trade_listing_in_pob` | Official listing fetch plus isolated PoB comparison. | Exact clipboard item and snapshot baseline retained; do not claim listing availability or legality. |
-| `compare_trade_listings_in_pob` | Bounded batch listing comparison using one immutable snapshot. | Baseline identity and metrics match per candidate; report each failure independently. |
+| `compare_trade_listing_in_pob` | `preview_trade_listings` fetches official listings and previews against an isolated snapshot; legacy callers require migration. | `trade-preview-live.mjs` verifies exact clipboard, real source time and real PoB; it does not claim listing availability or legality. |
+| `compare_trade_listings_in_pob` | `preview_trade_listings` previews 1–5 listings against one immutable snapshot. | `tradePreview.test.ts` checks missing and mismatched listings independently; each successful preview retains snapshot and engine identity. |
 | `estimate_comparable_item` | `estimate_trade_comparable` composes the independent official source with the extracted comparable policy; legacy route and caller removal are pending. | Preserve query, `securable`, sample, currencies and ambiguity; `source-comparable-live.mjs` checks real source and original retrieval times. |
 | `suggest_crafting` | Crafting-context and versioned verified-data feature. | Preserve supplied budget/item context and verified source link; do not invent mechanics or odds. |
 | `inspect_item_affix_weight` | `foundation_item_affix_weight` plus item-data presentation. | Separate spawn weight, item-level eligibility and unknowns from crafting probability. |

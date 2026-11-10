@@ -3,7 +3,7 @@ import { SnapshotStore, snapshotMetadata, type SnapshotRecord } from './snapshot
 import { EngineLimiter } from './engineLimiter.js';
 import { normalizeObservation } from './observation.js';
 import { MAX_BUILD_BYTES, decodeShareCode } from './shareCode.js';
-import { toFiniteNumber } from '../pobLuaBridge.js';
+import { toFiniteNumber, type PoBLuaApiClient } from '../pobLuaBridge.js';
 
 /** The adapter owns a disposable PoB instance; it must never share live state. */
 export interface BuildEngine {
@@ -43,6 +43,7 @@ export interface BuildEngine {
   createSpec(params: { title?: string; copyFrom?: number; activate?: boolean }): Promise<unknown>;
   renameSpec(index: number, title: string): Promise<unknown>;
   deleteSpec(index: number): Promise<unknown>;
+  compareItem(slot: string, itemText: string): ReturnType<PoBLuaApiClient['compareItem']>;
   getCompatibleSupports(params: { groupIndex?: number; query?: string; limit?: number; includeExceptional?: boolean }): Promise<{
     groupIndex: number; skillName?: string; candidates: Array<{ id: string; name: string; exceptional: boolean; alreadySocketed: boolean }>;
     total: number; failed: number;
@@ -171,6 +172,32 @@ export class BuildFoundation {
       }
       await engine.verifyIdentity();
       return { snapshotId: id, data, identity: engine.identity, warnings };
+    });
+  }
+
+  async previewItem(id: string, slot: string, itemText: string) {
+    if (typeof slot !== 'string' || !slot.trim() || slot.length > 100 || typeof itemText !== 'string' || !itemText.trim() || Buffer.byteLength(itemText, 'utf8') > 10240) throw new Error('Valid slot and item text up to 10 KB are required');
+    const snapshot = await this.store.read(id);
+    return this.limiter.withEngine(async engine => {
+      const warnings = checkIdentity(snapshot, engine);
+      await engine.loadBuildXml(snapshot.xml);
+      const before = await observe(engine);
+      const result = await engine.compareItem(slot.trim(), itemText);
+      const after = await observe(engine);
+      if (!isDeepStrictEqual(before, after)) throw new Error('PoB item preview changed the snapshot observation');
+      if (!result || !result.baseline || typeof result.baseline !== 'object' || !result.candidateStats || typeof result.candidateStats !== 'object') throw new Error('PoB returned invalid item preview');
+      const delta: Record<string, number> = {};
+      for (const [key, value] of Object.entries(result.candidateStats)) {
+        const previous = result.baseline[key];
+        const difference = value - previous;
+        if (typeof value === 'number' && Number.isFinite(value) && typeof previous === 'number' && Number.isFinite(previous) && Number.isFinite(difference)) delta[key] = difference;
+      }
+      await engine.verifyIdentity();
+      return { snapshotId: id, identity: engine.identity, ...result, delta, warnings: [...warnings,
+        'Values use the snapshot skill selection and configuration; player and minion damage are separate.',
+        'This is a PoB item preview, not an equipment mutation or verification of item legality, availability or price.',
+        'Candidate quality is preserved as parsed. Unsupported modifier diagnostics cover only the candidate and replaced item, not the whole build.',
+        'PoB may not recognize every mechanic; inspect the item, sockets and requirements before relying on the result.'] };
     });
   }
 

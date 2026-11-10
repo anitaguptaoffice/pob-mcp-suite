@@ -76,6 +76,7 @@ export async function openPoBEngine(options: PoBEngineOptions): Promise<BuildEng
     listSpecs: () => client.listSpecs(), selectSpec: index => client.selectSpec(index),
     createSpec: params => client.createSpec(params), renameSpec: (index, title) => client.renameSpec(index, title),
     deleteSpec: index => client.deleteSpec(index),
+    compareItem: (slot, text) => client.compareItem(slot, text),
     getCompatibleSupports: params => client.getCompatibleSupports(params),
     getConfig: () => client.getConfig(), close: () => client.stop(),
   };

@@ -35,7 +35,7 @@ Generated from registered schema groups in the current build. Most entries are p
 ## getLuaToolSchemas
 
 - `inspect_item_affix_weight` — target: crafting and item data; replacement: item data/crafting module; status: not migrated; skill references: no exact name found in packaged skill Markdown.
-- `compare_equipment_candidate` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: `references/trade-tools.md`.
+- `compare_equipment_candidate` — target: analysis and optimization; replacement: `foundation_preview_item`; status: snapshot preview live-tested, legacy callers require migration; skill references: `references/trade-tools.md`.
 - `lua_get_capabilities` — target: engine lifecycle and introspection; replacement: internal engine lifecycle and capability query; status: not migrated; skill references: no exact name found in packaged skill Markdown.
 - `lua_get_build_snapshot` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: no exact name found in packaged skill Markdown.
 - `lua_start` — target: engine lifecycle and introspection; replacement: internal engine lifecycle and capability query; status: not migrated; skill references: no exact name found in packaged skill Markdown.
@@ -126,8 +126,8 @@ Generated from registered schema groups in the current build. Most entries are p
 
 ## getTradeToolSchemas
 
-- `compare_trade_listings_in_pob` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: `references/trade-tools.md`.
-- `compare_trade_listing_in_pob` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: `references/trade-tools.md`.
+- `compare_trade_listings_in_pob` — target: market and workflows; replacement: `preview_trade_listings`; status: bounded batch preview implemented, legacy callers require migration; skill references: `references/trade-tools.md`.
+- `compare_trade_listing_in_pob` — target: market and workflows; replacement: `preview_trade_listings`; status: snapshot and official source preview live-tested, legacy callers require migration; skill references: `references/trade-tools.md`.
 - `find_weighted_trade_items` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: no exact name found in packaged skill Markdown.
 - `search_trade_items` — target: market and workflows; replacement: `search_official_trade`; status: new source tool live-tested, legacy aliases and callers require migration; skill references: `references/trade-tools.md`.
 - `get_item_price` — target: market and workflows; replacement: `sample_trade_item_price`; status: new source workflow implemented; legacy callers require migration; skill references: `references/trade-tools.md`.
