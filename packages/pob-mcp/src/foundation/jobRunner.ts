@@ -5,7 +5,8 @@ export interface EvaluationInput { snapshotId: string; fields: string[]; options
 export interface MasteryEvaluationInput { kind: 'mastery'; snapshotId: string; nodeId: number; effectId: number; metric: string; direction: 'higher' | 'lower'; treeVersion: string | null; discoveryIdentity: BuildIdentity; includeCurrent: boolean; selected: boolean | null; totalDiscovered: number; totalMasteries: number }
 type BuildIdentity = { engineVersion: string | null; adapterVersion: string | null; dataVersion: string | null; runtimeVersion?: string | null; executableVersion?: string | null };
 export interface GemSetupEvaluationInput { kind: 'gem_setup'; snapshotId: string; groupIndex: number; setupName: string; gems: Parameters<BuildFoundation['deriveGemSetup']>[2]; discoveryIdentity: BuildIdentity }
-type JobInput = EvaluationInput | MasteryEvaluationInput | GemSetupEvaluationInput;
+export interface PassiveEvaluationInput { kind: 'passive'; snapshotId: string; nodeId: number; nodeName: string; pathNodes: number[]; metrics: string[]; discoveryIdentity: BuildIdentity; treeVersion: string }
+type JobInput = EvaluationInput | MasteryEvaluationInput | GemSetupEvaluationInput | PassiveEvaluationInput;
 
 /** One bounded runner; cancellation is cooperative between complete items. */
 export class JobRunner {
@@ -14,7 +15,7 @@ export class JobRunner {
   private reservations = 0;
   private readonly submissions = new Set<Promise<JobRecord>>();
   constructor(private readonly store: JobStore, private readonly evaluate: (input: EvaluationInput) => Promise<unknown>, private readonly maxJobs = 2,
-    private readonly evaluateMastery?: (input: MasteryEvaluationInput) => Promise<unknown>, private readonly evaluateGemSetup?: (input: GemSetupEvaluationInput) => Promise<unknown>) {}
+    private readonly evaluateMastery?: (input: MasteryEvaluationInput) => Promise<unknown>, private readonly evaluateGemSetup?: (input: GemSetupEvaluationInput) => Promise<unknown>, private readonly evaluatePassive?: (input: PassiveEvaluationInput) => Promise<unknown>) {}
 
   async submit(inputs: EvaluationInput[]): Promise<JobRecord> {
     if (this.closing) throw new Error('Job runner is closing');
@@ -45,6 +46,14 @@ export class JobRunner {
     const normalize = (name: string) => name.trim().toLowerCase().replace(/ support$/, '');
     const validGem = (gem: GemSetupEvaluationInput['gems'][number]) => gem && typeof gem === 'object' && !Array.isArray(gem) && Object.keys(gem).every(key => ['gemName', 'level', 'quality', 'enabled'].includes(key)) && Object.values(gem).every(value => value !== undefined) && typeof gem.gemName === 'string' && !!gem.gemName.trim() && gem.gemName.length <= 200 && (gem.level === undefined || validInt(gem.level, 1, 40)) && (gem.quality === undefined || validInt(gem.quality, 0, 99)) && (gem.enabled === undefined || typeof gem.enabled === 'boolean');
     if (inputs.some(input => !input || input.kind !== 'gem_setup' || !/^[a-f0-9]{64}$/.test(input.snapshotId) || !validInt(input.groupIndex, 1, 10000) || typeof input.setupName !== 'string' || !input.setupName.trim() || input.setupName.length > 100 || !Array.isArray(input.gems) || input.gems.length < 1 || input.gems.length > 6 || input.gems.some(gem => !validGem(gem)) || new Set(input.gems.map(gem => normalize(gem.gemName))).size !== input.gems.length || !input.discoveryIdentity || typeof input.discoveryIdentity !== 'object' || Array.isArray(input.discoveryIdentity) || input.snapshotId !== first.snapshotId || input.groupIndex !== first.groupIndex || JSON.stringify(input.discoveryIdentity) !== JSON.stringify(first.discoveryIdentity)) || new Set(inputs.map(input => input.setupName.trim().toLowerCase())).size !== inputs.length) throw new Error('Invalid gem setup evaluations');
+    return this.submitValidated(inputs);
+  }
+
+  async submitPassives(inputs: PassiveEvaluationInput[]): Promise<JobRecord> {
+    if (this.closing) throw new Error('Job runner is closing');
+    if (!this.evaluatePassive || !Array.isArray(inputs) || inputs.length < 1 || inputs.length > 100) throw new Error('Provide 1 to 100 passive evaluations');
+    const first = inputs[0], positive = (v: unknown) => typeof v === 'number' && Number.isSafeInteger(v) && v > 0 && v <= 2147483647;
+    if (inputs.some(input => !input || input.kind !== 'passive' || typeof input.snapshotId !== 'string' || !/^[a-f0-9]{64}$/.test(input.snapshotId) || !positive(input.nodeId) || typeof input.nodeName !== 'string' || !input.nodeName.trim() || input.nodeName.length > 200 || !Array.isArray(input.pathNodes) || input.pathNodes.length < 1 || input.pathNodes.length > 100 || input.pathNodes.some(node => !positive(node)) || new Set(input.pathNodes).size !== input.pathNodes.length || input.pathNodes.at(-1) !== input.nodeId || !Array.isArray(input.metrics) || input.metrics.length < 1 || input.metrics.length > 2 || input.metrics.some(metric => typeof metric !== 'string' || !/^[A-Za-z][A-Za-z0-9_]{0,99}$/.test(metric)) || new Set(input.metrics).size !== input.metrics.length || typeof input.treeVersion !== 'string' || !input.treeVersion || !input.discoveryIdentity || typeof input.discoveryIdentity !== 'object' || Array.isArray(input.discoveryIdentity) || input.snapshotId !== first.snapshotId || input.treeVersion !== first.treeVersion || JSON.stringify(input.metrics) !== JSON.stringify(first.metrics) || JSON.stringify(input.discoveryIdentity) !== JSON.stringify(first.discoveryIdentity)) || new Set(inputs.map(input => input.nodeId)).size !== inputs.length) throw new Error('Invalid passive evaluations');
     return this.submitValidated(inputs);
   }
 
@@ -79,7 +88,7 @@ export class JobRunner {
         if (started.status === 'cancel_requested') break;
         try {
           const input = inputs[index];
-          const result = 'kind' in input && input.kind === 'mastery' ? await this.evaluateMastery!(input) : 'kind' in input && input.kind === 'gem_setup' ? await this.evaluateGemSetup!(input) : await this.evaluate(input as EvaluationInput);
+          const result = 'kind' in input && input.kind === 'mastery' ? await this.evaluateMastery!(input) : 'kind' in input && input.kind === 'gem_setup' ? await this.evaluateGemSetup!(input) : 'kind' in input && input.kind === 'passive' ? await this.evaluatePassive!(input) : await this.evaluate(input as EvaluationInput);
           await this.store.recordItem(id, index, { status: 'completed', result });
         } catch (error) {
           await this.store.recordItem(id, index, { status: 'failed', error: error instanceof Error ? error.message : String(error) });

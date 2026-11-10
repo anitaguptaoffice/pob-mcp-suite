@@ -7,6 +7,21 @@ import { JobStore } from '../../src/foundation/jobStore.js';
 function deferred() { let resolve!: () => void; const promise = new Promise<void>(done => { resolve = done; }); return { promise, resolve }; }
 const input = { snapshotId: 'a'.repeat(64), fields: ['Life'] };
 describe('JobRunner', () => {
+  it('validates passive paths and cancels between isolated passive evaluations', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'pob-passive-job-'));
+    try {
+      const entered = deferred(), gate = deferred(), store = new JobStore(dir);
+      const evaluate = jest.fn(async () => { entered.resolve(); await gate.promise; return { ok: true }; });
+      const runner = new JobRunner(store, async () => { throw new Error('wrong dispatcher'); }, 1, undefined, undefined, evaluate);
+      const candidate = { kind: 'passive' as const, snapshotId: input.snapshotId, nodeId: 2, nodeName: 'test', pathNodes: [1, 2], metrics: ['Life'], treeVersion: '3_29', discoveryIdentity: { engineVersion: 'a', adapterVersion: 'b', dataVersion: 'c' } };
+      await expect(runner.submitPassives([{ ...candidate, pathNodes: [1, 1, 2] }])).rejects.toThrow('Invalid passive');
+      const job = await runner.submitPassives([candidate, { ...candidate, nodeId: 3, pathNodes: [3] }]);
+      await entered.promise; expect(await store.protectedSnapshotIds()).toEqual(new Set([input.snapshotId]));
+      expect((await runner.cancel(job.id)).status).toBe('cancel_requested'); gate.resolve(); await runner.close();
+      expect((await store.get(job.id)).items.map(item => item.status)).toEqual(['completed', 'pending']);
+      expect(evaluate).toHaveBeenCalledTimes(1);
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
   it('runs gem setup jobs through the isolated dispatcher and cancels between setups', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'pob-gem-job-'));
     try {

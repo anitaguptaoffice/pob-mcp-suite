@@ -1,0 +1,43 @@
+import { strict as assert } from 'node:assert';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { once } from 'node:events';
+import { PoBLuaApiClient } from '../../build/pobLuaBridge.js';
+import { smokePoBSrc } from './pobSource.mjs';
+import { startMcpServer } from './mcpClient.mjs';
+
+const dir = await mkdtemp(join(tmpdir(), 'pob-passive-job-'));
+const client = new PoBLuaApiClient({ cwd: smokePoBSrc(), cmd: process.env.POB_CMD, args: [resolve('lua/vanilla_stdio_bridge.lua')], env: { POB_API_STDIO: '0' }, timeoutMs: 60000 });
+let child;
+try {
+  await client.start(); await client.newBuild({ className: 'Witch' });
+  await client.setTree({ classId: 3, ascendClassId: 0, nodes: [], treeVersion: '3_29' }); await client.setLevel(90);
+  const group = await client.createSocketGroup({ label: 'poison-minion' });
+  await client.addGem({ groupIndex: group.index, gemName: 'Summon Raging Spirit', level: 20 });
+  await client.setMainSelection({ mainSocketGroup: group.index });
+  assert.ok((await client.setConfig({ customMods: 'Minions have 100% chance to Poison on Hit' })).applied.customMods);
+  const native = await client.getStats(['MinionTotalDPS', 'MinionCombinedDPS']);
+  assert.ok(native.MinionCombinedDPS > native.MinionTotalDPS && native.MinionTotalDPS > 0);
+  const xml = await client.exportBuildXml(); await client.stop();
+  const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
+  child = mcp.child; child.stderr.on('data', () => {}); const exited = once(child, 'exit');
+  await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'passive-ranking-smoke', version: '1' } }); mcp.notify('notifications/initialized', {});
+  const call = async (name, args) => { const response = await mcp.request('tools/call', { name, arguments: args }); assert.ok(!response.error && !response.result?.isError, JSON.stringify(response).slice(0, 1200)); return JSON.parse(response.result.content[0].text); };
+  const parent = await call('foundation_import_build', { xml, source: 'passive-ranking-fixture' });
+  const job = await call('submit_snapshot_passive_ranking', { snapshot_id: parent.id, metrics: ['Life', 'MinionCombinedDPS'], max_distance: 8, limit: 2, filter: 'spell damage' });
+  assert.ok(job.jobId && job.submitted > 0);
+  const deadline = Date.now() + 240000; let report;
+  do { report = await call('summarize_snapshot_passive_ranking', { job_id: job.jobId }); if (['completed', 'failed', 'cancelled', 'interrupted'].includes(report.jobStatus)) break; await new Promise(resolve => setTimeout(resolve, 500)); } while (Date.now() < deadline);
+  assert.equal(report.jobStatus, 'completed'); assert.equal(report.status, 'complete', JSON.stringify(report.results));
+  assert.equal(report.ranked.length, job.submitted);
+  const candidate = report.ranked[0];
+  const evaluated = await call('foundation_evaluate', { snapshot_id: candidate.snapshotId, fields: ['Life', 'MinionCombinedDPS'] });
+  assert.equal(candidate.metrics.Life.candidate, evaluated.metrics.Life.value);
+  assert.equal(candidate.metrics.Life.delta, candidate.metrics.Life.candidate - report.baseline.metrics.Life.value);
+  assert.equal(candidate.metrics.MinionCombinedDPS.candidate, evaluated.metrics.MinionCombinedDPS.value);
+  assert.equal(candidate.metrics.MinionCombinedDPS.baseline, native.MinionCombinedDPS);
+  assert.equal((await call('foundation_read_snapshot', { snapshot_id: candidate.snapshotId })).parentId, parent.id);
+  assert.equal((await call('foundation_export_build', { snapshot_id: parent.id })).xml, xml);
+  child.stdin.end(); assert.equal((await exited)[0], 0); console.log('foundation passive ranking passed');
+} finally { if (child && child.exitCode === null && child.signalCode === null) child.kill('SIGTERM'); await client.stop(); await rm(dir, { recursive: true, force: true }); }

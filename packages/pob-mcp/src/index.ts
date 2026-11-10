@@ -61,6 +61,7 @@ import { buildIssuesSchema, createBuildIssuesTool } from './features/buildIssues
 import { bossReadinessSchema, createBossReadinessTool } from './features/bossReadiness/tool.js';
 import { masteryRankingSchema, createMasteryRankingTool, masteryDiscoverySchema, createMasteryDiscoveryTool, rankMasteryEffects } from './features/masteryRanking/tool.js';
 import { masteryJobSchemas, createMasteryJobTools } from './features/masteryRanking/jobTools.js';
+import { passiveRankingSchemas, createPassiveRankingTools, evaluatePassive } from './features/passiveRanking/tool.js';
 import { createCurrencyReferenceTools, currencyReferenceSchemas } from './features/currencyReference/tools.js';
 import { createCurrencySpreadTool, currencySpreadSchema } from './features/currencySpread/tool.js';
 import { createTradePreviewTool, tradePreviewSchema } from './features/tradePreview/tool.js';
@@ -134,6 +135,7 @@ class PoBMCPServer {
       masteryRankingSchema(),
       masteryDiscoverySchema(),
       ...masteryJobSchemas(),
+      ...passiveRankingSchemas(),
       ...currencyReferenceSchemas(),
       currencySpreadSchema(),
       tradePreviewSchema(),
@@ -498,8 +500,8 @@ class PoBMCPServer {
           const candidate = await foundation.deriveGemSetup(input.snapshotId, input.groupIndex, input.gems, true);
           try { return await compareSnapshotGemSetups(foundation, { snapshot_id: input.snapshotId, group_index: input.groupIndex, candidate_snapshot_ids: [candidate.id] }); }
           catch (error) { return { setupError: error instanceof Error ? error.message : String(error), candidateSnapshotId: candidate.id }; }
-        });
-      const migrated = [createSnapshotCostTool(foundation, economy), createShoppingListTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), createSnapshotBuildComparisonTool(foundation), createSnapshotGemComparisonTool(foundation), ...createGemSetupJobTools(foundation, this.foundationJobs), createSnapshotSupportRankingTool(foundation), ...createTreePathTools(foundation), createBuildIssuesTool(foundation), createBossReadinessTool(foundation), createMasteryRankingTool(foundation), createMasteryDiscoveryTool(foundation), ...createMasteryJobTools(foundation, this.foundationJobs), createTimelessSearchTool(foundation), ...createCurrencyReferenceTools(economy), createCurrencySpreadTool(economy)];
+        }, input => evaluatePassive(foundation, input));
+      const migrated = [createSnapshotCostTool(foundation, economy), createShoppingListTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), createSnapshotBuildComparisonTool(foundation), createSnapshotGemComparisonTool(foundation), ...createGemSetupJobTools(foundation, this.foundationJobs), createSnapshotSupportRankingTool(foundation), ...createTreePathTools(foundation), createBuildIssuesTool(foundation), createBossReadinessTool(foundation), createMasteryRankingTool(foundation), createMasteryDiscoveryTool(foundation), ...createMasteryJobTools(foundation, this.foundationJobs), ...createPassiveRankingTools(foundation, this.foundationJobs), createTimelessSearchTool(foundation), ...createCurrencyReferenceTools(economy), createCurrencySpreadTool(economy)];
       // Until the legacy Trade client is retired, do not run two independent
       // rate limiters in one service against the same official API.
       if (process.env.POE_TRADE_ENABLED === 'true' && !this.legacyEnabled()) {

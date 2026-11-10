@@ -115,3 +115,19 @@ by server configuration. Never assume legacy tools are exposed alongside it.
 - The computation does not establish gem availability, socket colours, mana
   requirements or in-game legality. Inspect and evaluate the selected trial,
   then retain or save it explicitly if the user wants to keep it.
+
+## Rank nearby passive paths
+
+- Submit `submit_snapshot_passive_ranking` with `snapshot_id` and one or two
+  explicit higher-is-better PoB `metrics`, for example `MinionCombinedDPS`
+  for poison-inclusive minion damage when available and `TotalEHP` for the
+  chosen defensive comparison. Set `max_distance`, `limit`, and optional
+  `filter` to control discovery. Confirm metric meanings and baseline values
+  for the build; player and minion damage are separate and must not be added.
+- Poll `summarize_snapshot_passive_ranking` with the returned `job_id`. The score
+  sums relative changes in the specified metrics and divides by path point cost;
+  two metrics therefore have equal weight. Excluded, failed, pending and
+  unranked entries are not evidence of a complete search. Discovery is bounded,
+  excludes ascendancy and blighted notables, and does not select mastery effects.
+  Verify point availability, legality and build mechanics before applying a path.
+  Results are seven-day trial snapshots; retain or save a chosen child explicitly.
