@@ -868,6 +868,12 @@ async setTree(params: {
     return res.results as SearchNodesResult;
   }
 
+  async queryTreePaths(params: { targetNodeId?: number; maxDistance?: number; limit?: number; filter?: string }): Promise<unknown> {
+    const res = await this.send({ action: 'query_tree_paths', params });
+    if (!res.ok) throw new Error(res.error || 'query_tree_paths failed');
+    return res.result;
+  }
+
   async findTimelessJewelSeeds(params: { socketNodeId: number; desired: string[]; limit?: number; seeds?: number[]; historicFigure?: string; keystoneNodeId?: number; requiredSourceNodeIds?: number[] }): Promise<any> {
     return (await this.findTimelessJewelSeedsDetailed(params)).results;
   }

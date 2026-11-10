@@ -115,8 +115,8 @@ acceptance work to perform during migration, not claims of completed tests.
 | `compare_builds` | `compare_snapshot_builds` compares explicit snapshot IDs using each snapshot's saved skill and configuration, with tree versions and engine identities. | `snapshotBuildComparison.test.ts` covers changed configuration, tree versions, missing metrics, identity mismatches and unknown identities; `foundation-mcp.mjs` compares real PoB calculations. Legacy file-name callers and skill workflows still require migration. |
 | `refresh_tree_data` | Versioned passive-data adapter refresh is needed. | Invalidate only the requested version and surface failures rather than returning stale data as fresh. |
 | `compare_trees` | `compare_snapshot_trees` compares two explicit snapshot IDs; legacy file callers require migration. | `snapshotTreeComparison.test.ts` verifies mastery changes, missing data and version rejection; `foundation-mcp.mjs` verifies node changes against real PoB. Incompatible or unknown versions are rejected. |
-| `get_nearby_nodes` | Snapshot-bound versioned tree-neighborhood query. | Distance, filter and candidate scope match requested tree. |
-| `find_path_to_node` | Snapshot-bound PoB path query. | Confirm reachable path and disconnected or unavailable target behavior. |
+| `get_nearby_nodes` | `find_snapshot_nearby_nodes` reads PoB-native point distance for reachable, unallocated notables and keystones in the snapshot tree. | `foundation-tree-paths.mjs` checks distance, filtering, limits and empty results on PoB 3_29; old file-name callers remain. |
+| `find_path_to_node` | `find_snapshot_tree_path` reports PoB's path, already-allocated or unavailable state; derived snapshots must independently verify allocations and mastery selections. | `foundation-tree-paths.mjs` checks PoB's fixed route, allocation in a child snapshot, disconnected and absent targets, and unchanged parent. Legacy callers remain. |
 | `validate_build` | Snapshot validation workflow. | Compare selected configuration, report missing stats and preserve existing regressions. |
 
 ## Economy, trade and crafting

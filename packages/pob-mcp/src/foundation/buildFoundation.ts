@@ -7,6 +7,7 @@ import { toFiniteNumber, type PoBLuaApiClient } from '../pobLuaBridge.js';
 
 /** The adapter owns a disposable PoB instance; it must never share live state. */
 export interface BuildEngine {
+  queryTreePaths(params: { targetNodeId?: number; maxDistance?: number; limit?: number; filter?: string }): Promise<unknown>;
   getBuildNotes(): Promise<string>;
   setBuildNotes(notes: string): Promise<void>;
   identity: { engineVersion: string | null; adapterVersion: string | null; dataVersion: string | null; runtimeVersion?: string | null; executableVersion?: string | null };

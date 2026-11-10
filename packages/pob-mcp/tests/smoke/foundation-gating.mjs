@@ -40,6 +40,7 @@ try {
   assert.ok(!tools.result.tools.some(t => t.name === 'compare_snapshot_trees'));
   assert.ok(!tools.result.tools.some(t => t.name === 'compare_snapshot_builds'));
   assert.ok(!tools.result.tools.some(t => t.name === 'search_snapshot_timeless_seeds'));
+  assert.ok(!tools.result.tools.some(t => t.name === 'find_snapshot_tree_path' || t.name === 'find_snapshot_nearby_nodes'));
   const hidden = await disabled.request('tools/call', { name: 'foundation_import_build', arguments: { xml: '<x/>', source: 'test' } });
   assert.equal(hidden.result.isError, true);
   disabled.child.stdin.end(); await once(disabled.child, 'exit');
@@ -82,6 +83,8 @@ try {
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'compare_snapshot_trees').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'compare_snapshot_builds').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'search_snapshot_timeless_seeds').length, 1);
+  assert.equal(foundationOnly.result.tools.filter(t => t.name === 'find_snapshot_tree_path').length, 1);
+  assert.equal(foundationOnly.result.tools.filter(t => t.name === 'find_snapshot_nearby_nodes').length, 1);
   assert.ok(foundationOnly.result.tools.some(t => t.name === 'compare_craft_budget'));
   assert.ok(foundationOnly.result.tools.some(t => t.name === 'simulate_simple_annul'));
   assert.ok(!foundationOnly.result.tools.some(t => t.name === 'estimate_trade_comparable'));

@@ -61,6 +61,7 @@ export async function openPoBEngine(options: PoBEngineOptions): Promise<BuildEng
   return {
     identity, verifyIdentity,
     getBuildNotes: () => client.getBuildNotes(), setBuildNotes: notes => client.setBuildNotes(notes),
+    queryTreePaths: params => client.queryTreePaths(params),
     loadBuildXml: xml => client.loadBuildXml(xml), getStats: fields => client.getStats(fields),
     setLevel: level => client.setLevel(level), setMainSelection: selection => client.setMainSelection(selection), setCalcsSelection: index => client.setCalcsSelection(index),
     setConfig: config => client.setConfig(config), getBuildInfo: () => client.getBuildInfo(),
