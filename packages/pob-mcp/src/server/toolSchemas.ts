@@ -1066,7 +1066,7 @@ export function getOptimizationToolSchemas(): ToolSchema[] {
     {
       name: "optimize_skill_links",
       truncatable: true,
-      description: "Analyze skill gem setups for 'more' multipliers, penetration, and support gem synergies. Flags missing multiplicative damage supports and suggests clear-speed vs bossing balance.",
+      description: "Inspect skill groups and enabled gems using PoB gem types. Does not verify support compatibility or estimate damage; use PoB calculations for comparisons.",
       inputSchema: {
         type: "object",
         properties: {
@@ -1364,7 +1364,7 @@ export function getSkillGemToolSchemas(): ToolSchema[] {
     },
     {
       name: "gem_upgrade_path",
-      description: "Generate a prioritized gem upgrade shopping list showing which gems to level, quality, and upgrade to Exceptional versions, ordered by impact and budget",
+      description: "Inspect enabled gems in the requested build. Does not estimate damage, market prices, or corruption odds; verify upgrades with PoB and current trade data.",
       inputSchema: {
         type: "object",
         properties: {

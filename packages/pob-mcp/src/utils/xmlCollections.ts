@@ -20,6 +20,7 @@ export function asArray<T>(value: T | T[] | undefined | null): T[] {
  */
 export function activeSkillSet(build: PoBBuild): PoBSkillSet | undefined {
   const sets = asArray<PoBSkillSet>(build.Skills?.SkillSet);
+  if (sets.length === 0 && build.Skills?.Skill) return { Skill: build.Skills.Skill };
   const activeId = build.Skills?.activeSkillSet;
   return sets.find(s => String(s.id) === String(activeId)) ?? sets[0];
 }

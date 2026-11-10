@@ -64,6 +64,8 @@ try {
   if (!otherItems.includes('Item Upgrade Analysis') || !otherItems.includes('独立引擎')) throw new Error(`isolated item analysis failed: ${otherItems}`);
   const otherSkills = await call('optimize_skill_links', { build_name: 'other.xml' });
   if (!otherSkills.includes('独立引擎')) throw new Error(`isolated skill analysis failed: ${otherSkills}`);
+  const otherGems = await call('gem_upgrade_path', { build_name: 'other.xml' });
+  if (!otherGems.includes('独立引擎') || !otherGems.includes('不计算升级收益')) throw new Error(`isolated gem inspection failed: ${otherGems}`);
   const otherNodes = await call('suggest_optimal_nodes', { build_name: 'other.xml', goal: 'life', points_available: 2 });
   if (!otherNodes.includes('isolated engine')) throw new Error(`isolated node analysis failed: ${otherNodes}`);
   const otherTree = await call('optimize_tree', { build_name: 'other.xml', goal: 'balanced', max_points: 2 });

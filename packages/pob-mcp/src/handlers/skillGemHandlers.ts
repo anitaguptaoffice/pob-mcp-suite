@@ -1,8 +1,9 @@
 import type { BuildService } from "../services/buildService.js";
 import type { PoBBuild, PoBGem } from "../types.js";
 import type { SkillGemService } from "../services/skillGemService.js";
-import type { PoBLuaApiClient, SocketGroupEntry } from "../pobLuaBridge.js";
+import type { PoBLuaApiClient } from "../pobLuaBridge.js";
 import { wrapHandler } from "../utils/errorHandling.js";
+import { withBuildClient } from "../utils/isolatedBuildClient.js";
 
 interface SkillGemHandlerContext {
   buildService: BuildService;
@@ -10,6 +11,7 @@ interface SkillGemHandlerContext {
   pobDirectory?: string;
   getLuaClient?: () => PoBLuaApiClient | null;
   ensureLuaClient?: () => Promise<void>;
+  createIsolatedLuaClient?: () => Promise<{ client: PoBLuaApiClient; close: () => Promise<void> }>;
 }
 
 /**
@@ -445,125 +447,27 @@ export async function handleGemUpgradePath(
   context: SkillGemHandlerContext,
   args: { build_name?: string; budget?: string }
 ) {
-  if (!context.ensureLuaClient || !context.getLuaClient) {
-    throw new Error('Lua bridge not configured. Use lua_load_build first.');
-  }
-  await context.ensureLuaClient();
-  const luaClient = context.getLuaClient();
-  if (!luaClient) throw new Error('Lua bridge not active. Use lua_load_build first.');
-
-  const skills = await luaClient.getSkills();
-  const groups: SocketGroupEntry[] = skills?.groups ?? [];
-
-  const budgetTier = ((args.budget || 'endgame') as 'league_start' | 'mid_league' | 'endgame');
-  const budgetMap: Record<string, number> = { league_start: 0, mid_league: 50, endgame: 999 };
-  const budgetChaos = budgetMap[budgetTier] ?? 999;
-
-  interface GemUpgrade {
-    gemName: string;
-    groupLabel: string;
-    currentLevel: number;
-    currentQuality: number;
-    action: string;
-    priority: number;
-    costEstimate: string;
-    reason: string;
-  }
-
-  const upgrades: GemUpgrade[] = [];
-
-  for (const group of groups) {
-    const isMain = group.index === skills.mainSocketGroup;
-    for (const gem of (group.gems ?? [])) {
-      const name: string = gem.name;
-      const level: number = gem.level ?? 1;
-      const quality: number = gem.quality ?? 0;
-      const isSupport = name.includes('Support') || name.includes('Mirage') || gem.isSupport;
-      const multiplier = isMain ? 3 : 1;
-
-      // Level upgrade
-      if (level < 20) {
-        upgrades.push({
-          gemName: name,
-          groupLabel: group.label || `Group ${group.index}`,
-          currentLevel: level,
-          currentQuality: quality,
-          action: `Level to 20 (currently ${level})`,
-          priority: (20 - level) * multiplier * (isSupport ? 0.8 : 1.2),
-          costEstimate: 'Free (just level it)',
-          reason: 'Every gem level increases gem power — level gems in inactive weapon swap slots',
-        });
-      }
-
-      // Quality upgrade
-      if (quality < 20) {
-        const costChaos = Math.round((20 - quality) * 0.2);
-        if (costChaos <= budgetChaos) {
-          upgrades.push({
-            gemName: name,
-            groupLabel: group.label || `Group ${group.index}`,
-            currentLevel: level,
-            currentQuality: quality,
-            action: `Bring to 20% quality (currently ${quality}%)`,
-            priority: (20 - quality) * multiplier * (isSupport ? 0.6 : 0.9),
-            costEstimate: `~${costChaos}c in Gemcutter's Prisms`,
-            reason: 'Quality bonuses stack with gem level — use Hillock crafting bench for +28% quality',
-          });
+  if (!context.ensureLuaClient || !context.getLuaClient) throw new Error('Lua bridge not configured.');
+  if (args.build_name && !context.pobDirectory) throw new Error('Build directory is unavailable.');
+  return withBuildClient({ pobDirectory: context.pobDirectory ?? '', getLuaClient: context.getLuaClient,
+    ensureLuaClient: context.ensureLuaClient, createIsolatedLuaClient: context.createIsolatedLuaClient },
+    args.build_name, async (client, isolated) => {
+      const skills = await client.getSkills();
+      const lines = ['=== 宝石检查 ===', isolated ? '数据来源：已保存构筑，独立引擎计算' : '数据来源：当前内存构筑',
+        '以下仅列出已启用技能组中的宝石；不计算升级收益、价格或腐化概率。', ''];
+      for (const group of skills.groups ?? []) {
+        if (group.enabled === false) continue;
+        const gems = (group.gems ?? []).filter(gem => gem.enabled !== false);
+        if (!gems.length) continue;
+        lines.push(`技能组 ${group.index}${group.index === skills.mainSocketGroup ? '（主技能组）' : ''}${group.label ? `：${group.label}` : ''}`);
+        for (const gem of gems) {
+          lines.push(`- ${gem.name}：等级 ${gem.level}，品质 ${gem.quality}%；${gem.isSupport ? '辅助' : '主动'}`);
         }
       }
-
-      // 21/20 via corruption
-      if (level === 20 && quality === 20 && isMain) {
-        upgrades.push({
-          gemName: name,
-          groupLabel: group.label || `Group ${group.index}`,
-          currentLevel: level,
-          currentQuality: quality,
-          action: 'Corrupt for 21/20 (Vaal Orb on 20/20)',
-          priority: 15 * multiplier,
-          costEstimate: '25% chance of 21/20, 25% chance brick — buy pre-corrupted 21/20 for safety',
-          reason: 'Level 21 is a significant DPS increase for active gems; corruption is high-risk/reward',
-        });
-      }
-
-      // Exceptional version for supports
-      if (isSupport && isMain && level >= 18 && budgetTier === 'endgame') {
-        upgrades.push({
-          gemName: name,
-          groupLabel: group.label || `Group ${group.index}`,
-          currentLevel: level,
-          currentQuality: quality,
-          action: `Buy Exceptional ${name.replace(' Support', '')} Support`,
-          priority: 20,
-          costEstimate: 'Varies greatly — check poe.ninja prices',
-          reason: 'Exceptional supports have higher quality bonuses and occasionally better base effects',
-        });
-      }
-    }
-  }
-
-  upgrades.sort((a, b) => b.priority - a.priority);
-
-  const outputLines: string[] = ['=== Gem Upgrade Path ===', `Budget tier: ${budgetTier}`, ''];
-
-  if (upgrades.length === 0) {
-    outputLines.push('All gems appear to be fully upgraded!');
-    return { content: [{ type: 'text' as const, text: outputLines.join('\n') }] };
-  }
-
-  let rank = 1;
-  for (const u of upgrades.slice(0, 15)) {
-    outputLines.push(`**${rank}. ${u.gemName}** (${u.groupLabel})`);
-    outputLines.push(`   Action: ${u.action}`);
-    outputLines.push(`   Cost: ${u.costEstimate}`);
-    outputLines.push(`   Why: ${u.reason}`);
-    outputLines.push('');
-    rank++;
-  }
-
-  outputLines.push('_Use `validate_gem_quality` for a full gem quality audit._');
-
-  return { content: [{ type: 'text' as const, text: outputLines.join('\n') }] };
+      lines.push('', '升级前请用 PoB 比较实际效果，并查询当前赛季价格；等级和品质较低可能是有意配置。');
+      if (args.budget) lines.push('未按预算排序：缺少可验证的当前价格及收益。');
+      return { content: [{ type: 'text' as const, text: lines.join('\n') }] };
+    });
 }
 
 /**

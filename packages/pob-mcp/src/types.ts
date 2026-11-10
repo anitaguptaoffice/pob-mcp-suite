@@ -119,6 +119,8 @@ export interface PoBBuild {
     Spec?: TreeSpec | TreeSpec[];
   };
   Skills?: {
+    /** Older PoB files store Skill elements directly under Skills. */
+    Skill?: PoBSkill | PoBSkill[];
     activeSkillSet?: string;
     SkillSet?: PoBSkillSet | PoBSkillSet[];
   };

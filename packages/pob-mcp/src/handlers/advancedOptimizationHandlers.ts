@@ -185,7 +185,8 @@ export async function handleOptimizeSkillLinks(
             enabled: skill.enabled !== 'false',
             isMainSkill: idx + 1 === Number(build.Build?.mainSocketGroup),
             gems: gems.map((gem) => ({
-              name: gem.name || 'Unknown',
+              name: gem.nameSpec || gem.name || 'Unknown',
+              isSupport: gem.gemId?.includes('SupportGem') || gem.skillId?.startsWith('Support') ? true : gem.gemId?.includes('SkillGem') ? false : undefined,
               level: parseInt(gem.level || '1', 10),
               quality: parseInt(gem.quality || '0', 10),
               enabled: gem.enabled !== 'false',
@@ -249,16 +250,18 @@ export async function handleCreateBudgetBuild(
     const class_name = build.Build?.className || 'Unknown';
     const ascendancy = build.Build?.ascendClassName;
 
-    // Get main skill from first skill group
+    // The selected main socket group is 1-based within the active skill set.
     let main_skill = 'your main skill';
-    {
-      const skills = asArray(activeSkillSet(build)?.Skill);
-      const firstSkill = skills[0];
-      if (firstSkill?.Gem) {
-        const gems = Array.isArray(firstSkill.Gem) ? firstSkill.Gem : [firstSkill.Gem];
-        const activeGem = gems.find((g) => g.enabled !== 'false' && !g.name?.includes('Support'));
-        if (activeGem?.name) main_skill = activeGem.name;
-      }
+    const groups = asArray(activeSkillSet(build)?.Skill);
+    const groupIndex = Number(build.Build?.mainSocketGroup);
+    if (Number.isInteger(groupIndex) && groupIndex > 0) {
+      const group = groups[groupIndex - 1];
+      const actives = asArray(group?.Gem).filter(g => g.enabled !== 'false' &&
+        !g.gemId?.includes('SupportGem') && !g.skillId?.startsWith('Support') &&
+        !(g.nameSpec ?? g.name ?? '').toLowerCase().includes('support'));
+      const activeIndex = Number(group?.mainActiveSkill ?? 1) - 1;
+      const active = actives[activeIndex];
+      main_skill = active?.nameSpec || active?.name || main_skill;
     }
 
     const outputLines: string[] = [

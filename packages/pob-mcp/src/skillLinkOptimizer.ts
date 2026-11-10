@@ -10,6 +10,7 @@ interface SkillGem {
   quality?: number;
   qualityType?: string;
   enabled?: boolean;
+  isSupport?: boolean;
 }
 
 export interface SkillGroup {
@@ -33,8 +34,6 @@ interface SkillGroupAnalysis {
   group: SkillGroup;
   isValid: boolean;
   linkCount: number;
-  moreMultiplierCount: number;
-  hasPenetration: boolean;
   issues: SkillLinkIssue[];
   suggestions: string[];
   expectedDamageBoost?: string;
@@ -47,358 +46,35 @@ interface SkillOptimizationResult {
   generalSuggestions: string[];
 }
 
-/**
- * Support gems that provide multiplicative ("more") damage bonuses.
- * These are the primary way to scale DPS — far stronger per slot than "increased" supports.
- * An exceptional main skill should have at least 2–3 "more" multipliers in its 6-link.
- */
-const MORE_MULTIPLIER_GEMS = new Set([
-  'controlled destruction support',
-  'elemental focus support',
-  'multistrike support',
-  'spell echo support',
-  'swift affliction support',
-  'efficacy support',
-  'minion damage support',
-  'concentrated effect support',
-  'brutality support',
-  'deadly ailments support',
-  'vile toxins support',
-  'impale support',
-  'melee physical damage support',
-  'added fire damage support',
-  'close combat support',
-  'increased critical damage support',
-  'cruelty support',
-  'void manipulation support',
-  'hypothermia support',
-  'trap and mine damage support',
-  'multiple totems support',
-  'exceptional controlled destruction support',
-  'exceptional elemental focus support',
-  'exceptional spell echo support',
-  'exceptional brutality support',
-  'exceptional swift affliction support',
-  'exceptional deadly ailments support',
-  'exceptional void manipulation support',
-  'exceptional minion damage support',
-  'exceptional added fire damage support',
-  'exceptional melee physical damage support',
-]);
-
-/**
- * Support gems that reduce enemy resistances or provide damage penetration.
- * Penetration is critical against high-resistance bosses (Shaper, Elder, Ubers).
- * An elemental skill without penetration loses ~33-50% effective DPS vs endgame bosses.
- */
-const PENETRATION_GEMS = new Set([
-  'fire penetration support',
-  'cold penetration support',
-  'lightning penetration support',
-  'elemental penetration support',
-  'combustion support',  // reduces enemy fire resist on ignite
-  'hypothermia support', // cold exposure
-  'storm brand',         // lightning exposure via some interactions
-  'void manipulation support',
-  'exceptional fire penetration support',
-  'exceptional cold penetration support',
-  'exceptional lightning penetration support',
-  'exceptional void manipulation support',
-]);
-
-/**
- * Support gems primarily useful for clear speed (AoE, projectile proliferation).
- */
-const CLEAR_SPEED_GEMS = new Set([
-  'greater multiple projectiles support',
-  'exceptional greater multiple projectiles support',
-  'chain support',
-  'fork support',
-  'exceptional fork support',
-  'pierce support',
-  'volley support',
-  'lesser multiple projectiles support',
-  'spell cascade support',
-  'exceptional spell cascade support',
-  'reap support',
-]);
-
-/**
- * Support gems primarily useful for single-target / bossing DPS.
- */
-const BOSSING_GEMS = new Set([
-  'concentrated effect support',
-  'exceptional concentrated effect support',
-  'barrage support',
-  'exceptional added fire damage support',
-  'exceptional deadly ailments support',
-  'exceptional vile toxins support',
-  'empower support',
-]);
-
-/**
- * Detect skill type from gem name
- */
-function detectSkillType(gemName: string): string[] {
-  const name = gemName.toLowerCase();
-  const types: string[] = [];
-
-  // Active skill indicators
-  if (name.includes('strike') || name.includes('slam') || name.includes('smite')) {
-    types.push('attack', 'melee');
-  }
-  if (name.includes('shot') || name.includes('arrow') || name.includes('barrage')) {
-    types.push('attack', 'projectile', 'bow');
-  }
-  if (name.includes('spectral') || name.includes('ethereal')) {
-    types.push('attack', 'projectile');
-  }
-  if (name.includes('blade') && !name.includes('vortex')) {
-    types.push('spell', 'projectile');
-  }
-  if (name.includes('arc') || name.includes('ball') || name.includes('nova')) {
-    types.push('spell');
-  }
-  if (name.includes('aura') || name.includes('purity') || name.includes('grace')) {
-    types.push('aura');
-  }
-  if (name.includes('curse') || name.includes('mark') || name.includes('hex')) {
-    types.push('curse');
-  }
-  if (name.includes('golem') || name.includes('zombie') || name.includes('spectre')) {
-    types.push('minion');
-  }
-  if (name.includes('totem')) {
-    types.push('totem');
-  }
-  if (name.includes('trap') || name.includes('mine')) {
-    types.push('trap-mine');
-  }
-
-  // Damage type
-  if (name.includes('fire') || name.includes('flame') || name.includes('burn')) {
-    types.push('fire');
-  }
-  if (name.includes('cold') || name.includes('ice') || name.includes('frost')) {
-    types.push('cold');
-  }
-  if (name.includes('lightning') || name.includes('shock')) {
-    types.push('lightning');
-  }
-  if (name.includes('chaos') || name.includes('poison') || name.includes('venom')) {
-    types.push('chaos');
-  }
-  if (name.includes('physical')) {
-    types.push('physical');
-  }
-
-  // Special mechanics
-  if (name.includes('crit')) {
-    types.push('crit');
-  }
-  if (name.includes('bleed') || name.includes('poison') || name.includes('ignite')) {
-    types.push('dot');
-  }
-
-  return types;
+/** Use the engine's explicit gem classification when available. */
+function isSupportGem(gem: SkillGem): boolean | undefined {
+  if (gem.isSupport !== undefined) return gem.isSupport;
+  return gem.name.toLowerCase().includes('support') ? true : undefined;
 }
 
-/**
- * Check if a gem is a support gem
- */
-function isSupportGem(gemName: string): boolean {
-  return gemName.toLowerCase().includes('support');
-}
-
-/**
- * Analyze a single skill group
- */
+/** Report observable socket-group facts without asserting DPS or compatibility. */
 function analyzeSkillGroup(group: SkillGroup): SkillGroupAnalysis {
+  const enabledGems = group.gems.filter(gem => gem.enabled !== false);
+  const activeGems = enabledGems.filter(gem => isSupportGem(gem) === false);
+  const unknownGems = enabledGems.filter(gem => isSupportGem(gem) === undefined);
+  const supports = enabledGems.filter(gem => isSupportGem(gem) === true);
   const analysis: SkillGroupAnalysis = {
-    group,
-    isValid: true,
-    linkCount: group.gems.length,
-    moreMultiplierCount: 0,
-    hasPenetration: false,
-    issues: [],
-    suggestions: [],
+    group, isValid: true, linkCount: enabledGems.length, issues: [], suggestions: [],
   };
-
-  if (group.gems.length === 0) {
-    analysis.isValid = false;
-    analysis.issues.push({
-      type: 'missing_link',
-      severity: 'high',
-      message: 'Socket group is empty',
-      suggestion: 'Add skill gems to this socket group',
-    });
+  if (!group.enabled) {
+    analysis.suggestions.push('该技能组已禁用，不能据此判断当前伤害。');
     return analysis;
   }
-
-  // Find the active skill (first non-support gem)
-  const activeSkill = group.gems.find((g) => !isSupportGem(g.name));
-  if (!activeSkill) {
+  if (enabledGems.length === 0) {
     analysis.isValid = false;
-    analysis.issues.push({
-      type: 'wrong_support',
-      severity: 'high',
-      message: 'No active skill gem found - only support gems',
-      suggestion: 'Add an active skill gem to this socket group',
-    });
-    return analysis;
+    analysis.issues.push({ type: 'missing_link', severity: 'medium', message: '技能组没有启用的宝石', suggestion: '检查技能组和宝石是否需要启用。' });
+  } else if (activeGems.length === 0 && unknownGems.length === 0 && supports.length > 0) {
+    analysis.isValid = false;
+    analysis.issues.push({ type: 'wrong_support', severity: 'medium', message: '启用的宝石均标识为辅助宝石', suggestion: '确认该组是否需要主动技能。' });
   }
-
-  const activeSkillName = activeSkill.name;
-  const skillTypes = detectSkillType(activeSkillName);
-  const supports = group.gems.filter((g) => isSupportGem(g.name));
-  const supportNames = supports.map((s) => s.name.toLowerCase());
-
-  // Count "more" multiplier supports
-  const moreMultiplierCount = supports.filter((s) => MORE_MULTIPLIER_GEMS.has(s.name.toLowerCase())).length;
-  analysis.moreMultiplierCount = moreMultiplierCount;
-
-  // Detect penetration
-  const hasPenetration = supports.some((s) => PENETRATION_GEMS.has(s.name.toLowerCase()));
-  analysis.hasPenetration = hasPenetration;
-
-  // Detect clear speed vs bossing balance
-  const hasClearGem = supports.some((s) => CLEAR_SPEED_GEMS.has(s.name.toLowerCase()));
-  const hasBossingGem = supports.some((s) => BOSSING_GEMS.has(s.name.toLowerCase()));
-
-  // Flag missing "more" multipliers on main skill — this is the #1 DPS lever in PoE
-  if (group.isMainSkill && supports.length >= 2 && moreMultiplierCount === 0) {
-    analysis.issues.push({
-      type: 'no_more_multiplier',
-      severity: 'high',
-      message: 'No "more" damage multiplier supports on main skill',
-      suggestion:
-        'Add at least 1–2 "more" multipliers: Controlled Destruction, Elemental Focus, Spell Echo, Multistrike, Swift Affliction, Efficacy, Minion Damage, etc.',
-    });
-  } else if (group.isMainSkill && analysis.linkCount >= 5 && moreMultiplierCount < 2) {
-    analysis.issues.push({
-      type: 'no_more_multiplier',
-      severity: 'medium',
-      message: `Only ${moreMultiplierCount} "more" multiplier support on a ${analysis.linkCount}-link`,
-      suggestion:
-        `A ${analysis.linkCount}-link can support 2–3 "more" multiplier supports. Each one multiplicatively scales total damage.`,
-    });
-  }
-
-  // Flag no penetration for elemental builds (critical vs endgame bosses with 40%+ resists)
-  const isElemental = skillTypes.some((t) => ['fire', 'cold', 'lightning'].includes(t));
-  if (group.isMainSkill && isElemental && !hasPenetration && supports.length >= 3) {
-    analysis.issues.push({
-      type: 'no_penetration',
-      severity: 'medium',
-      message: 'No penetration support on elemental main skill',
-      suggestion:
-        'Fire/Cold/Lightning Penetration Support is a large effective DPS gain against bosses with 40%+ resists. Combustion Support also reduces enemy fire resistance.',
-    });
-  }
-
-  // Check link count
-  if (group.isMainSkill && analysis.linkCount < 6) {
-    analysis.issues.push({
-      type: 'missing_link',
-      severity: analysis.linkCount < 4 ? 'high' : 'medium',
-      message: `Main skill only has ${analysis.linkCount} links (optimal is 6)`,
-      suggestion: 'Upgrade to a 6-link for maximum damage',
-    });
-  }
-
-  // Check gem levels
-  for (const gem of group.gems) {
-    const level = gem.level || 1;
-    if (level < 20 && !gem.name.includes('Enlighten') && !gem.name.includes('Empower')) {
-      analysis.issues.push({
-        type: 'low_level',
-        severity: level < 15 ? 'medium' : 'low',
-        message: `${gem.name} is only level ${level}`,
-        suggestion: `Level ${gem.name} to 20 for maximum effect`,
-      });
-    }
-  }
-
-  // Check gem quality
-  for (const gem of group.gems) {
-    const quality = gem.quality || 0;
-    if (quality < 20 && group.isMainSkill) {
-      analysis.issues.push({
-        type: 'no_quality',
-        severity: 'low',
-        message: `${gem.name} has ${quality}% quality`,
-        suggestion: `Use Gemcutter's Prisms to get 20% quality`,
-      });
-    }
-  }
-
-  // Suggest support gems based on skill type
-  // (supportNames is already defined above)
-
-  if (skillTypes.includes('attack')) {
-    if (!supportNames.some((s) => s.includes('multistrike') || s.includes('faster attacks'))) {
-      analysis.suggestions.push('Consider Multistrike or Faster Attacks Support for attack speed');
-    }
-  }
-
-  if (skillTypes.includes('spell')) {
-    if (!supportNames.some((s) => s.includes('spell echo') || s.includes('faster casting'))) {
-      analysis.suggestions.push('Consider Spell Echo or Faster Casting Support');
-    }
-  }
-
-  if (skillTypes.includes('projectile')) {
-    if (!supportNames.some((s) => s.includes('gmp') || s.includes('volley') || s.includes('chain'))) {
-      analysis.suggestions.push('Consider GMP, Volley, or Chain Support for clear speed');
-    }
-  }
-
-  if (skillTypes.includes('crit')) {
-    if (!supportNames.some((s) => s.includes('critical'))) {
-      analysis.suggestions.push('Consider Increased Critical Strikes/Damage Support');
-    }
-  }
-
-  if (skillTypes.includes('dot')) {
-    if (!supportNames.some((s) => s.includes('efficacy') || s.includes('swift affliction'))) {
-      analysis.suggestions.push('Consider Efficacy or Swift Affliction Support for DoT builds');
-    }
-  }
-
-  if (skillTypes.includes('minion')) {
-    if (!supportNames.some((s) => s.includes('minion damage'))) {
-      analysis.suggestions.push('Add Minion Damage Support for significant DPS increase');
-    }
-  }
-
-  // Check for common anti-synergies
-  const hasElementalFocus = supportNames.some((s) => s.includes('elemental focus'));
-  const hasAilmentSupport = supportNames.some((s) =>
-    s.includes('ignite') || s.includes('freeze') || s.includes('shock') || s.includes('chill')
-  );
-
-  if (hasElementalFocus && hasAilmentSupport) {
-    analysis.issues.push({
-      type: 'wrong_support',
-      severity: 'high',
-      message: 'Elemental Focus prevents ailments, conflicting with ailment supports',
-      suggestion: 'Remove either Elemental Focus or ailment-specific supports',
-    });
-  }
-
-  // Clear speed vs bossing balance note (for main 6-link only)
-  if (group.isMainSkill && analysis.linkCount >= 5) {
-    if (hasClearGem && !hasBossingGem) {
-      analysis.suggestions.push(
-        'Setup is optimised for clear speed. For bossing swap a clear gem (GMP/Chain) for Concentrated Effect or a "more" multiplier.'
-      );
-    } else if (!hasClearGem && !hasBossingGem) {
-      analysis.suggestions.push(
-        'Consider whether you need a clear speed gem (GMP/Chain for projectiles, Spell Cascade for spells) or a bossing gem (Concentrated Effect, Empower).'
-      );
-    }
-  }
-
+  if (unknownGems.length > 0) analysis.suggestions.push('部分宝石的主动或辅助类型未知，不能判断其连接关系。');
+  if (activeGems.length > 1) analysis.suggestions.push('该组有多个主动技能；请以 PoB 中选中的技能为准。');
+  if (supports.length > 0) analysis.suggestions.push('辅助宝石是否生效及伤害变化需由 PoB 逐项验证；仅凭名称不能确认兼容性。');
   return analysis;
 }
 
@@ -420,41 +96,9 @@ export function analyzeSkillSetup(
     groupAnalyses.push(analysis);
   }
 
-  // General suggestions
-  const mainSkill = groupAnalyses.find((g) => g.group.isMainSkill);
-  if (!mainSkill) {
-    generalSuggestions.push('⚠️ No main skill selected - set a main skill for accurate DPS calculations');
-  } else {
-    if (mainSkill.linkCount < 6) {
-      generalSuggestions.push(
-        `Main skill has ${mainSkill.linkCount} links — upgrade to 6-link for maximum damage output`
-      );
-    }
-    if (mainSkill.moreMultiplierCount < 2) {
-      generalSuggestions.push(
-        `Main skill has only ${mainSkill.moreMultiplierCount} "more" multiplier support(s). ` +
-        `"More" multipliers (Controlled Destruction, Elemental Focus, Multistrike, etc.) are multiplicative — ` +
-        `a second "more" multiplier at ×1.4 added to an existing ×1.4 gives ×1.96 total, which is far stronger than any "increased" node.`
-      );
-    }
-    if (!mainSkill.hasPenetration) {
-      generalSuggestions.push(
-        `Main skill has no penetration support. Against endgame bosses (40% resists), ` +
-        `penetration typically accounts for a 20–35% effective DPS increase.`
-      );
-    }
-  }
-
-  // Check for auras
-  const hasAuras = groups.some((g) =>
-    g.gems.some((gem) => {
-      const types = detectSkillType(gem.name);
-      return types.includes('aura');
-    })
-  );
-  if (!hasAuras && !buildArchetype.includes('minion')) {
-    generalSuggestions.push('Consider adding auras for permanent buffs (e.g., Determination, Grace, Precision)');
-  }
+  const mainSkill = groupAnalyses.find(g => g.group.isMainSkill);
+  if (!mainSkill) generalSuggestions.push('未能确认主技能组，请在 PoB 中检查所选技能。');
+  generalSuggestions.push('此处只检查宝石和启用状态，不推断连接数、辅助兼容性或伤害收益；请用 PoB 比较。');
 
   const totalIssues = groupAnalyses.reduce((sum, g) => sum + g.issues.length, 0);
 
@@ -493,11 +137,8 @@ export function formatSkillOptimization(result: SkillOptimizationResult): string
     if (group.label) {
       output += `  Label: ${group.label}\n`;
     }
-    output += `  Links: ${analysis.linkCount}\n`;
-    if (group.isMainSkill) {
-      output += `  "More" multipliers: ${analysis.moreMultiplierCount} | Penetration: ${analysis.hasPenetration ? 'yes' : 'no'}\n`;
-    }
-    output += `  Gems: ${group.gems.map((g) => g.name).join(', ')}\n`;
+    output += `  已启用宝石数: ${analysis.linkCount}\n`;
+    output += `  Gems: ${group.gems.map(g => `${g.name}${g.enabled === false ? '（已禁用）' : ''}${isSupportGem(g) === true ? '（辅助）' : isSupportGem(g) === false ? '（主动）' : '（类型未知）'}`).join(', ')}\n`;
 
     if (analysis.issues.length > 0) {
       output += `  Issues:\n`;
