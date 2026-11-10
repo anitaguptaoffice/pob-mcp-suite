@@ -88,7 +88,7 @@ For the legacy server, use Lua-backed tools whenever available because they use 
    - `lua_get_items`
    - `lua_get_skills`
 
-Use optimization tools only after loading or identifying the target build:
+In legacy mode, use optimization tools only after loading the target build:
 
    - `suggest_optimal_nodes`
    - `optimize_tree`
@@ -96,7 +96,7 @@ Use optimization tools only after loading or identifying the target build:
    - `find_path_to_node`
    - `allocate_nodes`
 
-Use mutation and export tools only after summarizing the intended change:
+In legacy mode, use mutation and export tools only after summarizing the intended change:
 
    - `lua_set_tree`
    - `lua_update_tree_delta`
