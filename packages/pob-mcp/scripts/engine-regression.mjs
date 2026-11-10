@@ -47,6 +47,16 @@ try {
     socketNodeId: 60735, desired: ['eternal_notable_minion_1'], seeds: [130660],
   });
   assert.ok(jewels.some((result) => result.seed === 130660 && result.hits.length > 0), 'jewel lookup failed');
+  const minionTree = await client.getTree();
+  const minionCandidates = await client.searchNodes({ keyword: 'minion', nodeType: 'notable', maxResults: 100, includeAllocated: false });
+  const minionTarget = minionCandidates.nodes.find(node => node.pathNodes?.length > 0 && node.pathNodes.includes(node.id));
+  assert.ok(minionTarget, 'expected a reachable minion notable');
+  const minionSimulation = await client.calcWith({ addNodes: minionTarget.pathNodes });
+  assert.ok(minionSimulation.Minion?.TotalDPS > 0, 'minion simulation must expose minion damage');
+  await client.setTree({ ...minionTree, nodes: [...minionTree.nodes, ...minionTarget.pathNodes] });
+  const actualMinion = await client.getStats(['MinionTotalDPS']);
+  assert.ok(Math.abs(actualMinion.MinionTotalDPS - minionSimulation.Minion.TotalDPS) < 0.01,
+    `minion simulation disagrees with allocation: ${minionSimulation.Minion.TotalDPS} vs ${actualMinion.MinionTotalDPS}`);
   // This fixture was measured through both the pre-migration and new bridges
   // against the same PoB revision; it is not a desktop GUI measurement.
   const xml = await readFile(new URL('../tests/fixtures/occ-vortex.xml', import.meta.url), 'utf8');
@@ -58,6 +68,16 @@ try {
   assert.equal(fixtureTree.nodes.length, 132);
   for (const [key, expected] of Object.entries({ Life: 6728, EnergyShield: 1611, TotalDPS: 211560.47733333, CombinedDPS: 975099.74644352, TotalEHP: 54887.631577226 })) {
     assert.ok(Math.abs(fixtureStats[key] - expected) < 0.01, `${key} changed: ${fixtureStats[key]}`);
+  }
+  const candidates = await client.searchNodes({ keyword: 'life', nodeType: 'notable', maxResults: 100, includeAllocated: false });
+  const target = candidates.nodes.find(node => node.pathNodes?.length > 1 && node.pathNodes.includes(node.id));
+  assert.ok(target, 'expected a reachable notable with a multi-point path');
+  const simulated = await client.calcWith({ addNodes: target.pathNodes });
+  assert.deepEqual((await client.getTree()).nodes, fixtureTree.nodes, 'simulation changed the active tree');
+  await client.setTree({ ...fixtureTree, nodes: [...fixtureTree.nodes, ...target.pathNodes] });
+  const actual = await client.getStats(['Life', 'TotalDPS', 'CombinedDPS']);
+  for (const key of ['Life', 'TotalDPS', 'CombinedDPS']) {
+    assert.ok(Math.abs(actual[key] - simulated[key]) < 0.01, `path simulation ${key} disagrees with allocation: ${simulated[key]} vs ${actual[key]}`);
   }
   console.log(JSON.stringify({ spellDps: spell.TotalDPS, minionDps: minion.MinionTotalDPS, jewels: jewels.length }));
 } finally {
