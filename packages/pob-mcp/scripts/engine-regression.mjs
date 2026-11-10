@@ -25,6 +25,13 @@ try {
   assert.equal(eventInfo.ascendClassName, 'Ancestral Commander', `event build metadata lost: ${JSON.stringify(eventInfo)}`);
   await client.newBuild({ className: 'Witch' });
   await client.setTree({ classId: 3, ascendClassId: 0, nodes: [], treeVersion: '3_29' });
+  const beforeBadGroup = await client.getSkills();
+  await assert.rejects(() => client.createSocketGroup({ slot: 'Not A Slot' }), /slot.*not supported/);
+  await assert.rejects(() => client.createSocketGroup({ slot: 'Flask 1' }), /slot.*not supported/);
+  assert.deepEqual(await client.getSkills(), beforeBadGroup, 'invalid slot created a skill group');
+  const unattachedGroup = await client.createSocketGroup({ label: 'unattached' });
+  assert.equal((await client.getSkills()).groups[unattachedGroup.index - 1].slot, undefined, 'unattached group gained a slot');
+  await client.removeSkill({ groupIndex: unattachedGroup.index });
   const ringText = 'Rarity: RARE\nSlot Test\nGold Ring\nItem Level: 86\nImplicits: 0\n+30 to maximum Life';
   const beforeInvalidAdd = await client.itemComparisonSnapshot();
   await assert.rejects(() => client.addItem(ringText, 'Not A Slot'), /unknown slot.*not added/);

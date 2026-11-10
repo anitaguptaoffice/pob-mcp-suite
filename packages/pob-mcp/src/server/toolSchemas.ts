@@ -732,7 +732,7 @@ export function getLuaToolSchemas(): ToolSchema[] {
           },
           slot: {
             type: "string",
-            description: "Item the skill is socketed in - PoB's skill group slots: 'Weapon 1', 'Weapon 2', 'Weapon 1 Swap', 'Weapon 2 Swap', 'Helmet', 'Body Armour', 'Gloves', 'Boots', 'Amulet', 'Ring 1', 'Ring 2', 'Belt' (plus 'Ring 3' on newer PoB versions). Omit for an unattached group.",
+            description: "Exact skill-group slot from the current PoB version, such as 'Weapon 1', 'Weapon 1 Swap', or 'Helmet'. Omit for an unattached group. Does not validate equipped item sockets.",
           },
           enabled: {
             type: "boolean",
@@ -743,7 +743,6 @@ export function getLuaToolSchemas(): ToolSchema[] {
             description: "Include this group's skills in Full DPS totals (default: false)",
           },
         },
-        required: ["label"],
       },
     },
     {
@@ -921,8 +920,7 @@ export function getLuaToolSchemas(): ToolSchema[] {
           },
           slot: {
             type: "string",
-            description: "Item slot (optional)",
-            enum: ["Weapon 1", "Weapon 2", "Helmet", "Body Armour", "Gloves", "Boots", "Amulet", "Ring 1", "Ring 2", "Belt", "Flask 1", "Flask 2", "Flask 3", "Flask 4", "Flask 5"],
+            description: "Optional exact skill-group slot from the current PoB version.",
           },
           enabled: {
             type: "boolean",

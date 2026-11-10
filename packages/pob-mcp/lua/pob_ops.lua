@@ -1094,6 +1094,22 @@ function M.create_socket_group(params)
   if not build or not build.skillsTab then return nil, 'skills not initialized' end
   if type(params) ~= 'table' then params = {} end
 
+  if params.label ~= nil and type(params.label) ~= 'string' then return nil, 'invalid group label' end
+  if params.enabled ~= nil and type(params.enabled) ~= 'boolean' then return nil, 'invalid enabled flag' end
+  if params.includeInFullDPS ~= nil and type(params.includeInFullDPS) ~= 'boolean' then return nil, 'invalid Full DPS flag' end
+  if params.slot ~= nil then
+    if type(params.slot) ~= 'string' or params.slot == '' then return nil, 'invalid skill group slot' end
+    local control = build.skillsTab.controls and build.skillsTab.controls.groupSlot
+    if not control or type(control.list) ~= 'table' then return nil, 'PoB skill group slot list is unavailable' end
+    local supported = false
+    for _, option in ipairs(control.list) do
+      if option.slotName == params.slot then supported = true; break end
+    end
+    if not supported or not build.itemsTab or not build.itemsTab.slots[params.slot] then
+      return nil, 'skill group slot is not supported by this PoB build'
+    end
+  end
+
   local socketGroup = {
     label = params.label or '',
     slot = params.slot,
