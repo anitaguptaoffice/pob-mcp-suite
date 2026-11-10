@@ -995,6 +995,22 @@ function M.set_main_selection(params)
   return true
 end
 
+function M.set_calcs_selection(params)
+  if not build or not build.skillsTab or not build.calcsTab or not build.calcsTab.input then return nil, 'skills not initialized' end
+  local index = params and params.groupIndex
+  if type(index) ~= 'number' or index < 1 or index >= math.huge or index ~= math.floor(index) or not build.skillsTab.socketGroupList[index] then return nil, 'invalid calculation skill group' end
+  local previous = build.calcsTab.input.skill_number
+  build.calcsTab.input.skill_number = index
+  local ok, output = pcall(M.get_main_output)
+  if not ok or not output then
+    build.calcsTab.input.skill_number = previous
+    local restored, restoredOutput = pcall(M.get_main_output)
+    if not restored or not restoredOutput then return nil, 'calculation selection failed and rollback could not be verified' end
+    return nil, 'calculation selection failed; selection restored'
+  end
+  return true
+end
+
 function M.add_item_text(params)
   if not build or not build.itemsTab then return nil, 'items not initialized' end
   if type(params) ~= 'table' or type(params.text) ~= 'string' then return nil, 'missing text' end

@@ -44,7 +44,7 @@ export async function openPoBEngine(options: PoBEngineOptions): Promise<BuildEng
   try {
     await client.start();
     const capabilities = await client.getCapabilities();
-    if (!capabilities.actions?.includes('unchanged_items_snapshot') || !capabilities.actions?.includes('refresh_tree_progress')) {
+    if (!capabilities.actions?.includes('unchanged_items_snapshot') || !capabilities.actions?.includes('refresh_tree_progress') || !capabilities.actions?.includes('set_calcs_selection')) {
       throw new Error('PoB adapter lacks required foundation actions');
     }
     const version = await client.getVersion();
@@ -61,7 +61,7 @@ export async function openPoBEngine(options: PoBEngineOptions): Promise<BuildEng
   return {
     identity, verifyIdentity,
     loadBuildXml: xml => client.loadBuildXml(xml), getStats: fields => client.getStats(fields),
-    setLevel: level => client.setLevel(level), setMainSelection: selection => client.setMainSelection(selection),
+    setLevel: level => client.setLevel(level), setMainSelection: selection => client.setMainSelection(selection), setCalcsSelection: index => client.setCalcsSelection(index),
     setConfig: config => client.setConfig(config), getBuildInfo: () => client.getBuildInfo(),
     captureSnapshot: () => client.unchangedItemsSnapshot(), getTree: () => client.getTree(),
     refreshTreeProgress: () => client.refreshTreeProgress(), searchNodes: params => client.searchNodes(params), getMasteryOptions: () => client.getMasteryOptions(), getMasteryNodeOptions: nodeId => client.getMasteryNodeOptions(nodeId), updateTreeDelta: params => client.updateTreeDelta(params),

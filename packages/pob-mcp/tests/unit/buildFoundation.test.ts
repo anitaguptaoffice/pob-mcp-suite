@@ -21,7 +21,7 @@ describe('BuildFoundation isolation', () => {
       await expect(foundation.deriveRemoveSkillGroup(parent.id, 1)).rejects.toThrow('replacement_main_group');
       expect(removeSkill).not.toHaveBeenCalled();
       calcsSkillNumber = 2;
-      await expect(foundation.deriveRemoveSkillGroup(parent.id, 1, 1)).rejects.toThrow('different calculation-tab selection');
+      await expect(foundation.deriveRemoveSkillGroup(parent.id, 2)).rejects.toThrow('replacement_calcs_group');
       expect(removeSkill).not.toHaveBeenCalled();
       calcsSkillNumber = 1;
       await expect(foundation.deriveRemoveSkillGroup(parent.id, 2)).rejects.toThrow('modified remaining groups');
@@ -202,7 +202,7 @@ describe('BuildFoundation isolation', () => {
       let loads = 0;
       let closed = false;
       const engine: BuildEngine = {
-        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {},
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {},
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -236,7 +236,7 @@ describe('BuildFoundation isolation', () => {
         engineVersion: null, dataVersion: null, adapterVersion: null });
       let closed = false;
       const engine: BuildEngine = {
-        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {},
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {},
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -266,7 +266,7 @@ describe('BuildFoundation isolation', () => {
         engineVersion: '1', dataVersion: null, adapterVersion: 'a', runtimeVersion: 'runtime-a', executableVersion: 'exe-a' });
       let loaded = false;
       const engine: BuildEngine = {
-        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {},
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {},
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -312,7 +312,7 @@ describe('BuildFoundation isolation', () => {
       const config = jest.fn(async () => ({ rejected: { badOption: 'unknown' } }));
       const closed = jest.fn(async () => {});
       const engine: BuildEngine = {
-        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {},
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {},
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -349,7 +349,7 @@ describe('BuildFoundation isolation', () => {
       const getItems = jest.fn(async () => [{ slot: 'Helmet' }]);
       const close = jest.fn(async () => {});
       const engine: BuildEngine = {
-        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {},
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {},
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -384,7 +384,7 @@ describe('BuildFoundation isolation', () => {
         engineVersion: null, dataVersion: null, adapterVersion: null });
       const searchNodes = jest.fn(async () => ({ nodes: [{ id: 1, name: 'Life' }], count: 1 }));
       const engine: BuildEngine = {
-        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {},
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {},
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -415,7 +415,7 @@ describe('BuildFoundation isolation', () => {
         engineVersion: null, dataVersion: null, adapterVersion: null });
       const search = jest.fn(async () => ({ groupIndex: 1, skillName: 'Vortex', candidates: [{ id: 'x', name: 'Efficacy', exceptional: false, alreadySocketed: false }], total: 1, failed: 2 }));
       const engine: BuildEngine = {
-        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {},
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {},
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -446,7 +446,7 @@ describe('BuildFoundation isolation', () => {
       const parent = await store.create({ xml: '<original/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
       const weight = jest.fn(async (modId: string) => ({ modId, base: 'Ring', weight: 0 }));
       const engine: BuildEngine = {
-        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {},
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {},
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -475,7 +475,7 @@ describe('BuildFoundation isolation', () => {
       const parent = await store.create({ xml: '<original/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
       const close = jest.fn(async () => {});
       const engine: BuildEngine = {
-        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {},
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {},
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -504,7 +504,7 @@ describe('BuildFoundation isolation', () => {
       const parent = await store.create({ xml: '<original/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
       const base = { nodes: [1, 2], treeVersion: '3_28', classId: 1, ascendClassId: 0, secondaryAscendClassId: 0, masteryEffects: {} };
       const engine: BuildEngine = {
-        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {},
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {},
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -535,7 +535,7 @@ describe('BuildFoundation isolation', () => {
       let unexpected = false;
       const refresh = jest.fn(async () => {});
       const engine: BuildEngine = {
-        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {},
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {},
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: refresh,
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -564,7 +564,7 @@ describe('BuildFoundation isolation', () => {
       const tree = { nodes: [1], treeVersion: '3_28', classId: 1, ascendClassId: 0, secondaryAscendClassId: 0, masteryEffects: { '1': 5 } };
       const update = jest.fn(async () => ({ tree }));
       const engine: BuildEngine = {
-        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {},
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {},
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),

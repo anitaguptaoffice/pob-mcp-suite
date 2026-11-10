@@ -746,6 +746,11 @@ export class PoBLuaApiClient {
     if (!res.ok) throw new Error(res.error || "set_main_selection failed");
   }
 
+  async setCalcsSelection(groupIndex: number): Promise<void> {
+    const res = await this.send({ action: 'set_calcs_selection', params: { groupIndex } });
+    if (!res.ok) throw new Error(res.error || 'set_calcs_selection failed');
+  }
+
 async setTree(params: {
     classId: number;
     ascendClassId: number;

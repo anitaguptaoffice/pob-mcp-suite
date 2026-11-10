@@ -44,8 +44,9 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   group in a child snapshot. Recalculate the relevant damage metrics afterwards.
 - `foundation_remove_skill_group` removes one group. When the selected main
   group is removed and other groups remain, supply `replacement_main_group` using
-  the indices after removal. A differently selected calculation-tab group may
-  prevent removal if its identity cannot be preserved.
+  the indices after removal. If a separately selected calculation-tab group is
+  removed, supply `replacement_calcs_group` using the indices after removal.
+  Other selected groups are reindexed to preserve their identities.
 - Use `compare_snapshot_trees` for allocated node and mastery differences between
   two snapshots with the same known tree version. It does not prove legality,
   compute point cost, or measure the resulting damage.

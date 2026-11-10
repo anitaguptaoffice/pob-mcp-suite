@@ -13,6 +13,7 @@ export interface BuildEngine {
   getStats(fields?: string[]): Promise<unknown>;
   setLevel(level: number): Promise<void>;
   setMainSelection(selection: { mainSocketGroup?: number; mainActiveSkill?: number; skillPart?: number }): Promise<void>;
+  setCalcsSelection(groupIndex: number): Promise<void>;
   setConfig(config: Record<string, string | number | boolean>): Promise<{ rejected: Record<string, string>; applied?: Record<string, unknown> }>;
   getBuildInfo(): Promise<{ level?: number }>;
   captureSnapshot(): Promise<{ xml: string }>;
@@ -444,8 +445,8 @@ export class BuildFoundation {
     }, trial);
   }
 
-  async deriveRemoveSkillGroup(id: string, groupIndex: number, replacementMainGroup?: number, trial = false): Promise<SnapshotRecord> {
-    if (!Number.isSafeInteger(groupIndex) || groupIndex < 1 || (replacementMainGroup !== undefined && (!Number.isSafeInteger(replacementMainGroup) || replacementMainGroup < 1))) throw new Error('Invalid skill group removal');
+  async deriveRemoveSkillGroup(id: string, groupIndex: number, replacementMainGroup?: number, trial = false, replacementCalcsGroup?: number): Promise<SnapshotRecord> {
+    if (!Number.isSafeInteger(groupIndex) || groupIndex < 1 || (replacementMainGroup !== undefined && (!Number.isSafeInteger(replacementMainGroup) || replacementMainGroup < 1)) || (replacementCalcsGroup !== undefined && (!Number.isSafeInteger(replacementCalcsGroup) || replacementCalcsGroup < 1))) throw new Error('Invalid skill group removal');
     return this.derive(id, 'derived:remove-skill-group', async engine => {
       const read = async () => normalizeObservation({ tree: await engine.getTree(), items: await engine.getItems(), config: await engine.getConfig(), skills: await engine.getSkills() });
       type Gem = Record<string, unknown> & { index?: number };
@@ -465,15 +466,20 @@ export class BuildFoundation {
       if ((groupIndex !== selected || remaining === 0) && replacementMainGroup !== undefined) throw new Error('replacement_main_group is only accepted when removing the main group with groups remaining');
       if (replacementMainGroup !== undefined && replacementMainGroup > remaining) throw new Error('Replacement main group is out of range after removal');
       const newMain = groupIndex === selected ? replacementMainGroup : selected - (groupIndex < selected ? 1 : 0);
-      if (remaining > 0 && newMain !== selected && skills.calcsSkillNumber !== selected) throw new Error('Cannot preserve a different calculation-tab selection while reindexing the main group');
-      if (remaining > 0 && skills.calcsSkillNumber !== undefined && skills.calcsSkillNumber !== selected && skills.calcsSkillNumber >= groupIndex) throw new Error('Cannot preserve a different calculation-tab selection affected by group removal');
+      const calcs = skills.calcsSkillNumber;
+      if (remaining > 0 && (!Number.isSafeInteger(calcs) || !calcs || calcs < 1 || calcs > original.length)) throw new Error('Current calculation-tab skill group is unavailable');
+      if (replacementCalcsGroup !== undefined && (remaining === 0 || calcs !== groupIndex || calcs === selected)) throw new Error('replacement_calcs_group is only accepted when removing a separately selected calculation group');
+      if (replacementCalcsGroup !== undefined && replacementCalcsGroup > remaining) throw new Error('Replacement calculation group is out of range after removal');
+      if (remaining > 0 && calcs === groupIndex && calcs !== selected && replacementCalcsGroup === undefined) throw new Error('replacement_calcs_group is required when removing the separately selected calculation group');
+      const newCalcs = remaining === 0 ? undefined : calcs === groupIndex ? (calcs === selected ? newMain : replacementCalcsGroup) : calcs! - (groupIndex < calcs! ? 1 : 0);
       await engine.removeSkill({ groupIndex });
       if (remaining > 0 && newMain !== selected) await engine.setMainSelection({ mainSocketGroup: newMain });
+      if (remaining > 0 && (newCalcs !== calcs || newMain !== selected)) await engine.setCalcsSelection(newCalcs!);
       const after = await read();
       for (const section of ['tree', 'items', 'config'] as const) if (!isDeepStrictEqual(before[section], after[section])) throw new Error(`Skill group removal modified unrelated ${section}`);
       const result = after.skills as Skills, updated = groups(after.skills);
       if (remaining > 0 && result.mainSocketGroup !== newMain) throw new Error('PoB did not confirm the main skill group after removal');
-      if (remaining > 0 && newMain === selected && result.calcsSkillNumber !== skills.calcsSkillNumber) throw new Error('Skill group removal modified the calculation-tab selection');
+      if (remaining > 0 && result.calcsSkillNumber !== newCalcs) throw new Error('PoB did not confirm the calculation-tab selection after removal');
       const canonical = (list: Group[]) => list.map(group => { const copy = { ...group }; delete copy.index; copy.gems = group.gems!.map(gem => { const item = { ...gem }; delete item.appliedToSelectedSkill; return item; }); return copy; });
       if (!isDeepStrictEqual(canonical(original.filter(group => group.index !== groupIndex)), canonical(updated))) throw new Error('Skill group removal modified remaining groups');
     }, trial);

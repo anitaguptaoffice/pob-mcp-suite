@@ -282,6 +282,12 @@ handlers.set_main_selection = function(params)
   return { ok = true, skills = (BuildOps.get_skills()) }
 end
 
+handlers.set_calcs_selection = function(params)
+  local ok2, err = BuildOps.set_calcs_selection(params or {})
+  if not ok2 then return { ok = false, error = err } end
+  return { ok = true, skills = (BuildOps.get_skills()) }
+end
+
 handlers.set_level = function(params)
   if not params or params.level == nil then return { ok = false, error = 'missing level' } end
   local ok2, err = BuildOps.set_level(params.level)
