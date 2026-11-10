@@ -19,6 +19,8 @@ try {
   await client.createSocketGroup({ label: 'multipart', slot: 'Helmet' });
   await client.addGem({ groupIndex: 1, gemName: 'Arc', level: 20 });
   await client.addGem({ groupIndex: 1, gemName: 'Ball Lightning', level: 20 });
+  await client.createSocketGroup({ label: 'second', slot: 'Gloves' });
+  await client.addGem({ groupIndex: 2, gemName: 'Fireball', level: 20 });
   await client.setMainSelection({ mainSocketGroup: 1, mainActiveSkill: 2, skillPart: 1 });
   const xml = await client.exportBuildXml();
   await client.stop();
@@ -33,6 +35,18 @@ try {
   const sameEnemyOne = await foundation.evaluate(parent.id, ['TotalDPS'], { selection: { ...selection, skillPart: 1 }, config: { enemyIsBoss: 'Pinnacle' } });
   assert.ok(sameEnemyOne.stats.TotalDPS > 0 && two.stats.TotalDPS > sameEnemyOne.stats.TotalDPS);
   await assert.rejects(foundation.evaluate(parent.id, ['TotalDPS'], { selection: { ...selection, skillPart: 3 } }), /invalid skillPart/);
+  const child = await foundation.deriveSelection(parent.id, { ...selection, skillPart: 2 });
+  assert.equal(child.parentId, parent.id);
+  const persisted = await foundation.evaluate(child.id, ['TotalDPS']);
+  assert.equal(persisted.context.skills.groups[0].selectedSkillPart, 2);
+  assert.equal(persisted.stats.TotalDPS, (await foundation.evaluate(parent.id, ['TotalDPS'], { selection: { ...selection, skillPart: 2 } })).stats.TotalDPS);
+  assert.equal((await foundation.inspect(parent.id, ['skills'])).data.skills.groups[0].selectedSkillPart, 1);
+  await assert.rejects(foundation.deriveSelection(parent.id, { ...selection, skillPart: 3 }), /invalid skillPart/);
+  await assert.rejects(foundation.deriveSelection(parent.id, { mainSocketGroup: 3 }), /invalid mainSocketGroup/);
+  await assert.rejects(foundation.deriveSelection(parent.id, { mainSocketGroup: 2, mainActiveSkill: 99 }), /invalid mainActiveSkill/);
+  const groupChild = await foundation.deriveSelection(parent.id, { mainSocketGroup: 2, mainActiveSkill: 1 });
+  assert.equal((await foundation.inspect(groupChild.id, ['skills'])).data.skills.mainSocketGroup, 2);
+  assert.equal((await foundation.inspect(parent.id, ['skills'])).data.skills.mainSocketGroup, 1);
   assert.equal(await foundation.exportBuild(parent.id), xml);
   const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
   mcp.child.stderr.on('data', () => {});
@@ -45,6 +59,14 @@ try {
     const result = JSON.parse(response.result.content[0].text);
     assert.equal(result.context.skills.groups[0].selectedSkillPart, 2);
     assert.equal(result.stats.TotalDPS, two.stats.TotalDPS);
+    const derived = await mcp.request('tools/call', { name: 'foundation_derive_selection', arguments: { snapshot_id: parent.id, selection: { ...selection, skillPart: 2 }, trial: true } });
+    assert.ok(!derived.error && !derived.result?.isError, JSON.stringify(derived));
+    const trial = JSON.parse(derived.result.content[0].text);
+    assert.equal(trial.retention.kind, 'trial');
+    assert.equal(trial.parentId, parent.id);
+    const childResult = await mcp.request('tools/call', { name: 'foundation_evaluate', arguments: { snapshot_id: trial.id, fields: ['TotalDPS'] } });
+    assert.ok(!childResult.error && !childResult.result?.isError, JSON.stringify(childResult));
+    assert.equal(JSON.parse(childResult.result.content[0].text).stats.TotalDPS, persisted.stats.TotalDPS);
     mcp.child.stdin.end();
     assert.equal((await exited)[0], 0);
   } finally {

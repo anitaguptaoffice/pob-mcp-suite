@@ -257,6 +257,36 @@ export class BuildFoundation {
     }, trial);
   }
 
+  async deriveSelection(id: string, selection: NonNullable<EvaluationOptions['selection']>, trial = false): Promise<SnapshotRecord> {
+    validateEvaluationOptions({ selection });
+    if (!selection || !Object.keys(selection).length) throw new Error('Skill selection cannot be empty');
+    return this.derive(id, 'derived:skill-selection', async engine => {
+      const before = normalizeObservation({ tree: await engine.getTree(), items: await engine.getItems(), config: await engine.getConfig(), skills: await engine.getSkills() });
+      await engine.setMainSelection(selection);
+      const after = normalizeObservation({ tree: await engine.getTree(), items: await engine.getItems(), config: await engine.getConfig(), skills: await engine.getSkills() });
+      const original = before.skills as { groups?: Array<{ index?: number }> };
+      const updated = after.skills as { mainSocketGroup?: number; groups?: Array<{ index?: number; mainActiveSkill?: number; selectedSkillPart?: number }> };
+      const group = updated?.groups?.find(entry => entry.index === updated.mainSocketGroup);
+      if (!group || (selection.mainSocketGroup !== undefined && updated.mainSocketGroup !== selection.mainSocketGroup) ||
+          (selection.mainActiveSkill !== undefined && group.mainActiveSkill !== selection.mainActiveSkill) ||
+          (selection.skillPart !== undefined && group.selectedSkillPart !== selection.skillPart)) throw new Error('PoB did not confirm the requested skill selection');
+      for (const section of ['tree', 'items', 'config'] as const) if (!isDeepStrictEqual(before[section], after[section])) throw new Error(`Skill selection changed unrelated ${section}`);
+      if (!Array.isArray(original?.groups) || !Array.isArray(updated?.groups) ||
+          !isDeepStrictEqual(original.groups.filter(entry => entry.index !== updated.mainSocketGroup), updated.groups.filter(entry => entry.index !== updated.mainSocketGroup))) throw new Error('Skill selection changed unrelated skill groups');
+      const structuralGroup = (value: unknown) => {
+        if (!value || typeof value !== 'object') return null;
+        const { mainActiveSkill: _skill, selectedSkillPart: _part, ...rest } = value as Record<string, unknown>;
+        if (Array.isArray(rest.gems)) rest.gems = rest.gems.map(gem => {
+          if (!gem || typeof gem !== 'object') return gem;
+          const { appliedToSelectedSkill: _applied, ...preserved } = gem as Record<string, unknown>;
+          return preserved;
+        });
+        return rest;
+      };
+      if (!isDeepStrictEqual(structuralGroup(original.groups.find(entry => entry.index === updated.mainSocketGroup)), structuralGroup(group))) throw new Error('Skill selection changed unrelated selected group data');
+    }, trial);
+  }
+
   async deriveItem(id: string, slot: string, itemText: string, trial = false): Promise<SnapshotRecord> {
     if (typeof slot !== 'string' || !slot.trim() || slot.length > 100 || typeof itemText !== 'string' || !itemText.trim() || Buffer.byteLength(itemText, 'utf8') > 10240) throw new Error('Invalid item or slot');
     return this.derive(id, 'derived:item', async engine => {

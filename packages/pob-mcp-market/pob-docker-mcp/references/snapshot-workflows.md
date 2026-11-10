@@ -21,6 +21,9 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   them together without establishing what PoB already includes.
 - Evaluation `selection` and `config` overrides apply only to that calculation;
   they do not change the snapshot. Compare results under the same settings.
+- To save a selection, use `foundation_derive_selection` with a nonempty
+  `selection`: `mainSocketGroup`, `mainActiveSkill`, and `skillPart` are separate
+  one-based PoB indices. Inspect and evaluate the child to confirm the result.
 
 ## Isolated changes and export
 

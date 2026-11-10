@@ -64,7 +64,7 @@ Generated from registered schema groups in the current build. Most entries are p
 - `get_equipped_items` — target: equipment and gems; replacement: snapshot equipment/gem query or typed isolated change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
 - `toggle_flask` — target: equipment and gems; replacement: snapshot equipment/gem query or typed isolated change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
 - `get_skill_setup` — target: equipment and gems; replacement: snapshot equipment/gem query or typed isolated change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
-- `set_main_skill` — target: equipment and gems; replacement: snapshot equipment/gem query or typed isolated change; status: not migrated; skill references: `skills/pob-docker-mcp/SKILL.md`.
+- `set_main_skill` — target: equipment and gems; replacement: `foundation_derive_selection`; status: persistent selection implemented, legacy callers require migration; skill references: `skills/pob-docker-mcp/SKILL.md`.
 - `create_socket_group` — target: equipment and gems; replacement: snapshot equipment/gem query or typed isolated change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
 - `add_gem` — target: equipment and gems; replacement: snapshot equipment/gem query or typed isolated change; status: not migrated; skill references: `skills/pob-docker-mcp/SKILL.md`.
 - `set_gem_level` — target: equipment and gems; replacement: snapshot equipment/gem query or typed isolated change; status: not migrated; skill references: no exact name found in packaged skill Markdown.

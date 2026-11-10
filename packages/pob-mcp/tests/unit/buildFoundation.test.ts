@@ -5,6 +5,29 @@ import { BuildFoundation, type BuildEngine } from '../../src/foundation/buildFou
 import { SnapshotStore } from '../../src/foundation/snapshotStore.js';
 
 describe('BuildFoundation isolation', () => {
+  it('does not publish a skill selection when PoB fails to apply it or changes another group', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'pob-skill-selection-'));
+    try {
+      const store = new SnapshotStore(dir);
+      const parent = await store.create({ xml: '<build/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
+      let skills = { mainSocketGroup: 1, groups: [{ index: 1, mainActiveSkill: 1 }, { index: 2, mainActiveSkill: 1 }] };
+      let corruptOther = false;
+      let corruptSelected = false;
+      const engine = {
+        identity: { engineVersion: null, dataVersion: null, adapterVersion: null }, loadBuildXml: async () => { skills = { mainSocketGroup: 1, groups: [{ index: 1, mainActiveSkill: 1 }, { index: 2, mainActiveSkill: 1 }] }; },
+        getTree: async () => ({}), getItems: async () => [], getConfig: async () => ({}), getSkills: async () => structuredClone(skills),
+        setMainSelection: async () => { if (corruptOther) skills = { mainSocketGroup: 1, groups: [{ index: 1, mainActiveSkill: 2 }, { index: 2, mainActiveSkill: 2 }] }; if (corruptSelected) skills = { mainSocketGroup: 1, groups: [{ index: 1, mainActiveSkill: 2, label: 'unexpected' } as any, { index: 2, mainActiveSkill: 1 }] }; }, close: async () => {},
+      } as unknown as BuildEngine;
+      const foundation = new BuildFoundation(store, async () => engine);
+      await expect(foundation.deriveSelection(parent.id, {})).rejects.toThrow('empty');
+      await expect(foundation.deriveSelection(parent.id, { mainActiveSkill: 2 })).rejects.toThrow('did not confirm');
+      corruptOther = true;
+      await expect(foundation.deriveSelection(parent.id, { mainActiveSkill: 2 })).rejects.toThrow('unrelated skill groups');
+      corruptOther = false; corruptSelected = true;
+      await expect(foundation.deriveSelection(parent.id, { mainActiveSkill: 2 })).rejects.toThrow('unrelated selected group data');
+      expect(await readdir(dir)).toEqual([`${parent.id}.json`]);
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
   it('rejects a derived snapshot if poison-inclusive minion damage changes after reload', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'pob-poison-fidelity-'));
     try {
