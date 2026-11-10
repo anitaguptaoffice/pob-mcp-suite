@@ -1,5 +1,7 @@
 # Path of Building MCP Server
 
+面向中文用户的项目入口和本仓库构建方法见[根目录说明](../../README.md)。本文件保留英文的 MCP 工具和开发参考，以下安装示例已针对本仓库调整。
+
 This package is integrated into `pob-mcp-suite`. In addition to the upstream
 MCP tools it retains source-aware trade filters, dynamic alternate-ascendancy
 names, and `find_timeless_jewel_seeds` for Elegant Hubris. The last is an
@@ -102,10 +104,10 @@ These tools need the corresponding data files from a PoB installation or checkou
 Use Node.js 20 or later. CI runs on Node.js 20.
 
 ```bash
-git clone https://github.com/ianderse/pob-mcp.git
-cd pob-mcp
-npm install
-npm run build
+git clone https://github.com/anitaguptaoffice/pob-mcp-suite.git
+cd pob-mcp-suite
+npm --prefix packages/pob-mcp ci
+npm --prefix packages/pob-mcp run build
 ```
 
 ## Configuration
