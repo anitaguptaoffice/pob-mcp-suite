@@ -60,6 +60,10 @@ try {
   if (!afterAnalysis.includes('Level 89')) throw new Error(`analysis overwrote unsaved changes: ${afterAnalysis}`);
   const otherDefenses = await call('analyze_defenses', { build_name: 'other.xml' });
   if (!otherDefenses.includes('Defensive Analysis') || !otherDefenses.includes('isolated engine')) throw new Error(`isolated defence analysis failed: ${otherDefenses}`);
+  const otherItems = await call('analyze_items', { build_name: 'other.xml' });
+  if (!otherItems.includes('Item Upgrade Analysis') || !otherItems.includes('独立引擎')) throw new Error(`isolated item analysis failed: ${otherItems}`);
+  const otherSkills = await call('optimize_skill_links', { build_name: 'other.xml' });
+  if (!otherSkills.includes('独立引擎')) throw new Error(`isolated skill analysis failed: ${otherSkills}`);
   const otherNodes = await call('suggest_optimal_nodes', { build_name: 'other.xml', goal: 'life', points_available: 2 });
   if (!otherNodes.includes('isolated engine')) throw new Error(`isolated node analysis failed: ${otherNodes}`);
   const otherTree = await call('optimize_tree', { build_name: 'other.xml', goal: 'balanced', max_points: 2 });

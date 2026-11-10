@@ -110,9 +110,11 @@ export function inferBuildArchetype(
   const evasion = stats?.evasion || 0;
   const armour = stats?.armour || 0;
   let defenseType = '';
-  if (evasion > armour * 1.5) defenseType = 'evasion';
-  else if (armour > evasion * 1.5) defenseType = 'armour';
-  else if (evasion > 1000 && armour > 1000) defenseType = 'hybrid';
+  if (stats?.evasion !== undefined && stats?.armour !== undefined) {
+    if (evasion > armour * 1.5) defenseType = 'evasion';
+    else if (armour > evasion * 1.5) defenseType = 'armour';
+    else if (evasion > 1000 && armour > 1000) defenseType = 'hybrid';
+  }
 
   // Ascendancy-specific
   const ascend = ascendClassName?.toLowerCase() || '';
@@ -126,7 +128,7 @@ export function inferBuildArchetype(
   if (ascend.includes('elementalist')) return 'elemental-spell';
 
   // General patterns
-  if (hasES && !hasLife) return 'ci-es';
+  if (hasES && stats?.life !== undefined && stats.life <= 1) return 'ci-es';
   if (isLowLife) return 'lowlife-es';
   if (defenseType) return `${defenseType}-based`;
 
@@ -177,8 +179,8 @@ function analyzeItemSlot(
 
   // Body Armour
   if (slot === 'Body Armour') {
-    const lowLife = (stats.life || 0) < 3500;
-    const lowES = (stats.energyShield || 0) < 1000;
+    const lowLife = stats.life !== undefined && stats.life < 3500;
+    const lowES = stats.energyShield !== undefined && stats.energyShield < 1000;
 
     if (buildArchetype.includes('es') && lowES) {
       analysis.issues.push('Energy shield is low for an ES-based build');
@@ -199,16 +201,16 @@ function analyzeItemSlot(
   if (slot === 'Boots') {
     analysis.suggestions.push('Ensure boots have 25-30% movement speed for mapping comfort');
 
-    if (buildArchetype.includes('es') && (stats.energyShield || 0) < 1500) {
+    if (buildArchetype.includes('es') && stats.energyShield !== undefined && stats.energyShield < 1500) {
       analysis.suggestions.push('Look for boots with ES and relevant resistances');
-    } else if ((stats.life || 0) < 4000) {
+    } else if (stats.life !== undefined && stats.life < 4000) {
       analysis.suggestions.push('Look for boots with life and relevant resistances');
     }
   }
 
   // Helmet
   if (slot === 'Helmet') {
-    if (buildArchetype.includes('es') && (stats.energyShield || 0) < 1500) {
+    if (buildArchetype.includes('es') && stats.energyShield !== undefined && stats.energyShield < 1500) {
       analysis.suggestions.push('Consider a helmet with 250+ ES');
     }
     if (buildArchetype.includes('minion')) {
@@ -218,7 +220,7 @@ function analyzeItemSlot(
 
   // Rings and Amulet
   if (slot.includes('Ring') || slot === 'Amulet') {
-    const lowRes = (stats.fireRes || 0) < 75 || (stats.coldRes || 0) < 75 || (stats.lightningRes || 0) < 75;
+    const lowRes = [stats.fireRes, stats.coldRes, stats.lightningRes].some(value => value !== undefined && value < 75);
 
     if (lowRes) {
       analysis.issues.push('Resistances may not be capped');
@@ -226,14 +228,14 @@ function analyzeItemSlot(
       analysis.suggestions.push('Ensure jewelry provides resistances to cap at 75%');
     }
 
-    if ((stats.life || 0) < 4000 && buildArchetype.includes('life')) {
+    if (stats.life !== undefined && stats.life < 4000 && buildArchetype.includes('life')) {
       analysis.suggestions.push('Look for life rolls on jewelry');
     }
   }
 
   // Belt
   if (slot === 'Belt') {
-    if (buildArchetype.includes('life') && (stats.life || 0) < 4000) {
+    if (buildArchetype.includes('life') && stats.life !== undefined && stats.life < 4000) {
       analysis.suggestions.push('Consider a Stygian Vise or heavy life belt');
     }
     if (buildArchetype.includes('flask')) {
@@ -273,20 +275,17 @@ function checkResistances(stats: BuildStats): {
     recommendations: [] as string[],
   };
 
-  const fireRes = stats.fireRes || 0;
-  const coldRes = stats.coldRes || 0;
-  const lightningRes = stats.lightningRes || 0;
-  const chaosRes = stats.chaosRes || 0;
+  const { fireRes, coldRes, lightningRes, chaosRes } = stats;
 
-  if (fireRes < 75) {
+  if (fireRes !== undefined && fireRes < 75) {
     result.capped = false;
     result.missing.push(`Fire Resistance: ${fireRes}% (need ${75 - fireRes}% more)`);
   }
-  if (coldRes < 75) {
+  if (coldRes !== undefined && coldRes < 75) {
     result.capped = false;
     result.missing.push(`Cold Resistance: ${coldRes}% (need ${75 - coldRes}% more)`);
   }
-  if (lightningRes < 75) {
+  if (lightningRes !== undefined && lightningRes < 75) {
     result.capped = false;
     result.missing.push(`Lightning Resistance: ${lightningRes}% (need ${75 - lightningRes}% more)`);
   }
@@ -296,7 +295,7 @@ function checkResistances(stats: BuildStats): {
     result.recommendations.push('Craft resistances on gear using bench, or use resistance jewels');
   }
 
-  if (chaosRes < 0) {
+  if (chaosRes !== undefined && chaosRes < 0) {
     result.recommendations.push(`Chaos Resistance is ${chaosRes}% - consider getting positive chaos res for some content`);
   }
 
@@ -348,19 +347,19 @@ export function analyzeEquippedItems(
   // Resistance check
   const resCheck = checkResistances(buildStats);
   if (!resCheck.capped) {
-    generalSuggestions.push('⚠️ Elemental resistances are not capped!');
+    generalSuggestions.push('⚠️ Some elemental resistances are below the 75% reference; actual caps may differ.');
     generalSuggestions.push(...resCheck.missing);
     generalSuggestions.push(...resCheck.recommendations);
   }
 
   // Life/ES check
-  const life = buildStats.life || 0;
-  const es = buildStats.energyShield || 0;
+  const life = buildStats.life;
+  const es = buildStats.energyShield;
 
-  if (buildArchetype.includes('life') && life < 3500) {
+  if (buildArchetype.includes('life') && life !== undefined && life < 3500) {
     generalSuggestions.push(`⚠️ Life pool is low (${life}) - aim for 4000+ for mapping, 5000+ for endgame`);
   }
-  if (buildArchetype.includes('es') && es < 3000) {
+  if (buildArchetype.includes('es') && es !== undefined && es < 3000) {
     generalSuggestions.push(`⚠️ Energy Shield is low (${es}) - aim for 4000+ for CI builds`);
   }
 
@@ -389,6 +388,13 @@ export function formatItemAnalysis(analysis: ItemUpgradeRecommendation): string 
 
   output += `Build Type: ${analysis.buildType}\n`;
   output += `${analysis.summary}\n\n`;
+  if (analysis.slotAnalysis.length > 0) {
+    output += '=== Analyzed Equipment ===\n';
+    for (const slot of analysis.slotAnalysis) {
+      output += `${slot.slot} — Current: ${slot.currentItem?.name || '(empty)'}\n`;
+    }
+    output += '\n';
+  }
 
   // General suggestions first
   if (analysis.generalSuggestions.length > 0) {

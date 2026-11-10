@@ -13,8 +13,7 @@ import {
   formatSkillOptimization,
   type SkillGroup,
 } from "../skillLinkOptimizer.js";
-import { resolveBuildFile } from "../utils/pathSanitizer.js";
-import { loadBuildIfDifferent, readNamedBuild } from "../utils/namedBuild.js";
+import { withBuildClient } from "../utils/isolatedBuildClient.js";
 import { activeSkillSet, asArray } from "../utils/xmlCollections.js";
 
 interface AdvancedOptimizationContext {
@@ -22,6 +21,7 @@ interface AdvancedOptimizationContext {
   pobDirectory: string;
   getLuaClient: () => PoBLuaApiClient | null;
   ensureLuaClient: () => Promise<void>;
+  createIsolatedLuaClient?: () => Promise<{ client: PoBLuaApiClient; close: () => Promise<void> }>;
 }
 
 /**
@@ -37,59 +37,33 @@ export async function handleAnalyzeItems(
     let ascendClassName: string | undefined;
     let stats: BuildStats | undefined;
 
-    // Try to use Lua client for accurate data if available
+    let dataSource = '已保存的 XML（缓存数值，未进行实时计算）';
+    let liveReadSucceeded = false;
     try {
-      await context.ensureLuaClient();
-    } catch (e) { noteIgnoredError("Lua unavailable — fall back to XML below", e); }
-    const luaClient = context.getLuaClient();
-
-    if (luaClient) {
-      // Load build into Lua only if a different build (or no build) is currently loaded.
-      // Preserves any select_spec / select_item_set changes made in the current session.
-      if (buildName) {
-        await loadBuildIfDifferent(luaClient, buildName, context.pobDirectory);
-      }
-
-      try {
+      const live = await withBuildClient(context, buildName, async (luaClient, isolated) => {
         const luaItems = await luaClient.getItems();
-        items = luaItems.map((item) => ({
-          slot: item.slot,
-          name: item.name,
-          baseName: item.baseName,
-          rarity: item.rarity,
-          shown: item.shown,
-        }));
-
-        // Get stats from Lua
-        const luaStats = await luaClient.getStats();
-        stats = {
-          life: toFiniteNumber(luaStats.Life),
-          energyShield: toFiniteNumber(luaStats.EnergyShield),
-          evasion: toFiniteNumber(luaStats.Evasion),
-          armour: toFiniteNumber(luaStats.Armour),
-          dps: toFiniteNumber(luaStats.TotalDPS),
-          fireRes: toFiniteNumber(luaStats['FireResist']),
-          coldRes: toFiniteNumber(luaStats['ColdResist']),
-          lightningRes: toFiniteNumber(luaStats['LightningResist']),
-          chaosRes: toFiniteNumber(luaStats['ChaosResist']),
-        };
-
-        // Get class info from tree
+        const luaStats = await luaClient.getStats(['Life', 'EnergyShield', 'Evasion', 'Armour', 'TotalDPS', 'FireResist', 'ColdResist', 'LightningResist', 'ChaosResist']);
         const tree = await luaClient.getTree();
         const classNames = ['Scion', 'Marauder', 'Ranger', 'Witch', 'Duelist', 'Templar', 'Shadow'];
-        className = classNames[tree.classId] || 'Unknown';
-      } catch (error) {
-        if (!buildName) {
-          throw new Error(
-            'No build loaded in Lua client and no build_name provided. Load a build first or provide build_name.'
-          );
-        }
-        // Fall through to XML parsing below
-      }
+        return { items: luaItems.map(item => ({ slot: item.slot, name: item.name, baseName: item.baseName, rarity: item.rarity, shown: item.shown })),
+          className: classNames[tree.classId], isolated,
+          stats: { life: toFiniteNumber(luaStats.Life), energyShield: toFiniteNumber(luaStats.EnergyShield),
+            evasion: toFiniteNumber(luaStats.Evasion), armour: toFiniteNumber(luaStats.Armour), dps: toFiniteNumber(luaStats.TotalDPS),
+            fireRes: toFiniteNumber(luaStats.FireResist), coldRes: toFiniteNumber(luaStats.ColdResist),
+            lightningRes: toFiniteNumber(luaStats.LightningResist), chaosRes: toFiniteNumber(luaStats.ChaosResist) } };
+      });
+      items = live.items;
+      className = live.className;
+      stats = live.stats;
+      liveReadSucceeded = true;
+      dataSource = live.isolated ? '已保存构筑，独立引擎计算' : '当前内存构筑';
+    } catch (error) {
+      if (!buildName) throw error;
+      noteIgnoredError('live item analysis unavailable — use saved XML', error);
     }
 
     // Fall back to XML if no Lua data
-    if (items.length === 0 && buildName) {
+    if (!liveReadSucceeded && buildName) {
       const build = await context.buildService.readBuild(buildName);
 
       className = className || build.Build?.className;
@@ -128,9 +102,11 @@ export async function handleAnalyzeItems(
           : [build.Build.PlayerStat];
 
         stats = {};
+        const keys: Record<string, keyof BuildStats> = { Life: 'life', EnergyShield: 'energyShield', Evasion: 'evasion', Armour: 'armour', TotalDPS: 'dps', FireResist: 'fireRes', ColdResist: 'coldRes', LightningResist: 'lightningRes', ChaosResist: 'chaosRes' };
         for (const stat of statsArray) {
-          const key = stat.stat.replace(/\s+/g, '');
-          stats[key] = parseFloat(stat.value) || 0;
+          const key = keys[stat.stat];
+          const value = toFiniteNumber(stat.value);
+          if (key && value !== undefined) stats[key] = value;
         }
       }
     }
@@ -143,7 +119,7 @@ export async function handleAnalyzeItems(
       content: [
         {
           type: "text" as const,
-          text: formatted,
+          text: `数据来源：${dataSource}\n\n${formatted}`,
         },
       ],
     };
@@ -164,55 +140,31 @@ export async function handleOptimizeSkillLinks(
     let skillGroups: SkillGroup[] = [];
     let buildArchetype = 'unknown';
 
-    // Try Lua client first for accurate data
+    let dataSource = '已保存的 XML（未进行实时计算）';
+    let liveReadSucceeded = false;
     try {
-      await context.ensureLuaClient();
-    } catch (e) { noteIgnoredError("Lua unavailable — fall back to XML below", e); }
-    const luaClient = context.getLuaClient();
-
-    if (luaClient) {
-      // Load build if buildName provided
-      if (buildName) {
-        await loadBuildIfDifferent(luaClient, buildName, context.pobDirectory);
-      }
-
-      try {
+      const live = await withBuildClient(context, buildName, async (luaClient, isolated) => {
         const skillData = await luaClient.getSkills();
-
-        if (skillData && skillData.groups) {
-          skillGroups = skillData.groups.map((group) => ({
-            index: group.index,
-            label: group.label,
-            slot: group.slot,
-            enabled: group.enabled ?? true,
-            isMainSkill: group.index === skillData.mainSocketGroup,
-            gems: group.gems || group.skills?.map((skillName: string) => ({ name: skillName })) || [],
-            includeInFullDPS: group.includeInFullDPS,
-          }));
-        }
-
-        // Get build type from tree/stats
         const tree = await luaClient.getTree();
         const stats = await luaClient.getStats(['TotalDPS', 'Life', 'EnergyShield']);
         const classNames = ['Scion', 'Marauder', 'Ranger', 'Witch', 'Duelist', 'Templar', 'Shadow'];
-        const className = classNames[tree.classId];
-
-        buildArchetype = inferBuildArchetype(className, undefined, {
-          life: toFiniteNumber(stats.Life),
-          energyShield: toFiniteNumber(stats.EnergyShield),
-          dps: toFiniteNumber(stats.TotalDPS),
-        });
-      } catch (error) {
-        if (!buildName) {
-          throw new Error(
-            'No build loaded in Lua client and no build_name provided. Load a build first or provide build_name.'
-          );
-        }
-      }
+        return { isolated, groups: skillData.groups.map(group => ({ index: group.index, label: group.label, slot: group.slot,
+          enabled: group.enabled ?? true, isMainSkill: group.index === skillData.mainSocketGroup,
+          gems: group.gems || group.skills?.map(name => ({ name })) || [], includeInFullDPS: group.includeInFullDPS })),
+          archetype: inferBuildArchetype(classNames[tree.classId], undefined, { life: toFiniteNumber(stats.Life),
+            energyShield: toFiniteNumber(stats.EnergyShield), dps: toFiniteNumber(stats.TotalDPS) }) };
+      });
+      skillGroups = live.groups;
+      buildArchetype = live.archetype;
+      liveReadSucceeded = true;
+      dataSource = live.isolated ? '已保存构筑，独立引擎计算' : '当前内存构筑';
+    } catch (error) {
+      if (!buildName) throw error;
+      noteIgnoredError('live skill analysis unavailable — use saved XML', error);
     }
 
     // Fall back to XML if Lua data was unavailable
-    if (buildName && skillGroups.length === 0) {
+    if (buildName && !liveReadSucceeded) {
       const build = await context.buildService.readBuild(buildName);
 
       buildArchetype = inferBuildArchetype(
@@ -231,7 +183,7 @@ export async function handleOptimizeSkillLinks(
             label: skill.label,
             slot: skill.slot,
             enabled: skill.enabled !== 'false',
-            isMainSkill: idx === 0, // Assume first is main
+            isMainSkill: idx + 1 === Number(build.Build?.mainSocketGroup),
             gems: gems.map((gem) => ({
               name: gem.name || 'Unknown',
               level: parseInt(gem.level || '1', 10),
@@ -248,7 +200,7 @@ export async function handleOptimizeSkillLinks(
         content: [
           {
             type: "text" as const,
-            text: "No skill groups found. Add skills to your build first.",
+            text: `数据来源：${dataSource}\n\nNo skill groups found. Add skills to your build first.`,
           },
         ],
       };
@@ -262,7 +214,7 @@ export async function handleOptimizeSkillLinks(
       content: [
         {
           type: "text" as const,
-          text: formatted,
+          text: `数据来源：${dataSource}\n\n${formatted}`,
         },
       ],
     };
