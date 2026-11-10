@@ -39,6 +39,15 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   them together without establishing what PoB already includes.
 - Evaluation `selection` and `config` overrides apply only to that calculation;
   they do not change the snapshot. Compare results under the same settings.
+- Use `save_snapshot_config_preset` to persist every observed configuration
+  value in the versioned local preset store; overwrite requires `overwrite: true`.
+  `list_local_config_presets` and `read_local_config_preset` also expose legacy
+  presets without modifying them. Specify `origin` when both stores have the
+  same name; legacy presets lack source-version provenance. Apply with
+  `apply_snapshot_config_preset`, which verifies all saved values and preserves
+  target settings absent from the preset before publishing a child snapshot.
+  PoB-rejected changed values fail the whole operation; an unchanged obsolete
+  value can remain in place. Inspect and evaluate the resulting child.
 - To save a selection, use `foundation_derive_selection` with a nonempty
   `selection`: `mainSocketGroup`, `mainActiveSkill`, and `skillPart` are separate
   one-based PoB indices. Inspect and evaluate the child to confirm the result.

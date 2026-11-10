@@ -966,6 +966,36 @@ export class BuildFoundation {
     }, trial);
   }
 
+  /** Apply every preset value exactly; unchanged legacy keys need not be writable. */
+  async deriveExactConfig(id: string, config: Record<string, string | number | boolean>, trial = false): Promise<{ snapshot: SnapshotRecord; changedKeys: string[] }> {
+    if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('Invalid config');
+    validateEvaluationOptions({ config });
+    let changedKeys: string[] = [], unrelated: Record<string, unknown> = {};
+    const verify = async (engine: BuildEngine) => {
+      const actual = await engine.getConfig();
+      if (!actual || typeof actual !== 'object' || Array.isArray(actual) && actual.length !== 0) throw new Error('PoB returned invalid config');
+      const record = actual as Record<string, unknown>;
+      if (Object.entries(config).some(([key, value]) => !Object.hasOwn(record, key) || !isDeepStrictEqual(record[key], value))) throw new Error('PoB did not preserve every preset value');
+      const actualUnrelated = Object.fromEntries(Object.entries(record).filter(([key]) => !Object.hasOwn(config, key)));
+      if (!isDeepStrictEqual(unrelated, actualUnrelated)) throw new Error('Preset changed an unrelated configuration value');
+    };
+    const snapshot = await this.derive(id, 'derived:config-preset', async engine => {
+      const before = await engine.getConfig();
+      if (!before || typeof before !== 'object' || Array.isArray(before) && before.length !== 0) throw new Error('PoB returned invalid config');
+      const record = before as Record<string, unknown>;
+      changedKeys = Object.keys(config).filter(key => !Object.hasOwn(record, key) || !isDeepStrictEqual(record[key], config[key]));
+      unrelated = Object.fromEntries(Object.entries(record).filter(([key]) => !Object.hasOwn(config, key)));
+      if (changedKeys.length) {
+        const changes = Object.fromEntries(changedKeys.map(key => [key, config[key]]));
+        const result = await engine.setConfig(changes);
+        if (!result || !result.rejected || Object.keys(result.rejected).length) throw new Error(`PoB rejected preset config: ${JSON.stringify(result?.rejected ?? {})}`);
+        if (!result.applied || changedKeys.some(key => !Object.hasOwn(result.applied!, key))) throw new Error('PoB did not apply every changed preset value');
+      }
+      await verify(engine);
+    }, trial, verify);
+    return { snapshot, changedKeys };
+  }
+
   async notes(id: string) {
     const { result, ...context } = await this.runReadOnlySnapshot(id, engine => engine.getBuildNotes());
     if (typeof result !== 'string') throw new Error('PoB returned invalid notes');

@@ -71,6 +71,8 @@ import { LocalBuildFileCatalog } from './adapters/localBuild/fileCatalog.js';
 import { createBuildFileCatalogTool } from './features/localBuildCatalog/tool.js';
 import { LocalBuildFileWatcher } from './adapters/localBuild/fileWatcher.js';
 import { createBuildWatchTools } from './features/localBuildWatch/tools.js';
+import { LocalConfigPresetStore } from './adapters/localBuild/configPresetStore.js';
+import { configPresetSchemas, createConfigPresetCatalogTools, createSnapshotConfigPresetTools } from './features/configPresets/tools.js';
 import { createCurrencyReferenceTools, currencyReferenceSchemas } from './features/currencyReference/tools.js';
 import { createCurrencySpreadTool, currencySpreadSchema } from './features/currencySpread/tool.js';
 import { createTradePreviewTool, tradePreviewSchema } from './features/tradePreview/tool.js';
@@ -97,6 +99,8 @@ class PoBMCPServer {
   private readonly modifierFeatures = new FeatureRegistry(createModifierDataTools(new PoBModifierData()));
   private buildFileCatalog!: FeatureRegistry;
   private localBuildWatcher!: LocalBuildFileWatcher;
+  private localConfigPresets!: LocalConfigPresetStore;
+  private configPresetCatalog!: FeatureRegistry;
   private marketFeatures: FeatureRegistry | null = null;
   private foundationJobs: JobRunner | null = null;
   private releaseFoundationLock: (() => Promise<void>) | null = null;
@@ -154,6 +158,8 @@ class PoBMCPServer {
       skillInspectionSchema(),
       ...this.modifierFeatures.schemas(),
       ...this.buildFileCatalog.schemas(),
+      ...this.configPresetCatalog.schemas(),
+      ...configPresetSchemas().slice(2),
       ...currencyReferenceSchemas(),
       currencySpreadSchema(),
       tradePreviewSchema(),
@@ -197,6 +203,8 @@ class PoBMCPServer {
     this.pobDirectory = process.env.POB_DIRECTORY || defaultBuildsDirectory();
     this.localBuildWatcher = new LocalBuildFileWatcher(this.pobDirectory);
     this.buildFileCatalog = new FeatureRegistry([createBuildFileCatalogTool(new LocalBuildFileCatalog(this.pobDirectory)), ...createBuildWatchTools(this.localBuildWatcher)]);
+    this.localConfigPresets = new LocalConfigPresetStore(this.pobDirectory);
+    this.configPresetCatalog = new FeatureRegistry(createConfigPresetCatalogTools(this.localConfigPresets));
 
     // Initialize services
     this.buildService = new BuildService(this.pobDirectory);
@@ -375,7 +383,7 @@ class PoBMCPServer {
     // List available tools
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       if (!this.legacyEnabled()) {
-        const tools = [...(this.foundation ? [...foundationSchemas, ...featureRegistry.schemas(), ...(this.foundationFeatures?.schemas() ?? [])] : []), ...this.modifierFeatures.schemas(), ...this.buildFileCatalog.schemas(), ...(this.marketFeatures?.schemas() ?? [])];
+        const tools = [...(this.foundation ? [...foundationSchemas, ...featureRegistry.schemas(), ...(this.foundationFeatures?.schemas() ?? [])] : []), ...this.modifierFeatures.schemas(), ...this.buildFileCatalog.schemas(), ...this.configPresetCatalog.schemas(), ...(this.marketFeatures?.schemas() ?? [])];
         assertUniqueToolSchemas(tools);
         return { tools: tools.map(({ truncatable: _truncatable, ...wire }) => wire) };
       }
@@ -419,6 +427,7 @@ class PoBMCPServer {
       tools.push(...featureRegistry.schemas());
       tools.push(...this.modifierFeatures.schemas());
       tools.push(...this.buildFileCatalog.schemas());
+      tools.push(...this.configPresetCatalog.schemas());
       tools.push(...(this.marketFeatures?.schemas() ?? []));
       if (this.foundation) tools.push(...foundationSchemas, ...(this.foundationFeatures?.schemas() ?? []));
       assertUniqueToolSchemas(tools);
@@ -435,7 +444,7 @@ class PoBMCPServer {
       try {
         const modifierFeature = this.modifierFeatures.get(name);
         if (modifierFeature) return await modifierFeature.invoke(args ?? {});
-        const catalogFeature = this.buildFileCatalog.get(name);
+        const catalogFeature = this.buildFileCatalog.get(name) ?? this.configPresetCatalog.get(name);
         if (catalogFeature) {
           if (this.foundationClosing) throw new Error('Build catalog is unavailable during shutdown');
           const pending = Promise.resolve().then(() => catalogFeature.invoke(args ?? {}));
@@ -549,7 +558,7 @@ class PoBMCPServer {
           try { return await compareSnapshotGemSetups(foundation, { snapshot_id: input.snapshotId, group_index: input.groupIndex, candidate_snapshot_ids: [candidate.id] }); }
           catch (error) { return { setupError: error instanceof Error ? error.message : String(error), candidateSnapshotId: candidate.id }; }
         }, input => evaluatePassive(foundation, input));
-      const migrated = [createSnapshotCostTool(foundation, economy), createShoppingListTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), createSnapshotBuildComparisonTool(foundation), createSnapshotGemComparisonTool(foundation), ...createGemSetupJobTools(foundation, this.foundationJobs), createSnapshotSupportRankingTool(foundation), ...createTreePathTools(foundation), createBuildIssuesTool(foundation), createBossReadinessTool(foundation), createMasteryRankingTool(foundation), createMasteryDiscoveryTool(foundation), ...createMasteryJobTools(foundation, this.foundationJobs), ...createPassiveRankingTools(foundation, this.foundationJobs), createAnointmentTool(foundation), createSnapshotSummaryTool(foundation), createSkillInspectionTool(foundation), createTimelessSearchTool(foundation)];
+      const migrated = [createSnapshotCostTool(foundation, economy), createShoppingListTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), createSnapshotBuildComparisonTool(foundation), createSnapshotGemComparisonTool(foundation), ...createGemSetupJobTools(foundation, this.foundationJobs), createSnapshotSupportRankingTool(foundation), ...createTreePathTools(foundation), createBuildIssuesTool(foundation), createBossReadinessTool(foundation), createMasteryRankingTool(foundation), createMasteryDiscoveryTool(foundation), ...createMasteryJobTools(foundation, this.foundationJobs), ...createPassiveRankingTools(foundation, this.foundationJobs), createAnointmentTool(foundation), createSnapshotSummaryTool(foundation), createSkillInspectionTool(foundation), ...createSnapshotConfigPresetTools(foundation, this.localConfigPresets), createTimelessSearchTool(foundation)];
       if (trade) migrated.push(createTradePreviewTool(foundation, trade));
       this.foundationFeatures = new FeatureRegistry(migrated);
     }

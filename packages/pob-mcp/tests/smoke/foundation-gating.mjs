@@ -16,6 +16,8 @@ try {
   const tools = await disabled.request('tools/list', {});
   for (const name of ['classify_modifier_lines', 'query_bench_modifiers', 'query_modifier_tiers']) assert.equal(tools.result.tools.filter(t => t.name === name).length, 1);
   assert.equal(tools.result.tools.filter(t => t.name === 'list_local_build_files').length, 1);
+  for (const name of ['list_local_config_presets', 'read_local_config_preset']) assert.equal(tools.result.tools.filter(t => t.name === name).length, 1);
+  assert.ok(!tools.result.tools.some(t => t.name === 'save_snapshot_config_preset' || t.name === 'apply_snapshot_config_preset'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_import_build'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_read_notes' || t.name === 'foundation_derive_notes'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_derive_selection'));
@@ -66,6 +68,8 @@ try {
   await init(marketOnly);
   const marketTools = (await marketOnly.request('tools/list', {})).result.tools;
   assert.equal(marketTools.filter(t => t.name === 'list_local_build_files').length, 1);
+  for (const name of ['list_local_config_presets', 'read_local_config_preset']) assert.equal(marketTools.filter(t => t.name === name).length, 1);
+  assert.ok(!marketTools.some(t => t.name === 'save_snapshot_config_preset' || t.name === 'apply_snapshot_config_preset'));
   for (const name of ['start_local_build_watch', 'stop_local_build_watch', 'get_local_build_watch', 'list_local_build_changes']) assert.equal(marketTools.filter(t => t.name === name).length, 1);
   const watchStatus = await marketOnly.request('tools/call', { name: 'get_local_build_watch', arguments: {} });
   assert.equal(JSON.parse(watchStatus.result.content[0].text).state, 'stopped');
@@ -85,6 +89,7 @@ try {
   assert.equal((await jobs.get(abandoned.id)).status, 'interrupted');
   const foundationOnly = await first.request('tools/list', {});
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'list_local_build_files').length, 1);
+  for (const name of ['list_local_config_presets', 'read_local_config_preset', 'save_snapshot_config_preset', 'apply_snapshot_config_preset']) assert.equal(foundationOnly.result.tools.filter(t => t.name === name).length, 1);
   for (const name of ['classify_modifier_lines', 'query_bench_modifiers', 'query_modifier_tiers']) assert.equal(foundationOnly.result.tools.filter(t => t.name === name).length, 1);
   assert.ok(foundationOnly.result.tools.some(t => t.name === 'foundation_import_build'));
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_read_notes').length, 1);
