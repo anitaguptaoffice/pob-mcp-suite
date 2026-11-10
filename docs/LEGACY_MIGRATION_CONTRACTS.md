@@ -81,7 +81,7 @@ acceptance work to perform during migration, not claims of completed tests.
 | `toggle_socket_group` | `foundation_derive_skill_group_enabled` sets an explicit enabled state in a child snapshot; legacy callers require migration. | `foundation-group-toggle.mjs` verifies enabled state, full damage, reload, baseline isolation and invalid group handling against PoB. |
 | `toggle_gem` | `foundation_derive_gem` changes the enabled state using an explicit boolean. | `foundation-gem.mjs` checks enabled state and recalculated damage after reload; legacy callers require migration. |
 | `setup_skill_with_gems` | `foundation_derive_skill_group` creates a group and ordered gems atomically; legacy callers require migration. | `foundation-gem.mjs` checks requested order, flags, reload and failure on a later gem with no published child. |
-| `add_multiple_items` | Atomic multi-item changeset is needed; legacy tool can partially apply. | Any incompatible item publishes no child and leaves parent unchanged. |
+| `add_multiple_items` | `foundation_derive_items` equips up to ten explicit items in distinct slots in one isolated operation and publishes only after all changes survive reload. | `buildFoundation.test.ts` covers failure after the first item and duplicate slots; `foundation-item.mjs` checks two equipped rings, real PoB Life, failure after a successful equip and parent isolation through MCP. Auto-slot selection, in-game legality and legacy callers remain outside this interface. |
 
 ## Analysis, comparison and tree data
 

@@ -45,6 +45,18 @@ try {
     const trial = JSON.parse(trialResponse.result.content[0].text);
     assert.equal(trial.retention.kind, 'trial');
     assert.notEqual(trial.id, child.id);
+    const multi = await mcp.request('tools/call', { name: 'foundation_derive_items', arguments: { snapshot_id: parent.id, items: [{ slot: 'Ring 1', item_text: ring }, { slot: 'Ring 2', item_text: ring }], trial: true } });
+    assert.ok(!multi.error && !multi.result?.isError, JSON.stringify(multi));
+    const multiChild = JSON.parse(multi.result.content[0].text);
+    assert.equal(multiChild.parentId, parent.id); assert.equal(multiChild.retention.kind, 'trial');
+    const equippedBoth = (await foundation.inspect(multiChild.id, ['items'])).data.items;
+    for (const slot of ['Ring 1', 'Ring 2']) assert.match(equippedBoth.find(item => item.slot === slot).raw, /\+30 to maximum Life/);
+    assert.ok((await foundation.evaluate(multiChild.id, ['Life'])).stats.Life > after.stats.Life);
+    const existing = await foundation.listSnapshots();
+    const invalid = await mcp.request('tools/call', { name: 'foundation_derive_items', arguments: { snapshot_id: parent.id, items: [{ slot: 'Ring 1', item_text: ring }, { slot: 'Helmet', item_text: ring }] } });
+    assert.ok(invalid.error || invalid.result?.isError, JSON.stringify(invalid));
+    assert.deepEqual(await foundation.listSnapshots(), existing);
+    assert.equal(await foundation.exportBuild(parent.id), xml);
     const keep = await mcp.request('tools/call', { name: 'foundation_retain_snapshot', arguments: { snapshot_id: trial.id } });
     assert.ok(!keep.error && !keep.result?.isError, JSON.stringify(keep));
     assert.equal(JSON.parse(keep.result.content[0].text).snapshotId, trial.id);

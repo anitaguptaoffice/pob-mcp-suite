@@ -11,6 +11,10 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   name and optionally an ascendancy and `tree_version`. Special-season
   ascendancies require the matching tree version; the name is checked against
   that version. The durable root snapshot is published only after reload checks.
+- Use `foundation_derive_items` to test up to ten explicitly specified items in
+  distinct equipment slots together. A failure publishes no partial child;
+  inspect the resulting equipment and compare calculations before retaining it.
+  Slot acceptance does not prove item legality or market availability.
 - Use `list_local_build_files` to discover XML names under the configured build
   directory, including nested folders. Check `complete` and `issues`; absence
   from a partial scan is not proof that a file does not exist. For more pages,

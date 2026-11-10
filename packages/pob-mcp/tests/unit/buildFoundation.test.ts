@@ -5,6 +5,23 @@ import { BuildFoundation, type BuildEngine } from '../../src/foundation/buildFou
 import { SnapshotStore } from '../../src/foundation/snapshotStore.js';
 
 describe('BuildFoundation isolation', () => {
+  it('does not publish a batch if a later item fails and rejects duplicate slots', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'pob-items-batch-'));
+    try {
+      const store = new SnapshotStore(dir);
+      const parent = await store.create({ xml: '<build/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
+      let equipped = false;
+      const engine = { identity: { engineVersion: null, dataVersion: null, adapterVersion: null }, loadBuildXml: async () => {},
+        getItems: async () => [{ slot: 'Ring 1', id: equipped ? 1 : 0 }, { slot: 'Helmet', id: 0 }],
+        addItem: async (_text: string, slot: string) => { if (slot === 'Helmet') throw new Error('incompatible'); equipped = true; return { id: 1, slot }; }, close: async () => {},
+      } as unknown as BuildEngine;
+      const foundation = new BuildFoundation(store, async () => engine);
+      await expect(foundation.deriveItems(parent.id, [{ slot: 'Ring 1', itemText: 'item' }, { slot: 'Helmet', itemText: 'item' }])).rejects.toThrow('incompatible');
+      await expect(foundation.deriveItems(parent.id, [{ slot: 'Ring 1', itemText: 'item' }, { slot: 'Ring 1', itemText: 'item' }])).rejects.toThrow('duplicate slots');
+      expect((await store.read(parent.id)).xml).toBe('<build/>');
+      expect(await readdir(dir)).toEqual([`${parent.id}.json`]);
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
   it('does not publish a newly created build when PoB changes its tree on reload', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'pob-new-build-'));
     try {
