@@ -1548,7 +1548,7 @@ export function getTradeToolSchemas(): ToolSchema[] {
   return [
     {
       name: "find_weighted_trade_items",
-      description: "Find build-specific best-in-slot listings using upstream PoB's native TradeQueryGenerator stat weights. Requires a loaded build, POE_TRADE_ENABLED=true, and POE_SESSION_ID (the official Trade API rejects anonymous weighted searches).",
+      description: "Find instant-buyout candidates using upstream PoB TradeQueryGenerator stat weights. Candidates are not verified best-in-slot or individually simulated. Requires a loaded build, POE_TRADE_ENABLED=true, and POE_SESSION_ID.",
       inputSchema: { type: "object", properties: { league: { type: "string" }, slot: { type: "string" }, options: { type: "object" }, limit: { type: "number" } }, required: ["league", "slot"] },
     },
     {
@@ -1611,7 +1611,7 @@ export function getTradeToolSchemas(): ToolSchema[] {
           online_status: {
             type: "string",
             enum: ["available", "online", "onlineleague", "securable", "any"],
-            description: "Online-status filter (default: 'available'). Use 'securable' for instant-buyout listings, including offline sellers; 'online' means in-person trade with online sellers.",
+            description: "Legacy online-status filter; when omitted, defaults to securable unless online_only is explicitly supplied.",
           },
           mods: {
             type: "array",
@@ -1794,7 +1794,7 @@ export function getTradeToolSchemas(): ToolSchema[] {
     {
       name: "search_cluster_jewels",
       truncatable: true,
-      description: "Search for cluster jewels with specific enchants and notables. REQUIRES: POE_TRADE_ENABLED environment variable set to true.",
+      description: "Search securable cluster jewel listings. Enchant and exact notable names are filtered locally from at most 30 listings, so results are incomplete and the trade link represents only the broader search. REQUIRES: POE_TRADE_ENABLED=true.",
       inputSchema: {
         type: "object",
         properties: {
@@ -1807,6 +1807,14 @@ export function getTradeToolSchemas(): ToolSchema[] {
             description: "Cluster jewel size: 'large', 'medium', or 'small'",
             enum: ["large", "medium", "small"],
           },
+          passive_count: {
+            type: "number",
+            description: "Exact number of added passive skills; searches the official enchant and explicit variants as alternatives.",
+          },
+          min_item_level: {
+            type: "number",
+            description: "Minimum item level.",
+          },
           enchant: {
             type: "string",
             description: "Enchant modifier name (e.g., 'Added Small Passive Skills grant: 10% increased Fire Damage')",
@@ -1818,11 +1826,13 @@ export function getTradeToolSchemas(): ToolSchema[] {
           },
           max_price: {
             type: "number",
-            description: "Maximum price in Chaos Orbs",
+            description: "Maximum price in price_currency (default chaos).",
           },
+          price_currency: { type: "string", description: "Currency for the maximum price filter (default chaos)." },
+          online_only: { type: "boolean", description: "Legacy override: true selects available, false selects any. Omit for securable instant buyout." },
           limit: {
             type: "number",
-            description: "Maximum results to return (default: 5)",
+            description: "Maximum results to return (1–10; default 5).",
           },
         },
         required: ["league", "jewel_size"],

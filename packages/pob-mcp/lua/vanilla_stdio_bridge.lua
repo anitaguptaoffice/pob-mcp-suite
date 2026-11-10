@@ -164,7 +164,7 @@ local function generate_weighted_trade_query(params)
     local query, warning
     generator.requesterCallback = function(_, generated, err) query, warning = generated, err end
     generator.requesterContext = {}
-    generator.tradeTypeIndex = 2 -- available listings, matching the MCP default
+    generator.tradeTypeIndex = 1 -- upstream currently maps index 1 to securable
     generator:StartQuery(slot, options)
     local frames = 0
     while generator.calcContext and generator.calcContext.co and frames < 100000 do generator:OnFrame(); frames = frames + 1 end

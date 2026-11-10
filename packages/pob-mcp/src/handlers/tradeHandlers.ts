@@ -25,16 +25,20 @@ interface TradeContext {
 
 export async function handleFindWeightedTradeItems(context: TradeContext & { getLuaClient: () => import('../pobLuaBridge.js').PoBLuaApiClient | null; ensureLuaClient: () => Promise<void> }, args: { league: string; slot: string; options?: Record<string, unknown>; limit?: number }) {
   return wrapHandler('find weighted trade items', async () => {
+    if (typeof args.league !== 'string' || !args.league.trim() || typeof args.slot !== 'string' || !args.slot.trim() ||
+      (args.limit !== undefined && (!Number.isInteger(args.limit) || args.limit < 1 || args.limit > 10))) throw new Error('exact league, slot and limit between 1 and 10 are required');
     if (!process.env.POE_SESSION_ID) throw new Error('find_weighted_trade_items requires POE_SESSION_ID because the official Trade API rejects anonymous weighted searches.');
     await context.ensureLuaClient();
     const client = context.getLuaClient();
     if (!client) throw new Error('Lua bridge not active. Load a build first.');
     const { query, warning } = await client.generateWeightedTradeQuery(args.slot, args.options);
-    if (!query || typeof query !== 'object') throw new Error('PoB returned no trade query');
-    const search = await context.tradeClient.searchItems(args.league, query as TradeQuery);
-    if (!search.result?.length) return { content: [{ type: 'text' as const, text: `=== Weighted BIS Search (${args.league}, slot: ${args.slot}) ===\nNo items found.${warning ? `\nWarning: ${warning}` : ''}` }] };
+    if (!query || typeof query !== 'object' || !(query as TradeQuery).query || typeof (query as TradeQuery).query !== 'object') throw new Error('PoB returned no trade query');
+    const tradeQuery = query as TradeQuery;
+    tradeQuery.query.status = { option: 'securable' };
+    const search = await context.tradeClient.searchItems(args.league.trim(), tradeQuery);
+    if (!search.result?.length) return { content: [{ type: 'text' as const, text: `=== 加权交易搜索 (${args.league.trim()}, ${args.slot}) ===\n未找到匹配的一口价物品。${warning ? `\n${warning}` : ''}${search.inexact ? '\n官方交易站标记搜索为近似匹配。' : ''}` }] };
     const items = await context.tradeClient.fetchItems(search.result.slice(0, Math.min(args.limit ?? 5, 10)), search.id);
-    const lines = [`=== Weighted BIS Search (${args.league}, slot: ${args.slot}) ===`, `Total matches: ${search.total} | Showing: ${items.length}`, `🔗 ${getTradeSearchUrl(args.league, search.id)}`, warning ? `Warning: ${warning}` : ''];
+    const lines = [`=== 加权交易搜索 (${args.league.trim()}, ${args.slot}) ===`, `匹配总数：${search.total}；展示：${items.length}；交易状态：securable`, 'PoB 权重用于筛选候选，并非逐件计算后的最优装备；请在 PoB 中验证实际替换效果。', search.inexact ? '官方交易站标记结果为近似匹配。' : '', `🔗 ${getTradeSearchUrl(args.league.trim(), search.id)}`, warning ? `Warning: ${warning}` : ''];
     for (const [index, listing] of items.entries()) {
       const item = listing.item, price = listing.listing.price;
       lines.push(`${index + 1}. ${item.name || item.typeLine}${item.name && item.typeLine && item.name !== item.typeLine ? ` (${item.typeLine})` : ''}`, price ? `   Price: ${price.amount} ${price.currency}` : '   Price: unlisted', `   Seller: ${listing.listing.account?.name ?? 'unknown'}`, '');

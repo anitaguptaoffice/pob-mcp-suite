@@ -76,7 +76,7 @@ try {
     const weighted = await request('tools/call', { name: 'find_weighted_trade_items', arguments: { league: 'Standard', slot: 'Amulet', limit: 1 } });
     if (weighted.error || weighted.result?.isError) throw new Error(`find_weighted_trade_items failed: ${JSON.stringify(weighted.error ?? weighted.result)}`);
     const weightedText = weighted.result?.content?.[0]?.text || '';
-    if (!weightedText.includes('=== Weighted BIS Search (Standard, slot: Amulet) ===')) throw new Error(`weighted trade response was incomplete: ${weightedText}`);
+    if (!weightedText.includes('=== 加权交易搜索 (Standard, Amulet) ===')) throw new Error(`weighted trade response was incomplete: ${weightedText}`);
   }
   console.log('MCP smoke passed: capabilities, snapshot, load, stats, items, skills, tree mutation/restore, config, anoint, and build info all succeeded');
 } finally {

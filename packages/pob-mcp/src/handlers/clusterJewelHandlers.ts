@@ -28,7 +28,8 @@ export async function handleSearchClusterJewels(
   context: ClusterJewelContext,
   args: {
     league: string;
-    size: ClusterJewelSize;
+    size?: ClusterJewelSize;
+    jewel_size?: 'large' | 'medium' | 'small';
     passive_count?: number;
     enchant?: string;
     notables?: string[];
@@ -47,16 +48,23 @@ export async function handleSearchClusterJewels(
   return wrapHandler('search cluster jewels', async () => {
     const {
       league,
-      size,
       passive_count,
       enchant,
       notables = [],
       min_item_level,
       max_price,
       price_currency = 'chaos',
-      online_only = true,
+      online_only,
       limit = 5,
     } = args;
+    const requestedSize = args.size ?? args.jewel_size;
+    const size = typeof requestedSize === 'string' ? ({ large: 'Large', medium: 'Medium', small: 'Small' } as const)[requestedSize.toLowerCase() as 'large' | 'medium' | 'small'] : undefined;
+    if (typeof league !== 'string' || !league.trim() || !size || !Number.isInteger(limit) || limit < 1 || limit > 10 ||
+      (passive_count !== undefined && (!Number.isInteger(passive_count) || passive_count < 1)) ||
+      (min_item_level !== undefined && (!Number.isInteger(min_item_level) || min_item_level < 1)) ||
+      (max_price !== undefined && (!Number.isFinite(max_price) || max_price <= 0)) ||
+      (enchant !== undefined && (typeof enchant !== 'string' || !enchant.trim())) ||
+      !Array.isArray(notables) || notables.some(n => typeof n !== 'string' || !n.trim())) throw new Error('invalid league, jewel size, filters, or limit');
 
     // Build the query
     const builder = new TradeQueryBuilder();
@@ -70,13 +78,11 @@ export async function handleSearchClusterJewels(
 
     // Add passive count filter if specified
     if (passive_count) {
-      // This is an implicit mod: "Adds X Passive Skills"
-      // We'll need to search by the implicit mod text
-      builder.withStats([{
-        id: 'implicit.stat_3948993189', // "Adds # Passive Skills"
-        min: passive_count,
-        max: passive_count,
-      }]);
+      // Official trade data exposes both enchant and explicit forms.
+      builder.withStatGroups([{ type: 'count', value: { min: 1 }, filters: [
+        { id: 'enchant.stat_3086156145', value: { min: passive_count, max: passive_count } },
+        { id: 'explicit.stat_3086156145', value: { min: passive_count, max: passive_count } },
+      ] }]);
     }
 
     // Add enchantment filter if specified
@@ -101,6 +107,7 @@ export async function handleSearchClusterJewels(
     // Apply search options
     builder.applyOptions({
       league,
+      status: online_only === undefined ? 'securable' : undefined,
       onlineOnly: online_only,
       maxPrice: max_price,
       priceCurrency: price_currency,
@@ -111,7 +118,7 @@ export async function handleSearchClusterJewels(
     const query = builder.build();
 
     // Execute search
-    const searchResult = await context.tradeClient.searchItems(league, query);
+    const searchResult = await context.tradeClient.searchItems(league.trim(), query);
 
     if (!searchResult.result || searchResult.result.length === 0) {
       return {
@@ -133,7 +140,7 @@ export async function handleSearchClusterJewels(
 
     if (enchant) {
       filteredItems = filteredItems.filter(item => {
-        const enchantMods = item.item.enchantMods || [];
+        const enchantMods = [...(item.item.enchantMods || []), ...(item.item.implicitMods || [])];
         return enchantMods.some(mod =>
           mod.toLowerCase().includes(enchant.toLowerCase())
         );
@@ -142,19 +149,12 @@ export async function handleSearchClusterJewels(
 
     if (notables.length > 0) {
       filteredItems = filteredItems.filter(item => {
-        const explicitMods = item.item.explicitMods || [];
-        const allocatedNotables = explicitMods
-          .filter(mod => mod.includes('Allocates'))
-          .map(mod => {
-            // Extract notable name from "Allocates X" format
-            const match = mod.match(/Allocates (.+)/);
-            return match ? match[1] : '';
-          });
+        const allocatedNotables = extractNotables(item.item);
 
         // Check if all requested notables are present
         return notables.every(notable =>
           allocatedNotables.some(allocated =>
-            allocated.toLowerCase().includes(notable.toLowerCase())
+            allocated.toLowerCase() === notable.trim().toLowerCase()
           )
         );
       });
@@ -170,7 +170,7 @@ export async function handleSearchClusterJewels(
         if (enchant) filterMsg += ' and';
         filterMsg += ` notables: ${notables.join(', ')}`;
       }
-      filterMsg += ` in ${league} league.`;
+      filterMsg += ` in ${league.trim()} league. 只检查了 ${items.length} 条样本，不能据此认定市场没有符合条件的物品。${searchResult.inexact ? ' 官方交易站标记搜索为近似匹配。' : ''}`;
 
       return {
         content: [
@@ -187,8 +187,11 @@ export async function handleSearchClusterJewels(
       filteredItems,
       size,
       searchResult.total,
-      league,
-      searchResult.id
+      league.trim(),
+      searchResult.id,
+      items.length,
+      query.query.status?.option ?? 'unknown',
+      searchResult.inexact === true
     );
 
     return {
@@ -210,12 +213,16 @@ function formatClusterJewelResults(
   size: ClusterJewelSize,
   totalResults: number,
   league: string,
-  searchId: string
+  searchId: string,
+  sampledCount: number,
+  status: string,
+  inexact: boolean
 ): string {
   let output = `=== ${size} Cluster Jewel Search Results ===\n`;
   output += `League: ${league}\n`;
   output += `Total Results: ${totalResults}\n`;
   output += `Showing: ${items.length} items\n\n`;
+  output += `交易状态：${status}；${totalResults} 是交易站基础搜索总数，本地仅检查 ${sampledCount} 条样本，词缀条件可能排除其他样本。${inexact ? '官方交易站标记搜索为近似匹配。' : ''}\n\n`;
   output += `🔗 View full results: https://www.pathofexile.com/trade/search/${encodeURIComponent(league)}/${searchId}\n\n`;
 
   for (let i = 0; i < items.length; i++) {
@@ -276,8 +283,8 @@ function formatClusterJewelResults(
     }
 
     // Seller info
-    output += `   Seller: ${seller.name}`;
-    if (seller.online) {
+    output += `   Seller: ${seller?.name ?? 'unknown'}`;
+    if (seller?.online) {
       output += ' (Online)';
     }
     output += '\n';
@@ -311,8 +318,8 @@ interface ParsedClusterJewel {
   mods: string[];
 }
 
-function extractPassiveCount(item: { implicitMods?: string[] }): number | null {
-  const implicitMods = item.implicitMods || [];
+function extractPassiveCount(item: { implicitMods?: string[]; enchantMods?: string[]; explicitMods?: string[] }): number | null {
+  const implicitMods = [...(item.implicitMods || []), ...(item.enchantMods || []), ...(item.explicitMods || [])];
 
   for (const mod of implicitMods) {
     const match = mod.match(/Adds (\d+) Passive Skills?/);
@@ -327,12 +334,12 @@ function extractPassiveCount(item: { implicitMods?: string[] }): number | null {
 /**
  * Extract notable names from cluster jewel explicit mods
  */
-function extractNotables(item: { explicitMods?: string[] }): string[] {
-  const explicitMods = item.explicitMods || [];
+function extractNotables(item: { explicitMods?: string[]; fracturedMods?: string[]; craftedMods?: string[] }): string[] {
+  const explicitMods = [...(item.explicitMods || []), ...(item.fracturedMods || []), ...(item.craftedMods || [])];
   const notables: string[] = [];
 
   for (const mod of explicitMods) {
-    const match = mod.match(/Allocates (.+)/);
+    const match = mod.match(/^(?:\d+ Added Passive Skills? is|Allocates)\s+(.+)$/i);
     if (match) {
       notables.push(match[1]);
     }
