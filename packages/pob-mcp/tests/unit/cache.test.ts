@@ -1,4 +1,4 @@
-import { BoundedCache } from '../../src/foundation/cache.js';
+import { BoundedCache } from '../../src/infrastructure/cache.js';
 
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { promise, resolve }; }
 describe('BoundedCache', () => {

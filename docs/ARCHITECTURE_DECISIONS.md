@@ -43,9 +43,20 @@ response. Credentials and provider-specific rules stay in the relevant adapter,
 not in a global domain object or skill.
 
 Current state: existing `PoeNinjaClient`, `NinjaPrices` and trade clients remain
-separate legacy implementations; the common ports and these adapters have not
-yet been migrated. Do not claim the common cache or source contracts are wired.
-PoB foundation acceptance remains the prerequisite for parallel feature work.
+separate legacy implementations. The new `EconomySource` port and poe.ninja
+adapter use the shared cache; `estimate_snapshot_cost` combines that source with
+an explicit immutable PoB snapshot. Its pure price model is shared with the
+legacy cost tool and compared in unit tests; the legacy router and client/skill
+migration remain pending. Official Trade and other source ports remain pending.
+
+On 2026-11-11 a local, read-only Standard-league probe of the new adapter
+successfully fetched public skill-gem and currency snapshots. The legacy
+`/api/data/currencyoverview` spread endpoint returned HTTP 404 for the same
+league. Preserve that typed source failure; it does not prove there are no
+arbitrage opportunities, and no unverified replacement endpoint is assumed.
+The opt-in `test:smoke:snapshot-cost` also exercised the new cost tool with real
+PoB and all six public Standard item categories; it is a live-source check, not a
+stable offline CI fixture or proof of listing availability.
 
 ## Contracts
 
@@ -124,6 +135,29 @@ resolved or removed. Trial expiry is an earliest collection time; a continuously
 running service does not collect until its next startup.
 
 ## Migration and acceptance
+
+### Release decision, 2026-11-11
+
+Keep the currently deployed `main` and its default behavior unchanged throughout
+the migration. Continue on the integration branch and do not merge a partial
+replacement. The end state is a single local stdio service whose business
+capabilities run in their appropriate new modules over the independent PoB,
+poe.ninja, official Trade and game-data foundations. The old business handlers,
+mutable-session router and compatibility implementation are to be removed after
+their capabilities have been replaced and validated; leaving the old code as the
+permanent implementation is not the goal. Do not silently lose features or the
+existing correctness fixes when removing code.
+
+Before the final direct merge to `main`, account for every entry in
+`LEGACY_MIGRATION_CONTRACTS.md`, affected client/skill entry points and each
+existing regression. A replacement must have a defined interface, independent
+module ownership and appropriate parity/real-source evidence, including the
+international `securable` price and source-statistics rules. Verify default tool
+discovery and invocation, real PoB calculations, relevant market and crafting
+boundaries, installed local wrapper/client behavior and the removal of obsolete
+routes. Explicitly report unsupported features and unresolved decisions rather
+than marking migration complete. The user authorized the final merge once this
+full gate is met; this does not authorize merging a partial migration now.
 
 Before feature migration complete the inventory and map each registered legacy
 tool to its replacement, validation evidence and affected skills. Legacy tools

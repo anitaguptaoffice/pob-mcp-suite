@@ -1,6 +1,6 @@
 # Legacy tool inventory
 
-Generated from registered schema groups in the current build. All entries are pending migration, replacement design and validation. Skill references below are exact-name matches in packaged skill Markdown only; clients, aliases, scripts and dynamic references still require assessment. Group names indicate current source, not final module ownership. Capability-gated tools are included.
+Generated from registered schema groups in the current build. Most entries are pending migration; individual status below records partial exposure without claiming final acceptance. Skill references below are exact-name matches in packaged skill Markdown only; clients, aliases, scripts and dynamic references still require assessment. Group names indicate current source, not final module ownership. Capability-gated tools are included.
 
 ## getBuildGoalsToolSchemas
 
@@ -144,7 +144,7 @@ Generated from registered schema groups in the current build. All entries are pe
 
 ## buildCostSchemas
 
-- `estimate_build_cost` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: `skills/pob-economy/SKILL.md`.
+- `estimate_build_cost` — target: market and workflows; replacement: `estimate_snapshot_cost` over snapshot and independent economy source; status: new tool implemented and live-tested, legacy caller/skill migration and old route removal pending; skill references: `skills/pob-economy/SKILL.md`.
 
 ## comparableToolSchemas
 
@@ -152,8 +152,8 @@ Generated from registered schema groups in the current build. All entries are pe
 
 ## featureRegistry
 
-- `compare_craft_budget` — target: crafting and item data; replacement: item data/crafting module; status: not migrated; skill references: `skills/pob-economy/SKILL.md`, `skills/pob-crafting/SKILL.md`.
-- `simulate_simple_annul` — target: crafting and item data; replacement: item data/crafting module; status: not migrated; skill references: `skills/pob-crafting/SKILL.md`.
+- `compare_craft_budget` — target: crafting and item data; replacement: item data/crafting module; status: exposed through new registry, final caller and removal audit pending; skill references: `skills/pob-economy/SKILL.md`, `skills/pob-crafting/SKILL.md`.
+- `simulate_simple_annul` — target: crafting and item data; replacement: item data/crafting module; status: exposed through new registry, final caller and removal audit pending; skill references: `skills/pob-crafting/SKILL.md`.
 
 
 ## Replacement and acceptance contracts by target

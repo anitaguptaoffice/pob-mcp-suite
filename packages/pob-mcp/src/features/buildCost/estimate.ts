@@ -1,4 +1,4 @@
-import type { PriceCategory, PriceLine, PriceSnapshot } from './ninjaPrices.js';
+import type { PriceCategory, PriceLine, PriceSnapshot } from './priceTypes.js';
 
 export interface CostItem { slot: string; id: number; name?: string; baseName?: string; type?: string; rarity?: string; raw?: string; shown?: boolean }
 export interface CostGem { name: string; level: number; quality: number; qualityId?: string; enabled: boolean; isSupport?: boolean }
@@ -21,10 +21,10 @@ const validPrice = (line: PriceLine) => Number.isFinite(line.chaosValue) && line
 
 /** Pure matching is separate from data acquisition and never guesses between variants. */
 export function matchUnique(item: CostItem, lines: PriceLine[]): { line?: PriceLine; reason: string } {
-  if (!item.name || !item.baseName || !item.raw) return { reason: '缺少物品名称、底材或原文' };
-  if (variableJewels.has(normalize(item.name))) return { reason: '珠宝价格取决于种子或特殊属性，需单独核价' };
+  if (!item.name || !item.baseName || !item.raw) return { reason: 'Item name, base or raw text is missing' };
+  if (variableJewels.has(normalize(item.name))) return { reason: 'Jewel price depends on its seed or special attributes; check separately' };
   if (/\bcorrupted\b|\bmirrored\b|\bsynthesised item\b|\bfractured item\b/i.test(item.raw)) {
-    return { reason: '腐化或特殊物品需按实际词缀交易查询' };
+    return { reason: 'Corrupted or special items require a trade search for their actual modifiers' };
   }
   const sockets = /^Sockets:\s*(.+)$/im.exec(item.raw)?.[1];
   if (sockets && sockets.trim().split(/\s+/).some(group => group.split('-').filter(Boolean).length >= 5)) {
@@ -36,25 +36,25 @@ export function matchUnique(item: CostItem, lines: PriceLine[]): { line?: PriceL
   const found = lines.filter(line => normalize(line.name) === normalize(item.name) && normalize(line.baseType) === normalize(item.baseName) && validPrice(line));
   if (found.length !== 1 || found[0].variant || found[0].links || found[0].corrupted ||
       (found[0].explicitModifiers ?? []).filter(mod => mod.optional).length > 0) {
-    return { reason: found.length ? '存在版本、连接数或可变词缀，需单独核价' : '没有匹配的行情' };
+    return { reason: found.length ? 'Variants, links or variable modifiers require a separate price check' : 'No matching reference price' };
   }
-  return { line: found[0], reason: '普通版本行情参考；属性数值及特殊词缀可能影响实际价格' };
+  return { line: found[0], reason: 'Standard variant reference; modifier values and special modifiers may affect the actual price' };
 }
 
 export function matchGem(gem: CostGem, lines: PriceLine[]): { line?: PriceLine; reason: string } {
-  if (!gem.name || !Number.isFinite(gem.level) || !Number.isFinite(gem.quality)) return { reason: '宝石信息不完整' };
-  if (gem.qualityId && normalize(gem.qualityId) !== 'default') return { reason: '宝石品质类型不是默认类型，需按实际版本单独核价' };
+  if (!gem.name || !Number.isFinite(gem.level) || !Number.isFinite(gem.quality)) return { reason: 'Gem information is incomplete' };
+  if (gem.qualityId && normalize(gem.qualityId) !== 'default') return { reason: 'Non-default gem quality requires a separate price check' };
   const gemName = normalize(gem.name);
   const found = lines.filter(line => (normalize(line.name) === gemName ||
     (gem.isSupport === true && !gemName.endsWith(' support') && normalize(line.name) === `${gemName} support`)) &&
     line.gemLevel === gem.level && (line.gemQuality ?? 0) === gem.quality && validPrice(line));
   // PoB's gem state does not reliably record corruption. More than one matching
   // variant must remain unknown; never pick the cheaper corrupted version.
-  if (found.length !== 1) return { reason: found.length ? '存在腐化等多个版本，PoB 未提供足够信息区分' : '没有对应等级和品质的行情' };
+  if (found.length !== 1) return { reason: found.length ? 'Multiple variants exist and PoB does not provide enough information to distinguish them' : 'No reference price for this level and quality' };
   if (found[0].corrupted === true || /c$/i.test(found[0].variant ?? '')) {
-    return { reason: '仅找到腐化版本行情，而 PoB 未确认宝石腐化状态，需单独核价' };
+    return { reason: 'Only a corrupted reference was found; PoB did not confirm corruption, so check separately' };
   }
-  return { line: found[0], reason: '按等级和品质匹配的非腐化版本行情参考；PoB 未确认实际腐化状态' };
+  return { line: found[0], reason: 'Non-corrupted reference matching level and quality; PoB did not confirm actual corruption' };
 }
 
 export async function estimateBuildCost(source: PriceSource, league: string, items: CostItem[], groups: CostGroup[]): Promise<CostReport> {
@@ -76,14 +76,14 @@ export async function estimateBuildCost(source: PriceSource, league: string, ite
   const entries: CostEntry[] = [];
   const allUnique = uniqueCategories.flatMap(category => snapshots.get(category)?.lines ?? []);
   for (const item of equipped) {
-    const name = item.name || item.baseName || '未命名物品';
+    const name = item.name || item.baseName || 'Unnamed item';
     if (normalize(item.rarity) !== 'unique') {
-      entries.push({ kind: 'item', slot: item.slot, name, status: 'unknown', note: '稀有及其他装备需按词缀进行交易查询，未计价' });
+      entries.push({ kind: 'item', slot: item.slot, name, status: 'unknown', note: 'Rare and other equipment requires modifier-based trade searches and is unpriced' });
       continue;
     }
     // Missing categories make a negative/unique match incomplete; do not guess.
     const match = uniqueCategories.some(category => errors.has(category))
-      ? { reason: '部分行情分类读取失败，无法完整匹配' } : matchUnique(item, allUnique);
+      ? { reason: 'Some market categories failed; matching is incomplete' } : matchUnique(item, allUnique);
     const snapshot = match.line && uniqueCategories.map(category => snapshots.get(category)).find(s => s?.lines.includes(match.line!));
     entries.push({ kind: 'item', slot: item.slot, name, status: match.line ? 'reference' : 'unknown',
       chaos: match.line?.chaosValue, samples: match.line?.listingCount ?? match.line?.count, fetchedAt: snapshot?.fetchedAt, note: match.reason });
@@ -91,7 +91,7 @@ export async function estimateBuildCost(source: PriceSource, league: string, ite
   const gemSnapshot = snapshots.get('SkillGem');
   for (const { gem, slot, groupEnabled, slotEnabled } of gems) {
     if (!groupEnabled || !gem.enabled) {
-      entries.push({ kind: 'gem', slot, name: gem.name, status: 'unknown', note: '技能组或宝石已禁用，可能是备用配置，未计入小计' });
+      entries.push({ kind: 'gem', slot, name: gem.name, status: 'unknown', note: 'Disabled group or gem may be a backup and is excluded from the subtotal' });
       continue;
     }
     if (slotEnabled !== true) {
@@ -100,18 +100,18 @@ export async function estimateBuildCost(source: PriceSource, league: string, ite
         : 'The skill group equipment-slot state is unknown; this gem is excluded from the subtotal.' });
       continue;
     }
-    const match = gemSnapshot ? matchGem(gem, gemSnapshot.lines) : { reason: '技能宝石行情不可用' };
+    const match = gemSnapshot ? matchGem(gem, gemSnapshot.lines) : { reason: 'Gem reference prices unavailable' };
     entries.push({ kind: 'gem', slot, name: gem.name, status: match.line ? 'reference' : 'unknown',
       chaos: match.line?.chaosValue, samples: match.line?.listingCount ?? match.line?.count, fetchedAt: gemSnapshot?.fetchedAt,
-      note: `${match.reason}；等级 ${gem.level}，品质 ${gem.quality}%；${gem.enabled ? '宝石已启用' : '宝石已禁用'}` });
+      note: `${match.reason}; level ${gem.level}, quality ${gem.quality}%; ${gem.enabled ? 'gem enabled' : 'gem disabled'}` });
   }
   const priced = entries.filter(entry => entry.status === 'reference' && entry.chaos !== undefined);
   return { league, currency: 'chaos', estimatedSubtotal: priced.reduce((sum, entry) => sum + entry.chaos!, 0),
     pricedCount: priced.length, unknownCount: entries.length - priced.length, complete: false, entries,
     warnings: [
-      '仅为行情参考小计，不是整套造价或可成交价格。未知物品未计入，不视为零。',
-      '尚未计价天赋树珠宝、纹身、附魔、工艺、升级消耗及其他 PoB 未暴露的内容；不可判定总价完整。',
-      '技能组可能包含备用或重复配置，请核对实际需要购买的宝石；价格来自国际服指定赛季。',
-      ...[...errors].map(([category, error]) => `${category} 行情不可用：${error}`),
+      'Reference subtotal only; not a complete build cost or a purchasable price. Unknown items are excluded, not treated as zero.',
+      'Passive tree jewels, tattoos, enchantments, crafting, upgrades and other unexposed costs are not fully priced.',
+      'Skill groups may include backup or duplicate gems; check actual purchases. Prices refer to the specified international league.',
+      ...[...errors].map(([category, error]) => `${category} reference unavailable: ${error}`),
     ] };
 }

@@ -25,7 +25,7 @@ try {
   assert.equal(cost.complete, false);
   assert.ok(cost.entries.some(entry => entry.kind === 'item' && entry.status === 'unknown'));
   assert.ok(cost.entries.some(entry => entry.kind === 'gem'));
-  assert.ok(!cost.warnings.some(warning => warning.includes('行情不可用')), JSON.stringify(cost.warnings));
+  assert.ok(!cost.warnings.some(warning => warning.includes('reference unavailable')), JSON.stringify(cost.warnings));
   const trade = await call('estimate_comparable_item', { league: 'Standard', base_type: 'Hubris Circlet', stat_groups: [{ type: 'and', filters: [{ stat_id: 'explicit.stat_3299347043', min: 40 }] }], limit: 3 });
   assert.equal(trade.baseType, 'Hubris Circlet');
   assert.ok(trade.searchUrl.includes('/Standard/'));

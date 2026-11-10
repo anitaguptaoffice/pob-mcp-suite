@@ -68,7 +68,7 @@ describe('build cost matching', () => {
     ] }]);
     expect(report.estimatedSubtotal).toBe(0);
     expect(report.entries[0].status).toBe('unknown');
-    expect(report.entries[0].note).toContain('腐化');
+    expect(report.entries[0].note).toContain('corrupt');
   });
 
   it('matches the support suffix only when PoB identifies a support gem', () => {
@@ -88,7 +88,7 @@ describe('build cost matching', () => {
     expect(report.unknownCount).toBe(2);
     expect(report.complete).toBe(false);
     expect(report.entries.find(entry => entry.name === 'Rare boots')?.chaos).toBeUndefined();
-    expect(report.warnings.join(' ')).toContain('未知物品未计入');
+    expect(report.warnings.join(' ')).toContain('Unknown items are excluded');
   });
 
   it('prices active equipment-slot gems only and reports inactive or unknown slots', async () => {

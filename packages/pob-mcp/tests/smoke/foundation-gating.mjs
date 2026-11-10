@@ -15,6 +15,7 @@ try {
   await init(disabled);
   const tools = await disabled.request('tools/list', {});
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_import_build'));
+  assert.ok(!tools.result.tools.some(t => t.name === 'estimate_snapshot_cost'));
   const hidden = await disabled.request('tools/call', { name: 'foundation_import_build', arguments: { xml: '<x/>', source: 'test' } });
   assert.equal(hidden.result.isError, true);
   disabled.child.stdin.end(); await once(disabled.child, 'exit');
@@ -27,7 +28,16 @@ try {
   assert.equal((await jobs.get(abandoned.id)).status, 'interrupted');
   const foundationOnly = await first.request('tools/list', {});
   assert.ok(foundationOnly.result.tools.some(t => t.name === 'foundation_import_build'));
+  assert.equal(foundationOnly.result.tools.filter(t => t.name === 'estimate_snapshot_cost').length, 1);
+  assert.ok(foundationOnly.result.tools.some(t => t.name === 'compare_craft_budget'));
+  assert.ok(foundationOnly.result.tools.some(t => t.name === 'simulate_simple_annul'));
   assert.ok(!foundationOnly.result.tools.some(t => t.name === 'list_builds'));
+  const budget = await first.request('tools/call', { name: 'compare_craft_budget', arguments: { scenarios: [{ name: 'fixture', success_probability: 0.5, chaos_per_attempt: 2, probability_source: 'test fixture' }] } });
+  assert.ok(!budget.error && !budget.result?.isError, JSON.stringify(budget));
+  assert.equal(JSON.parse(budget.result.content[0].text).scenarios[0].expectedChaos, 4);
+  const annul = await first.request('tools/call', { name: 'simulate_simple_annul', arguments: { rarity: 'rare', affixes: [{ name: 'keep', disposition: 'keep' }, { name: 'remove', disposition: 'remove' }], no_fractured: true, no_protection: true, no_catalyst: true, no_corruption: true, no_mirrored: true, no_special_rules: true } });
+  assert.ok(!annul.error && !annul.result?.isError, JSON.stringify(annul));
+  assert.equal(JSON.parse(annul.result.content[0].text).desiredRemovalProbability, 0.5);
   const denied = await first.request('tools/call', { name: 'list_builds', arguments: {} });
   assert.equal(denied.result.isError, true);
   const resources = await first.request('resources/list', {});
@@ -45,6 +55,9 @@ try {
   const combined = await compat.request('tools/list', {});
   assert.ok(combined.result.tools.some(t => t.name === 'foundation_import_build'));
   assert.ok(combined.result.tools.some(t => t.name === 'list_builds'));
+  assert.equal(combined.result.tools.filter(t => t.name === 'compare_craft_budget').length, 1);
+  assert.equal(combined.result.tools.filter(t => t.name === 'simulate_simple_annul').length, 1);
+  assert.equal(combined.result.tools.filter(t => t.name === 'estimate_snapshot_cost').length, 1);
   compat.child.stdin.end();
   const [compatCode] = await once(compat.child, 'exit');
   assert.equal(compatCode, 0);

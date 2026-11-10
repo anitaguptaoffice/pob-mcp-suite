@@ -22,6 +22,7 @@
     "test:smoke:full": "node tests/smoke/mcp-full.mjs",
     "test:smoke:weighted": "POE_WEIGHTED_SMOKE=true node tests/smoke/mcp.mjs",
     "test:smoke:trade": "node tests/smoke/trade-mcp.mjs",
+    "test:smoke:snapshot-cost": "node tests/smoke/snapshot-cost-live.mjs",
     "test:smoke:economy": "node tests/smoke/economy-mcp.mjs",
     "test:smoke:crafting": "node tests/smoke/crafting-mcp.mjs",
     "test:smoke:persistence": "node tests/smoke/persistence.mjs",

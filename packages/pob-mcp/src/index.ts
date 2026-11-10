@@ -42,7 +42,9 @@ import { NinjaPrices } from "./features/buildCost/ninjaPrices.js";
 import { buildCostSchemas } from "./features/buildCost/tool.js";
 import { comparableToolSchemas } from "./features/tradeComparable/tool.js";
 import { featureRegistry } from "./server/featureModules.js";
-import { assertUniqueToolSchemas } from "./server/featureRegistry.js";
+import { assertUniqueToolSchemas, FeatureRegistry } from "./server/featureRegistry.js";
+import { PoeNinjaAdapter } from './adapters/poeNinja/poeNinjaAdapter.js';
+import { createSnapshotCostTool, snapshotCostSchema } from './features/buildCost/snapshotTool.js';
 
 // Import utilities
 import { ContextBuilder } from "./utils/contextBuilder.js";
@@ -58,6 +60,7 @@ class PoBMCPServer {
   private server: Server;
   private pobDirectory: string;
   private foundation: BuildFoundation | null = null;
+  private foundationFeatures: FeatureRegistry | null = null;
   private foundationJobs: JobRunner | null = null;
   private releaseFoundationLock: (() => Promise<void>) | null = null;
   private foundationClosing = false;
@@ -91,6 +94,7 @@ class PoBMCPServer {
     const legacy = [
       ...getToolSchemas(),
       ...foundationSchemas,
+      snapshotCostSchema(),
       ...getLuaToolSchemas(),
       ...buildCostSchemas(),
       ...getOptimizationToolSchemas(),
@@ -302,7 +306,7 @@ class PoBMCPServer {
     // List available tools
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       if (!this.legacyEnabled()) {
-        const tools = this.foundation ? foundationSchemas : [];
+        const tools = this.foundation ? [...foundationSchemas, ...featureRegistry.schemas(), ...(this.foundationFeatures?.schemas() ?? [])] : [];
         assertUniqueToolSchemas(tools);
         return { tools: tools.map(({ truncatable: _truncatable, ...wire }) => wire) };
       }
@@ -344,7 +348,7 @@ class PoBMCPServer {
       tools.push(...getPoeNinjaToolSchemas());
       featureRegistry.assertNoCollisions(tools);
       tools.push(...featureRegistry.schemas());
-      if (this.foundation) tools.push(...foundationSchemas);
+      if (this.foundation) tools.push(...foundationSchemas, ...(this.foundationFeatures?.schemas() ?? []));
       assertUniqueToolSchemas(tools);
 
       // The truncatable flag is server-side policy, not part of the MCP wire
@@ -365,6 +369,16 @@ class PoBMCPServer {
             const result = await pending;
             return { content: [{ type: 'text' as const, text: JSON.stringify(result) }] };
           } finally { this.foundationPending.delete(pending); }
+        }
+        // Migrated, stateless feature modules are independent of the legacy
+        // mutable build and are available through the new surface as well.
+        const feature = this.foundationFeatures?.get(name) ?? featureRegistry.get(name);
+        if (feature && this.foundation) {
+          if (this.foundationClosing) throw new Error('Foundation tools are unavailable');
+          const pending = Promise.resolve().then(() => feature.invoke(args ?? {}));
+          this.foundationPending.add(pending);
+          try { return await pending; }
+          finally { this.foundationPending.delete(pending); }
         }
         if (!this.legacyEnabled()) throw new Error('Legacy tools are unavailable');
         // Build router dependencies
@@ -431,6 +445,7 @@ class PoBMCPServer {
         adapterPath, timeoutMs: process.env.POB_TIMEOUT_MS ? Number(process.env.POB_TIMEOUT_MS) : undefined,
       }));
       const foundation = this.foundation;
+      this.foundationFeatures = new FeatureRegistry([createSnapshotCostTool(foundation, new PoeNinjaAdapter())]);
       this.foundationJobs = new JobRunner(jobs, input => foundation.evaluate(input.snapshotId, input.fields, input.options));
     }
     // StatMapper is intentionally static-only: the trade API /stats dump keys

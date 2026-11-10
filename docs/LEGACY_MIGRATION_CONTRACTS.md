@@ -126,7 +126,7 @@ acceptance work to perform during migration, not claims of completed tests.
 | `get_currency_rates` | poe.ninja source adapter and currency-reference query. | Preserve exact international league, original currency, actual fetch time and unknown rates. |
 | `find_arbitrage` | Economy workflow over source currency data. | Candidate routes, timestamps and missing conversions remain explicit; no guaranteed profit. |
 | `calculate_trading_profit` | Currency-chain calculation over reference quotes. | Missing intermediate rate produces incomplete result, never fabricated final profit. |
-| `estimate_build_cost` | Build-cost workflow over snapshot plus poe.ninja references. | Unknown items stay excluded and subtotal never becomes complete buyable price. |
+| `estimate_build_cost` | `estimate_snapshot_cost` uses explicit snapshot and independent poe.ninja source; migrate legacy callers and skills before removing the old route. | `snapshotCostTool.test.ts` checks model parity and partial failures; `snapshot-cost-live.mjs` checks real PoB and public data. Unknown items stay excluded and subtotal is not a complete buyable price. |
 | `search_trade_items` | Official Trade adapter plus search workflow. | Preserve exact `securable` priced defaults, caller overrides, stat groups, source audit, sample and fetch time. |
 | `get_item_price` | Exact-item asking-price sample workflow over official trade. | Limit and currency groups are explicit; asking prices are not sales or full-market statistics. |
 | `get_leagues` | Official source league query. | Return current source response and errors; no implicit substitution of league. |
