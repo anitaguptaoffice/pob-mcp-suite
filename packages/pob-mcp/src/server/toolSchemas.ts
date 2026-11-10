@@ -1308,6 +1308,11 @@ export function getSkillGemToolSchemas(): ToolSchema[] {
                   type: "array",
                   items: { type: "string" },
                 },
+                gem_overrides: {
+                  type: "object",
+                  description: "Optional map from a listed gem name to {level, quality}; level 1–40 and quality 0–23. Overrides apply only in this comparison.",
+                  additionalProperties: { type: "object", properties: { level: { type: "number" }, quality: { type: "number" } } },
+                },
               },
               required: ["name", "gems"],
             },

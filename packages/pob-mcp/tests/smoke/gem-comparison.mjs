@@ -32,9 +32,27 @@ try {
   try {
     await direct.client.loadBuildXml(await readFile(fixture, 'utf8'), 'control', fixture);
     const group = (await direct.client.getSkills()).groups.find(g => g.index === 5);
-    for (let i = group.gems.length; i >= 1; i--) await direct.client.removeGem({ groupIndex: 5, gemIndex: i });
-    await direct.client.addGem({ groupIndex: 5, gemName: 'Vortex', level: 21, quality: 0 });
-    await direct.client.addGem({ groupIndex: 5, gemName: 'Efficacy', level: 20, quality: 20 });
+    const unchangedNames = group.gems.filter(g => g.enabled).map(g => g.name);
+    const roundTrip = await compareGemSetups(context, { build_name: 'vortex.xml', setups: [
+      { name: 'unchanged', gems: unchangedNames }, { name: 'same-again', gems: unchangedNames },
+    ] });
+    assert.deepEqual(roundTrip.setups[0].stats, roundTrip.baseline, 'rebuilding the same setup must preserve every damage metric');
+    const overridden = await compareGemSetups(context, { build_name: 'vortex.xml', setups: [
+      { name: 'changed', gems: unchangedNames, gem_overrides: { Vortex: { level: 20 }, Efficacy: { quality: 0 } } },
+      { name: 'original', gems: unchangedNames },
+    ] });
+    const vortexIndex = group.gems.find(g => g.name === 'Vortex').index;
+    const efficacyIndex = group.gems.find(g => g.name === 'Efficacy').index;
+    await direct.client.setGemLevel({ groupIndex: 5, gemIndex: vortexIndex, level: 20 });
+    await direct.client.setGemQuality({ groupIndex: 5, gemIndex: efficacyIndex, quality: 0 });
+    const changedStats = await direct.client.getStats(['CombinedDPS', 'TotalDPS']);
+    assert.equal(overridden.setups[0].stats.CombinedDPS, changedStats.CombinedDPS, 'gem override must match a direct PoB edit');
+    assert.equal(overridden.setups[0].stats.TotalDPS, changedStats.TotalDPS, 'gem override must match a direct PoB edit');
+    assert.notEqual(overridden.setups[0].stats.CombinedDPS, overridden.setups[1].stats.CombinedDPS, 'override fixture must change the result');
+    await direct.client.loadBuildXml(await readFile(fixture, 'utf8'), 'control', fixture);
+    for (let i = group.gems.length - 1; i >= 0; i--) {
+      if (!['Vortex', 'Efficacy'].includes(group.gems[i].name)) await direct.client.removeGem({ groupIndex: 5, gemIndex: i + 1 });
+    }
     const stats = await direct.client.getStats(['CombinedDPS', 'TotalDPS']);
     assert.equal(result.setups[0].stats.CombinedDPS, stats.CombinedDPS);
     assert.equal(result.setups[0].stats.TotalDPS, stats.TotalDPS);

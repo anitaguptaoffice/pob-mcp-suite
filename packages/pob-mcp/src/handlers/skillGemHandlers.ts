@@ -68,7 +68,7 @@ export async function handleCompareGemSetups(
   args: {
     build_name: string;
     skill_index?: number;
-    setups: Array<{ name: string; gems: string[] }>;
+    setups: Array<{ name: string; gems: string[]; gem_overrides?: Record<string, { level?: number; quality?: number }> }>;
   }
 ) {
   const result = await compareGemSetups(context, args);

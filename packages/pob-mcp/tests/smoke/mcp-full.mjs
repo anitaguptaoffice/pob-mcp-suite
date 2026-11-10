@@ -60,10 +60,11 @@ try {
   const afterAnalysis = await call('lua_get_build_snapshot');
   if (!afterAnalysis.includes('Level 89')) throw new Error(`analysis overwrote unsaved changes: ${afterAnalysis}`);
   const gemComparison = JSON.parse(await call('compare_gem_setups', { build_name: 'vortex.xml', setups: [
-    { name: 'efficacy', gems: ['Vortex', 'Efficacy'] },
+    { name: 'efficacy', gems: ['Vortex', 'Efficacy'], gem_overrides: { Vortex: { level: 20 } } },
     { name: 'controlled', gems: ['Vortex', 'Controlled Destruction'] },
   ] }));
   if (gemComparison.source !== 'saved_build_isolated_pob' || gemComparison.setups.length !== 2) throw new Error(`gem comparison was incomplete: ${JSON.stringify(gemComparison)}`);
+  if (gemComparison.setups[0].gems.find(gem => gem.name === 'Vortex')?.level !== 20) throw new Error(`gem level override was not applied: ${JSON.stringify(gemComparison)}`);
   const afterGemComparison = await call('lua_get_build_snapshot');
   if (!afterGemComparison.includes('Level 89')) throw new Error(`gem comparison overwrote unsaved changes: ${afterGemComparison}`);
   const otherDefenses = await call('analyze_defenses', { build_name: 'other.xml' });
