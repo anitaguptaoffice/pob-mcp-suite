@@ -57,7 +57,7 @@ function getTradeSearchUrl(league: string, searchId: string): string {
 
 function getTradeItemUrl(league: string, searchId: string, itemId: string): string {
   // Individual items can be highlighted in the search results
-  return `https://www.pathofexile.com/trade/search/${encodeURIComponent(league)}/${searchId}#${itemId}`;
+  return `https://www.pathofexile.com/trade/search/${encodeURIComponent(league)}/${encodeURIComponent(searchId)}#${encodeURIComponent(itemId)}`;
 }
 
 export function toStatFilters(

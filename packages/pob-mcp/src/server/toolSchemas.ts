@@ -1555,6 +1555,16 @@ export function getExportToolSchemas(): ToolSchema[] {
 export function getTradeToolSchemas(): ToolSchema[] {
   return [
     {
+      name: "compare_trade_listing_in_pob",
+      description: "Fetch one official international trade listing and preview its exact official clipboard text in the current PoB build. Requires Trade API and Lua bridge. Does not verify listing availability, search status, item legality or price freshness.",
+      inputSchema: { type: "object", properties: {
+        league: { type: "string", description: "Exact international league of the original search." },
+        slot: { type: "string", description: "Exact active PoB equipment slot." },
+        item_id: { type: "string", description: "Official listing ID from the original search." },
+        search_id: { type: "string", description: "Official query ID from the same search." },
+      }, required: ["league", "slot", "item_id", "search_id"] },
+    },
+    {
       name: "find_weighted_trade_items",
       description: "Find instant-buyout candidates using upstream PoB TradeQueryGenerator stat weights. Candidates are not verified best-in-slot or individually simulated. Requires a loaded build, POE_TRADE_ENABLED=true, and POE_SESSION_ID.",
       inputSchema: { type: "object", properties: { league: { type: "string" }, slot: { type: "string" }, options: { type: "object" }, limit: { type: "number" } }, required: ["league", "slot"] },

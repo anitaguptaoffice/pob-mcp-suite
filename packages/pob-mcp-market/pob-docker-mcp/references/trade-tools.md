@@ -19,6 +19,7 @@ Trade tools are environment-gated.
 - Use `find_item_upgrades`, `find_resistance_gear`, and `generate_shopping_list` only after loading or identifying the build.
 - Use `compare_trade_items` to display raw details of specific listings. It does not compare currencies or calculate PoB replacement benefits; evaluate those separately.
 - Use `compare_equipment_candidate` with a complete PoB-compatible item text and the exact active equipment slot to preview replacement stats without equipping it. It uses the live build and current configuration; it does not validate game legality, listing price, or item availability. Jewels, flasks and swap slots are not supported.
+- Use `compare_trade_listing_in_pob` with the exact league, listing ID, search ID and slot to fetch the official clipboard text and compare that listing. It refuses missing or mismatched clipboard text; listing data can be cached and the original search status cannot be inferred from price alone.
 
 ## Search Workflow
 
