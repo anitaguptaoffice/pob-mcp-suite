@@ -7,6 +7,7 @@ import { atomicWriteFile } from "../utils/atomicWrite.js";
 import { resolveBuildFile } from "../utils/pathSanitizer.js";
 import { BOOTSTRAP_BUILD_NAME } from "../server/bootstrapBuild.js";
 import type { ItemSetEntry, PoBLuaApiClient, SpecEntry, StatsExport } from "../pobLuaBridge.js";
+import { toFiniteNumber } from "../pobLuaBridge.js";
 export type { HandlerContext } from "../utils/contextBuilder.js";
 
 export async function handleListBuilds(context: HandlerContext) {
@@ -262,7 +263,7 @@ export async function handleCompareBuilds(context: HandlerContext, build1Name: s
     // to be requested by name — otherwise DPS and crit always render as "N/A".
     const stats = await luaClient.getStats([
       'Life', 'EnergyShield', 'TotalEHP', 'Mana',
-      'TotalDPS', 'CombinedDPS', 'MinionTotalDPS', 'CritChance', 'CritMultiplier',
+      'TotalDPS', 'CombinedDPS', 'MinionTotalDPS', 'MinionCombinedDPS', 'CritChance', 'CritMultiplier',
       'FireResist', 'ColdResist', 'LightningResist', 'ChaosResist',
     ]);
     return { stats, selectedSpec, selectedItemSet, displayName };
@@ -273,6 +274,7 @@ export async function handleCompareBuilds(context: HandlerContext, build1Name: s
   let r1: Awaited<ReturnType<typeof loadEndgame>> | null = null;
   let r2: Awaited<ReturnType<typeof loadEndgame>> | null = null;
   let luaClient: PoBLuaApiClient | null = null;
+  let comparisonWarning = '';
   try {
     await context.ensureLuaClient();
     luaClient = context.getLuaClient();
@@ -281,41 +283,45 @@ export async function handleCompareBuilds(context: HandlerContext, build1Name: s
   if (luaClient) {
     // Never replace a *different* in-memory build (data-loss risk) — comparing
     // loads both builds into the bridge, which would clobber unsaved work.
-    const basename = (n: string) => n.replace(/\.xml$/i, '').split(/[/\\]/).pop() ?? n;
     let loadedName = '';
     try {
       const info = await luaClient.getBuildInfo();
       loadedName = info?.name ?? '';
-    } catch (e) { noteIgnoredError("no build loaded yet — safe to load", e); }
+    } catch (e) {
+      noteIgnoredError("cannot verify current bridge state", e);
+      comparisonWarning = '无法确认当前内存构筑状态，已保留现场并使用保存的 XML 数据比较。';
+      luaClient = null;
+    }
     // The bootstrap build is not user work — a freshly started bridge always holds
     // it, so treating it as unsaved changes would block compare_builds outright.
-    if (loadedName && loadedName !== BOOTSTRAP_BUILD_NAME) {
-      const loaded = basename(loadedName);
-      if (loaded !== basename(build1Name) && loaded !== basename(build2Name)) {
-        throw new Error(
-          `A different build ("${loadedName}") is currently loaded in the Lua bridge and may have unsaved changes. ` +
-          `compare_builds would replace it. Save it first with lua_save_build, then re-run compare_builds.`
-        );
-      }
+    if (luaClient && !loadedName) {
+      comparisonWarning = '无法确认当前内存构筑状态，已保留现场并使用保存的 XML 数据比较。';
+      luaClient = null;
+    }
+    if (luaClient && loadedName !== BOOTSTRAP_BUILD_NAME) {
+      comparisonWarning = `内存中已加载构筑 "${loadedName}"，可能包含未保存修改；已保留现场，使用保存的 XML 数据比较。`;
+      luaClient = null;
     }
 
-    try {
-      r1 = await loadEndgame(luaClient, build1Name);
-      r2 = await loadEndgame(luaClient, build2Name);
-      luaOk = true;
-    } catch (e) { noteIgnoredError("fall through to XML", e); }
+    if (luaClient) {
+      try {
+        r1 = await loadEndgame(luaClient, build1Name);
+        r2 = await loadEndgame(luaClient, build2Name);
+        luaOk = true;
+      } catch (e) { noteIgnoredError("fall through to XML", e); }
+    }
   }
 
   if (luaOk && r1 && r2) {
-    const fmtNum = (n: string | number | undefined) =>
-      n != null && !isNaN(Number(n)) && Number(n) !== 0
-        ? Math.round(Number(n)).toLocaleString()
-        : 'N/A';
+    const fmtNum = (n: string | number | undefined) => {
+      const value = toFiniteNumber(n);
+      return value === undefined ? 'N/A' : Math.round(value).toLocaleString();
+    };
 
     const row = (label: string, v1: string | number | undefined, v2: string | number | undefined, higherIsBetter = true) => {
-      const n1 = Number(v1 || 0);
-      const n2 = Number(v2 || 0);
-      const winner = n1 === n2 ? '  ='
+      const n1 = toFiniteNumber(v1);
+      const n2 = toFiniteNumber(v2);
+      const winner = n1 === undefined || n2 === undefined ? '  ?' : n1 === n2 ? '  ='
         : (n1 > n2) === higherIsBetter ? '  ▲1' : '  ▲2';
       return `  ${label.padEnd(22)}${fmtNum(v1).padStart(12)}  vs  ${fmtNum(v2).padStart(12)}${winner}`;
     };
@@ -354,9 +360,10 @@ export async function handleCompareBuilds(context: HandlerContext, build1Name: s
     lines.push('');
 
     // Offense
-    const dps1 = s1.CombinedDPS || s1.TotalDPS || s1.MinionTotalDPS;
-    const dps2 = s2.CombinedDPS || s2.TotalDPS || s2.MinionTotalDPS;
-    lines.push(row('DPS (combined)', dps1, dps2));
+    lines.push(row('CombinedDPS', s1.CombinedDPS, s2.CombinedDPS));
+    lines.push(row('TotalDPS', s1.TotalDPS, s2.TotalDPS));
+    lines.push(row('MinionCombinedDPS', s1.MinionCombinedDPS, s2.MinionCombinedDPS));
+    lines.push(row('MinionTotalDPS', s1.MinionTotalDPS, s2.MinionTotalDPS));
     lines.push(row('Crit Chance %', s1.CritChance, s2.CritChance));
     lines.push(row('Crit Multi %', s1.CritMultiplier, s2.CritMultiplier));
     lines.push('');
@@ -379,6 +386,7 @@ export async function handleCompareBuilds(context: HandlerContext, build1Name: s
 
   const compLines: string[] = [
     '=== Build Comparison (XML / saved stats) ===',
+    ...(comparisonWarning ? [comparisonWarning] : []),
     '',
     `Build 1: ${build1Name}`,
     `Build 2: ${build2Name}`,

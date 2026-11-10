@@ -321,14 +321,25 @@ describe('BuildHandlers', () => {
       expect(result.content[0].text).toContain('Build Comparison');
     });
 
-    it('should still refuse to clobber a different loaded build', async () => {
+    it('preserves a different loaded build and compares saved XML instead', async () => {
       mockBuildService.readBuild.mockResolvedValueOnce(build1).mockResolvedValueOnce(build2);
       context.getLuaClient = () => ({
         getBuildInfo: async () => ({ name: 'My Unsaved League Starter' }),
       }) as unknown as ReturnType<typeof context.getLuaClient>;
 
-      await expect(handleCompareBuilds(context, 'build1.xml', 'build2.xml'))
-        .rejects.toThrow('My Unsaved League Starter');
+      const result = await handleCompareBuilds(context, 'build1.xml', 'build2.xml');
+      expect(result.content[0].text).toContain('My Unsaved League Starter');
+      expect(result.content[0].text).toContain('XML / saved stats');
+    });
+
+    it('preserves a same-name loaded build that may have unsaved edits', async () => {
+      mockBuildService.readBuild.mockResolvedValueOnce(build1).mockResolvedValueOnce(build2);
+      const loadBuildXml = jest.fn();
+      context.getLuaClient = () => ({ getBuildInfo: async () => ({ name: 'build1' }), loadBuildXml }) as unknown as ReturnType<typeof context.getLuaClient>;
+      const result = await handleCompareBuilds(context, 'build1.xml', 'build2.xml');
+      expect(loadBuildXml).not.toHaveBeenCalled();
+      expect(result.content[0].text).toContain('未保存修改');
+      expect(result.content[0].text).toContain('XML / saved stats');
     });
 
     it('should report live DPS instead of N/A', async () => {
@@ -338,6 +349,7 @@ describe('BuildHandlers', () => {
       const statsFor = (dps: number) => ({ Life: 4000, CombinedDPS: dps, CritChance: 50 });
       let call = 0;
       context.getLuaClient = () => ({
+        getBuildInfo: async () => ({ name: BOOTSTRAP_BUILD_NAME }),
         loadBuildXml: async () => ({ ok: true }),
         listSpecs: async () => ({ specs: [] }),
         listItemSets: async () => ({ itemSets: [] }),
@@ -350,8 +362,22 @@ describe('BuildHandlers', () => {
       const result = await handleCompareBuilds(context, 'build1.xml', 'build2.xml');
 
       expect(requestedFields).toContain('CombinedDPS');
+      expect(requestedFields).toContain('MinionCombinedDPS');
       expect(result.content[0].text).toContain((1_500_000).toLocaleString());
-      expect(result.content[0].text).not.toMatch(/DPS \(combined\).*N\/A/);
+      expect(result.content[0].text).not.toMatch(/^\s*CombinedDPS[^\n]*N\/A/m);
+    });
+
+    it('compares poison-inclusive minion damage separately and does not rank missing values', async () => {
+      let call = 0;
+      context.getLuaClient = () => ({
+        getBuildInfo: async () => ({ name: BOOTSTRAP_BUILD_NAME }), loadBuildXml: async () => ({}),
+        listSpecs: async () => ({ specs: [] }), listItemSets: async () => ({ itemSets: [] }),
+        getStats: async () => call++ === 0 ? { MinionCombinedDPS: 300, MinionTotalDPS: 200, Life: 0 } : { MinionCombinedDPS: 500, MinionTotalDPS: 200 },
+      }) as unknown as ReturnType<typeof context.getLuaClient>;
+      const text = (await handleCompareBuilds(context, 'build1.xml', 'build2.xml')).content[0].text;
+      expect(text).toMatch(/MinionCombinedDPS\s+300\s+vs\s+500\s+▲2/);
+      expect(text).toMatch(/MinionTotalDPS\s+200\s+vs\s+200\s+=/);
+      expect(text).toMatch(/Life\s+0\s+vs\s+N\/A\s+\?/);
     });
 
     it('should handle builds with single PlayerStat object', async () => {
