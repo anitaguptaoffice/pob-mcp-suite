@@ -77,6 +77,7 @@ export async function openPoBEngine(options: PoBEngineOptions): Promise<BuildEng
     createSpec: params => client.createSpec(params), renameSpec: (index, title) => client.renameSpec(index, title),
     deleteSpec: index => client.deleteSpec(index),
     compareItem: (slot, text) => client.compareItem(slot, text),
+    findTimelessJewelSeedsDetailed: params => client.findTimelessJewelSeedsDetailed(params),
     getCompatibleSupports: params => client.getCompatibleSupports(params),
     getConfig: () => client.getConfig(), close: () => client.stop(),
   };

@@ -146,7 +146,7 @@ acceptance work to perform during migration, not claims of completed tests.
 | `find_affix_tiers` | Versioned modifier tier/tag query. | Distinguish broad tag match from caller-confirmed full-tag spawn evaluation. |
 | `compare_craft_budget` | Pure economic comparison using externally supplied odds and costs. | Model assumptions and partial input remain visible; supplied odds are not verified game mechanics. |
 | `simulate_simple_annul` | Independent narrowly scoped deterministic outcome enumeration. | Reject unsupported item states and count hybrid modifiers once; retain supplied-state assumptions. |
-| `find_timeless_jewel_seeds` | Independent PoB-versioned timeless-jewel search feature. | Compare native seed/node transformations, source nodes and keystone filters against real PoB. |
+| `find_timeless_jewel_seeds` | `search_snapshot_timeless_seeds`: independent feature using an isolated, identity-checked snapshot engine and its PoB tree data. Supports Elegant Hubris notable seeds and the Caspiro fixed keystone; includes allocated and unallocated nodes, and does not establish market availability or legality. | The 3_29 real-PoB fixture checks seed 130660, five source nodes, Caspiro keystone filtering, full seed range, invalid inputs, legacy result compatibility and unchanged snapshot. Further independent native transformation comparisons remain. |
 
 ## Local file observation
 

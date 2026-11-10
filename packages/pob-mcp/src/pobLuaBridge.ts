@@ -858,9 +858,13 @@ async setTree(params: {
   }
 
   async findTimelessJewelSeeds(params: { socketNodeId: number; desired: string[]; limit?: number; seeds?: number[]; historicFigure?: string; keystoneNodeId?: number; requiredSourceNodeIds?: number[] }): Promise<any> {
+    return (await this.findTimelessJewelSeedsDetailed(params)).results;
+  }
+
+  async findTimelessJewelSeedsDetailed(params: { socketNodeId: number; desired: string[]; limit?: number; seeds?: number[]; historicFigure?: string; keystoneNodeId?: number; requiredSourceNodeIds?: number[] }): Promise<{ socketNodeId: number; treeVersion: string; jewelType: string; scannedSeeds: number; totalMatches: number; results: unknown[] }> {
     const res = await this.send({ action: "find_timeless_jewel_seeds", params });
     if (!res.ok) throw new Error(res.error || "find_timeless_jewel_seeds failed");
-    return res.results;
+    return { socketNodeId: res.socketNodeId as number, treeVersion: res.treeVersion as string, jewelType: res.jewelType as string, scannedSeeds: res.scannedSeeds as number, totalMatches: res.totalMatches as number, results: res.results as unknown[] };
   }
 
   async refreshTreeProgress(): Promise<void> {

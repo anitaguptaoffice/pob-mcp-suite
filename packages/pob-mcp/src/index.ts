@@ -56,6 +56,7 @@ import { createCurrencySpreadTool, currencySpreadSchema } from './features/curre
 import { createTradePreviewTool, tradePreviewSchema } from './features/tradePreview/tool.js';
 import { createResistanceTradeTool, resistanceTradeSchema } from './features/resistanceTrade/tool.js';
 import { createClusterTradeTool, clusterTradeSchema } from './features/clusterTrade/tool.js';
+import { createTimelessSearchTool, timelessSearchSchema } from './features/timelessSearch/tool.js';
 
 // Import utilities
 import { ContextBuilder } from "./utils/contextBuilder.js";
@@ -116,6 +117,7 @@ class PoBMCPServer {
       tradePreviewSchema(),
       resistanceTradeSchema(),
       clusterTradeSchema(),
+      timelessSearchSchema(),
       ...getLuaToolSchemas(),
       ...buildCostSchemas(),
       ...getOptimizationToolSchemas(),
@@ -467,7 +469,7 @@ class PoBMCPServer {
       }));
       const foundation = this.foundation;
       const economy = new PoeNinjaAdapter();
-      const migrated = [createSnapshotCostTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), ...createCurrencyReferenceTools(economy), createCurrencySpreadTool(economy)];
+      const migrated = [createSnapshotCostTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), createTimelessSearchTool(foundation), ...createCurrencyReferenceTools(economy), createCurrencySpreadTool(economy)];
       // Until the legacy Trade client is retired, do not run two independent
       // rate limiters in one service against the same official API.
       if (process.env.POE_TRADE_ENABLED === 'true' && !this.legacyEnabled()) {

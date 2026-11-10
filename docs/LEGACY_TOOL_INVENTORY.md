@@ -92,7 +92,7 @@ Generated from registered schema groups in the current build. Most entries are p
 - `get_currency_rates` — target: market and workflows; replacement: `reference_currency_rates`; status: independent source workflow live-tested, legacy callers require migration; skill references: `skills/pob-economy/SKILL.md`.
 - `find_arbitrage` — target: market and workflows; replacement: `screen_currency_spreads`; status: bounded theoretical screening live-tested, instant-buyout verification and legacy callers remain pending; skill references: `skills/pob-economy/SKILL.md`.
 - `calculate_trading_profit` — target: market and workflows; replacement: `simulate_reference_currency_chain`; status: reference-only workflow live-tested, executable profit and legacy callers remain pending; skill references: `skills/pob-economy/SKILL.md`.
-- `find_timeless_jewel_seeds` — target: timeless jewels; replacement: independent timeless-jewel search module; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `find_timeless_jewel_seeds` — target: timeless jewels; replacement: `search_snapshot_timeless_seeds`, independent snapshot-based feature; status: partially migrated (Elegant Hubris notable seeds and Caspiro fixed keystone only; further native transformation and keystone comparison remains); skill references: no exact name found in packaged skill Markdown.
 
 ## getSkillGemToolSchemas
 

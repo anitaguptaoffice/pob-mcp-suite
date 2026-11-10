@@ -44,6 +44,7 @@ export interface BuildEngine {
   renameSpec(index: number, title: string): Promise<unknown>;
   deleteSpec(index: number): Promise<unknown>;
   compareItem(slot: string, itemText: string): ReturnType<PoBLuaApiClient['compareItem']>;
+  findTimelessJewelSeedsDetailed(params: Parameters<PoBLuaApiClient['findTimelessJewelSeedsDetailed']>[0]): ReturnType<PoBLuaApiClient['findTimelessJewelSeedsDetailed']>;
   getCompatibleSupports(params: { groupIndex?: number; query?: string; limit?: number; includeExceptional?: boolean }): Promise<{
     groupIndex: number; skillName?: string; candidates: Array<{ id: string; name: string; exceptional: boolean; alreadySocketed: boolean }>;
     total: number; failed: number;
@@ -198,6 +199,20 @@ export class BuildFoundation {
         'This is a PoB item preview, not an equipment mutation or verification of item legality, availability or price.',
         'Candidate quality is preserved as parsed. Unsupported modifier diagnostics cover only the candidate and replaced item, not the whole build.',
         'PoB may not recognize every mechanic; inspect the item, sockets and requirements before relying on the result.'] };
+    });
+  }
+
+  async runReadOnlySnapshot<T>(id: string, operation: (engine: BuildEngine) => Promise<T>) {
+    const snapshot = await this.store.read(id);
+    return this.limiter.withEngine(async engine => {
+      const warnings = checkIdentity(snapshot, engine);
+      await engine.loadBuildXml(snapshot.xml);
+      const before = await observe(engine);
+      const result = await operation(engine);
+      const after = await observe(engine);
+      if (!isDeepStrictEqual(before, after)) throw new Error('PoB read operation changed the snapshot observation');
+      await engine.verifyIdentity();
+      return { snapshotId: id, identity: engine.identity, warnings, result };
     });
   }
 
