@@ -17,6 +17,13 @@ Use `list_builds` before assuming a build is missing.
 
 ## Lua Bridge Problems
 
+When `inspect_pob_engine` is advertised, use it to check a disposable engine's
+actual version, identity and bridge actions without importing a build. A startup
+or identity error is a failed check, not an empty set of supported actions.
+Bridge actions are internal and are not the MCP tools advertised to the client.
+The check does not establish client connectivity, market access, or future engine
+availability. Read `identityUnknown` and warnings before comparing versions.
+
 Check:
 
 - `POB_LUA_ENABLED=true`

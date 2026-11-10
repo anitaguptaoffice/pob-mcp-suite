@@ -73,6 +73,8 @@ import { PoedbBaseReference } from './adapters/baseReference/poedb.js';
 import { PoBItemDataAdapter } from './adapters/pobItemData/source.js';
 import { itemAffixWeightSchema, createItemAffixWeightTool } from './features/affixWeight/sourceTool.js';
 import { EngineLimiter } from './foundation/engineLimiter.js';
+import { PoBEngineStatusAdapter } from './adapters/pobEngineStatus/source.js';
+import { engineStatusSchema, createEngineStatusTool } from './features/engineStatus/tool.js';
 import { createModifierDataTools } from './features/modifierData/tools.js';
 import { PoBModifierData } from './adapters/modifierData/pobModifierData.js';
 import { LocalBuildFileCatalog } from './adapters/localBuild/fileCatalog.js';
@@ -169,6 +171,7 @@ class PoBMCPServer {
       snapshotDefensesSchema(),
       craftingContextSchema(),
       itemAffixWeightSchema(),
+      engineStatusSchema(),
       ...this.modifierFeatures.schemas(),
       ...this.buildFileCatalog.schemas(),
       ...this.configPresetCatalog.schemas(),
@@ -578,6 +581,7 @@ class PoBMCPServer {
       migrated.push(createSnapshotDefensesTool(foundation));
       migrated.push(createCraftingContextTool(foundation, new PoedbBaseReference()));
       migrated.push(createItemAffixWeightTool(new PoBItemDataAdapter(engineLimiter)));
+      migrated.push(createEngineStatusTool(new PoBEngineStatusAdapter(engineLimiter)));
       if (trade) migrated.push(createTradePreviewTool(foundation, trade));
       this.foundationFeatures = new FeatureRegistry(migrated);
     }

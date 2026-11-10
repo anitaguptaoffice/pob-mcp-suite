@@ -17,7 +17,7 @@ acceptance work to perform during migration, not claims of completed tests.
 
 | Legacy tool | Intended replacement and missing behavior | Tool-specific acceptance |
 | --- | --- | --- |
-| `lua_get_capabilities` | Read-only adapter capability/version report; no equivalent tool yet. | Missing or unsupported action remains distinct from engine startup failure. |
+| `lua_get_capabilities` | `inspect_pob_engine` queries a disposable PoB engine without loading a build, reporting bridge actions and content identities. | `engineStatus.test.ts` checks unreported data, cleanup, startup and identity failures; `pob-engine-status.mjs` compares actual bridge data and an unavailable executable. Internal bridge actions are not MCP tools. Legacy callers remain. |
 | `lua_start` | Internal disposable engine executor; no public mutable session start. | Concurrent operations remain isolated and do not require explicit startup. |
 | `lua_stop` | Executor cleanup and service shutdown; no public shared-session stop. | Engine crash/timeout closes the lease without corrupting other operations. |
 | `lua_new_build` | New typed build-creation operation is needed. | Valid class and ascendancy round-trip; invalid inputs publish no snapshot, including special ascendancy names. |
