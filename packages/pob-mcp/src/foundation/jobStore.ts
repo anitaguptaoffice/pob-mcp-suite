@@ -4,7 +4,7 @@ import path from 'node:path';
 import { atomicWriteFile } from '../utils/atomicWrite.js';
 
 export type JobStatus = 'queued' | 'running' | 'cancel_requested' | 'completed' | 'cancelled' | 'failed' | 'interrupted';
-export type JobItem = { status: 'pending' | 'running' | 'completed' | 'failed' | 'interrupted'; input?: unknown; result?: unknown; error?: string };
+export type JobItem = { status: 'pending' | 'running' | 'completed' | 'failed' | 'interrupted'; input?: unknown; result?: unknown; error?: string; progress?: { phase: 'derived'; snapshotId: string } };
 export interface JobRecord { id: string; status: JobStatus; createdAt: string; updatedAt: string; items: JobItem[]; error?: string }
 const terminal = new Set<JobStatus>(['completed', 'cancelled', 'failed', 'interrupted']);
 
@@ -68,7 +68,14 @@ export class JobStore {
       if (!Number.isInteger(index) || index < 0 || index >= job.items.length || job.items[index].status !== 'running') throw new Error('Invalid or already completed job item');
       if (item.status !== 'completed' && item.status !== 'failed') throw new Error('Invalid job item result');
       if (item.status === 'failed' && (!item.error || typeof item.error !== 'string')) throw new Error('Failed job item requires an error');
-      job.items[index] = { ...item, ...(job.items[index].input === undefined ? {} : { input: job.items[index].input }) };
+      job.items[index] = { ...item, ...(job.items[index].input === undefined ? {} : { input: job.items[index].input }), ...(job.items[index].progress === undefined ? {} : { progress: job.items[index].progress }) };
+    });
+  }
+  async recordDerivedSnapshot(id: string, index: number, snapshotId: string): Promise<JobRecord> {
+    if (!/^[a-f0-9]{64}$/.test(snapshotId)) throw new Error('Invalid derived snapshot ID');
+    return this.update(id, job => {
+      if (!['running', 'cancel_requested'].includes(job.status) || !Number.isInteger(index) || index < 0 || index >= job.items.length || job.items[index].status !== 'running' || job.items[index].progress) throw new Error('Job item cannot record a derived snapshot');
+      job.items[index].progress = { phase: 'derived', snapshotId };
     });
   }
   async finish(id: string, error?: string): Promise<JobRecord> {
@@ -107,6 +114,10 @@ export class JobStore {
         const input = item?.input as { snapshotId?: unknown } | undefined;
         if (!input || typeof input.snapshotId !== 'string' || !/^[a-f0-9]{64}$/.test(input.snapshotId)) throw new Error('Persisted job is missing a valid snapshot reference');
         roots.add(input.snapshotId);
+        if (item.progress !== undefined) {
+          if (item.progress.phase !== 'derived' || !/^[a-f0-9]{64}$/.test(item.progress.snapshotId)) throw new Error('Persisted job has invalid derived snapshot progress');
+          roots.add(item.progress.snapshotId);
+        }
       }
     }
     return roots;

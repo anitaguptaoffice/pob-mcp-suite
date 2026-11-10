@@ -154,6 +154,13 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   deltas; a child ID can be returned even if its later comparison failed. Retain
   a desired child explicitly. Cluster and unsupported jewel bases are excluded;
   legality, aura uptime and item prices are not established.
+- For longer comparisons, `submit_snapshot_jewels` queues up to ten candidates;
+  poll `summarize_snapshot_jewels` and inspect each result. Cancellation takes
+  effect after the current candidate. Candidate text and completed progress are
+  stored locally. Recorded child IDs survive interruption, but a crash between
+  child creation and recording its ID can leave an unreferenced trial. Interrupted
+  stores require the documented explicit stale-lock recovery before restart.
+  Trial children expire after seven days unless explicitly retained.
 - For a saved local file without starting PoB, `inspect_local_cluster_jewels`
   reads its active tree spec, socket references and serialized item text. Check
   `socketDataAvailable`, `unresolvedSockets`, the file digest and warnings.

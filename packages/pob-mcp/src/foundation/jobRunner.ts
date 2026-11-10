@@ -1,12 +1,14 @@
 import { JobStore, type JobRecord } from './jobStore.js';
 import { validateEvaluationOptions, type BuildFoundation, type EvaluationOptions } from './buildFoundation.js';
+import { isDeepStrictEqual } from 'node:util';
 
 export interface EvaluationInput { snapshotId: string; fields: string[]; options?: EvaluationOptions }
 export interface MasteryEvaluationInput { kind: 'mastery'; snapshotId: string; nodeId: number; effectId: number; metric: string; direction: 'higher' | 'lower'; treeVersion: string | null; discoveryIdentity: BuildIdentity; includeCurrent: boolean; selected: boolean | null; totalDiscovered: number; totalMasteries: number }
 type BuildIdentity = { engineVersion: string | null; adapterVersion: string | null; dataVersion: string | null; runtimeVersion?: string | null; executableVersion?: string | null };
 export interface GemSetupEvaluationInput { kind: 'gem_setup'; snapshotId: string; groupIndex: number; setupName: string; gems: Parameters<BuildFoundation['deriveGemSetup']>[2]; discoveryIdentity: BuildIdentity }
 export interface PassiveEvaluationInput { kind: 'passive'; snapshotId: string; nodeId: number; nodeName: string; pathNodes: number[]; metrics: string[]; discoveryIdentity: BuildIdentity; treeVersion: string }
-type JobInput = EvaluationInput | MasteryEvaluationInput | GemSetupEvaluationInput | PassiveEvaluationInput;
+export interface JewelEvaluationInput { kind: 'jewel'; snapshotId: string; socketNodeId: number; name: string; itemText: string; fields: string[]; discoveryIdentity: BuildIdentity }
+type JobInput = EvaluationInput | MasteryEvaluationInput | GemSetupEvaluationInput | PassiveEvaluationInput | JewelEvaluationInput;
 
 /** One bounded runner; cancellation is cooperative between complete items. */
 export class JobRunner {
@@ -15,7 +17,7 @@ export class JobRunner {
   private reservations = 0;
   private readonly submissions = new Set<Promise<JobRecord>>();
   constructor(private readonly store: JobStore, private readonly evaluate: (input: EvaluationInput) => Promise<unknown>, private readonly maxJobs = 2,
-    private readonly evaluateMastery?: (input: MasteryEvaluationInput) => Promise<unknown>, private readonly evaluateGemSetup?: (input: GemSetupEvaluationInput) => Promise<unknown>, private readonly evaluatePassive?: (input: PassiveEvaluationInput) => Promise<unknown>) {}
+    private readonly evaluateMastery?: (input: MasteryEvaluationInput) => Promise<unknown>, private readonly evaluateGemSetup?: (input: GemSetupEvaluationInput) => Promise<unknown>, private readonly evaluatePassive?: (input: PassiveEvaluationInput) => Promise<unknown>, private readonly evaluateJewel?: (input: JewelEvaluationInput, onDerived: (snapshotId: string) => Promise<void>) => Promise<unknown>) {}
 
   async submit(inputs: EvaluationInput[]): Promise<JobRecord> {
     if (this.closing) throw new Error('Job runner is closing');
@@ -57,6 +59,15 @@ export class JobRunner {
     return this.submitValidated(inputs);
   }
 
+  async submitJewels(inputs: JewelEvaluationInput[]): Promise<JobRecord> {
+    if (this.closing) throw new Error('Job runner is closing');
+    if (!this.evaluateJewel || !Array.isArray(inputs) || inputs.length < 1 || inputs.length > 10) throw new Error('Provide 1 to 10 jewel evaluations');
+    const first = inputs[0];
+    const validIdentity = (value: unknown) => !!value && typeof value === 'object' && !Array.isArray(value) && ['engineVersion', 'adapterVersion', 'dataVersion', 'runtimeVersion', 'executableVersion'].every(key => { const field = (value as Record<string, unknown>)[key]; return field === undefined || field === null || typeof field === 'string' && !!field; });
+    if (inputs.some(input => !input || input.kind !== 'jewel' || typeof input.snapshotId !== 'string' || !/^[a-f0-9]{64}$/.test(input.snapshotId) || !Number.isSafeInteger(input.socketNodeId) || input.socketNodeId < 1 || input.socketNodeId > 2147483647 || typeof input.name !== 'string' || !input.name.trim() || input.name !== input.name.trim() || input.name.length > 100 || typeof input.itemText !== 'string' || !input.itemText.trim() || Buffer.byteLength(input.itemText, 'utf8') > 10240 || !Array.isArray(input.fields) || input.fields.length < 1 || input.fields.length > 20 || input.fields.some(field => typeof field !== 'string' || !/^[A-Za-z][A-Za-z0-9_]{0,99}$/.test(field)) || new Set(input.fields).size !== input.fields.length || !validIdentity(input.discoveryIdentity) || input.snapshotId !== first.snapshotId || input.socketNodeId !== first.socketNodeId || !isDeepStrictEqual(input.fields, first.fields) || !isDeepStrictEqual(input.discoveryIdentity, first.discoveryIdentity)) || new Set(inputs.map(input => input.name)).size !== inputs.length) throw new Error('Invalid jewel evaluations');
+    return this.submitValidated(inputs);
+  }
+
   private async submitValidated(inputs: JobInput[]): Promise<JobRecord> {
     if (this.reservations >= this.maxJobs) throw new Error('Job runner is full');
     const frozenInputs = structuredClone(inputs);
@@ -88,7 +99,7 @@ export class JobRunner {
         if (started.status === 'cancel_requested') break;
         try {
           const input = inputs[index];
-          const result = 'kind' in input && input.kind === 'mastery' ? await this.evaluateMastery!(input) : 'kind' in input && input.kind === 'gem_setup' ? await this.evaluateGemSetup!(input) : 'kind' in input && input.kind === 'passive' ? await this.evaluatePassive!(input) : await this.evaluate(input as EvaluationInput);
+          const result = 'kind' in input && input.kind === 'mastery' ? await this.evaluateMastery!(input) : 'kind' in input && input.kind === 'gem_setup' ? await this.evaluateGemSetup!(input) : 'kind' in input && input.kind === 'passive' ? await this.evaluatePassive!(input) : 'kind' in input && input.kind === 'jewel' ? await this.evaluateJewel!(input, async snapshotId => { await this.store.recordDerivedSnapshot(id, index, snapshotId); }) : await this.evaluate(input as EvaluationInput);
           await this.store.recordItem(id, index, { status: 'completed', result });
         } catch (error) {
           await this.store.recordItem(id, index, { status: 'failed', error: error instanceof Error ? error.message : String(error) });

@@ -1,12 +1,29 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import { JobRunner } from '../../src/foundation/jobRunner.js';
+import { JobRunner, type JewelEvaluationInput } from '../../src/foundation/jobRunner.js';
 import { JobStore } from '../../src/foundation/jobStore.js';
 
 function deferred() { let resolve!: () => void; const promise = new Promise<void>(done => { resolve = done; }); return { promise, resolve }; }
 const input = { snapshotId: 'a'.repeat(64), fields: ['Life'] };
 describe('JobRunner', () => {
+  it('persists a jewel trial before evaluation and cancels between candidates', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'pob-jewel-job-'));
+    try {
+      const entered = deferred(), gate = deferred(), store = new JobStore(dir), child = 'b'.repeat(64);
+      const run = jest.fn(async (_input: JewelEvaluationInput, onDerived: (id: string) => Promise<void>) => { await onDerived(child); entered.resolve(); await gate.promise; return { ok: true }; });
+      const runner = new JobRunner(store, async () => { throw new Error('wrong dispatcher'); }, 1, undefined, undefined, undefined, run);
+      const candidate = { kind: 'jewel' as const, snapshotId: input.snapshotId, socketNodeId: 10, name: 'one', itemText: 'item', fields: ['Life'], discoveryIdentity: { engineVersion: 'a', adapterVersion: 'b', dataVersion: 'c' } };
+      const job = await runner.submitJewels([candidate, { ...candidate, name: 'two' }]);
+      await entered.promise;
+      expect((await store.get(job.id)).items[0].progress).toEqual({ phase: 'derived', snapshotId: child });
+      expect(await store.protectedSnapshotIds()).toEqual(new Set([input.snapshotId, child]));
+      await runner.cancel(job.id); gate.resolve(); await runner.close();
+      const final = await store.get(job.id); expect(final.status).toBe('cancelled');
+      expect(final.items[0]).toMatchObject({ status: 'completed', progress: { snapshotId: child } }); expect(final.items[1].status).toBe('pending');
+      expect(run).toHaveBeenCalledTimes(1);
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
   it('validates passive paths and cancels between isolated passive evaluations', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'pob-passive-job-'));
     try {

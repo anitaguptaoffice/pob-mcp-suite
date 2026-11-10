@@ -81,6 +81,7 @@ import { readLocalBuild } from './foundation/localBuildFile.js';
 import { PoBWatchersEyeSource } from './adapters/watchersEye/pobSource.js';
 import { watchersEyeSchema, createWatchersEyeTool } from './features/watchersEye/tool.js';
 import { jewelComparisonSchema, createJewelComparisonTool } from './features/jewelComparison/tool.js';
+import { jewelJobSchemas, createJewelJobTools } from './features/jewelComparison/jobTools.js';
 import { createModifierDataTools } from './features/modifierData/tools.js';
 import { PoBModifierData } from './adapters/modifierData/pobModifierData.js';
 import { LocalBuildFileCatalog } from './adapters/localBuild/fileCatalog.js';
@@ -181,6 +182,7 @@ class PoBMCPServer {
       clusterAnalysisSchema(),
       watchersEyeSchema(),
       jewelComparisonSchema(),
+      ...jewelJobSchemas(),
       ...this.modifierFeatures.schemas(),
       ...this.buildFileCatalog.schemas(),
       ...this.configPresetCatalog.schemas(),
@@ -584,7 +586,10 @@ class PoBMCPServer {
           const candidate = await foundation.deriveGemSetup(input.snapshotId, input.groupIndex, input.gems, true);
           try { return await compareSnapshotGemSetups(foundation, { snapshot_id: input.snapshotId, group_index: input.groupIndex, candidate_snapshot_ids: [candidate.id] }); }
           catch (error) { return { setupError: error instanceof Error ? error.message : String(error), candidateSnapshotId: candidate.id }; }
-        }, input => evaluatePassive(foundation, input));
+        }, input => evaluatePassive(foundation, input), async (input, onDerived) => {
+          const response = await createJewelComparisonTool(foundation, onDerived).invoke({ snapshot_id: input.snapshotId, socket_node_id: input.socketNodeId, fields: input.fields, candidates: [{ name: input.name, item_text: input.itemText }] });
+          return JSON.parse(response.content[0].text);
+        });
       const migrated = [createSnapshotCostTool(foundation, economy), createShoppingListTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), createSnapshotBuildComparisonTool(foundation), createSnapshotGemComparisonTool(foundation), ...createGemSetupJobTools(foundation, this.foundationJobs), createSnapshotSupportRankingTool(foundation), ...createTreePathTools(foundation), createBuildIssuesTool(foundation), createBossReadinessTool(foundation), createMasteryRankingTool(foundation), createMasteryDiscoveryTool(foundation), ...createMasteryJobTools(foundation, this.foundationJobs), ...createPassiveRankingTools(foundation, this.foundationJobs), createAnointmentTool(foundation), createSnapshotSummaryTool(foundation), createSkillInspectionTool(foundation), createEnemyConfigTool(foundation), ...createSnapshotConfigPresetTools(foundation, this.localConfigPresets), createTimelessSearchTool(foundation)];
       migrated.push(createSnapshotAilmentsTool(foundation));
       migrated.push(createSnapshotDefensesTool(foundation));
@@ -594,6 +599,7 @@ class PoBMCPServer {
       migrated.push(createClusterAnalysisTool(foundation));
       migrated.push(createWatchersEyeTool(foundation, new PoBWatchersEyeSource()));
       migrated.push(createJewelComparisonTool(foundation));
+      migrated.push(...createJewelJobTools(foundation, this.foundationJobs));
       if (trade) migrated.push(createTradePreviewTool(foundation, trade));
       this.foundationFeatures = new FeatureRegistry(migrated);
     }

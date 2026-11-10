@@ -12,7 +12,7 @@ export function jewelComparisonSchema(): FeatureTool['schema'] {
     candidates: { type: 'array', minItems: 1, maxItems: 3, items: { type: 'object', additionalProperties: false, properties: { name: { type: 'string' }, item_text: { type: 'string' } }, required: ['name', 'item_text'] } },
   }, required: ['snapshot_id', 'socket_node_id', 'fields', 'candidates'] } };
 }
-export function createJewelComparisonTool(foundation: Pick<BuildFoundation, 'runReadOnlySnapshot' | 'deriveItem' | 'evaluate'>): FeatureTool {
+export function createJewelComparisonTool(foundation: Pick<BuildFoundation, 'runReadOnlySnapshot' | 'deriveItem' | 'evaluate'>, onDerived?: (snapshotId: string) => Promise<void>): FeatureTool {
   return { schema: jewelComparisonSchema(), invoke: async args => {
     const entries = args.candidates, fields = args.fields, nodeId = args.socket_node_id;
     if (Object.keys(args).some(key => !['snapshot_id', 'socket_node_id', 'fields', 'candidates'].includes(key)) || typeof args.snapshot_id !== 'string' || !/^[a-f0-9]{64}$/.test(args.snapshot_id) || !Number.isSafeInteger(nodeId) || (nodeId as number) < 1 || (nodeId as number) > 2147483647 || !Array.isArray(fields) || fields.length < 1 || fields.length > 20 || fields.some(field => typeof field !== 'string' || !/^[A-Za-z][A-Za-z0-9_]{0,99}$/.test(field)) || new Set(fields).size !== fields.length || !Array.isArray(entries) || entries.length < 1 || entries.length > 3 || entries.some(e => !object(e) || Object.keys(e).some(key => !['name', 'item_text'].includes(key)) || typeof e.name !== 'string' || !e.name.trim() || e.name !== e.name.trim() || e.name.length > 100 || typeof e.item_text !== 'string' || !e.item_text.trim() || Buffer.byteLength(e.item_text, 'utf8') > 10240) || new Set(entries.map(e => e.name)).size !== entries.length) throw new Error('Invalid jewel comparison options');
@@ -49,6 +49,7 @@ export function createJewelComparisonTool(foundation: Pick<BuildFoundation, 'run
       let candidate: Awaited<ReturnType<BuildFoundation['deriveItem']>> | undefined;
       try {
         candidate = await foundation.deriveItem(snapshotId, slot, entry.item_text, true);
+        if (onDerived) await onDerived(candidate.id);
         const evaluation = await foundation.evaluate(candidate.id, fields as string[]);
         const identities = [validation.identity, baseline.identity, evaluation.identity];
         const identityDifferences = identityKeys.filter(key => new Set(identities.map(identity => identity[key]).filter(Boolean)).size > 1);

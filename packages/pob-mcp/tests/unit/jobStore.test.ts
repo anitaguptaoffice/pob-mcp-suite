@@ -4,6 +4,18 @@ import { tmpdir } from 'node:os';
 import { JobStore } from '../../src/foundation/jobStore.js';
 
 describe('JobStore', () => {
+  it('preserves and protects persisted trial progress after interruption', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'pob-job-progress-'));
+    try {
+      const jobs = new JobStore(dir), parent = 'a'.repeat(64), child = 'b'.repeat(64);
+      const job = await jobs.create(1, [{ snapshotId: parent }]); await jobs.start(job.id); await jobs.startItem(job.id, 0);
+      await jobs.recordDerivedSnapshot(job.id, 0, child);
+      await expect(jobs.recordDerivedSnapshot(job.id, 0, child)).rejects.toThrow('cannot record');
+      await new JobStore(dir).markInterrupted();
+      expect((await jobs.get(job.id)).items[0]).toMatchObject({ status: 'interrupted', progress: { phase: 'derived', snapshotId: child } });
+      expect(await jobs.protectedSnapshotIds()).toEqual(new Set([parent, child]));
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
   it('protects interrupted and queued job inputs and refuses ambiguous legacy jobs', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'pob-jobs-'));
     try {

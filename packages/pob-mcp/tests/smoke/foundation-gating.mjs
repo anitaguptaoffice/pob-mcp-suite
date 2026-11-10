@@ -60,6 +60,7 @@ try {
   assert.ok(!tools.result.tools.some(t => t.name === 'inspect_snapshot_cluster_jewels'));
   assert.ok(!tools.result.tools.some(t => t.name === 'inspect_snapshot_watchers_eye'));
   assert.ok(!tools.result.tools.some(t => t.name === 'compare_snapshot_jewels'));
+  assert.ok(!tools.result.tools.some(t => t.name === 'submit_snapshot_jewels' || t.name === 'summarize_snapshot_jewels'));
   assert.ok(!tools.result.tools.some(t => t.name === 'compare_snapshot_gem_setups'));
   assert.ok(!tools.result.tools.some(t => t.name === 'submit_snapshot_gem_setups' || t.name === 'summarize_snapshot_gem_setups'));
   assert.ok(!tools.result.tools.some(t => t.name === 'rank_snapshot_supports'));
@@ -109,6 +110,7 @@ try {
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'inspect_snapshot_cluster_jewels').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'inspect_snapshot_watchers_eye').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'compare_snapshot_jewels').length, 1);
+  for (const name of ['submit_snapshot_jewels', 'summarize_snapshot_jewels']) assert.equal(foundationOnly.result.tools.filter(t => t.name === name).length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_read_notes').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_notes').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_selection').length, 1);
