@@ -130,7 +130,13 @@ export class OfficialTradeAdapter implements OfficialTradeSource {
     if (!payload || typeof payload !== 'object' || Array.isArray(payload) || !Array.isArray((payload as { result?: unknown }).result)) throw new OfficialTradeError('invalid-response', 'Official Trade response does not contain a result array');
     const body = payload as Record<string, unknown> & { result: unknown[] };
     if (request.kind === 'search' && (!validQueryId(body.id) || !Number.isSafeInteger(body.total) || (body.total as number) < 0 || body.result.some(id => !validListingId(id)))) throw new OfficialTradeError('invalid-response', 'Invalid Official Trade search response');
-    if (request.kind === 'fetch' && (body.result.some(item => !item || typeof item !== 'object' || Array.isArray(item) || typeof (item as { id?: unknown }).id !== 'string' || !request.ids.includes((item as { id: string }).id)) || new Set(body.result.map(item => (item as { id: string }).id)).size !== body.result.length)) throw new OfficialTradeError('invalid-response', 'Invalid Official Trade listing response');
+    if (request.kind === 'fetch' && (body.result.some(entry => {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return true;
+      const listing = entry as { id?: unknown; item?: unknown; listing?: unknown };
+      return typeof listing.id !== 'string' || !request.ids.includes(listing.id) || !listing.item || typeof listing.item !== 'object' || Array.isArray(listing.item) ||
+        !listing.listing || typeof listing.listing !== 'object' || Array.isArray(listing.listing) ||
+        (typeof (listing.item as { id?: unknown }).id === 'string' && (listing.item as { id: string }).id !== listing.id);
+    }) || new Set(body.result.map(item => (item as { id: string }).id)).size !== body.result.length)) throw new OfficialTradeError('invalid-response', 'Invalid Official Trade listing response');
     if (request.kind === 'stats' && body.result.some(category => !category || typeof category !== 'object' || !Array.isArray((category as { entries?: unknown }).entries) || (category as { entries: unknown[] }).entries.some(entry => !entry || typeof entry !== 'object' || ['id', 'text', 'type'].some(key => typeof (entry as Record<string, unknown>)[key] !== 'string')))) throw new OfficialTradeError('invalid-response', 'Invalid Official Trade stat metadata');
     if (request.kind === 'leagues' && body.result.some(league => !league || typeof league !== 'object' || Array.isArray(league) || typeof (league as { id?: unknown }).id !== 'string' || !(league as { id: string }).id)) throw new OfficialTradeError('invalid-response', 'Invalid Official Trade league metadata');
     const data = request.kind === 'fetch' ? body.result : body;

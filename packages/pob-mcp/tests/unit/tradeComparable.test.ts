@@ -84,4 +84,13 @@ describe('comparable trade prices', () => {
     }
     expect(client.searchItems).not.toHaveBeenCalled();
   });
+
+  it('rejects unsupported constraints and invalid limits instead of silently broadening a search', async () => {
+    const client = { searchItems: jest.fn(), fetchItems: jest.fn() } as unknown as Pick<TradeApiClient, 'searchItems' | 'fetchItems'>;
+    const valid = { league: 'Standard', base_type: 'Hubris Circlet', stat_groups: [{ type: 'and', filters: [{ stat_id: 'explicit.a' }] }] };
+    await expect(estimateComparable(client, { ...valid, status: 'any' })).rejects.toThrow('unsupported');
+    await expect(estimateComparable(client, { ...valid, limit: 11 })).rejects.toThrow('limit');
+    await expect(estimateComparable(client, { ...valid, stat_groups: [{ type: 'and', filters: [{ stat_id: 'explicit.a', option: 'ignored' }] }] })).rejects.toThrow('invalid stat_groups');
+    expect(client.searchItems).not.toHaveBeenCalled();
+  });
 });

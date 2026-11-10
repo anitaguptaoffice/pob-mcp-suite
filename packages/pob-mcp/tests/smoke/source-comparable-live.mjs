@@ -38,6 +38,18 @@ try {
   assert.equal(report.sourceStatistics.sampleCount, report.fetchedCount);
   const cached = await call();
   assert.deepEqual(cached.sourceTimes, report.sourceTimes);
+  const searchArgs = { league: 'Standard', item_type: 'Gold Ring', mods: [{ stat_id: 'explicit.stat_3299347043', min: 40 }], limit: 3 };
+  const search = await call('search_official_trade', searchArgs);
+  assert.equal(search.listingScope, 'instant_buyout');
+  assert.equal(search.query.query.status.option, 'securable');
+  assert.equal(search.query.query.filters.trade_filters.filters.sale_type.option, 'priced');
+  assert.equal(search.sourceAudit, 'completed');
+  assert.equal(search.sourceTimes.stats, stats.fetchedAt);
+  assert.ok(search.fetchedCount > 0 && search.fetchedCount <= 3);
+  assert.equal(search.sourceStatistics.sampleCount, search.fetchedCount);
+  assert.ok(search.listings.every(listing => !('whisper_token' in listing.listing)));
+  const repeat = await call('search_official_trade', searchArgs);
+  assert.deepEqual(repeat.sourceTimes, search.sourceTimes);
   mcp.child.stdin.end(); assert.equal((await exited)[0], 0);
   console.log('source-backed comparable live integration passed');
 } finally {

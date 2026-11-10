@@ -12,16 +12,18 @@ type Filter = { stat_id: string; min?: number; max?: number };
 type Group = { type: 'and' | 'or' | 'count'; filters: Filter[]; min?: number; max?: number };
 
 export async function estimateComparable(client: ComparableClient, args: Record<string, unknown>) {
+  if (Object.keys(args).some(key => !['league', 'base_type', 'stat_groups', 'limit'].includes(key))) throw new Error('unsupported comparable search option');
   const league = typeof args.league === 'string' ? args.league.trim() : '';
   const base = typeof args.base_type === 'string' ? args.base_type.trim() : '';
   const groups = args.stat_groups as Group[];
-  if (!league || !base || !Array.isArray(groups) || !groups.length) throw new Error('league, base_type and at least one stat group are required');
-  if (groups.length > 10 || groups.some(group => !group || !['and', 'or', 'count'].includes(group.type) || !Array.isArray(group.filters) || !group.filters.length || group.filters.length > 20 ||
+  if (!league || league.length > 100 || !base || base.length > 200 || !Array.isArray(groups) || !groups.length) throw new Error('league, base_type and at least one stat group are required');
+  if (args.limit !== undefined && (typeof args.limit !== 'number' || !Number.isInteger(args.limit) || args.limit < 1 || args.limit > 10)) throw new Error('limit must be an integer between 1 and 10');
+  if (groups.length > 10 || groups.some(group => !group || typeof group !== 'object' || Array.isArray(group) || Object.keys(group).some(key => !['type', 'filters', 'min', 'max'].includes(key)) || !['and', 'or', 'count'].includes(group.type) || !Array.isArray(group.filters) || !group.filters.length || group.filters.length > 20 ||
     (group.min !== undefined && !Number.isFinite(group.min)) || (group.max !== undefined && !Number.isFinite(group.max)) ||
     (group.min !== undefined && group.max !== undefined && group.min > group.max) ||
     (group.type === 'count' && ([group.min, group.max].some(value => value !== undefined && (!Number.isInteger(value) || value < 0)) ||
       (group.min !== undefined && group.min > group.filters.length))) ||
-    group.filters.some(filter => !filter || typeof filter.stat_id !== 'string' || !filter.stat_id.trim() ||
+    group.filters.some(filter => !filter || typeof filter !== 'object' || Array.isArray(filter) || Object.keys(filter).some(key => !['stat_id', 'min', 'max'].includes(key)) || typeof filter.stat_id !== 'string' || !filter.stat_id.trim() || filter.stat_id !== filter.stat_id.trim() || filter.stat_id.length > 200 ||
       (filter.min !== undefined && !Number.isFinite(filter.min)) || (filter.max !== undefined && !Number.isFinite(filter.max)) ||
       (filter.min !== undefined && filter.max !== undefined && filter.min > filter.max)))) {
     throw new Error('invalid stat_groups');
@@ -37,7 +39,7 @@ export async function estimateComparable(client: ComparableClient, args: Record<
   const query = builder.build();
   query.query.type = base;
   const search = await client.searchItems(league, query);
-  const limit = typeof args.limit === 'number' && Number.isInteger(args.limit) ? Math.max(1, Math.min(10, args.limit)) : 10;
+  const limit = (args.limit as number | undefined) ?? 10;
   const listings = await client.fetchItems((search.result ?? []).slice(0, limit), search.id);
   const sourceStatistics = collectSourceStatistics(listings, normalized.flatMap(group => group.filters.map(filter => filter.id)));
   const prices = new Map<string, number[]>();

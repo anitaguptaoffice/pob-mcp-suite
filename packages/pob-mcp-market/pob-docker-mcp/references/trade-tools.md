@@ -14,7 +14,7 @@ Trade tools are environment-gated.
 
 - Use `get_leagues` before searching when the league is unclear.
 - Use `search_stats` to find trade stat identifiers before building detailed stat filters.
-- Use `search_trade_items` for concrete item searches.
+- Use `search_official_trade` for concrete item searches when advertised; it defaults to `securable` and `priced` and reports original source times and missing listings. Otherwise use the legacy `search_trade_items` if advertised. The new interface requires explicit `status` and does not accept the legacy `online_only` alias.
 - Use `get_item_price` for simple price checks.
 - Use `find_item_upgrades`, `find_resistance_gear`, and `generate_shopping_list` only after loading or identifying the build.
 - Use `compare_trade_items` to display raw details of specific listings. It does not compare currencies or calculate PoB replacement benefits; evaluate those separately.

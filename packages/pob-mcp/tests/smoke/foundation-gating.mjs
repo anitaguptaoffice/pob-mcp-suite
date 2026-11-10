@@ -34,6 +34,8 @@ try {
   assert.ok(!foundationOnly.result.tools.some(t => t.name === 'estimate_trade_comparable'));
   const tradeDenied = await first.request('tools/call', { name: 'estimate_trade_comparable', arguments: { league: 'Standard', base_type: 'Gold Ring', stat_groups: [] } });
   assert.equal(tradeDenied.result.isError, true);
+  const searchDenied = await first.request('tools/call', { name: 'search_official_trade', arguments: { league: 'Standard' } });
+  assert.equal(searchDenied.result.isError, true);
   assert.ok(!foundationOnly.result.tools.some(t => t.name === 'list_builds'));
   const budget = await first.request('tools/call', { name: 'compare_craft_budget', arguments: { scenarios: [{ name: 'fixture', success_probability: 0.5, chaos_per_attempt: 2, probability_source: 'test fixture' }] } });
   assert.ok(!budget.error && !budget.result?.isError, JSON.stringify(budget));
@@ -57,6 +59,7 @@ try {
   await init(newTrade);
   const tradeTools = await newTrade.request('tools/list', {});
   assert.equal(tradeTools.result.tools.filter(t => t.name === 'estimate_trade_comparable').length, 1);
+  assert.equal(tradeTools.result.tools.filter(t => t.name === 'search_official_trade').length, 1);
   assert.equal(tradeTools.result.tools.filter(t => t.name === 'search_trade_stats').length, 1);
   assert.equal(tradeTools.result.tools.filter(t => t.name === 'list_trade_leagues').length, 1);
   assert.ok(!tradeTools.result.tools.some(t => t.name === 'estimate_comparable_item'));
@@ -69,6 +72,7 @@ try {
   assert.ok(combined.result.tools.some(t => t.name === 'estimate_comparable_item'));
   assert.ok(!combined.result.tools.some(t => t.name === 'estimate_trade_comparable'));
   assert.ok(!combined.result.tools.some(t => t.name === 'search_trade_stats'));
+  assert.ok(!combined.result.tools.some(t => t.name === 'search_official_trade'));
   assert.equal(combined.result.tools.filter(t => t.name === 'compare_craft_budget').length, 1);
   assert.equal(combined.result.tools.filter(t => t.name === 'simulate_simple_annul').length, 1);
   assert.equal(combined.result.tools.filter(t => t.name === 'estimate_snapshot_cost').length, 1);

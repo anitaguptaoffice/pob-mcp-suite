@@ -48,7 +48,8 @@ adapter use the shared cache; `estimate_snapshot_cost` combines that source with
 an explicit immutable PoB snapshot. Its pure price model is shared with the
 legacy cost tool and compared in unit tests; the legacy router and client/skill
 migration remain pending. The independent `OfficialTradeSource` and adapter now
-back `estimate_trade_comparable`, `search_trade_stats` and `list_trade_leagues`.
+back `estimate_trade_comparable`, `search_official_trade`, `search_trade_stats`
+and `list_trade_leagues`.
 The comparable policy and query/source-audit rules now live in feature/domain
 modules without a legacy-client dependency; temporary re-exports serve old
 callers until their routes are removed. Other source ports remain pending.
@@ -64,7 +65,8 @@ stable offline CI fixture or proof of listing availability.
 
 On 2026-11-11 the opt-in `test:smoke:source-comparable` validated official
 international league and stat metadata, a `securable` and `priced` search,
-listing fetch, per-source statistics and separate original retrieval times.
+listing fetch, general and comparable searches, per-source statistics and
+separate original retrieval times.
 In foundation-only mode these new trade tools are advertised only when
 `POE_TRADE_ENABLED=true`. While the legacy mutable Trade client is enabled in
 compatibility mode, the new trade tools are hidden to avoid two uncoordinated

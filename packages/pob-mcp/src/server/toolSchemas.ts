@@ -18,6 +18,7 @@ export interface ToolSchema {
     type: "object";
     properties?: Record<string, Record<string, unknown>> & { type?: string };
     required?: string[];
+    additionalProperties?: boolean | Record<string, unknown>;
   };
   /**
    * Server-side policy flag: large text responses from this tool are

@@ -32,7 +32,7 @@ describe('official Trade source adapter', () => {
 
   it('keeps search contexts separate and reports partially unavailable listings', async () => {
     const requests: string[] = [];
-    const fetcher = (async (url: string) => { requests.push(url); return ok({ result: [{ id: 'item2', item: { extended: { hashes: { fractured: [['fractured.stat_1', [0]]] } } } }] }); }) as unknown as typeof fetch;
+    const fetcher = (async (url: string) => { requests.push(url); return ok({ result: [{ id: 'item2', listing: {}, item: { extended: { hashes: { fractured: [['fractured.stat_1', [0]]] } } } }] }); }) as unknown as typeof fetch;
     const source = new OfficialTradeAdapter({ fetcher, minTimeMs: 0 });
     const result = await source.fetchListings(['item1', 'item2'], 'queryA');
     expect(result.data.missingIds).toEqual(['item1']);
@@ -75,5 +75,11 @@ describe('official Trade source adapter', () => {
     const source = new OfficialTradeAdapter({ fetcher, minTimeMs: 0 });
     await expect(source.leagues()).rejects.toMatchObject({ code: 'invalid-response' });
     await expect(source.stats()).rejects.toMatchObject({ code: 'invalid-response' });
+  });
+
+  it('rejects malformed listing payloads instead of counting them as available samples', async () => {
+    const fetcher = (async () => ok({ result: [{ id: 'item1', item: {} }] })) as unknown as typeof fetch;
+    const source = new OfficialTradeAdapter({ fetcher, minTimeMs: 0 });
+    await expect(source.fetchListings(['item1'], 'query')).rejects.toMatchObject({ code: 'invalid-response' });
   });
 });
