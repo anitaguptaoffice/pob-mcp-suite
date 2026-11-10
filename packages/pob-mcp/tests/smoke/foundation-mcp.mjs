@@ -55,6 +55,10 @@ try {
   const treeVersion = await call('foundation_derive_tree', { snapshot_id: geared.id, add_nodes: node.pathNodes });
   const changedTree = await call('foundation_inspect', { snapshot_id: treeVersion.id, sections: ['tree'] });
   assert.ok(node.pathNodes.every(id => changedTree.data.tree.nodes.includes(id)));
+  const treeDifference = await call('compare_snapshot_trees', { baseline_snapshot_id: geared.id, candidate_snapshot_id: treeVersion.id });
+  assert.deepEqual(treeDifference.nodesAdded, [...node.pathNodes].sort((a, b) => a - b));
+  assert.deepEqual(treeDifference.nodesRemoved, []);
+  assert.equal(treeDifference.treeVersion, gearedTree.data.tree.treeVersion);
   assert.equal(treeVersion.parentId, geared.id);
   const restoredTreeVersion = await call('foundation_derive_tree', { snapshot_id: treeVersion.id, remove_nodes: node.pathNodes });
   const restoredTree = await call('foundation_inspect', { snapshot_id: restoredTreeVersion.id, sections: ['tree'] });

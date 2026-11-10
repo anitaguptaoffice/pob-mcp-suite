@@ -114,7 +114,7 @@ acceptance work to perform during migration, not claims of completed tests.
 | `analyze_build` | Snapshot build-analysis workflow. | Extract gear, skills and tree from the requested version; label heuristic conclusions. |
 | `compare_builds` | Compare two explicit snapshot IDs. | Keep each build's configuration and data version visible; report incomparable or missing metrics. |
 | `refresh_tree_data` | Versioned passive-data adapter refresh is needed. | Invalidate only the requested version and surface failures rather than returning stale data as fresh. |
-| `compare_trees` | Snapshot tree-difference feature. | Node and mastery differences use the correct versions and disclose incompatible versions. |
+| `compare_trees` | `compare_snapshot_trees` compares two explicit snapshot IDs; legacy file callers require migration. | `snapshotTreeComparison.test.ts` verifies mastery changes, missing data and version rejection; `foundation-mcp.mjs` verifies node changes against real PoB. Incompatible or unknown versions are rejected. |
 | `get_nearby_nodes` | Snapshot-bound versioned tree-neighborhood query. | Distance, filter and candidate scope match requested tree. |
 | `find_path_to_node` | Snapshot-bound PoB path query. | Confirm reachable path and disconnected or unavailable target behavior. |
 | `validate_build` | Snapshot validation workflow. | Compare selected configuration, report missing stats and preserve existing regressions. |

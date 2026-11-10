@@ -28,6 +28,14 @@ The command pulls the published Docker image on first run, then runs `pob-mcp-se
 
 ## Recommended Workflow
 
+First inspect the server's advertised tools. When `foundation_import_build` is
+available, use the snapshot workflow in `../../references/snapshot-workflows.md`.
+Build operations after import must name their snapshot; do not call legacy `lua_*` tools or assume
+there is an implicitly loaded build. The snapshot API is still being migrated:
+if a requested operation has no advertised equivalent, say it is unavailable.
+
+The following workflow applies only when the server advertises the legacy tools:
+
 1. Confirm the user has a PoB XML file or a build in the mounted builds directory.
 2. Use `list_builds` when the user refers to a saved build by name.
 3. For pobb.in URLs, decode or import the build XML first, then place it in the mounted builds directory before using MCP tools.
@@ -67,7 +75,7 @@ For detailed tool selection, verification, and known edge cases, read the releva
 
 ## Common Tool Groups
 
-Use Lua-backed tools whenever available because they use real PoB calculations:
+For the legacy server, use Lua-backed tools whenever available because they use real PoB calculations:
 
    - `lua_load_build`
    - `lua_get_build_info`
@@ -101,10 +109,10 @@ Use mutation and export tools only after summarizing the intended change:
 ## Guardrails
 
 - Do not claim a DPS or defensive number unless it came from a PoB/Lua tool result or an explicitly provided build export.
-- Before suggesting tree edits, check current tree version and allocated nodes.
+- Before suggesting tree edits, check current tree version and allocated nodes. In snapshot mode use `foundation_inspect` with `tree` and derive an explicit child; see the snapshot workflow.
 - Before mutating a build, summarize the intended change and prefer snapshot/export tools when available.
 - Treat trade and poe.ninja data as live external data; if the MCP has trade disabled, state that price guidance is approximate.
-- Before building a non-unique item search, use `search_stats` with `official_sources=true`. Do not assume an `explicit.stat_*` filter also matches identically worded `Implicit`, `Fractured`, `Crafted`, or `Enchant` stats.
+- Before building a non-unique item search, use `search_trade_stats` when advertised, otherwise legacy `search_stats` with `official_sources=true`. Do not assume an `explicit.stat_*` filter also matches identically worded `Implicit`, `Fractured`, `Crafted`, or `Enchant` stats.
 - Prefer a suitable `Pseudo` total when one exists. Otherwise put compatible source variants for one semantic requirement in one `count`/`or` group, and keep separate mandatory requirements in separate groups. Do not mechanically add every same-text source to named unique searches.
 - Use `status=securable` when the user asks for instant-buyout or immediately purchasable listings.
 - If the Docker runtime is unavailable, ask the user to start Docker and rerun the MCP command.

@@ -50,6 +50,7 @@ import { createSourceComparableTool, sourceComparableSchema } from './features/t
 import { createTradeMetadataTools, tradeMetadataSchemas } from './features/tradeMetadata/tools.js';
 import { createTradeSearchTool, tradeSearchSchema } from './features/tradeSearch/tool.js';
 import { createTradeItemPriceTool, tradeItemPriceSchema } from './features/tradePrice/tool.js';
+import { createSnapshotTreeComparisonTool, snapshotTreeComparisonSchema } from './features/treeComparison/tool.js';
 
 // Import utilities
 import { ContextBuilder } from "./utils/contextBuilder.js";
@@ -104,6 +105,7 @@ class PoBMCPServer {
       ...tradeMetadataSchemas(),
       tradeSearchSchema(),
       tradeItemPriceSchema(),
+      snapshotTreeComparisonSchema(),
       ...getLuaToolSchemas(),
       ...buildCostSchemas(),
       ...getOptimizationToolSchemas(),
@@ -454,7 +456,7 @@ class PoBMCPServer {
         adapterPath, timeoutMs: process.env.POB_TIMEOUT_MS ? Number(process.env.POB_TIMEOUT_MS) : undefined,
       }));
       const foundation = this.foundation;
-      const migrated = [createSnapshotCostTool(foundation, new PoeNinjaAdapter())];
+      const migrated = [createSnapshotCostTool(foundation, new PoeNinjaAdapter()), createSnapshotTreeComparisonTool(foundation)];
       // Until the legacy Trade client is retired, do not run two independent
       // rate limiters in one service against the same official API.
       if (process.env.POE_TRADE_ENABLED === 'true' && !this.legacyEnabled()) {

@@ -2,6 +2,10 @@
 
 Use this reference when the user asks where to spend passives, how to path to nodes, or whether a tree edit is worth making.
 
+The tools below describe the legacy server. When `foundation_import_build` is
+advertised, follow `snapshot-workflows.md`; legacy pathing and optimization tools
+may be unavailable. Do not infer path reachability or measured gains from search.
+
 ## Tool Selection
 
 - Use `lua_load_build`, `lua_get_tree`, and `lua_get_stats` before recommending changes.

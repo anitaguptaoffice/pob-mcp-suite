@@ -2,6 +2,9 @@
 
 Use this reference when the MCP output looks wrong, Docker fails, or a build does not match pobb.in or PoB.
 
+Snapshot mode uses the explicit ID workflow in `snapshot-workflows.md`; references
+to loaded-build and `lua_*` tools below apply only to the legacy server.
+
 ## Build Not Found
 
 Check:

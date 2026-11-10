@@ -2,6 +2,10 @@
 
 This reference is for agent operation. It complements MCP tool schemas with policy about which outputs to trust and what to verify.
 
+This document describes the legacy mutable-session tools. If the server advertises
+`foundation_import_build`, use `snapshot-workflows.md` instead; legacy tool names
+below may not be present and must not be assumed to share snapshot state.
+
 ## Docs, References, And Skills
 
 - A Codex skill is discovered from `skills/<skill-name>/SKILL.md`.
