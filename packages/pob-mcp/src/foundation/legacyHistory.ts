@@ -74,3 +74,14 @@ export async function readLegacyHistory(directory: string, buildName: string, or
   const xml = await readBounded(catalog.root, path.join(folder, entry.xmlName), MAX_BUILD_BYTES);
   return { xml, xmlDigest: digest(xml), metadata: entry.metadata, metadataDigest: entry.metadataDigest, id, origin, buildName };
 }
+
+/** Explicit recovery of an unpaired old XML; its name is data, not a trusted tag. */
+export async function readUnpairedLegacyHistory(directory: string, buildName: string, origin: string, file: string) {
+  if (typeof origin !== 'string' || typeof file !== 'string' || file.length > 255 || file === '.' || file === '..' || file.includes('/') || file.includes('\\') || file.includes('\0') || !file.toLowerCase().endsWith('.xml')) throw new Error('Invalid unpaired history selection');
+  const catalog = await listLegacyHistory(directory, buildName);
+  if (catalog.issues.some(issue => issue.reason === 'ENTRY_LIMIT')) throw new Error('Legacy history scan exceeded its limit; unpaired status is unknown');
+  if (!catalog.issues.some(issue => issue.origin === origin && issue.file === file && issue.reason === 'XML_WITHOUT_READABLE_METADATA')) throw new Error('Unpaired XML not found; refresh the legacy history catalog');
+  const folder = sanitizeBuildName(origin, path.join(catalog.root, '.pob-mcp', 'snapshots'));
+  const xml = await readBounded(catalog.root, path.join(folder, file), MAX_BUILD_BYTES);
+  return { buildName, origin, file, xml, xmlDigest: digest(xml) };
+}

@@ -19,6 +19,11 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   `list_snapshot_history`. Legacy cached stats are historical values, not
   recalculated results. If recording metadata fails after import, the error
   identifies the durable snapshot; retry the same import to record it.
+- An `XML_WITHOUT_READABLE_METADATA` issue may represent an old backup or an
+  incomplete history entry. Inspect it with `inspect_unpaired_legacy_xml`,
+  then pass the returned digest to `import_unpaired_legacy_xml` if the user
+  wants to recover it. The original tag, timestamp and purpose are unknown;
+  the saved recovery metadata is explicitly synthetic and preserves the filename.
 - Use `save_snapshot_history` to retain a snapshot with an explicit build name,
   tag and description. `list_snapshot_history` filters by exact name and tag;
   use its fingerprint when paging. Retention can succeed even if writing the

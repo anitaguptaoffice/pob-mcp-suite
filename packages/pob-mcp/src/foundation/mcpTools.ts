@@ -3,12 +3,14 @@ import type { BuildFoundation, EvaluationOptions } from './buildFoundation.js';
 import type { EvaluationInput, JobRunner } from './jobRunner.js';
 import { snapshotMetadata } from './snapshotStore.js';
 import { readLocalBuild, saveLocalBuild } from './localBuildFile.js';
-import { listLegacyHistory, readLegacyHistory } from './legacyHistory.js';
+import { listLegacyHistory, readLegacyHistory, readUnpairedLegacyHistory } from './legacyHistory.js';
 import { createHash } from 'node:crypto';
 import { inspectLocalFile, restoreLocalFile } from './restoreLocalFile.js';
 
 /** Experimental surface; enabled only by explicit configuration. */
 export const foundationSchemas: ToolSchema[] = [
+  { name: 'inspect_unpaired_legacy_xml', description: 'Fingerprint an old history XML without readable metadata, selected from list_legacy_build_history issues. Does not infer its tag or purpose.', inputSchema: { type: 'object', additionalProperties: false, properties: { build_name: { type: 'string' }, origin: { type: 'string' }, file: { type: 'string' } }, required: ['build_name', 'origin', 'file'] } },
+  { name: 'import_unpaired_legacy_xml', description: 'Explicitly import an unpaired old history XML after verifying its inspected content digest. Records the original filename without inventing missing metadata.', inputSchema: { type: 'object', additionalProperties: false, properties: { build_name: { type: 'string' }, origin: { type: 'string' }, file: { type: 'string' }, expected_xml_sha256: { type: 'string' } }, required: ['build_name', 'origin', 'file', 'expected_xml_sha256'] } },
   { name: 'inspect_local_build_file', description: 'Read a local build file fingerprint before an explicit restore; no PoB engine is started.', inputSchema: { type: 'object', additionalProperties: false, properties: { build_name: { type: 'string' } }, required: ['build_name'] } },
   { name: 'restore_snapshot_file', description: 'Replace an existing local build file using an explicit snapshot and expected current fingerprint. Saves a durable backup snapshot by default; external writes can still race the final replacement.', inputSchema: { type: 'object', additionalProperties: false, properties: { snapshot_id: { type: 'string' }, build_name: { type: 'string' }, expected_current_sha256: { type: 'string' }, backup_current: { type: 'boolean' } }, required: ['snapshot_id', 'build_name', 'expected_current_sha256'] } },
   { name: 'save_snapshot_history', description: 'Permanently retain a snapshot and record its build name, tag and description separately from snapshot content.', inputSchema: { type: 'object', additionalProperties: false, properties: { snapshot_id: { type: 'string' }, build_name: { type: 'string' }, tag: { type: 'string' }, description: { type: 'string' } }, required: ['snapshot_id', 'build_name', 'tag'] } },
@@ -73,6 +75,26 @@ export async function invokeFoundation(foundation: BuildFoundation, name: string
     return args.trial === true;
   };
   switch (name) {
+    case 'inspect_unpaired_legacy_xml': {
+      if (!buildsDirectory || Object.keys(args).some(key => !['build_name', 'origin', 'file'].includes(key))) throw new Error('Invalid unpaired history selection');
+      const { xml, ...selected } = await readUnpairedLegacyHistory(buildsDirectory, stringArg('build_name'), stringArg('origin'), stringArg('file'));
+      return { ...selected, sizeBytes: Buffer.byteLength(xml, 'utf8'), warnings: ['Metadata is missing or unreadable; the filename does not establish the original tag, timestamp or purpose.'] };
+    }
+    case 'import_unpaired_legacy_xml': {
+      if (!buildsDirectory || Object.keys(args).some(key => !['build_name', 'origin', 'file', 'expected_xml_sha256'].includes(key))) throw new Error('Invalid unpaired history selection');
+      const expected = stringArg('expected_xml_sha256');
+      if (!/^[a-f0-9]{64}$/.test(expected)) throw new Error('Invalid XML fingerprint');
+      const selected = await readUnpairedLegacyHistory(buildsDirectory, stringArg('build_name'), stringArg('origin'), stringArg('file'));
+      if (selected.xmlDigest !== expected) throw new Error('Unpaired XML changed since inspection; no snapshot was imported');
+      const snapshot = await foundation.importBuild(selected.xml, `legacy-unpaired:${selected.buildName}:${selected.origin}:${selected.file}`);
+      const metadata = { status: 'unpaired', originalFileName: selected.file, identifierSource: 'sha256_of_filename', metadataDigestSource: 'synthetic_recovery_metadata' };
+      const metadataDigest = createHash('sha256').update(JSON.stringify(metadata)).digest('hex');
+      const legacyId = createHash('sha256').update(selected.file).digest('hex');
+      let history;
+      try { history = await foundation.saveHistory(snapshot.id, { buildName: selected.buildName, tag: '', description: '', recordedAt: null, legacy: { id: legacyId, origin: selected.origin, metadataDigest, xmlDigest: selected.xmlDigest, metadata } }); }
+      catch (error) { throw new Error(`Snapshot ${snapshot.id} was imported, but recovery history could not be saved; retry: ${error instanceof Error ? error.message : String(error)}`); }
+      return { snapshot: snapshotMetadata(snapshot), history, warnings: ['Original XML is unchanged. Original metadata, tag, timestamp and purpose are unknown.'] };
+    }
     case 'inspect_local_build_file':
       if (!buildsDirectory || Object.keys(args).some(key => key !== 'build_name')) throw new Error('Invalid local build file inspection');
       return inspectLocalFile(buildsDirectory, stringArg('build_name'));

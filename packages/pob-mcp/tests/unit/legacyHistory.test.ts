@@ -22,6 +22,7 @@ describe('legacy build history', () => {
       const selected = catalog.entries.find(entry => entry.origin === 'build.xml')!;
       const result = await readLegacyHistory(root, 'build', selected.origin, selected.id, selected.metadataDigest);
       expect(result.xml).toBe('<build/>'); expect(result.metadata).toEqual(JSON.parse(metadata));
+      await expect(invokeFoundation({} as BuildFoundation, 'inspect_unpaired_legacy_xml', { build_name: 'build', origin: selected.origin, file: 'abc_my-tag.xml' }, undefined, root)).rejects.toThrow('Unpaired XML not found');
       expect(await readFile(path.join(folder, 'abc_metadata.json'), 'utf8')).toBe(metadata);
       expect(await readdir(folder)).toHaveLength(2);
       await writeFile(path.join(folder, 'abc_metadata.json'), metadata.replace('saved', 'changed'));
@@ -60,6 +61,27 @@ describe('legacy build history', () => {
       expect(imported.snapshot).not.toHaveProperty('xml'); expect(imported.legacy.metadata.description).toBe('a');
       await writeFile(path.join(folder, 'b_metadata.json'), JSON.stringify({ tag: 'saved', description: 'changed' }));
       await expect(invokeFoundation(foundation, 'list_legacy_build_history', { build_name: 'build', limit: 1, after: 1, catalog_fingerprint: first.catalogFingerprint }, undefined, root)).rejects.toThrow('restart pagination');
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+  it('imports unpaired XML only after fingerprint verification and keeps unknown metadata explicit', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'pob-unpaired-'));
+    try {
+      const folder = path.join(root, '.pob-mcp', 'snapshots', 'build.xml'); await mkdir(folder, { recursive: true });
+      const file = '2024-01-01_before-restore.xml'; await writeFile(path.join(folder, file), '<build/>');
+      const importBuild = jest.fn(async (xml: string, source: string) => ({ id: 'snapshot', xml, source }));
+      const saveHistory = jest.fn(async (_id, input) => ({ id: 'history', ...input }));
+      const foundation = { importBuild, saveHistory } as unknown as BuildFoundation;
+      const args = { build_name: 'build', origin: 'build.xml', file };
+      const info = await invokeFoundation(foundation, 'inspect_unpaired_legacy_xml', args, undefined, root) as any;
+      await writeFile(path.join(folder, file), '<changed/>');
+      await expect(invokeFoundation(foundation, 'import_unpaired_legacy_xml', { ...args, expected_xml_sha256: info.xmlDigest }, undefined, root)).rejects.toThrow('changed since inspection');
+      expect(importBuild).not.toHaveBeenCalled();
+      const updated = await invokeFoundation(foundation, 'inspect_unpaired_legacy_xml', args, undefined, root) as any;
+      const result = await invokeFoundation(foundation, 'import_unpaired_legacy_xml', { ...args, expected_xml_sha256: updated.xmlDigest }, undefined, root) as any;
+      expect(result.history.tag).toBe(''); expect(result.history.recordedAt).toBeNull();
+      expect(result.history.legacy.metadata).toMatchObject({ status: 'unpaired', originalFileName: file, identifierSource: 'sha256_of_filename' });
+      await expect(invokeFoundation(foundation, 'inspect_unpaired_legacy_xml', { ...args, file: '../outside.xml' }, undefined, root)).rejects.toThrow('Invalid unpaired');
+      expect(await readFile(path.join(folder, file), 'utf8')).toBe('<changed/>');
     } finally { await rm(root, { recursive: true, force: true }); }
   });
 });
