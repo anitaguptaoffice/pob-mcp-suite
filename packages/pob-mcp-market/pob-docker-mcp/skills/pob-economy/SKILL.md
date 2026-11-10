@@ -26,6 +26,11 @@ advertised, otherwise `find_resistance_gear`. Its total budget limits each item
 but does not prove that a combination fits the budget. Resistance search values
 are not the net gain after replacing current gear; compare in PoB.
 
+For cluster jewels, use `search_cluster_listings` when advertised, otherwise
+`search_cluster_jewels`. Enchant text and notable names are local checks over
+at most 30 fetched results; the trade link represents a broader query. Report
+missing or unexamined listings and do not treat an empty sample as an empty market.
+
 The poe.ninja source covers public economy data only. Do not call its internal builds/profile endpoints. Prices and availability change; respect source limits and caching. If data or a rate is unavailable, say so instead of estimating zero.
 
 For currency reference values, use `reference_currency_rates` when advertised,

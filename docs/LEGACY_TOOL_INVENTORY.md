@@ -135,7 +135,7 @@ Generated from registered schema groups in the current build. Most entries are p
 - `search_stats` — target: market and workflows; replacement: `search_trade_stats` for official metadata; status: new source tool live-tested, static fallback and callers require separate migration; skill references: `references/trade-tools.md`, `skills/pob-docker-mcp/SKILL.md`.
 - `compare_trade_items` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: `references/trade-tools.md`.
 - `find_resistance_gear` — target: market and workflows; replacement: `search_resistance_listings`; status: source-backed search live-tested, legacy callers require migration; skill references: `references/trade-tools.md`, `skills/pob-economy/SKILL.md`.
-- `search_cluster_jewels` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `search_cluster_jewels` — target: market and workflows; replacement: `search_cluster_listings`; status: source-backed bounded search live-tested, legacy aliases and callers require migration; skill references: `skills/pob-economy/SKILL.md`.
 - `generate_shopping_list` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: `references/trade-tools.md`.
 
 ## getValidationToolSchemas

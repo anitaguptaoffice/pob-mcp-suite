@@ -26,6 +26,7 @@
     "test:smoke:source-comparable": "node tests/smoke/source-comparable-live.mjs",
     "test:smoke:currency-reference": "node tests/smoke/currency-reference-live.mjs",
     "test:smoke:trade-preview": "node tests/smoke/trade-preview-live.mjs",
+    "test:smoke:cluster-trade": "node tests/smoke/cluster-trade-live.mjs",
     "test:smoke:economy": "node tests/smoke/economy-mcp.mjs",
     "test:smoke:crafting": "node tests/smoke/crafting-mcp.mjs",
     "test:smoke:persistence": "node tests/smoke/persistence.mjs",
