@@ -73,6 +73,7 @@ export async function openPoBEngine(options: PoBEngineOptions): Promise<BuildEng
     removeSkill: params => client.removeSkill(params),
     setFlaskActive: (index, active) => client.setFlaskActive(index, active),
     listItemSets: () => client.listItemSets(), selectItemSet: id => client.selectItemSet(id),
+    listSpecs: () => client.listSpecs(), selectSpec: index => client.selectSpec(index),
     getCompatibleSupports: params => client.getCompatibleSupports(params),
     getConfig: () => client.getConfig(), close: () => client.stop(),
   };

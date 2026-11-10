@@ -61,8 +61,8 @@ acceptance work to perform during migration, not claims of completed tests.
 | `update_tree_delta` | `foundation_derive_tree` for exact nodes; legacy automatic path completion is not supplied. | Test disconnected request, explicit path, removals and mastery against actual PoB. |
 | `search_tree_nodes` | `foundation_search_tree`; bounded unordered results have different limits/defaults. | Verify tree version, filter, allocated flag and truncation disclosure. |
 | `save_tree` | Typed tree derivation and explicit file save; backup and tree-only replacement need dedicated handling. | Other source-file sections remain intact and backup semantics are explicit. |
-| `list_specs` | Versioned tree-spec listing is needed. | All named specs and active selection survive reload. |
-| `select_spec` | Typed spec selection is needed. | Recalculated snapshot selects the requested spec and preserves other specs. |
+| `list_specs` | `foundation_specs` lists named tree specs for an explicit snapshot; legacy callers require migration. | `foundation-specs.mjs` verifies active and alternate specs against real PoB. |
+| `select_spec` | `foundation_derive_spec` selects a spec in a child and verifies every spec's tree and equipment observations after reload; legacy callers require migration. | `foundation-specs.mjs` verifies switching and restoring; `buildFoundation.test.ts` rejects inactive-tree corruption. |
 | `create_spec` | Typed spec creation/copy is needed. | Copy source and activation flag are honored, with no partial publication on failure. |
 | `delete_spec` | Typed spec deletion is needed. | Invalid and active-spec cases are explicit; other specs and parent survive. |
 | `rename_spec` | Typed spec rename is needed. | Name survives reload and no unrelated spec changes. |
