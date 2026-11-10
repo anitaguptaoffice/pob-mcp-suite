@@ -230,7 +230,7 @@ export async function handleExportBuildSummary(context: ExportContext) {
     }
     const fields = [
       'Life', 'EnergyShield', 'Mana', 'ManaUnreserved', 'TotalDPS', 'CombinedDPS',
-      'MinionTotalDPS', 'FireResist', 'ColdResist', 'LightningResist', 'ChaosResist',
+      'MinionTotalDPS', 'MinionCombinedDPS', 'FireResist', 'ColdResist', 'LightningResist', 'ChaosResist',
       'Armour', 'Evasion', 'TotalEHP', 'LifeRegen', 'SpellSuppressionChance', 'BlockChance',
     ];
     const info: BuildInfo | undefined = await read('角色信息', () => luaClient.getBuildInfo());
@@ -258,7 +258,7 @@ export async function handleExportBuildSummary(context: ExportContext) {
     ];
     const rows: Array<[string, string, string?]> = [
       ['生命', 'Life'], ['能量护盾', 'EnergyShield'], ['魔力', 'Mana'], ['未保留魔力', 'ManaUnreserved'],
-      ['TotalDPS', 'TotalDPS'], ['CombinedDPS', 'CombinedDPS'], ['MinionTotalDPS', 'MinionTotalDPS'],
+      ['TotalDPS', 'TotalDPS'], ['CombinedDPS', 'CombinedDPS'], ['MinionTotalDPS', 'MinionTotalDPS'], ['MinionCombinedDPS', 'MinionCombinedDPS'],
       ['有效生命（TotalEHP）', 'TotalEHP'], ['火焰抗性', 'FireResist', '%'], ['冰霜抗性', 'ColdResist', '%'],
       ['闪电抗性', 'LightningResist', '%'], ['混沌抗性', 'ChaosResist', '%'], ['护甲', 'Armour'],
       ['闪避值', 'Evasion'], ['格挡率', 'BlockChance', '%'], ['法术压制几率', 'SpellSuppressionChance', '%'],

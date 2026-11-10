@@ -43,4 +43,18 @@ describe('passive path simulation', () => {
     expect(result.content[0].text).toContain('无法取得用于比较的非零伤害或防御基准');
     expect(calcWith).not.toHaveBeenCalled();
   });
+
+  it('scores minion combined DPS when poison adds damage beyond hits', async () => {
+    const client = {
+      getStats: async () => ({ CombinedDPS: 0, TotalDPS: 0, MinionTotalDPS: 100, MinionCombinedDPS: 150, Life: 1000 }),
+      getBuildInfo: async () => ({ level: 1 }), getTree: async () => ({ nodes: [] }),
+      getItems: async () => [], getSkills: async () => ({ groups: [] }),
+      searchNodes: async () => ({ nodes: [{ id: 123, name: 'Poison node', type: 'notable', stats: [], pathNodes: [123] }] }),
+      calcWith: async () => ({ Minion: { TotalDPS: 100, CombinedDPS: 200 }, Life: 1000 }),
+    };
+    const context = { ensureLuaClient: async () => {}, getLuaClient: () => client } as unknown as Parameters<typeof handleGetPassiveUpgrades>[0];
+    const result = await handleGetPassiveUpgrades(context, 'dps');
+    expect(result.content[0].text).toContain('MinionCombinedDPS = 150');
+    expect(result.content[0].text).toContain('MinionCombinedDPS Δ: +50');
+  });
 });

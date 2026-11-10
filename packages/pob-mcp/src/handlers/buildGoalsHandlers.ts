@@ -16,7 +16,7 @@ const ISSUES_FIELDS = [
   'FireResistOverCap', 'ColdResistOverCap', 'LightningResistOverCap',
   'SpellSuppressionChance', 'EffectiveSpellSuppressionChance',
   // DPS fields needed by handleGetPassiveUpgrades for baseDPS scoring
-  'TotalDPS', 'CombinedDPS', 'MinionTotalDPS',
+  'TotalDPS', 'CombinedDPS', 'MinionTotalDPS', 'MinionCombinedDPS',
   // EHP field needed by handleGetPassiveUpgrades for baseEHP scoring
   'TotalEHP',
 ];
@@ -89,7 +89,8 @@ export async function handleGetBuildIssues(context: BuildGoalsHandlerContext) {
     const totalDPS = toFiniteNumber(stats.TotalDPS);
     const combinedDPS = toFiniteNumber(stats.CombinedDPS);
     const minionDPS = toFiniteNumber(stats.MinionTotalDPS);
-    if (totalDPS === 0 && combinedDPS === 0 && minionDPS === 0) {
+    const minionCombinedDPS = toFiniteNumber(stats.MinionCombinedDPS);
+    if (totalDPS === 0 && combinedDPS === 0 && minionDPS === 0 && minionCombinedDPS === 0) {
       issues.push({ severity: 'error', category: 'gems', message: 'Build does 0 DPS — no main skill selected, gems not linked, or skill not dealing damage. Check skill setup.' });
     }
 
@@ -214,7 +215,7 @@ export function formatIssuesResponse(issues: BuildIssue[], stats: Record<string,
   let text = '=== Build Issues ===\n\n';
 
   if (issues.length === 0) {
-    text += '✅ No issues found. Build looks healthy!\n';
+    text += '未发现已覆盖的异常；缺失数据和未覆盖的机制仍需核对。\n';
   } else {
     if (errors.length > 0) {
       text += `**Errors (${errors.length}):**\n`;
@@ -241,10 +242,12 @@ export function formatIssuesResponse(issues: BuildIssue[], stats: Record<string,
 
   text += '=== Current Stats ===\n';
   text += `Life: ${stats.Life ?? 'N/A'}  |  ES: ${stats.EnergyShield ?? 'N/A'}  |  Mana: ${stats.Mana ?? 'N/A'}\n`;
-  text += `Fire: ${stats.FireResist ?? 0}%  |  Cold: ${stats.ColdResist ?? 0}%  |  Lightning: ${stats.LightningResist ?? 0}%  |  Chaos: ${stats.ChaosResist ?? 0}%\n`;
-  const dps = stats.CombinedDPS ?? stats.TotalDPS ?? 0;
-  const minionDps = Number(stats.MinionTotalDPS ?? 0);
-  text += `DPS: ${Number(dps).toLocaleString()}${minionDps > 0 ? `  |  Minion DPS: ${Number(minionDps).toLocaleString()}` : ''}\n`;
+  const formatStat = (key: string, suffix = '') => {
+    const value = toFiniteNumber(stats[key]);
+    return value === undefined ? '未提供' : `${value.toLocaleString('en-US')}${suffix}`;
+  };
+  text += `火焰抗性: ${formatStat('FireResist', '%')}  |  冰霜抗性: ${formatStat('ColdResist', '%')}  |  闪电抗性: ${formatStat('LightningResist', '%')}  |  混沌抗性: ${formatStat('ChaosResist', '%')}\n`;
+  text += `TotalDPS: ${formatStat('TotalDPS')}  |  CombinedDPS: ${formatStat('CombinedDPS')}  |  MinionTotalDPS: ${formatStat('MinionTotalDPS')}  |  MinionCombinedDPS: ${formatStat('MinionCombinedDPS')}\n`;
 
   return {
     content: [{ type: 'text' as const, text }],

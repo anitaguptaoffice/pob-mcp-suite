@@ -358,7 +358,7 @@ export async function handleGetPassiveUpgrades(
   // Step 1: get current base stats and issues to determine search keywords
   const { issues, stats: baseStats } = await handleGetBuildIssues(context);
 
-  const damageKey = (['CombinedDPS', 'TotalDPS', 'MinionTotalDPS'] as const)
+  const damageKey = (['CombinedDPS', 'TotalDPS', 'MinionCombinedDPS', 'MinionTotalDPS'] as const)
     .find(key => (toFiniteNumber(baseStats[key]) ?? 0) > 0);
   const defenceKey = (['TotalEHP', 'Life'] as const)
     .find(key => (toFiniteNumber(baseStats[key]) ?? 0) > 0);
@@ -457,7 +457,7 @@ export async function handleGetPassiveUpgrades(
 
       // calcWith returns raw Lua output; minion stats are nested under out.Minion
       // (unlike getStats() which remaps them to MinionTotalDPS etc.)
-      const outDPS = damageKey === 'MinionTotalDPS' ? toFiniteNumber(out.Minion?.TotalDPS) :
+      const outDPS = damageKey === 'MinionCombinedDPS' ? toFiniteNumber(out.Minion?.CombinedDPS) : damageKey === 'MinionTotalDPS' ? toFiniteNumber(out.Minion?.TotalDPS) :
         damageKey ? toFiniteNumber(out[damageKey]) : undefined;
       const outEHP = defenceKey ? toFiniteNumber(out[defenceKey]) : undefined;
       if ((focus !== 'defence' && outDPS === undefined) || (focus !== 'dps' && outEHP === undefined)) continue;
@@ -547,8 +547,8 @@ export async function handleSuggestMasteries(context: PassiveUpgradesContext) {
   }
 
   // Get base stats for scoring
-  const baseStats = await luaClient.getStats(['TotalDPS', 'CombinedDPS', 'MinionTotalDPS', 'TotalEHP', 'Life']);
-  const damageKey = (['CombinedDPS', 'TotalDPS', 'MinionTotalDPS'] as const).find(key => (toFiniteNumber(baseStats[key]) ?? 0) > 0);
+  const baseStats = await luaClient.getStats(['TotalDPS', 'CombinedDPS', 'MinionTotalDPS', 'MinionCombinedDPS', 'TotalEHP', 'Life']);
+  const damageKey = (['CombinedDPS', 'TotalDPS', 'MinionCombinedDPS', 'MinionTotalDPS'] as const).find(key => (toFiniteNumber(baseStats[key]) ?? 0) > 0);
   const defenceKey = (['TotalEHP', 'Life'] as const).find(key => (toFiniteNumber(baseStats[key]) ?? 0) > 0);
   if (!damageKey || !defenceKey) return { content: [{ type: 'text' as const, text: '无法取得非零伤害和防御基准，无法可靠比较天赋专精。' }] };
   const baseDPS = toFiniteNumber(baseStats[damageKey])!;
@@ -582,7 +582,7 @@ export async function handleSuggestMasteries(context: PassiveUpgradesContext) {
         const out = await luaClient.calcWith({ masteryEffects: newMasteryEffects });
         if (!out) continue;
         // calcWith returns raw Lua output; minion stats nested under out.Minion
-        const outDPS = damageKey === 'MinionTotalDPS' ? toFiniteNumber(out.Minion?.TotalDPS) : toFiniteNumber(out[damageKey]);
+        const outDPS = damageKey === 'MinionCombinedDPS' ? toFiniteNumber(out.Minion?.CombinedDPS) : damageKey === 'MinionTotalDPS' ? toFiniteNumber(out.Minion?.TotalDPS) : toFiniteNumber(out[damageKey]);
         const outEHP = toFiniteNumber(out[defenceKey]);
         if (outDPS === undefined || outEHP === undefined) continue;
         scored.push({ stat: effect.stat, dpsDelta: outDPS - baseDPS, ehpDelta: outEHP - baseEHP });

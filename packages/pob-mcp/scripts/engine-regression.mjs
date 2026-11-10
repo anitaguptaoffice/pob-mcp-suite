@@ -64,6 +64,10 @@ try {
     `missing minion damage: ${JSON.stringify(minion)}`);
   assert.ok(Math.abs(minion.MinionTotalDPS - 246.18201754386) < 0.001,
     `minion baseline changed: ${minion.MinionTotalDPS}`);
+  const poisonConfig = await client.setConfig({ customMods: 'Minions have 100% chance to Poison on Hit' });
+  assert.ok(poisonConfig.applied.customMods, 'poison fixture configuration rejected');
+  const poisonBase = await client.getStats(['MinionTotalDPS', 'MinionCombinedDPS']);
+  assert.ok(poisonBase.MinionCombinedDPS > poisonBase.MinionTotalDPS, 'poison fixture must include ailment damage');
 
   const jewels = await client.findTimelessJewelSeeds({
     socketNodeId: 60735, desired: ['eternal_notable_minion_1'], seeds: [130660],
@@ -76,9 +80,11 @@ try {
   const minionSimulation = await client.calcWith({ addNodes: minionTarget.pathNodes });
   assert.ok(minionSimulation.Minion?.TotalDPS > 0, 'minion simulation must expose minion damage');
   await client.setTree({ ...minionTree, nodes: [...minionTree.nodes, ...minionTarget.pathNodes] });
-  const actualMinion = await client.getStats(['MinionTotalDPS']);
+  const actualMinion = await client.getStats(['MinionTotalDPS', 'MinionCombinedDPS']);
   assert.ok(Math.abs(actualMinion.MinionTotalDPS - minionSimulation.Minion.TotalDPS) < 0.01,
     `minion simulation disagrees with allocation: ${minionSimulation.Minion.TotalDPS} vs ${actualMinion.MinionTotalDPS}`);
+  assert.ok(Math.abs(actualMinion.MinionCombinedDPS - minionSimulation.Minion.CombinedDPS) < 0.01,
+    `poison minion combined DPS simulation disagrees with allocation: ${minionSimulation.Minion.CombinedDPS} vs ${actualMinion.MinionCombinedDPS}`);
   // This fixture was measured through both the pre-migration and new bridges
   // against the same PoB revision; it is not a desktop GUI measurement.
   const xml = await readFile(new URL('../tests/fixtures/occ-vortex.xml', import.meta.url), 'utf8');
