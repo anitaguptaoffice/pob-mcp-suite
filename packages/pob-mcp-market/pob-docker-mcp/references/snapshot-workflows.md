@@ -47,6 +47,9 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   the indices after removal. If a separately selected calculation-tab group is
   removed, supply `replacement_calcs_group` using the indices after removal.
   Other selected groups are reindexed to preserve their identities.
+- Use `foundation_derive_flask_active` for an explicit PoB flask activation
+  state and evaluate the child to measure its effect. This does not establish
+  whether the flask can be kept active in game.
 - Use `compare_snapshot_trees` for allocated node and mastery differences between
   two snapshots with the same known tree version. It does not prove legality,
   compute point cost, or measure the resulting damage.

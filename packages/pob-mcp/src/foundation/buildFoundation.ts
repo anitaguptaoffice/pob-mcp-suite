@@ -35,6 +35,7 @@ export interface BuildEngine {
   createSocketGroup(params: { label?: string; slot?: string; enabled?: boolean; includeInFullDPS?: boolean }): Promise<{ index: number; label?: string }>;
   setSocketGroupEnabled(params: { groupIndex: number; enabled: boolean }): Promise<{ groupIndex: number; enabled: boolean }>;
   removeSkill(params: { groupIndex: number }): Promise<void>;
+  setFlaskActive(index: number, active: boolean): Promise<void>;
   getCompatibleSupports(params: { groupIndex?: number; query?: string; limit?: number; includeExceptional?: boolean }): Promise<{
     groupIndex: number; skillName?: string; candidates: Array<{ id: string; name: string; exceptional: boolean; alreadySocketed: boolean }>;
     total: number; failed: number;
@@ -494,6 +495,23 @@ export class BuildFoundation {
       const after = normalizeObservation({ items: await engine.getItems() }).items;
       if (!Array.isArray(after) || added.slot !== slot || !Number.isSafeInteger(added.id) || added.id < 1 || after.filter(item => item.slot === slot && item.id === added.id).length !== 1) throw new Error('PoB did not equip the item in the requested slot');
       if (!isDeepStrictEqual(before.filter(item => item.slot !== slot), after.filter(item => item.slot !== slot))) throw new Error('Equipping the item changed other slots');
+    }, trial);
+  }
+
+  async deriveFlaskActive(id: string, flaskIndex: number, active: boolean, trial = false): Promise<SnapshotRecord> {
+    if (!Number.isInteger(flaskIndex) || flaskIndex < 1 || flaskIndex > 5 || typeof active !== 'boolean') throw new Error('Invalid flask state');
+    return this.derive(id, 'derived:flask-active', async engine => {
+      const read = async () => normalizeObservation({ tree: await engine.getTree(), items: await engine.getItems(), config: await engine.getConfig() });
+      type Item = Record<string, unknown> & { slot?: string; active?: boolean };
+      const before = await read();
+      const slot = `Flask ${flaskIndex}`;
+      if (!Array.isArray(before.items) || before.items.filter((item: Item) => item.slot === slot).length !== 1) throw new Error('Requested flask slot is unavailable');
+      await engine.setFlaskActive(flaskIndex, active);
+      const after = await read();
+      if (!Array.isArray(after.items) || after.items.filter((item: Item) => item.slot === slot).length !== 1 || after.items.find((item: Item) => item.slot === slot).active !== active) throw new Error('PoB did not confirm the requested flask state');
+      for (const section of ['tree', 'config'] as const) if (!isDeepStrictEqual(before[section], after[section])) throw new Error(`Flask state change modified unrelated ${section}`);
+      const canonical = (items: Item[]) => items.map(item => { const copy = { ...item }; if (item.slot === slot) delete copy.active; return copy; });
+      if (!isDeepStrictEqual(canonical(before.items), canonical(after.items))) throw new Error('Flask state change modified unrelated item data');
     }, trial);
   }
 

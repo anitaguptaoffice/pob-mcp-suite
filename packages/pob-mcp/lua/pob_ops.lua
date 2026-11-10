@@ -1062,7 +1062,10 @@ function M.set_flask_active(params)
     return nil, string.format('invalid flask index (must be 1-%d)', NUM_FLASK_SLOTS)
   end
   local slotName = 'Flask ' .. tostring(idx)
-  if not build.itemsTab.activeItemSet or not build.itemsTab.activeItemSet[slotName] then return nil, 'slot not found' end
+  if not build.itemsTab.activeItemSet or not build.itemsTab.activeItemSet[slotName] or not build.itemsTab.slots or not build.itemsTab.slots[slotName] then return nil, 'slot not found' end
+  -- ItemSlotControl updates both: calculations read the live slot, while
+  -- serialization reads the active item set. Keeping only one is stale.
+  build.itemsTab.slots[slotName].active = active
   build.itemsTab.activeItemSet[slotName].active = active
   -- Re-populate slots so flask effects are applied before recalculating
   if build.itemsTab.PopulateSlots then

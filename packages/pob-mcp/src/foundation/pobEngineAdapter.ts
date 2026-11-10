@@ -71,6 +71,7 @@ export async function openPoBEngine(options: PoBEngineOptions): Promise<BuildEng
     createSocketGroup: params => client.createSocketGroup(params),
     setSocketGroupEnabled: params => client.setSocketGroupEnabled(params),
     removeSkill: params => client.removeSkill(params),
+    setFlaskActive: (index, active) => client.setFlaskActive(index, active),
     getCompatibleSupports: params => client.getCompatibleSupports(params),
     getConfig: () => client.getConfig(), close: () => client.stop(),
   };
