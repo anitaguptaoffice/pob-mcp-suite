@@ -60,7 +60,10 @@ jobs:
           context: .
           load: true
           tags: ${{ env.IMAGE_NAME }}:ci
-          cache-from: type=gha,scope=pob-mcp-suite
+          cache-from: |
+            type=gha,scope=pob-mcp-suite
+            type=gha,scope=pob-mcp-suite-pr-${{ github.event.pull_request.number }}
+          cache-to: ${{ github.event_name == 'pull_request' && format('type=gha,scope=pob-mcp-suite-pr-{0},mode=max', github.event.pull_request.number) || '' }}
 
       - name: Smoke image
         run: |
