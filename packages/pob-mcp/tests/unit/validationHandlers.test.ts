@@ -50,6 +50,6 @@ describe('validate_build named-build isolation', () => {
     );
     expect(luaClient.getItems).toHaveBeenCalledTimes(useLiveData ? 1 : 0);
     expect(luaClient.getStats).toHaveBeenCalledTimes(useLiveData ? 1 : 0);
-    expect(luaClient.loadBuildXml).toHaveBeenCalledTimes(useLiveData ? 1 : 0);
+    expect(luaClient.loadBuildXml).not.toHaveBeenCalled();
   });
 });

@@ -42,15 +42,16 @@ export async function handleValidateBuild(
         let otherBuildInMemory = false;
         if (namedBuildXml !== undefined && buildName) {
           try {
+            const source = luaClient.getLoadedFilePath?.();
             const info = await luaClient.getBuildInfo();
-            const loadedName: string = info?.name ?? '';
+            const loaded = (info?.name ?? '').replace(/\.xml$/i, '');
             const requested = buildName.replace(/\.xml$/i, '');
-            const loaded    = loadedName.replace(/\.xml$/i, '');
-            otherBuildInMemory = Boolean(loaded) && loaded !== requested;
-          } catch (e) { noteIgnoredError("no build loaded — safe to load", e); }
-
-          if (!otherBuildInMemory) {
-            await luaClient.loadBuildXml(namedBuildXml, buildName, context.pobDirectory ? resolveBuildFile(buildName, context.pobDirectory) : undefined);
+            otherBuildInMemory = source && context.pobDirectory
+              ? source !== resolveBuildFile(buildName, context.pobDirectory)
+              : !loaded || loaded !== requested;
+          } catch (e) {
+            noteIgnoredError("cannot verify current build — preserve bridge state", e);
+            otherBuildInMemory = true;
           }
         }
         // A different in-memory build is never replaced, to protect unsaved work,

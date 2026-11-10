@@ -91,17 +91,17 @@ describe('loadBuildIfDifferent', () => {
     expect(client.calls).toHaveLength(0);
   });
 
-  it('matches by basename across path prefixes', async () => {
+  it('rejects ambiguous path prefixes without replacing the active build', async () => {
     const client = makeClient('league/Same.xml');
-    await loadBuildIfDifferent(client, 'Same.xml', dir);
+    await expect(loadBuildIfDifferent(client, 'Same.xml', dir)).rejects.toThrow(/unsaved edits/);
     expect(client.calls).toHaveLength(0);
   });
 
-  it('loads the requested build when a different one (or none) is loaded', async () => {
+  it('preserves the current build when it differs or its state is unknown', async () => {
     for (const loaded of ['Other', null] as const) {
       const client = makeClient(loaded);
-      await loadBuildIfDifferent(client, 'Same', dir);
-      expect(client.calls).toEqual([['<PathOfBuilding/>', 'Same']]);
+      await expect(loadBuildIfDifferent(client, 'Same', dir)).rejects.toThrow(/unsaved edits/);
+      expect(client.calls).toHaveLength(0);
     }
   });
 

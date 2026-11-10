@@ -101,8 +101,7 @@ export async function handleSuggestOptimalNodes(
     // Load build from disk if buildName refers to an existing file, otherwise
     // assume a build is already loaded in the Lua bridge (in-memory workflow)
     if (buildName) {
-      const buildXml = await readNamedBuild(buildName, context.pobDirectory);
-      await luaClient.loadBuildXml(buildXml, buildName, resolveBuildFile(buildName, context.pobDirectory));
+      await loadBuildIfDifferent(luaClient, buildName, context.pobDirectory);
     }
 
     const points = pointsAvailable || 10;
@@ -260,8 +259,7 @@ export async function handleOptimizeTree(
 
     // Load build from disk if it exists, otherwise use the currently loaded Lua build
     if (buildName) {
-      const buildXml = await readNamedBuild(buildName, context.pobDirectory);
-      await luaClient.loadBuildXml(buildXml, buildName, resolveBuildFile(buildName, context.pobDirectory));
+      await loadBuildIfDifferent(luaClient, buildName, context.pobDirectory);
     }
 
     const points = maxPoints || 10;

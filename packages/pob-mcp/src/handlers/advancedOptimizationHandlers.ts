@@ -173,8 +173,7 @@ export async function handleOptimizeSkillLinks(
     if (luaClient) {
       // Load build if buildName provided
       if (buildName) {
-        const xml = await readNamedBuild(buildName, context.pobDirectory);
-        await luaClient.loadBuildXml(xml, buildName, resolveBuildFile(buildName, context.pobDirectory));
+        await loadBuildIfDifferent(luaClient, buildName, context.pobDirectory);
       }
 
       try {

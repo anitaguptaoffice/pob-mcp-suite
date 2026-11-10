@@ -1,6 +1,5 @@
 import fs from "fs/promises";
 import { resolveBuildFile } from "./pathSanitizer.js";
-import { noteIgnoredError } from "./errorHandling.js";
 
 /**
  * Read a named build, failing loudly when it does not exist.
@@ -24,30 +23,23 @@ export async function readNamedBuild(buildName: string, buildsDir?: string): Pro
   }
 }
 
-/**
- * Load `buildName` into the Lua bridge unless that same build is already
- * loaded — reloading an identical build would reset the live spec/item-set
- * selection. Matches on name or basename (path prefixes differ by caller).
- */
+/** Require the requested saved build to be the current bridge build without
+ * replacing potentially unsaved edits. Loading another build is explicit. */
 export async function loadBuildIfDifferent(
-  luaClient: { getBuildInfo(): Promise<{ name?: string } | undefined>; loadBuildXml(xml: string, name: string, path: string): Promise<unknown> },
+  luaClient: { getBuildInfo(): Promise<{ name?: string } | undefined>; getLoadedFilePath?(): string | undefined; loadBuildXml(xml: string, name: string, path: string): Promise<unknown> },
   buildName: string,
   buildsDir: string
 ): Promise<void> {
-  const strip = (n: string) => n.replace(/\.xml$/i, '');
-  const basename = (n: string) => n.split(/[/\\]/).pop() ?? n;
-  let needsLoad = true;
-  try {
-    const info = await luaClient.getBuildInfo();
-    const loaded = strip(info?.name ?? '');
-    const requested = strip(buildName);
-    if (loaded && (loaded === requested || basename(loaded) === basename(requested))) {
-      needsLoad = false; // same build — keep current Lua state
-    }
-  } catch (e) { noteIgnoredError("no build loaded yet", e); }
-
-  if (needsLoad) {
-    const buildXml = await readNamedBuild(buildName, buildsDir);
-    await luaClient.loadBuildXml(buildXml, buildName, resolveBuildFile(buildName, buildsDir));
+  const source = luaClient.getLoadedFilePath?.();
+  const target = resolveBuildFile(buildName, buildsDir);
+  if (source && source === target) return;
+  if (!source) {
+    const strip = (n: string) => n.replace(/\.xml$/i, '');
+    try {
+      const info = await luaClient.getBuildInfo();
+      if (info?.name && strip(info.name) === strip(buildName)) return;
+    } catch { /* The bridge state is unknown; do not replace it. */ }
   }
+  await readNamedBuild(buildName, buildsDir);
+  throw new Error(`Cannot analyze "${buildName}" without replacing the current build, which may have unsaved edits. Save it first, then use lua_load_build to load the requested build.`);
 }
