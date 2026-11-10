@@ -1,12 +1,12 @@
 {
   "plugin": "0.1.0+codex.20260720145127",
   "image": "ghcr.io/anitaguptaoffice/pob-mcp-suite:pob-06d5e9c",
-  "pobMcp": "35702f2366f691bb5e38419ad8dbd3cb3159f432",
+  "pobMcp": "c914016f842beaca3cffd4c91d30650640de5bf4",
   "pathOfBuilding": "vendor-06d5e9c",
   "pobVersion": "2.67.2",
   "treeVersion": "3_29",
-  "imageDigest": "sha256:ddb6634f6e0c655fddd994549c89f4f45c15783aac88fff984d5a921417b8f5f",
+  "imageDigest": "sha256:eeb99711333f5dde8e60142d9d9bb4d2616607b18f4bf94c0438e376cf4598a0",
   "pathOfBuildingCommit": "06d5e9c00d8e47f4c1cb81a7ab33fad6f53e0af7",
   "pathOfBuildingShortCommit": "06d5e9c",
-  "updatedAt": "2026-11-10T07:05:46Z"
+  "updatedAt": "2026-11-10T07:13:43Z"
 }
