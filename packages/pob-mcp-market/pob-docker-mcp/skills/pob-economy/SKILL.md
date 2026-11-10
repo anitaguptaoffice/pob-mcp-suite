@@ -21,6 +21,11 @@ diagnostics. A listing price does not prove instant-buyout eligibility; check
 the originating search and current availability. For a pasted item without a
 listing, use `foundation_preview_item` when available.
 
+For individual resistance candidates, use `search_resistance_listings` when
+advertised, otherwise `find_resistance_gear`. Its total budget limits each item
+but does not prove that a combination fits the budget. Resistance search values
+are not the net gain after replacing current gear; compare in PoB.
+
 The poe.ninja source covers public economy data only. Do not call its internal builds/profile endpoints. Prices and availability change; respect source limits and caching. If data or a rate is unavailable, say so instead of estimating zero.
 
 For currency reference values, use `reference_currency_rates` when advertised,

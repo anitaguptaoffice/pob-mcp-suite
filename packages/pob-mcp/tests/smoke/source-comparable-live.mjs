@@ -59,6 +59,14 @@ try {
   assert.equal(new Set(price.byCurrency.map(group => group.currency)).size, price.byCurrency.length);
   assert.ok(Number.isFinite(Date.parse(price.sourceTimes.search)));
   assert.deepEqual((await call('sample_trade_item_price', priceArgs)).sourceTimes, price.sourceTimes);
+  const resistance = await call('search_resistance_listings', { league: 'Standard', resistance_minimums: { fire: 20, cold: 10 }, max_price_per_item: 100, total_budget: 30, currency: 'chaos', slots: ['Ring 1'], per_slot_limit: 3 });
+  assert.equal(resistance.listingScope, 'instant_buyout'); assert.equal(resistance.effectivePerItemCap, 30);
+  const resistanceSearch = resistance.searches[0]; assert.equal(resistanceSearch.status, 'ok', JSON.stringify(resistanceSearch));
+  assert.equal(resistanceSearch.query.query.status.option, 'securable');
+  assert.equal(resistanceSearch.query.query.filters.trade_filters.filters.sale_type.option, 'priced');
+  assert.equal(resistanceSearch.query.query.filters.trade_filters.filters.price.max, 30);
+  assert.ok(resistanceSearch.listings.every(item => item.listing.price.currency === 'chaos' && item.listing.price.amount <= 30));
+  assert.ok(resistanceSearch.query.query.stats.flatMap(group => group.filters).some(filter => filter.id === 'pseudo.pseudo_total_fire_resistance' && filter.value.min === 20));
   mcp.child.stdin.end(); assert.equal((await exited)[0], 0);
   console.log('source-backed comparable live integration passed');
 } finally {
