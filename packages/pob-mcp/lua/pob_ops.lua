@@ -571,6 +571,10 @@ function M.get_config()
   cfg.pantheonMajorGod = (input and input.pantheonMajorGod) or build.pantheonMajorGod
   cfg.pantheonMinorGod = (input and input.pantheonMinorGod) or build.pantheonMinorGod
   cfg.enemyLevel = build.configTab.enemyLevel
+  local set = build.configTab.configSets and build.configTab.configSets[build.configTab.activeConfigSetId]
+  for _, block in ipairs(set and set.customModsList or {}) do
+    if block.title == 'MCP Custom Mods' then cfg.customMods = block.text end
+  end
   return cfg
 end
 
@@ -615,7 +619,28 @@ function M.set_config(params)
       if alias then value = alias end
     end
     -- enemyLevel lives on the tab itself, not in the input table.
-    if key == 'enemyLevel' then
+    if key == 'customMods' and type(value) == 'string' and build.configTab.configSets then
+      local set = build.configTab.configSets[build.configTab.activeConfigSetId]
+      if not set then
+        rejected[key] = 'active config set not found'
+      else
+        set.customModsList = set.customModsList or {}
+        local block
+        for _, candidate in ipairs(set.customModsList) do
+          if candidate.title == 'MCP Custom Mods' then block = candidate; break end
+        end
+        if not block then
+          block = { title = 'MCP Custom Mods', enabled = true, text = '' }
+          table.insert(set.customModsList, block)
+        end
+        block.text = value
+        block.enabled = true
+        if build.configTab.UpdateCustomModsControls then build.configTab:UpdateCustomModsControls() end
+        build.buildFlag = true
+        applied[key] = value
+        changed = true
+      end
+    elseif key == 'enemyLevel' then
       local n = tonumber(value)
       if n then
         build.configTab.enemyLevel = n
@@ -720,7 +745,7 @@ function M.add_item_text(params)
     return nil, string.format('item text too long (max %d bytes)', MAX_ITEM_TEXT_LENGTH)
   end
 
-  local ok, item = pcall(new, 'Item', params.text)
+  local ok, item = pcall(function() return new('Item'):Item(params.text) end)
   if not ok then return nil, 'invalid item text: ' .. tostring(item) end
   if not item or not item.baseName then return nil, 'failed to parse item' end
 

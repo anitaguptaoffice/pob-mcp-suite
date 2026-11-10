@@ -4,7 +4,7 @@
 // Trade Query Structures
 // ========================================
 
-export interface StatFilter {
+interface StatFilter {
   id: string;
   value?: {
     min?: number;
@@ -24,6 +24,15 @@ export interface StatFilterGroup {
 }
 
 export type TradeStatus = 'available' | 'securable' | 'online' | 'onlineleague' | 'any';
+
+export interface StatDefinition {
+  id: string;
+  text: string;
+  type: string;
+  option?: { options?: Array<{ id: number; text: string }> };
+}
+export interface StatCategory { label: string; entries: StatDefinition[] }
+export interface StatData { result: StatCategory[] }
 
 export interface TradeFilters {
   misc_filters?: {
@@ -201,27 +210,27 @@ export interface SearchResult {
   inexact?: boolean;
 }
 
-export interface Property {
+interface Property {
   name: string;
   values: Array<[string, number]>; // [value, type]
   displayMode: number;
   type?: number;
 }
 
-export interface Requirement {
+interface Requirement {
   name: string;
   values: Array<[string, number]>;
   displayMode: number;
   suffix?: string;
 }
 
-export interface Socket {
+interface Socket {
   group: number;
   attr?: string; // S, D, I, G (Str, Dex, Int, General)
   sColour?: string; // R, G, B, W
 }
 
-export interface ExtendedMod {
+interface ExtendedMod {
   name: string;
   tier: string;
   level: number;
@@ -312,7 +321,7 @@ export interface TradeItem {
   foilVariation?: number;
 }
 
-export interface TradeAccount {
+interface TradeAccount {
   name: string;
   lastCharacterName?: string;
   online?: {
@@ -322,13 +331,13 @@ export interface TradeAccount {
   language?: string;
 }
 
-export interface TradePrice {
+interface TradePrice {
   type: string; // "~price", "~b/o", etc.
   amount: number;
   currency: string; // "chaos", "divine", "exa", etc.
 }
 
-export interface TradeListing {
+interface TradeListing {
   method: string;
   indexed: string;
   stash?: {
@@ -356,28 +365,7 @@ export interface FetchResult {
 // Static Data Structures
 // ========================================
 
-export interface StatDefinition {
-  id: string;
-  text: string;
-  type: string;
-  option?: {
-    options?: Array<{
-      id: number;
-      text: string;
-    }>;
-  };
-}
-
-export interface StatCategory {
-  label: string;
-  entries: StatDefinition[];
-}
-
-export interface StatData {
-  result: StatCategory[];
-}
-
-export interface League {
+interface League {
   id: string;
   realm?: string;
   text?: string;
@@ -390,33 +378,6 @@ export interface LeagueData {
 // ========================================
 // Recommendation System Interfaces
 // ========================================
-
-export interface ItemRequirements {
-  slot: string;
-  minLife?: number;
-  minES?: number;
-  fireResist?: number;
-  coldResist?: number;
-  lightningResist?: number;
-  chaosResist?: number;
-  minDPS?: number;
-  minPDPS?: number;
-  minEDPS?: number;
-  minArmour?: number;
-  minEvasion?: number;
-  links?: number;
-  sockets?: {
-    r?: number;
-    g?: number;
-    b?: number;
-    w?: number;
-  };
-  stats?: Array<{
-    id: string;
-    min?: number;
-    max?: number;
-  }>;
-}
 
 export interface ResistanceRequirements {
   fire: number;
@@ -434,30 +395,13 @@ export interface BudgetConstraints {
   };
 }
 
-export interface BuildRequirements {
-  resistanceGaps: ResistanceRequirements;
-  lifeNeeded?: number;
-  esNeeded?: number;
-  dpsTarget?: number;
-  defenseTarget?: {
-    armour?: number;
-    evasion?: number;
-    blockChance?: number;
-  };
-  criticalStats?: Array<{
-    name: string;
-    id: string;
-    targetValue: number;
-  }>;
-}
-
-export interface StatComparison {
+interface StatComparison {
   current: { [key: string]: number };
   upgraded: { [key: string]: number };
   delta: { [key: string]: number };
 }
 
-export interface CostBenefit {
+interface CostBenefit {
   price: number;
   currency: string;
   dpsGain?: number;
@@ -514,6 +458,8 @@ export interface SearchOptions {
   league: string;
   status?: TradeStatus;
   onlineOnly?: boolean;
+  /** Optional override for the online-status filter (default: 'available'). Use 'securable' for instant-buyout-from-online-seller listings only. */
+  onlineStatus?: 'available' | 'online' | 'onlineleague' | 'securable' | 'any';
   minPrice?: number;
   maxPrice?: number;
   priceCurrency?: string;

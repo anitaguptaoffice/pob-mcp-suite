@@ -137,7 +137,7 @@ local function generate_weighted_trade_query(params)
   options.statWeights = options.statWeights or build.itemsTab.tradeQuery.statSortSelectionList
   if not options.statWeights or #options.statWeights == 0 then options.statWeights = { { label = 'Full DPS', stat = 'FullDPS', weightMult = 1.0 }, { label = 'Effective Hit Pool', stat = 'TotalEHP', weightMult = 0.5 } } end
   local ok, result = pcall(function()
-    local generator = new('TradeQueryGenerator', build.itemsTab.tradeQuery)
+    local generator = new('TradeQueryGenerator'):TradeQueryGenerator(build.itemsTab.tradeQuery)
     local query, warning
     generator.requesterCallback = function(_, generated, err) query, warning = generated, err end
     generator.requesterContext = {}
@@ -147,6 +147,11 @@ local function generate_weighted_trade_query(params)
     while generator.calcContext and generator.calcContext.co and frames < 100000 do generator:OnFrame(); frames = frames + 1 end
     if generator.calcContext and generator.calcContext.co then error('TradeQueryGenerator did not complete after 100000 frames') end
     if not query then error(warning or 'PoB generated no trade query') end
+    -- Newer PoB returns the inner query table; the Trade API expects the
+    -- outer query/sort envelope used by earlier versions.
+    if type(query) == 'table' and not query.query and query.stats then
+      query = { query = query, sort = { price = 'asc' } }
+    end
     return { ok = true, query = query, warning = warning, frames = frames }
   end)
   if not ok then return { ok = false, error = 'weighted trade query failed: ' .. tostring(result) } end

@@ -1,7 +1,6 @@
 import chokidar from "chokidar";
 import path from "path";
 import type { BuildService } from "./buildService.js";
-import type { TreeService } from "./treeService.js";
 
 interface RecentChange {
   file: string;
@@ -59,7 +58,9 @@ export class WatchService {
   }
 
   private handleFileChange(filePath: string, changeType: string): void {
-    const fileName = path.basename(filePath);
+    // BuildService cache keys are paths relative to the watched directory
+    // (e.g. "3.27/Foo.xml"), so use the relative path, not the basename.
+    const fileName = path.relative(this.pobDirectory, filePath);
 
     // Only process .xml files
     if (!fileName.endsWith(".xml")) {

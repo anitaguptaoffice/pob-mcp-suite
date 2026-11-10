@@ -97,6 +97,13 @@ describe('BuildService', () => {
       expect(build.Build?.ascendClassName).toBe('Deadeye');
     });
 
+    it('should read a build named without the .xml suffix', async () => {
+      await fs.writeFile(path.join(tempDir, 'suffixless.xml'), sampleBuild);
+
+      const build = await buildService.readBuild('suffixless');
+      expect(build.Build?.className).toBe('Ranger');
+    });
+
     it('should cache build after first read', async () => {
       await fs.writeFile(path.join(tempDir, 'cached.xml'), sampleBuild);
 
@@ -192,20 +199,26 @@ describe('BuildService', () => {
       const build = {
         Build: { className: 'Ranger' },
         Items: {
+          Item: [
+            { id: '1', '#text': 'Rarity: Rare\nDeath Bow\nThicket Bow' },
+            { id: '2', '#text': "Rarity: Unique\nKaom's Heart\nGlorious Plate" },
+          ],
           ItemSet: {
             Slot: [
-              { name: 'Weapon 1', Item: 'Rarity: Rare\nDeath Bow\nThicket Bow' },
-              { name: 'Body Armour', Item: 'Rarity: Unique\nKaom\'s Heart\nGlorious Plate' },
+              { name: 'Weapon 1', itemId: '1' },
+              { name: 'Body Armour', itemId: '2' },
             ],
           },
         },
       };
 
       const summary = buildService.generateBuildSummary(build);
-      expect(summary).toContain('Weapon 1');
-      expect(summary).toContain('Rarity: Rare'); // Only first line is shown
-      expect(summary).toContain('Body Armour');
-      expect(summary).toContain('Rarity: Unique'); // Only first line is shown
+      // PoB item text opens with `Rarity:` and puts the name on line 2, so
+      // showing the first line rendered every item as its rarity and nothing
+      // else. Items are now identified by name and base type.
+      expect(summary).toContain('Weapon 1: [RARE] Death Bow (Thicket Bow)');
+      expect(summary).toContain("Body Armour: [UNIQUE] Kaom's Heart (Glorious Plate)");
+      expect(summary).not.toContain('Rarity: Rare');
     });
 
     it('should include notes if present', () => {
@@ -250,7 +263,7 @@ describe('BuildService', () => {
 
       const spec = buildService.getActiveSpec(build);
       expect(spec).toBeDefined();
-      expect(spec.nodes).toBe('1,2,3');
+      expect(spec?.nodes).toBe('1,2,3');
     });
 
     it('should return active spec from array', () => {
@@ -265,7 +278,7 @@ describe('BuildService', () => {
       };
 
       const spec = buildService.getActiveSpec(build);
-      expect(spec.nodes).toBe('4,5,6');
+      expect(spec?.nodes).toBe('1,2,3');
     });
 
     it('should return first spec if activeSpec not specified', () => {
@@ -280,7 +293,7 @@ describe('BuildService', () => {
 
       const spec = buildService.getActiveSpec(build);
       // When activeSpec is not specified, it defaults to "0" which means first spec
-      expect(spec.nodes).toBe('1,2,3');
+      expect(spec?.nodes).toBe('1,2,3');
     });
   });
 
@@ -1110,15 +1123,27 @@ Passives in radius are Conquered by the Vaal`,
     });
 
     it('should detect socketed vs unsocketed jewels', () => {
+      // The tree socket -> item mapping lives on the active <Spec>, written by
+      // PassiveSpec.lua:229 as `<Socket nodeId itemId/>`. The item set's
+      // <SocketIdURL> carries only name/nodeId/itemPbURL (ItemsTab.lua:1392) —
+      // it never has an itemId, so it cannot say which jewel sits where.
       const build = {
+        Tree: {
+          activeSpec: '1',
+          Spec: {
+            nodes: '1,2,3',
+            Sockets: { Socket: [{ nodeId: '61834', itemId: '1' }] },
+          },
+        },
         Items: {
+          Item: [
+            { id: '1', '#text': 'Rarity: RARE\nJewel 1\nCobalt Jewel' },
+            { id: '2', '#text': 'Rarity: RARE\nJewel 2\nCobalt Jewel' },
+          ],
           ItemSet: {
             Slot: [
-              { name: 'Jewel 1', itemId: '1', Item: 'Rarity: RARE\nJewel 1\nCobalt Jewel' },
-              { name: 'Jewel 2', itemId: '2', Item: 'Rarity: RARE\nJewel 2\nCobalt Jewel' },
-            ],
-            SocketIdURL: [
-              { nodeId: '61834', name: 'Jewel 61834', itemId: '1' },
+              { name: 'Jewel 1', itemId: '1' },
+              { name: 'Jewel 2', itemId: '2' },
             ],
           },
         },
@@ -1128,8 +1153,25 @@ Passives in radius are Conquered by the Vaal`,
       expect(jewels?.totalJewels).toBe(2);
       expect(jewels?.socketedJewels).toBe(1);
       expect(jewels?.unsocketedJewels).toBe(1);
-      expect(jewels?.jewels[0].socketNodeId).toBe('61834');
-      expect(jewels?.jewels[1].socketNodeId).toBeUndefined();
+      const socketed = jewels?.jewels.find((j) => j.socketNodeId);
+      expect(socketed?.socketNodeId).toBe('61834');
+      expect(socketed?.name).toBe('Jewel 1');
+    });
+
+    it('ignores an allocated but empty tree socket', () => {
+      const build = {
+        Tree: {
+          activeSpec: '1',
+          Spec: { nodes: '1', Sockets: { Socket: [{ nodeId: '61834', itemId: '0' }] } },
+        },
+        Items: {
+          Item: [{ id: '1', '#text': 'Rarity: RARE\nJewel 1\nCobalt Jewel' }],
+          ItemSet: { Slot: [{ name: 'Jewel 1', itemId: '1' }] },
+        },
+      };
+
+      const jewels = buildService.parseJewels(build);
+      expect(jewels?.socketedJewels).toBe(0);
     });
 
     it('should categorize medium cluster jewel', () => {

@@ -4,7 +4,7 @@
  * Analyzes skill gem setups and suggests improvements for optimal damage/utility.
  */
 
-export interface SkillGem {
+interface SkillGem {
   name: string;
   level?: number;
   quality?: number;
@@ -22,14 +22,14 @@ export interface SkillGroup {
   includeInFullDPS?: boolean;
 }
 
-export interface SkillLinkIssue {
+interface SkillLinkIssue {
   type: 'missing_link' | 'suboptimal_gem' | 'low_level' | 'no_quality' | 'link_order' | 'wrong_support' | 'no_more_multiplier' | 'no_penetration';
   severity: 'high' | 'medium' | 'low';
   message: string;
   suggestion: string;
 }
 
-export interface SkillGroupAnalysis {
+interface SkillGroupAnalysis {
   group: SkillGroup;
   isValid: boolean;
   linkCount: number;
@@ -40,86 +40,12 @@ export interface SkillGroupAnalysis {
   expectedDamageBoost?: string;
 }
 
-export interface SkillOptimizationResult {
+interface SkillOptimizationResult {
   summary: string;
   buildType: string;
   groupAnalyses: SkillGroupAnalysis[];
   generalSuggestions: string[];
 }
-
-/**
- * Common support gem recommendations by skill type
- */
-const SUPPORT_RECOMMENDATIONS: Record<string, string[]> = {
-  // Physical attack
-  'physical-attack': [
-    'Brutality Support',
-    'Melee Physical Damage Support',
-    'Impale Support',
-    'Close Combat Support',
-    'Multistrike Support',
-    'Fortify Support',
-  ],
-
-  // Elemental attack
-  'elemental-attack': [
-    'Elemental Damage with Attacks Support',
-    'Trinity Support',
-    'Inspiration Support',
-    'Elemental Focus Support',
-    'Penetration Support',
-  ],
-
-  // Spell (general)
-  'spell': [
-    'Spell Echo Support',
-    'Controlled Destruction Support',
-    'Concentrated Effect Support',
-    'Elemental Focus Support',
-    'Exceptional Spell Cascade Support',
-  ],
-
-  // DOT (damage over time)
-  'dot': [
-    'Efficacy Support',
-    'Swift Affliction Support',
-    'Deadly Ailments Support',
-    'Void Manipulation Support',
-    'Cruelty Support',
-  ],
-
-  // Minion
-  'minion': [
-    'Minion Damage Support',
-    'Minion Life Support',
-    'Feeding Frenzy Support',
-    'Predator Support',
-    'Meat Shield Support',
-  ],
-
-  // Projectile
-  'projectile': [
-    'Greater Multiple Projectiles Support',
-    'Exceptional Fork Support',
-    'Chain Support',
-    'Pierce Support',
-    'Barrage Support',
-  ],
-
-  // Crit
-  'crit': [
-    'Increased Critical Strikes Support',
-    'Increased Critical Damage Support',
-    'Precise Technique Support',
-  ],
-
-  // Aura/Curse
-  'aura': [
-    'Enlighten Support',
-    'Empower Support',
-    'Enhance Support',
-  ],
-};
 
 /**
  * Support gems that provide multiplicative ("more") damage bonuses.
@@ -148,16 +74,16 @@ const MORE_MULTIPLIER_GEMS = new Set([
   'hypothermia support',
   'trap and mine damage support',
   'multiple totems support',
-  'Exceptional controlled destruction support',
-  'Exceptional elemental focus support',
-  'Exceptional spell echo support',
-  'Exceptional brutality support',
-  'Exceptional swift affliction support',
-  'Exceptional deadly ailments support',
-  'Exceptional void manipulation support',
-  'Exceptional minion damage support',
-  'Exceptional added fire damage support',
-  'Exceptional melee physical damage support',
+  'exceptional controlled destruction support',
+  'exceptional elemental focus support',
+  'exceptional spell echo support',
+  'exceptional brutality support',
+  'exceptional swift affliction support',
+  'exceptional deadly ailments support',
+  'exceptional void manipulation support',
+  'exceptional minion damage support',
+  'exceptional added fire damage support',
+  'exceptional melee physical damage support',
 ]);
 
 /**
@@ -174,10 +100,10 @@ const PENETRATION_GEMS = new Set([
   'hypothermia support', // cold exposure
   'storm brand',         // lightning exposure via some interactions
   'void manipulation support',
-  'Exceptional fire penetration support',
-  'Exceptional cold penetration support',
-  'Exceptional lightning penetration support',
-  'Exceptional void manipulation support',
+  'exceptional fire penetration support',
+  'exceptional cold penetration support',
+  'exceptional lightning penetration support',
+  'exceptional void manipulation support',
 ]);
 
 /**
@@ -185,15 +111,15 @@ const PENETRATION_GEMS = new Set([
  */
 const CLEAR_SPEED_GEMS = new Set([
   'greater multiple projectiles support',
-  'Exceptional greater multiple projectiles support',
+  'exceptional greater multiple projectiles support',
   'chain support',
   'fork support',
-  'Exceptional fork support',
+  'exceptional fork support',
   'pierce support',
   'volley support',
   'lesser multiple projectiles support',
   'spell cascade support',
-  'Exceptional spell cascade support',
+  'exceptional spell cascade support',
   'reap support',
 ]);
 
@@ -202,11 +128,11 @@ const CLEAR_SPEED_GEMS = new Set([
  */
 const BOSSING_GEMS = new Set([
   'concentrated effect support',
-  'Exceptional concentrated effect support',
+  'exceptional concentrated effect support',
   'barrage support',
-  'Exceptional added fire damage support',
-  'Exceptional deadly ailments support',
-  'Exceptional vile toxins support',
+  'exceptional added fire damage support',
+  'exceptional deadly ailments support',
+  'exceptional vile toxins support',
   'empower support',
 ]);
 
@@ -287,10 +213,7 @@ function isSupportGem(gemName: string): boolean {
 /**
  * Analyze a single skill group
  */
-function analyzeSkillGroup(
-  group: SkillGroup,
-  buildArchetype: string
-): SkillGroupAnalysis {
+function analyzeSkillGroup(group: SkillGroup): SkillGroupAnalysis {
   const analysis: SkillGroupAnalysis = {
     group,
     isValid: true,
@@ -493,7 +416,7 @@ export function analyzeSkillSetup(
     if (group.gems.length === 0 && !group.isMainSkill) {
       continue; // Skip empty non-main groups
     }
-    const analysis = analyzeSkillGroup(group, buildArchetype);
+    const analysis = analyzeSkillGroup(group);
     groupAnalyses.push(analysis);
   }
 

@@ -1,12 +1,12 @@
-import type { BuildService } from "../services/buildService.js";
-import type { TreeService } from "../services/treeService.js";
-import type { ValidationService } from "../services/validationService.js";
 import type { TreeAnalysisResult } from "../types.js";
+import { noteIgnoredError } from '../utils/errorHandling.js';
 import type { HandlerContext } from "../utils/contextBuilder.js";
-import path from "path";
 import fs from "fs/promises";
 import { wrapHandler } from "../utils/errorHandling.js";
-import { sanitizeBuildName } from "../utils/pathSanitizer.js";
+import { atomicWriteFile } from "../utils/atomicWrite.js";
+import { resolveBuildFile } from "../utils/pathSanitizer.js";
+import { BOOTSTRAP_BUILD_NAME } from "../server/bootstrapBuild.js";
+import type { ItemSetEntry, PoBLuaApiClient, SpecEntry, StatsExport } from "../pobLuaBridge.js";
 export type { HandlerContext } from "../utils/contextBuilder.js";
 
 export async function handleListBuilds(context: HandlerContext) {
@@ -32,7 +32,7 @@ export async function handleAnalyzeBuild(context: HandlerContext, buildName: str
   // Try to get live Lua stats — only load from file if no build is loaded.
   // If the same build is already loaded, preserve current spec/item set selection.
   // Never replace a *different* in-memory build (data-loss risk).
-  let luaStats: any = null;
+  let luaStats: StatsExport | null = null;
   let luaSkipped = false;
   let luaActiveSpecIndex: number | null = null;
   let luaActiveItemSetId: string | null = null;
@@ -42,7 +42,6 @@ export async function handleAnalyzeBuild(context: HandlerContext, buildName: str
     const luaClient = context.getLuaClient();
 
     if (luaClient) {
-      const basename = (n: string) => n.split(/[/\\]/).pop() ?? n;
       let shouldLoad = true;
       try {
         const info = await luaClient.getBuildInfo();
@@ -50,10 +49,12 @@ export async function handleAnalyzeBuild(context: HandlerContext, buildName: str
         // Strip .xml suffix for comparison since PoB may omit it
         const requested = buildName.replace(/\.xml$/i, '');
         const loaded    = loadedName.replace(/\.xml$/i, '');
-        if (loaded) {
-          const sameExact = loaded === requested;
-          const sameBase  = basename(loaded) === basename(requested);
-          if (!sameExact && !sameBase) {
+        if (loaded && loaded !== BOOTSTRAP_BUILD_NAME) {
+          const sourcePath = luaClient.getLoadedFilePath?.();
+          const sameBuild = sourcePath
+            ? sourcePath === resolveBuildFile(buildName, context.pobDirectory)
+            : loaded === requested;
+          if (!sameBuild) {
             // A different build is in memory — skip loading to avoid destroying unsaved work
             shouldLoad = false;
             luaSkipped = true;
@@ -62,43 +63,43 @@ export async function handleAnalyzeBuild(context: HandlerContext, buildName: str
             shouldLoad = false;
           }
         }
-      } catch { /* no build loaded yet — safe to load */ }
+      } catch (e) { noteIgnoredError("no build loaded yet — safe to load", e); }
 
       if (shouldLoad) {
-        const buildPath = sanitizeBuildName(buildName, context.pobDirectory);
+        const buildPath = resolveBuildFile(buildName, context.pobDirectory);
         const buildXml = await fs.readFile(buildPath, 'utf-8');
-        await luaClient.loadBuildXml(buildXml);
+        await luaClient.loadBuildXml(buildXml, buildName.replace(/\.xml$/i, ""), buildPath);
       }
-      try { luaStats = await luaClient.getStats(); } catch { /* best effort */ }
+      if (!luaSkipped) {
+        try { luaStats = await luaClient.getStats(); } catch (e) { noteIgnoredError("live Lua stats after build load (context degraded, not wrong)", e); }
 
-      // Query active spec/item set for context and to guide tree analysis
-      try {
-        const specsResult = await luaClient.listSpecs();
-        const itemSetsResult = await luaClient.listItemSets();
-        const activeSpec = specsResult?.specs?.find((s: any) => s.active);
-        const activeItemSet = itemSetsResult?.itemSets?.find((s: any) => s.active);
-        if (activeSpec) luaActiveSpecIndex = activeSpec.index;
-        if (activeItemSet) luaActiveItemSetId = String(activeItemSet.id);
-        const numSpecs = specsResult?.specs?.length ?? 0;
-        const numSets = itemSetsResult?.itemSets?.length ?? 0;
-        if (numSpecs > 1 || numSets > 1) {
-          const parts: string[] = [];
-          if (activeSpec && numSpecs > 1) {
-            parts.push(`Spec ${activeSpec.index}/${numSpecs}: "${activeSpec.title}" (${activeSpec.nodeCount} nodes)`);
+        // Query active spec/item set for context and to guide tree analysis
+        try {
+          const specsResult = await luaClient.listSpecs();
+          const itemSetsResult = await luaClient.listItemSets();
+          const activeSpec = specsResult?.specs?.find(s => s.active);
+          const activeItemSet = itemSetsResult?.itemSets?.find(s => s.active);
+          if (activeSpec) luaActiveSpecIndex = activeSpec.index;
+          if (activeItemSet) luaActiveItemSetId = String(activeItemSet.id);
+          const numSpecs = specsResult?.specs?.length ?? 0;
+          const numSets = itemSetsResult?.itemSets?.length ?? 0;
+          if (numSpecs > 1 || numSets > 1) {
+            const parts: string[] = [];
+            if (activeSpec && numSpecs > 1) {
+              parts.push(`Spec ${activeSpec.index}/${numSpecs}: "${activeSpec.title}" (${activeSpec.nodeCount} nodes)`);
+            }
+            if (activeItemSet && numSets > 1) {
+              parts.push(`Item Set ${activeItemSet.id}/${numSets}: "${activeItemSet.title}"`);
+            }
+            if (parts.length > 0) {
+              specContextLines.push(`[Analyzing: ${parts.join(' | ')}]`);
+              specContextLines.push('Use select_spec / select_item_set to switch before re-analyzing.');
+            }
           }
-          if (activeItemSet && numSets > 1) {
-            parts.push(`Item Set ${activeItemSet.id}/${numSets}: "${activeItemSet.title}"`);
-          }
-          if (parts.length > 0) {
-            specContextLines.push(`[Analyzing: ${parts.join(' | ')}]`);
-            specContextLines.push('Use select_spec / select_item_set to switch before re-analyzing.');
-          }
-        }
-      } catch { /* advisory only */ }
+        } catch (e) { noteIgnoredError('active spec/set header line (analysis unaffected)', e); }
+      }
     }
-  } catch (error) {
-    // Continue with XML-only analysis
-  }
+  } catch (e) { noteIgnoredError("Continue with XML-only analysis", e); }
 
   // Build an override object that reflects the Lua-selected spec/item set/skill set,
   // so generateBuildSummary and analyzePassiveTree read from the correct sets (not disk defaults).
@@ -108,10 +109,7 @@ export async function handleAnalyzeBuild(context: HandlerContext, buildName: str
       ? { Tree: { ...build.Tree, activeSpec: String(luaActiveSpecIndex) } }
       : {}),
     ...(luaActiveItemSetId !== null && build.Items
-      ? { Items: { ...(build.Items as any), activeItemSet: luaActiveItemSetId } }
-      : {}),
-    ...(luaActiveItemSetId !== null && build.Skills
-      ? { Skills: { ...(build.Skills as any), activeSkillSet: luaActiveItemSetId } }
+      ? { Items: { ...build.Items, activeItemSet: luaActiveItemSetId } }
       : {}),
   };
 
@@ -119,7 +117,7 @@ export async function handleAnalyzeBuild(context: HandlerContext, buildName: str
 
   if (luaSkipped) {
     summaryParts.push(
-      "\n⚠️  Note: A different build is loaded in the Lua bridge. Stats shown are from that build.\n" +
+      "\n⚠️  Note: A different build is loaded in the Lua bridge. Live stats and selections were skipped; this analysis uses the requested saved file.\n" +
       "    Use lua_load_build to load this build for accurate live stats."
     );
   }
@@ -189,6 +187,7 @@ export async function handleAnalyzeBuild(context: HandlerContext, buildName: str
     if (errorMsg.includes("Invalid passive tree data detected")) {
       // Return the full error message for invalid nodes
       return {
+        isError: true,
         content: [
           {
             type: "text" as const,
@@ -231,62 +230,89 @@ export async function handleAnalyzeBuild(context: HandlerContext, buildName: str
 export async function handleCompareBuilds(context: HandlerContext, build1Name: string, build2Name: string) {
   return wrapHandler('compare builds', async () => {
 
-  // Load a build into Lua, auto-select its endgame spec (most nodes) and last item set
-  const loadEndgame = async (luaClient: any, buildName: string) => {
-    const buildPath = path.join(context.pobDirectory, buildName);
+  // Load a build into Lua using its saved active spec and item set.
+  // We deliberately do NOT override spec/item set with heuristics — using the
+  // saved state matches what the user sees in PoB and avoids reporting wrong stats
+  // (e.g. resistances from a different gear set than the one the user expects).
+  const loadEndgame = async (luaClient: PoBLuaApiClient, buildName: string) => {
+    const buildPath = resolveBuildFile(buildName, context.pobDirectory);
     const buildXml = await fs.readFile(buildPath, 'utf-8');
     const displayName = buildName.replace(/\.xml$/i, '').split(/[/\\]/).pop() ?? buildName;
-    await luaClient.loadBuildXml(buildXml, displayName);
+    await luaClient.loadBuildXml(buildXml, displayName, buildPath);
 
-    let selectedSpec: any = null;
-    let selectedItemSet: any = null;
+    let selectedSpec: SpecEntry | null = null;
+    let selectedItemSet: ItemSetEntry | null = null;
 
-    // Pick spec with most nodes (best endgame heuristic)
+    // Report which spec/item set is active (informational only — no override)
     try {
       const specsResult = await luaClient.listSpecs();
       if (specsResult?.specs?.length > 0) {
-        const best = specsResult.specs.reduce((a: any, b: any) =>
-          (b.nodeCount ?? 0) > (a.nodeCount ?? 0) ? b : a, specsResult.specs[0]);
-        selectedSpec = best;
-        if (!best.active) await luaClient.selectSpec(best.index);
+        selectedSpec = specsResult.specs.find(s => s.active) ?? specsResult.specs[0];
       }
-    } catch { /* ignore */ }
+    } catch (e) { noteIgnoredError("spec list for build context (advisory)", e); }
 
-    // Pick last item set (highest id — typically endgame)
     try {
       const itemSetsResult = await luaClient.listItemSets();
       if (itemSetsResult?.itemSets?.length > 0) {
-        const last = itemSetsResult.itemSets[itemSetsResult.itemSets.length - 1];
-        selectedItemSet = last;
-        if (!last.active) await luaClient.selectItemSet(last.id);
+        selectedItemSet = itemSetsResult.itemSets.find(s => s.active) ?? itemSetsResult.itemSets[0];
       }
-    } catch { /* ignore */ }
+    } catch (e) { noteIgnoredError("item-set list for build context (advisory)", e); }
 
-    const stats = await luaClient.getStats();
+    // get_stats defaults to defence-only fields, so the offensive rows below have
+    // to be requested by name — otherwise DPS and crit always render as "N/A".
+    const stats = await luaClient.getStats([
+      'Life', 'EnergyShield', 'TotalEHP', 'Mana',
+      'TotalDPS', 'CombinedDPS', 'MinionTotalDPS', 'CritChance', 'CritMultiplier',
+      'FireResist', 'ColdResist', 'LightningResist', 'ChaosResist',
+    ]);
     return { stats, selectedSpec, selectedItemSet, displayName };
   };
 
   // Try Lua-based live comparison
   let luaOk = false;
-  let r1: any = null;
-  let r2: any = null;
+  let r1: Awaited<ReturnType<typeof loadEndgame>> | null = null;
+  let r2: Awaited<ReturnType<typeof loadEndgame>> | null = null;
+  let luaClient: PoBLuaApiClient | null = null;
   try {
     await context.ensureLuaClient();
-    const luaClient = context.getLuaClient();
-    if (luaClient) {
+    luaClient = context.getLuaClient();
+  } catch (e) { noteIgnoredError("Lua unavailable — fall through to XML", e); }
+
+  if (luaClient) {
+    // Never replace a *different* in-memory build (data-loss risk) — comparing
+    // loads both builds into the bridge, which would clobber unsaved work.
+    const basename = (n: string) => n.replace(/\.xml$/i, '').split(/[/\\]/).pop() ?? n;
+    let loadedName = '';
+    try {
+      const info = await luaClient.getBuildInfo();
+      loadedName = info?.name ?? '';
+    } catch (e) { noteIgnoredError("no build loaded yet — safe to load", e); }
+    // The bootstrap build is not user work — a freshly started bridge always holds
+    // it, so treating it as unsaved changes would block compare_builds outright.
+    if (loadedName && loadedName !== BOOTSTRAP_BUILD_NAME) {
+      const loaded = basename(loadedName);
+      if (loaded !== basename(build1Name) && loaded !== basename(build2Name)) {
+        throw new Error(
+          `A different build ("${loadedName}") is currently loaded in the Lua bridge and may have unsaved changes. ` +
+          `compare_builds would replace it. Save it first with lua_save_build, then re-run compare_builds.`
+        );
+      }
+    }
+
+    try {
       r1 = await loadEndgame(luaClient, build1Name);
       r2 = await loadEndgame(luaClient, build2Name);
       luaOk = true;
-    }
-  } catch { /* fall through to XML */ }
+    } catch (e) { noteIgnoredError("fall through to XML", e); }
+  }
 
   if (luaOk && r1 && r2) {
-    const fmtNum = (n: any) =>
+    const fmtNum = (n: string | number | undefined) =>
       n != null && !isNaN(Number(n)) && Number(n) !== 0
         ? Math.round(Number(n)).toLocaleString()
         : 'N/A';
 
-    const row = (label: string, v1: any, v2: any, higherIsBetter = true) => {
+    const row = (label: string, v1: string | number | undefined, v2: string | number | undefined, higherIsBetter = true) => {
       const n1 = Number(v1 || 0);
       const n2 = Number(v2 || 0);
       const winner = n1 === n2 ? '  ='
@@ -302,18 +328,18 @@ export async function handleCompareBuilds(context: HandlerContext, build1Name: s
       '',
       `Build 1: ${r1.displayName}`,
       r1.selectedSpec
-        ? `  Spec:     "${r1.selectedSpec.title}" (${r1.selectedSpec.nodeCount} nodes, most-nodes heuristic)`
+        ? `  Spec:     "${r1.selectedSpec.title}" (${r1.selectedSpec.nodeCount} nodes, saved active)`
         : '  Spec:     N/A',
       r1.selectedItemSet
-        ? `  Item Set: "${r1.selectedItemSet.title}" (last item set heuristic)`
+        ? `  Item Set: "${r1.selectedItemSet.title}" (saved active)`
         : '  Item Set: N/A',
       '',
       `Build 2: ${r2.displayName}`,
       r2.selectedSpec
-        ? `  Spec:     "${r2.selectedSpec.title}" (${r2.selectedSpec.nodeCount} nodes, most-nodes heuristic)`
+        ? `  Spec:     "${r2.selectedSpec.title}" (${r2.selectedSpec.nodeCount} nodes, saved active)`
         : '  Spec:     N/A',
       r2.selectedItemSet
-        ? `  Item Set: "${r2.selectedItemSet.title}" (last item set heuristic)`
+        ? `  Item Set: "${r2.selectedItemSet.title}" (saved active)`
         : '  Item Set: N/A',
       '',
       `${'Stat'.padEnd(24)}${'Build 1'.padStart(12)}       ${'Build 2'.padStart(12)}`,
@@ -425,7 +451,7 @@ export async function handleGetBuildNotes(context: HandlerContext, buildName: st
 
 export async function handleSetBuildNotes(context: HandlerContext, buildName: string, notes: string) {
   return wrapHandler('set build notes', async () => {
-    const buildPath = sanitizeBuildName(buildName, context.pobDirectory);
+    const buildPath = resolveBuildFile(buildName, context.pobDirectory);
     let xml = await fs.readFile(buildPath, 'utf-8');
 
     // XML-escape the notes content so special characters don't corrupt the build file
@@ -442,7 +468,9 @@ export async function handleSetBuildNotes(context: HandlerContext, buildName: st
       xml = xml.replace('</PathOfBuilding>', `  <Notes>${escaped}</Notes>\n</PathOfBuilding>`);
     }
 
-    await fs.writeFile(buildPath, xml, 'utf-8');
+    // Atomic commit: a half-written save must never replace the user's build
+    // file (every other build-file write in this repo already does this).
+    await atomicWriteFile(buildPath, xml, true);
     // Invalidate the build cache so a subsequent get_build_notes reads the updated file
     context.buildService.invalidateBuild(buildName);
     return {

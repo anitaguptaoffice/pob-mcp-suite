@@ -4,7 +4,7 @@
  * Fetches real-time currency rates and item prices from poe.ninja
  */
 
-export interface CurrencyRate {
+interface CurrencyRate {
   currencyTypeName: string;
   chaosEquivalent: number;
   pay?: {
@@ -21,7 +21,7 @@ export interface CurrencyRate {
 }
 
 // New API format (poe1/api/economy/exchange/current)
-export interface NewCurrencyLine {
+interface NewCurrencyLine {
   id: string;
   primaryValue: number;
   volumePrimaryValue?: number;
@@ -33,7 +33,7 @@ export interface NewCurrencyLine {
   };
 }
 
-export interface NewCurrencyItem {
+interface NewCurrencyItem {
   id: string;
   name: string;
   image: string;
@@ -41,10 +41,18 @@ export interface NewCurrencyItem {
   detailsId: string;
 }
 
-export interface NewCurrencyOverview {
+interface NewCurrencyRate {
+  id: string;
+  pay?: number;
+  receive?: number;
+  primaryValue: number;
+  secondaryValue: number;
+}
+
+interface NewCurrencyOverview {
   core: {
     items: NewCurrencyItem[];
-    rates: any;
+    rates: Record<string, NewCurrencyRate>;
     primary: string;
     secondary: string;
   };
@@ -52,7 +60,7 @@ export interface NewCurrencyOverview {
   items: NewCurrencyItem[];
 }
 
-export interface CurrencyOverview {
+interface CurrencyOverview {
   lines: CurrencyRate[];
   currencyDetails: Array<{
     id: number;
@@ -61,7 +69,49 @@ export interface CurrencyOverview {
   }>;
 }
 
-export interface ArbitrageOpportunity {
+/**
+ * poe.ninja changed its economy endpoint from named `lines` with
+ * `chaosEquivalent` to parallel item/rate collections. Normalize both shapes
+ * at the boundary so callers do not need to care which API generation replied.
+ */
+export function normalizeCurrencyOverview(data: unknown): CurrencyOverview {
+  const overview = data as Partial<NewCurrencyOverview & CurrencyOverview>;
+  if (Array.isArray(overview.lines) && overview.lines.length > 0 && 'currencyTypeName' in overview.lines[0]) {
+    return overview as CurrencyOverview;
+  }
+
+  const items = Array.isArray(overview.items) ? overview.items : [];
+  const rates = Array.isArray(overview.lines) ? overview.lines : [];
+  const itemById = new Map(items.map((item) => [item.id, item]));
+  const rateById = new Map(rates.map((rate) => [rate.id, rate]));
+  const chaosItem = items.find((item) => item.name === 'Chaos Orb');
+  const chaosRate = chaosItem ? rateById.get(chaosItem.id) : undefined;
+  // Fragment responses quote directly in chaos but omit a Chaos Orb line.
+  const chaosPrimaryValue = chaosRate?.primaryValue ?? (overview.core?.primary === 'chaos' ? 1 : undefined);
+
+  if (typeof chaosPrimaryValue !== 'number' || !Number.isFinite(chaosPrimaryValue) || chaosPrimaryValue <= 0) {
+    throw new Error('poe.ninja API response did not contain a usable Chaos Orb rate');
+  }
+
+  const lines: CurrencyRate[] = [];
+  for (const rate of rates) {
+    const item = itemById.get(rate.id);
+    const chaosEquivalent = rate.primaryValue / chaosPrimaryValue;
+    if (!item?.name || !Number.isFinite(chaosEquivalent) || chaosEquivalent <= 0) continue;
+    lines.push({
+      currencyTypeName: item.name,
+      chaosEquivalent,
+      detailsId: item.detailsId,
+    });
+  }
+
+  return {
+    lines,
+    currencyDetails: items.map((item, index) => ({ id: index, name: item.name, tradeId: item.detailsId })),
+  };
+}
+
+interface ArbitrageOpportunity {
   chain: string[];
   profitPercent: number;
   startAmount: number;
@@ -79,7 +129,8 @@ export interface ArbitrageOpportunity {
  */
 export class PoeNinjaClient {
   private baseUrl = 'https://poe.ninja/poe1/api/economy/exchange/current';
-  private cache = new Map<string, { data: any; timestamp: number }>();
+  private legacyBaseUrl = 'https://poe.ninja/api/data';
+  private cache = new Map<string, { data: CurrencyOverview; timestamp: number }>();
   private cacheTTL = 300000; // 5 minutes
 
   /**
@@ -97,39 +148,14 @@ export class PoeNinjaClient {
       headers: {
         'User-Agent': 'pob-mcp-server/1.0',
       },
+      signal: AbortSignal.timeout(15_000),
     });
 
     if (!response.ok) {
       throw new Error(`poe.ninja API request failed (${response.status}): ${await response.text()}`);
     }
 
-    const data = await response.json();
-    this.putInCache(cacheKey, data);
-    return data;
-  }
-
-  /**
-   * Get fragment rates for a league
-   */
-  async getFragmentRates(league: string): Promise<CurrencyOverview> {
-    const cacheKey = `fragment:${league}`;
-    const cached = this.getFromCache(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
-    const url = `${this.baseUrl}/overview?league=${encodeURIComponent(league)}&type=Fragment`;
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'pob-mcp-server/1.0',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`poe.ninja API request failed (${response.status}): ${await response.text()}`);
-    }
-
-    const data = await response.json();
+    const data = normalizeCurrencyOverview(await response.json());
     this.putInCache(cacheKey, data);
     return data;
   }
@@ -150,62 +176,99 @@ export class PoeNinjaClient {
   }
 
   /**
+   * Get currency rates including bid/ask spread (pay/receive) for a league.
+   *
+   * The current exchange endpoint only exposes a single chaos-equivalent rate,
+   * which is useless for arbitrage (buy==sell → every round trip is exactly 1.0).
+   * The legacy currencyoverview endpoint still returns per-currency pay/receive
+   * objects, so the arbitrage path fetches from it instead.
+   */
+  async getCurrencyRatesWithSpread(league: string): Promise<CurrencyOverview> {
+    const cacheKey = `currency-spread:${league}`;
+    const cached = this.getFromCache(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const url = `${this.legacyBaseUrl}/currencyoverview?league=${encodeURIComponent(league)}&type=Currency`;
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'pob-mcp-server/1.0',
+      },
+      signal: AbortSignal.timeout(15_000),
+    });
+
+    if (!response.ok) {
+      throw new Error(`poe.ninja API request failed (${response.status}): ${await response.text()}`);
+    }
+
+    const raw = (await response.json()) as Partial<CurrencyOverview> | null;
+    const data: CurrencyOverview = {
+      lines: Array.isArray(raw?.lines) ? raw.lines : [],
+      currencyDetails: Array.isArray(raw?.currencyDetails) ? raw.currencyDetails : [],
+    };
+    this.putInCache(cacheKey, data);
+    return data;
+  }
+
+  /**
    * Find arbitrage opportunities using bid/ask spread from currency exchange rates.
    *
    * Real arbitrage requires separate buy and sell rates. poe.ninja provides:
    *   receive.value = chaos received per unit sold (sell/ask rate)
-   *   pay.value     = chaos paid per unit bought (buy/bid rate)
+   *   pay.value     = units of this currency per chaos paid (buy/bid rate, inverted)
    *
    * For a round-trip A→chaos→B→chaos→A to be profitable:
    *   (sellRate[A] / buyRate[B]) * (sellRate[B] / buyRate[A]) > 1
    *
-   * When buy==sell (no spread data), round-trips always return exactly 1 (0% profit).
+   * Lines without both pay and receive are skipped — when buy==sell (no spread
+   * data), round-trips always return exactly 1 (0% profit), which would silently
+   * read as "no arbitrage".
    */
   async findArbitrageOpportunities(league: string, minProfitPercent: number = 1.0): Promise<ArbitrageOpportunity[]> {
-    const overview = await this.getCurrencyRates(league);
+    const overview = await this.getCurrencyRatesWithSpread(league);
     const opportunities: ArbitrageOpportunity[] = [];
 
-    // Build separate buy-rate and sell-rate maps (all in chaos per unit).
-    // sell = chaos you receive per unit when selling
-    // buy  = chaos you pay per unit when buying
-    // Fall back to chaosEquivalent for both when pay/receive unavailable.
-    const sellRate = new Map<string, number>(); // chaos received when selling 1 unit
-    const buyRate  = new Map<string, number>(); // chaos spent when buying  1 unit
+    // One entry per currency holding BOTH sides, so every downstream lookup is
+    // total — no Map.get with a guaranteed-presence assertion. sell = chaos
+    // received when selling 1 unit; buy = chaos spent when buying 1 unit.
+    type Pair = { sell: number; buy: number };
+    const rates = new Map<string, Pair>();
 
-    sellRate.set('Chaos Orb', 1.0);
-    buyRate.set('Chaos Orb', 1.0);
+    rates.set('Chaos Orb', { sell: 1.0, buy: 1.0 });
 
     for (const line of overview.lines) {
       const name = line.currencyTypeName;
-      if (!name || line.chaosEquivalent <= 0) continue;
+      if (!name) continue;
 
       // receive.value: chaos per unit of this currency (sell side)
-      const sell = line.receive?.value ?? line.chaosEquivalent;
-      // pay.value: chaos per unit of this currency when buying (buy side)
-      // poe.ninja pay.value is expressed as [units-of-currency per chaos], so invert it.
-      const buy = line.pay?.value
-        ? 1 / line.pay.value          // convert [currency/chaos] → [chaos/currency]
-        : line.chaosEquivalent;       // fallback: assume no spread
+      const sell = line.receive?.value;
+      // pay.value: expressed as [units-of-currency per chaos], so invert it
+      // to get chaos per unit of this currency when buying (buy side).
+      const pay = line.pay?.value;
 
-      if (sell > 0 && buy > 0) {
-        sellRate.set(name, sell);
-        buyRate.set(name, buy);
+      if (sell != null && sell > 0 && pay != null && pay > 0) {
+        rates.set(name, { sell, buy: 1 / pay });
       }
     }
 
-    const currencies = Array.from(sellRate.keys());
+    // Only Chaos Orb present means no line carried pay/receive data. Returning
+    // an empty list here would falsely read as "no arbitrage opportunities".
+    if (rates.size <= 1) {
+      throw new Error(
+        `poe.ninja spread data (pay/receive rates) unavailable for league "${league}" — cannot compute arbitrage opportunities`
+      );
+    }
+
+    const currencies = Array.from(rates.entries()); // [name, {sell,buy}] — total access, no get()
 
     // 2-step: A → chaos → B → chaos → A
     for (let i = 0; i < currencies.length; i++) {
-      const A = currencies[i];
-      const sA = sellRate.get(A)!;
-      const bA = buyRate.get(A)!;
+      const [A, { sell: sA, buy: bA }] = currencies[i];
 
       for (let j = 0; j < currencies.length; j++) {
         if (i === j) continue;
-        const B = currencies[j];
-        const sB = sellRate.get(B)!;
-        const bB = buyRate.get(B)!;
+        const [B, { sell: sB, buy: bB }] = currencies[j];
 
         // Sell A → chaos, buy B, sell B → chaos, buy A back
         const chaosAfterSellA = sA;               // sell 1 A
@@ -234,21 +297,15 @@ export class PoeNinjaClient {
     // 3-step: A → chaos → B → chaos → C → chaos → A (limit iterations for performance)
     const limit = Math.min(currencies.length, 20);
     for (let i = 0; i < limit; i++) {
-      const A = currencies[i];
-      const sA = sellRate.get(A)!;
-      const bA = buyRate.get(A)!;
+      const [A, { sell: sA, buy: bA }] = currencies[i];
 
       for (let j = 0; j < limit; j++) {
         if (j === i) continue;
-        const B = currencies[j];
-        const sB = sellRate.get(B)!;
-        const bB = buyRate.get(B)!;
+        const [B, { sell: sB, buy: bB }] = currencies[j];
 
         for (let k = 0; k < limit; k++) {
           if (k === i || k === j) continue;
-          const C = currencies[k];
-          const sC = sellRate.get(C)!;
-          const bC = buyRate.get(C)!;
+          const [C, { sell: sC, buy: bC }] = currencies[k];
 
           const chaosA  = sA;
           const unitsB  = chaosA  / bB;
@@ -295,7 +352,7 @@ export class PoeNinjaClient {
   /**
    * Get from cache if not expired
    */
-  private getFromCache(key: string): any | null {
+  private getFromCache(key: string): CurrencyOverview | null {
     const cached = this.cache.get(key);
     if (cached && Date.now() - cached.timestamp < this.cacheTTL) {
       return cached.data;
@@ -306,17 +363,10 @@ export class PoeNinjaClient {
   /**
    * Put data in cache
    */
-  private putInCache(key: string, data: any): void {
+  private putInCache(key: string, data: CurrencyOverview): void {
     this.cache.set(key, {
       data,
       timestamp: Date.now(),
     });
-  }
-
-  /**
-   * Clear the cache
-   */
-  clearCache(): void {
-    this.cache.clear();
   }
 }

@@ -1,13 +1,18 @@
-import type { PoBLuaApiClient } from "../pobLuaBridge.js";
+import { toFiniteNumber, type PoBLuaApiClient, type SearchedNode } from "../pobLuaBridge.js";
+import { noteIgnoredError } from '../utils/errorHandling.js';
 import type { BuildService } from "../services/buildService.js";
 import type { TreeService } from "../services/treeService.js";
 import type { OptimizationConstraints } from "../types/optimization.js";
-import fs from "fs/promises";
+import type { PassiveTreeData } from "../types.js";
 import { analyzeDefenses, formatDefensiveAnalysis } from "../defensiveAnalyzer.js";
 import { wrapHandler } from "../utils/errorHandling.js";
-import { sanitizeBuildName } from "../utils/pathSanitizer.js";
+import { resolveBuildFile } from "../utils/pathSanitizer.js";
+import { loadBuildIfDifferent, readNamedBuild } from "../utils/namedBuild.js";
 
-export interface OptimizationHandlerContext {
+/** PoB's blank level 1 character: 60 Life, no Energy Shield, no Ward. */
+const BLANK_CHARACTER_POOL = 60;
+
+interface OptimizationHandlerContext {
   buildService: BuildService;
   treeService: TreeService;
   pobDirectory: string;
@@ -33,30 +38,14 @@ export async function handleAnalyzeDefenses(
 
     // Only reload from disk if a different build (or no build) is currently loaded.
     // If the same build is already loaded, preserve the current spec/item set selection.
-    const requested = buildName.replace(/\.xml$/i, '');
-    const basename = (n: string) => n.split(/[/\\]/).pop() ?? n;
-    let needsLoad = true;
-    try {
-      const info = await luaClient.getBuildInfo();
-      const loaded = (info?.name ?? '').replace(/\.xml$/i, '');
-      // Accept exact match OR basename match (handles path prefix differences)
-      if (loaded && (loaded === requested || basename(loaded) === basename(requested))) {
-        needsLoad = false; // same build — keep current Lua state
-      }
-    } catch { /* no build loaded yet */ }
-
-    if (needsLoad) {
-      const buildPath = sanitizeBuildName(buildName, context.pobDirectory);
-      const buildXml = await fs.readFile(buildPath, 'utf-8');
-      await luaClient.loadBuildXml(buildXml, buildName);
-    }
+    await loadBuildIfDifferent(luaClient, buildName, context.pobDirectory);
 
     // Get stats from PoB
     const stats = await luaClient.getStats();
 
-    // Validate that we have meaningful stats (not empty/default state)
-    const life = stats.Life || 0;
-    if (life <= 60) {
+    // Chaos Inoculation sets Life to 1 and carries the pool as Energy Shield.
+    const effectivePool = (toFiniteNumber(stats.Life) ?? 0) + (toFiniteNumber(stats.EnergyShield) ?? 0) + (toFiniteNumber(stats.Ward) ?? 0);
+    if (effectivePool <= BLANK_CHARACTER_POOL) {
       throw new Error(
         `Build "${buildName}" appears to be in default/empty state. The build may not have loaded correctly.`
       );
@@ -67,8 +56,8 @@ export async function handleAnalyzeDefenses(
     try {
       const specsResult = await luaClient.listSpecs();
       const itemSetsResult = await luaClient.listItemSets();
-      const activeSpec = specsResult?.specs?.find((s: any) => s.active);
-      const activeItemSet = itemSetsResult?.itemSets?.find((s: any) => s.active);
+      const activeSpec = specsResult?.specs?.find((s) => s.active);
+      const activeItemSet = itemSetsResult?.itemSets?.find((s) => s.active);
       const parts: string[] = [];
       if (activeSpec && specsResult?.specs?.length > 1) {
         parts.push(`Spec ${activeSpec.index}/${specsResult.specs.length}: "${activeSpec.title}" (${activeSpec.nodeCount} nodes)`);
@@ -79,7 +68,7 @@ export async function handleAnalyzeDefenses(
       if (parts.length > 0) {
         contextHeader += `\n[${parts.join(' | ')}]`;
       }
-    } catch { /* advisory only */ }
+    } catch (e) { noteIgnoredError('active spec/set context header (analysis unaffected)', e); }
 
     // Analyze defenses
     const analysis = analyzeDefenses(stats);
@@ -112,13 +101,8 @@ export async function handleSuggestOptimalNodes(
     // Load build from disk if buildName refers to an existing file, otherwise
     // assume a build is already loaded in the Lua bridge (in-memory workflow)
     if (buildName) {
-      const buildPath = sanitizeBuildName(buildName, context.pobDirectory);
-      try {
-        const buildXml = await fs.readFile(buildPath, 'utf-8');
-        await luaClient.loadBuildXml(buildXml, buildName);
-      } catch {
-        // Build file not found — use whichever build is currently loaded in Lua bridge
-      }
+      const buildXml = await readNamedBuild(buildName, context.pobDirectory);
+      await luaClient.loadBuildXml(buildXml, buildName, resolveBuildFile(buildName, context.pobDirectory));
     }
 
     const points = pointsAvailable || 10;
@@ -128,8 +112,8 @@ export async function handleSuggestOptimalNodes(
     try {
       const skills = await luaClient.getSkills();
       const allGemNames: string[] = [];
-      if (skills && skills.socketGroups) {
-        for (const group of skills.socketGroups) {
+      if (skills && skills.groups) {
+        for (const group of skills.groups) {
           for (const gem of (group.gems || [])) {
             if (gem.name) allGemNames.push(gem.name.toLowerCase());
           }
@@ -159,7 +143,7 @@ export async function handleSuggestOptimalNodes(
           (gemText.includes('strike') || gemText.includes('slash') || gemText.includes('attack'))) {
         buildKeywords.push('attack');
       }
-    } catch {}
+    } catch (e) { noteIgnoredError("skill-type keywords from gem names (archetype heuristics weaker)", e); }
 
     // Map goal to search keywords, prioritising build archetype
     const goalKeywords: Record<string, string[]> = {
@@ -180,7 +164,7 @@ export async function handleSuggestOptimalNodes(
     const keywords = goalKeywords[goal] || (buildKeywords.length > 0 ? [...buildKeywords, goal] : [goal]);
 
     // Search for relevant notable/keystone nodes
-    let allNodes: any[] = [];
+    let allNodes: SearchedNode[] = [];
     for (const keyword of keywords.slice(0, 3)) {
       try {
         const results = await luaClient.searchNodes({
@@ -192,7 +176,7 @@ export async function handleSuggestOptimalNodes(
         if (results && results.nodes) {
           allNodes.push(...results.nodes);
         }
-      } catch {}
+      } catch (e) { noteIgnoredError("class keystone lookup for tree search (result set smaller)", e); }
     }
 
     // Also search for keystones
@@ -206,7 +190,7 @@ export async function handleSuggestOptimalNodes(
       if (keystoneResults && keystoneResults.nodes) {
         allNodes.push(...keystoneResults.nodes);
       }
-    } catch {}
+    } catch (e) { noteIgnoredError("ascendancy keystone lookup for tree search (result set smaller)", e); }
 
     // Deduplicate by id
     const seen = new Set<string>();
@@ -267,7 +251,6 @@ export async function handleOptimizeTree(
   buildName: string,
   goalString: string,
   maxPoints?: number,
-  maxIterations?: number,
   constraints?: OptimizationConstraints
 ) {
   return wrapHandler('optimize tree', async () => {
@@ -277,13 +260,8 @@ export async function handleOptimizeTree(
 
     // Load build from disk if it exists, otherwise use the currently loaded Lua build
     if (buildName) {
-      const buildPath = sanitizeBuildName(buildName, context.pobDirectory);
-      try {
-        const buildXml = await fs.readFile(buildPath, 'utf-8');
-        await luaClient.loadBuildXml(buildXml, buildName);
-      } catch {
-        // Build file not found — use whichever build is currently loaded in Lua bridge
-      }
+      const buildXml = await readNamedBuild(buildName, context.pobDirectory);
+      await luaClient.loadBuildXml(buildXml, buildName, resolveBuildFile(buildName, context.pobDirectory));
     }
 
     const points = maxPoints || 10;
@@ -299,16 +277,17 @@ export async function handleOptimizeTree(
     // Get nearby notable/keystone recommendations via TreeService
     // For in-memory builds (no file on disk), fall back to the node IDs from the Lua bridge
     let allocatedNodes: Set<string>;
-    let treeData: any;
+    let treeData: PassiveTreeData;
     try {
       const build = await context.buildService.readBuild(buildName);
       const allocatedNodeIds = context.buildService.parseAllocatedNodes(build);
       allocatedNodes = new Set<string>(allocatedNodeIds);
       const treeVersion = context.buildService.extractBuildVersion(build);
       treeData = await context.treeService.getTreeData(treeVersion);
-    } catch {
+    } catch (e) {
       // Build not on disk — use node IDs already loaded from Lua bridge
-      const luaNodeIds: string[] = tree?.nodes?.map((n: any) => String(n.id ?? n)) ?? [];
+      noteIgnoredError("on-disk build for optimize (in-memory Lua tree used)", e);
+      const luaNodeIds: string[] = (tree?.nodes ?? []).map((n) => String(n));
       allocatedNodes = new Set<string>(luaNodeIds);
       treeData = await context.treeService.getTreeData(undefined);
     }
@@ -321,6 +300,15 @@ export async function handleOptimizeTree(
                        undefined;
 
     const nearbyNodes = context.treeService.findNearbyNodes(allocatedNodes, treeData, 3, goalFilter);
+
+    // Constraints: protectedNodes is enforced by dropping protected nodes
+    // from the recommendations. minLife/minES are evaluated against CURRENT
+    // stats — suggestions are not stat-recalculated (that needs a full PoB
+    // recompute), so "met" here means "the current build already satisfies
+    // it", stated as such below.
+    const protectedSet = new Set((constraints?.protectedNodes ?? []).map(String));
+    const protectedSkipped = nearbyNodes.filter(({ nodeId }) => protectedSet.has(String(nodeId)));
+    const candidateNodes = nearbyNodes.filter(({ nodeId }) => !protectedSet.has(String(nodeId)));
 
     let text = `=== Tree Optimization: ${buildName} ===\n\n`;
     text += `Goal: ${goalString}\n`;
@@ -335,10 +323,10 @@ export async function handleOptimizeTree(
     text += `Fire/Cold/Lightning Resist: ${stats.FireResist || 0}%/${stats.ColdResist || 0}%/${stats.LightningResist || 0}%\n\n`;
 
     // Recommendations based on nearby nodes
-    if (nearbyNodes.length > 0) {
+    if (candidateNodes.length > 0) {
       text += `=== Recommended Allocations (within 3 nodes) ===\n\n`;
       let count = 0;
-      for (const { node, nodeId } of nearbyNodes.slice(0, points)) {
+      for (const { node, nodeId } of candidateNodes.slice(0, points)) {
         const typeTag = node.isKeystone ? ' [KEYSTONE]' : node.isNotable ? ' [Notable]' : '';
         text += `${count + 1}. **${node.name || 'Unnamed'}**${typeTag} [${nodeId}]\n`;
         if (node.stats && node.stats.length > 0) {
@@ -354,11 +342,20 @@ export async function handleOptimizeTree(
       text += `Try get_nearby_nodes for unfiltered nearby node suggestions.\n`;
     }
 
-    if (constraints) {
-      text += `\n=== Constraints Applied ===\n`;
-      if (constraints.minLife) text += `- Minimum Life: ${constraints.minLife}\n`;
-      if (constraints.minES) text += `- Minimum Energy Shield: ${constraints.minES}\n`;
-      if (constraints.protectedNodes) text += `- Protected Nodes: ${constraints.protectedNodes.join(', ')}\n`;
+    if (constraints && (constraints.minLife || constraints.minES || constraints.protectedNodes)) {
+      text += `\n=== Constraints ===\n`;
+      if (constraints.minLife) {
+        const lifeNow = toFiniteNumber(stats.Life) ?? 0;
+        text += `- Min Life ${constraints.minLife}: currently ${lifeNow.toLocaleString()} — ${lifeNow >= constraints.minLife ? 'met by current build' : 'NOT met by current build'} (suggestions are not stat-recalculated)\n`;
+      }
+      if (constraints.minES) {
+        const esNow = toFiniteNumber(stats.EnergyShield) ?? 0;
+        text += `- Min ES ${constraints.minES}: currently ${esNow.toLocaleString()} — ${esNow >= constraints.minES ? 'met by current build' : 'NOT met by current build'} (suggestions are not stat-recalculated)\n`;
+      }
+      if (protectedSet.size > 0) {
+        text += `- Protected nodes (${protectedSet.size}): excluded from recommendations` +
+          (protectedSkipped.length > 0 ? ` — ${protectedSkipped.length} matching suggestion(s) dropped` : '') + '\n';
+      }
     }
 
     return {

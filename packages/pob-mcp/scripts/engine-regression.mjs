@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { PoBLuaApiClient } from '../build/pobLuaBridge.js';
 
 const client = new PoBLuaApiClient({
@@ -46,6 +47,18 @@ try {
     socketNodeId: 60735, desired: ['eternal_notable_minion_1'], seeds: [130660],
   });
   assert.ok(jewels.some((result) => result.seed === 130660 && result.hits.length > 0), 'jewel lookup failed');
+  // This fixture was measured through both the pre-migration and new bridges
+  // against the same PoB revision; it is not a desktop GUI measurement.
+  const xml = await readFile(new URL('../tests/fixtures/occ-vortex.xml', import.meta.url), 'utf8');
+  await client.loadBuildXml(xml, 'regression-fixture');
+  const fixtureTree = await client.getTree();
+  const fixtureStats = await client.getStats(['Life', 'EnergyShield', 'TotalDPS', 'CombinedDPS', 'TotalEHP']);
+  assert.equal(fixtureTree.className, 'Witch');
+  assert.equal(fixtureTree.ascendClassName, 'Occultist');
+  assert.equal(fixtureTree.nodes.length, 132);
+  for (const [key, expected] of Object.entries({ Life: 6728, EnergyShield: 1611, TotalDPS: 211560.47733333, CombinedDPS: 975099.74644352, TotalEHP: 54887.631577226 })) {
+    assert.ok(Math.abs(fixtureStats[key] - expected) < 0.01, `${key} changed: ${fixtureStats[key]}`);
+  }
   console.log(JSON.stringify({ spellDps: spell.TotalDPS, minionDps: minion.MinionTotalDPS, jewels: jewels.length }));
 } finally {
   await client.stop();

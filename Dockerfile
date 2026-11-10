@@ -35,6 +35,7 @@ COPY packages/pob-mcp/tsconfig.json ./
 COPY packages/pob-mcp/src ./src
 COPY packages/pob-mcp/scripts ./scripts
 COPY packages/pob-mcp/lua ./lua
+COPY packages/pob-mcp/tests/fixtures/occ-vortex.xml ./tests/fixtures/occ-vortex.xml
 RUN npm run build \
   && npm prune --omit=dev
 
