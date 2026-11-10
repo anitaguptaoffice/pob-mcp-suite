@@ -24,7 +24,7 @@ export interface BuildEngine {
   refreshTreeProgress(): Promise<void>;
   updateTreeDelta(params: { addNodes: number[]; removeNodes: number[]; masteryEffects?: Record<string, number> }): Promise<{ tree: unknown; droppedNodes?: number[] }>;
   getMasteryNodeOptions(nodeId: number): Promise<{ nodeId: number; nodeName: string; allocated: boolean; allocatedEffect?: number; ascendancyName?: string; availableEffects: Array<{ effectId: number; stat: string }> }>;
-  getMasteryOptions(): Promise<{ masteries: Array<{ nodeId: number | string; availableEffects: Array<{ effectId: number }> }> }>;
+  getMasteryOptions(): Promise<{ masteries: Array<{ nodeId: number | string; nodeName?: string; allocatedEffect?: number; availableEffects: Array<{ effectId: number; stat?: string }> }> }>;
   searchNodes(params: { keyword: string; nodeType?: string; maxResults: number; includeAllocated: boolean }): Promise<{ nodes: unknown[]; count: number }>;
   getItems(): Promise<unknown>;
   addItem(itemText: string, slot: string): Promise<{ id: number; slot?: string }>;

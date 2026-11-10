@@ -1788,12 +1788,12 @@ function M.get_mastery_options()
     return nil, 'build/spec not initialized'
   end
   local spec = build.spec
-  local result = {}
+  local result = setmetatable({}, { __jsontype = 'array' })
   for nodeId, _ in pairs(spec.allocNodes or {}) do
     local node = spec.nodes[nodeId]
     if node and node.isMastery and node.masteryEffects then
       local allocated = spec.masterySelections and spec.masterySelections[nodeId]
-      local available = {}
+      local available = setmetatable({}, { __jsontype = 'array' })
       -- node.masteryEffects is an array of { effect = <id>, stats = {...} }.
       for _, effectData in ipairs(node.masteryEffects) do
         local stat = effectData.stats and table.concat(effectData.stats, ', ') or tostring(effectData.effect)

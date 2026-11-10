@@ -32,6 +32,7 @@ try {
   await client.stop();
   const foundation = new BuildFoundation(new SnapshotStore(dir), () => openPoBEngine(options));
   const unallocated = await foundation.importBuild(unallocatedXml, 'unallocated-mastery-fixture');
+  assert.deepEqual((await foundation.masteryOptions(unallocated.id)).masteries, []);
   const nodeOptions = await foundation.masteryNodeOptions(unallocated.id, 4139);
   assert.equal(nodeOptions.allocated, false);
   assert.equal(nodeOptions.treeVersion, '3_29');
@@ -80,12 +81,20 @@ try {
     };
     const unallocatedOptions = await call('foundation_mastery_node_options', { snapshot_id: unallocated.id, node_id: 4139 });
     assert.equal(unallocatedOptions.allocated, false);
+    const emptyDiscovery = await call('discover_snapshot_mastery_effects', { snapshot_id: unallocated.id });
+    assert.deepEqual(emptyDiscovery.effects, []); assert.equal(emptyDiscovery.totalMasteries, 0);
     assert.ok(unallocatedOptions.availableEffects.some(effect => effect.effectId === 31822));
     const allocatedThroughMcp = await call('foundation_derive_tree', { snapshot_id: unallocated.id, add_nodes: mastery.pathNodes, mastery_effects: { 4139: 47642 } });
     assert.equal(allocatedThroughMcp.id, allocated.id);
 
     const queried = await call('foundation_mastery_options', { snapshot_id: parent.id });
     assert.ok(queried.masteries.some(node => Number(node.nodeId) === 4139));
+    const allEffects = await call('discover_snapshot_mastery_effects', { snapshot_id: parent.id, limit: 100 });
+    assert.equal(allEffects.totalMasteries, 1);
+    assert.ok(allEffects.effects.some(effect => effect.nodeId === 4139 && effect.effectId === 47642 && effect.selected));
+    const discoveryPage = await call('discover_snapshot_mastery_effects', { snapshot_id: parent.id, limit: 1 });
+    assert.deepEqual(discoveryPage.effects, allEffects.effects.slice(0, 1));
+    assert.equal(discoveryPage.nextOffset, allEffects.totalEffects > 1 ? 1 : null);
     const ranking = await call('rank_snapshot_mastery_effects', { snapshot_id: parent.id, node_id: 4139, effect_ids: [31822, 999999], metric: 'Life' });
     assert.equal(ranking.currentEffect, 47642);
     assert.deepEqual(ranking.rankedEffectIds, [31822]);
@@ -104,6 +113,12 @@ try {
     const batch = await call('rank_snapshot_mastery_effects', { snapshot_id: parent.id, node_id: 4139, effect_ids: fourEffects, metric: 'Life' });
     assert.equal(batch.results.length, 4);
     assert.ok(batch.results.every(result => result.status === 'ok'));
+    const discovered = await call('rank_snapshot_mastery_effects', { snapshot_id: parent.id, node_id: 4139, limit: 2, metric: 'Life' });
+    const sortedIds = lifeOptions.availableEffects.map(effect => effect.effectId).sort((a, b) => a - b);
+    assert.equal(discovered.candidateScope, 'discovered_page');
+    assert.deepEqual(discovered.results.map(result => result.effectId), sortedIds.slice(0, 2));
+    assert.equal(discovered.totalAvailableEffects, sortedIds.length);
+    assert.equal(discovered.nextOffset, sortedIds.length > 2 ? 2 : null);
     const derived = await call('foundation_derive_masteries', { snapshot_id: parent.id, effects: { 4139: 31822 } });
     assert.equal(derived.id, child.id);
     mcp.child.stdin.end();
