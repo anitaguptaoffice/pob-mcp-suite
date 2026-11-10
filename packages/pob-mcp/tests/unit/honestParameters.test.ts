@@ -20,16 +20,15 @@ describe('handleFindItemUpgrades without a Lua bridge', () => {
     const result = await handleFindItemUpgrades(context, { slot: 'Helmet' });
     const text = result.content[0].text;
 
-    expect(text).toContain('Build stats unavailable');
+    expect(text).toContain('Life: unknown');
     // The placeholder life=0 must never render as a real life gap…
     expect(text).not.toContain('Life is 0');
     // …nor placeholder resist=75 as real "Build Status" proof.
     expect(text).not.toContain('✓');
-    // Generic slot guidance is still produced.
-    expect(text).toContain('Priority Mods');
+    expect(text).toContain('candidate items have not been checked');
   });
 
-  it('runs the real gap analysis when a bridge is present', async () => {
+  it('reports available live stats without assuming a resistance cap', async () => {
     const bridged: ShoppingContext = {
       getLuaClient: () => stubClient({
         getBuildInfo: async () => ({ name: 'Test', className: 'Witch', ascendClassName: 'Occultist' }),
@@ -40,9 +39,8 @@ describe('handleFindItemUpgrades without a Lua bridge', () => {
     const result = await handleFindItemUpgrades(bridged, { slot: 'Helmet' });
     const text = result.content[0].text;
 
-    expect(text).toContain('Fire resist 50%');
-    expect(text).toContain('25% short of cap');
-    expect(text).not.toContain('Build stats unavailable');
+    expect(text).toContain('Fire Resistance: 50%');
+    expect(text).toContain('Resistance caps and requirements depend on the build');
   });
 });
 

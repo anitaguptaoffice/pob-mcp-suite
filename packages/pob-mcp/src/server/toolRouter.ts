@@ -688,7 +688,8 @@ export async function routeToolCall(
       return await handleGenerateShoppingList(shoppingContext, {
         build_name: args.build_name as string,
         league: args.league as string,
-        budget: args.budget_tier as 'budget' | 'medium' | 'endgame' | undefined
+        budget: args.budget_tier as 'budget' | 'medium' | 'endgame' | undefined,
+        budget_amount: typeof args.budget === 'number' ? args.budget : undefined
       });
     }
 

@@ -51,6 +51,7 @@ describe('routeToolCall generate_shopping_list budget contract', () => {
     );
     const text = textOf(result);
     expect(text).not.toContain('TypeError');
+    expect(text).toContain('Budget amount 200 is context only');
     expect(result.content.length).toBeGreaterThan(0);
   });
 
@@ -70,5 +71,8 @@ describe('routeToolCall generate_shopping_list budget contract', () => {
     expect(tierText).not.toContain('TypeError');
     // tier selection must visibly change recommendation rendering
     expect(tierText).not.toBe(fbText);
+    expect(tierText).toContain('no pricing or filtering was performed');
+    expect(tierText).toContain('unsaved changes are not included');
+    expect(tierText).not.toMatch(/Net Gain|Est\. Cost|4500|500 chaos/);
   });
 });

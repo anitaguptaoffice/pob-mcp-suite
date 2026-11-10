@@ -37,6 +37,16 @@ describe('ShoppingListService multi gear-set extraction', () => {
     expect(belt!.currentItem!.name).toBe("Kaom's Sign");
     expect(belt!.currentItem!.name).not.toMatch(/^Item Class:/);
   });
+
+  it('does not mistake a missing item definition or omitted item ID for an empty slot', async () => {
+    const input = { Items: { activeItemSet: '1', ItemSet: { id: '1', Slot: [
+      { name: 'Belt', itemId: '999' }, { name: 'Amulet' }, { name: 'Helmet', itemId: '0' },
+    ] } } } as never;
+    const result = await new ShoppingListService().generateShoppingList(input, 'b', 'league');
+    expect(result.items.find(item => item.slot === 'Belt')?.state).toBe('unresolved');
+    expect(result.items.find(item => item.slot === 'Amulet')?.state).toBe('unresolved');
+    expect(result.items.find(item => item.slot === 'Helmet')?.state).toBe('empty');
+  });
 });
 
 describe('ShoppingListService slot coverage from the build itself', () => {
@@ -85,7 +95,7 @@ ${beltText}
     expect(slots).not.toContain('Small Jewel Socket 1');
     expect(slots).not.toContain('Flask 1');
     const graft = list.items.find((i) => i.slot === 'Graft 1')!;
-    expect(graft.priority).toBe('critical'); // itemId 0 = empty slot
+    expect(graft.state).toBe('empty'); // itemId 0 = empty slot, not necessarily an urgent upgrade
   });
 
   it('excludes graft slots on pre-3_27 trees (PoB hides them)', async () => {

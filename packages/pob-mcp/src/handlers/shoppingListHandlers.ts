@@ -1,12 +1,6 @@
-/**
- * Shopping List Handlers
- *
- * Generate shopping lists from PoB builds
- */
-
 import { wrapHandler } from '../utils/errorHandling.js';
 import { BuildService } from '../services/buildService.js';
-import { ShoppingListService, type BudgetTier, type ShoppingList, type ShoppingListItem } from '../services/shoppingListService.js';
+import { ShoppingListService } from '../services/shoppingListService.js';
 import { TradeApiClient } from '../services/tradeClient.js';
 import { StatMapper } from '../services/statMapper.js';
 import { PoeNinjaClient } from '../services/poeNinjaClient.js';
@@ -18,165 +12,25 @@ interface ShoppingListContext {
   ninjaClient?: PoeNinjaClient;
 }
 
-/**
- * Generate a shopping list from a PoB build
- */
-export async function handleGenerateShoppingList(
-  context: ShoppingListContext,
-  args: {
-    build_name: string;
-    league: string;
-    budget?: 'budget' | 'medium' | 'endgame';
-  }
-): Promise<{
-  content: Array<{
-    type: string;
-    text: string;
-  }>;
-}> {
+export async function handleGenerateShoppingList(context: ShoppingListContext, args: {
+  build_name: string; league: string; budget?: 'budget' | 'medium' | 'endgame'; budget_amount?: number;
+}): Promise<{ content: Array<{ type: string; text: string }> }> {
   return wrapHandler('generate shopping list', async () => {
-    const { build_name, league, budget = 'medium' } = args;
-
-    // Read the build
-    const build = await context.buildService.readBuild(build_name);
-
-    // Create shopping list service
-    const shoppingService = new ShoppingListService();
-
-    // Generate the list
-    const shoppingList = await shoppingService.generateShoppingList(build, build_name, league);
-
-    // Format output
-    const output = formatShoppingList(shoppingList, budget);
-
-    return {
-      content: [
-        {
-          type: 'text',
-          text: output,
-        },
-      ],
-    };
+    if (typeof args.build_name !== 'string' || !args.build_name.trim() || typeof args.league !== 'string' || !args.league.trim()) throw new Error('build_name and exact league are required');
+    if (args.budget !== undefined && !['budget', 'medium', 'endgame'].includes(args.budget)) throw new Error('invalid budget tier');
+    if (args.budget_amount !== undefined && (!Number.isFinite(args.budget_amount) || args.budget_amount < 0)) throw new Error('invalid budget amount');
+    const build = await context.buildService.readBuild(args.build_name);
+    const list = await new ShoppingListService().generateShoppingList(build, args.build_name, args.league.trim());
+    let text = `=== Saved Equipment: ${list.buildName} ===\nInternational league: ${list.league}\n`;
+    text += 'Based on the saved active item set; unsaved changes are not included. Listings, replacement gains, upgrade priority, costs and budget feasibility were not calculated.\n';
+    if (args.budget) text += `Budget tier ${args.budget} is context only; no pricing or filtering was performed.\n`;
+    if (args.budget_amount !== undefined) text += `Budget amount ${args.budget_amount} is context only; currency was not specified and no pricing or filtering was performed.\n`;
+    if (!list.items.length) text += '\nNo displayable equipment slots were found in the saved item set.\n';
+    for (const item of list.items) {
+      const detail = item.state === 'empty' ? 'empty in saved build' : item.state === 'unresolved' ? 'item data unavailable' : `${item.currentItem?.name} (${item.currentItem?.rarity})`;
+      text += `\n- ${item.slot}: ${detail}`;
+    }
+    text += '\n\nConfirm the desired slot and modifiers, search securable trade listings, and compare replacement damage and defenses in PoB.';
+    return { content: [{ type: 'text', text }] };
   });
-}
-
-/**
- * Format shopping list for output
- */
-function formatShoppingList(list: ShoppingList, selectedBudget: BudgetTier): string {
-  let output = `=== Shopping List: ${list.buildName} ===\n`;
-  output += `League: ${list.league}\n`;
-  output += `Budget: ${selectedBudget}\n\n`;
-
-  // Summary
-  output += `📊 SUMMARY\n`;
-  output += `Items to Upgrade: ${list.summary.totalItems}\n`;
-  output += `Critical: ${list.summary.criticalUpgrades}\n`;
-  output += `Budget Cost: ~${list.summary.totalBudgetCost} chaos\n`;
-  output += `Medium Cost: ~${list.summary.totalMediumCost} chaos\n`;
-  output += `Endgame Cost: ~${list.summary.totalEndgameCost} chaos\n\n`;
-
-  // Build Needs
-  if (list.buildNeeds.lifeNeeded > 0 || Object.values(list.buildNeeds.resistanceGaps).some((v) => v > 0)) {
-    output += `⚠️  BUILD NEEDS\n`;
-    if (list.buildNeeds.lifeNeeded > 0) {
-      output += `Life: Need +${list.buildNeeds.lifeNeeded} more (target 4500+)\n`;
-    }
-
-    const resGaps = list.buildNeeds.resistanceGaps;
-    const resNeeded = [];
-    if (resGaps.fire > 0) resNeeded.push(`${resGaps.fire}% Fire`);
-    if (resGaps.cold > 0) resNeeded.push(`${resGaps.cold}% Cold`);
-    if (resGaps.lightning > 0) resNeeded.push(`${resGaps.lightning}% Lightning`);
-    if (resGaps.chaos > 0) resNeeded.push(`${resGaps.chaos}% Chaos`);
-
-    if (resNeeded.length > 0) {
-      output += `Resistances: Need ${resNeeded.join(', ')}\n`;
-    }
-    output += '\n';
-  }
-
-  // Priority Sections
-  if (list.priorities.immediate.length > 0) {
-    output += `🔴 IMMEDIATE (Critical)\n`;
-    for (const slot of list.priorities.immediate) {
-      const item = list.items.find((i) => i.slot === slot);
-      if (item) {
-        output += formatShoppingItem(item, selectedBudget, true);
-      }
-    }
-    output += '\n';
-  }
-
-  if (list.priorities.shortTerm.length > 0) {
-    output += `🟡 SHORT TERM (High Priority)\n`;
-    for (const slot of list.priorities.shortTerm) {
-      const item = list.items.find((i) => i.slot === slot);
-      if (item) {
-        output += formatShoppingItem(item, selectedBudget, true);
-      }
-    }
-    output += '\n';
-  }
-
-  if (list.priorities.longTerm.length > 0) {
-    output += `🟢 LONG TERM (Medium/Low Priority)\n`;
-    for (const slot of list.priorities.longTerm) {
-      const item = list.items.find((i) => i.slot === slot);
-      if (item) {
-        output += formatShoppingItem(item, selectedBudget, false);
-      }
-    }
-  }
-
-  output += `\n💡 TIP: Use the 'search_trade_items' or 'find_item_upgrades' tools to find specific items`;
-
-  return output;
-}
-
-/**
- * Format individual shopping item
- */
-function formatShoppingItem(item: ShoppingListItem, budget: BudgetTier, detailed: boolean): string {
-  let output = `\n${item.slot}`;
-
-  if (item.currentItem) {
-    output += ` (Current: ${item.currentItem.rarity} ${item.currentItem.name})`;
-  } else {
-    output += ` (EMPTY)`;
-  }
-  output += '\n';
-
-  // Show reasons
-  if (item.reason.length > 0) {
-    output += `  Why: ${item.reason.join(', ')}\n`;
-  }
-
-  // Show selected budget tier recommendation
-  const rec = item.recommendations[budget];
-  output += `  Target: ${rec.searchCriteria}\n`;
-  output += `  Est. Cost: ${rec.estimatedPrice.min}-${rec.estimatedPrice.max} ${rec.estimatedPrice.currency}\n`;
-
-  if (detailed) {
-    output += `  Look for: ${rec.keyStats.join(', ')}\n`;
-
-    // Show estimated NET impact (accounts for losing current item)
-    if (item.estimatedImpact) {
-      const impacts = [];
-      if (item.estimatedImpact.life) impacts.push(`+${item.estimatedImpact.life} Life`);
-      if (item.estimatedImpact.es) impacts.push(`+${item.estimatedImpact.es} ES`);
-      if (item.estimatedImpact.resistances) impacts.push(`+${item.estimatedImpact.resistances}% Res`);
-      if (item.estimatedImpact.dps) impacts.push(`+${(item.estimatedImpact.dps / 1000).toFixed(0)}k DPS`);
-
-      if (impacts.length > 0) {
-        output += `  Net Gain: ${impacts.join(', ')} (after replacing current)\n`;
-      }
-    }
-
-    if (rec.notes) {
-      output += `  Note: ${rec.notes}\n`;
-    }
-  }
-
-  return output;
 }

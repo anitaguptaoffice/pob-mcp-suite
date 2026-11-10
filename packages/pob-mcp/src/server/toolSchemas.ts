@@ -954,7 +954,7 @@ export function getLuaToolSchemas(): ToolSchema[] {
     {
       name: "find_item_upgrades",
       truncatable: true,
-      description: "Generate a shopping spec for a gear slot — describes what item type, base, and mods to look for based on the build's current gaps (resistances, life, ES, DPS). Works with a loaded build in the Lua bridge. No trade API required.",
+      description: "Show available live PoB equipment and defensive stats for a slot as context for choosing a candidate. Does not recommend a verified item, calculate replacement gains, or check prices. No trade API required.",
       inputSchema: {
         type: "object",
         properties: {
@@ -1841,7 +1841,7 @@ export function getTradeToolSchemas(): ToolSchema[] {
     {
       name: "generate_shopping_list",
       truncatable: true,
-      description: "Generate a prioritized shopping list of items to upgrade for a build within a budget. REQUIRES: POE_TRADE_ENABLED environment variable set to true.",
+      description: "List equipment from the saved active item set as a starting point for shopping. Does not calculate upgrades, prices, budget feasibility, or live unsaved changes. REQUIRES: POE_TRADE_ENABLED=true.",
       inputSchema: {
         type: "object",
         properties: {
@@ -1855,9 +1855,10 @@ export function getTradeToolSchemas(): ToolSchema[] {
           },
           budget_tier: {
             type: "string",
-            description: "Budget tier for recommendations (default: 'medium')",
+            description: "Legacy context only; does not filter items or calculate costs.",
             enum: ["budget", "medium", "endgame"],
           },
+          budget: { type: "number", description: "Legacy budget number for context only; currency is unspecified and no filtering or costing is performed." },
         },
         required: ["build_name", "league"],
       },

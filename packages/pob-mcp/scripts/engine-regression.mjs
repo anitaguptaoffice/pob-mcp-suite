@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { PoBLuaApiClient } from '../build/pobLuaBridge.js';
 import { formatLoadStats } from '../build/handlers/luaHandlers.js';
+import { handleFindItemUpgrades } from '../build/handlers/itemShoppingHandler.js';
 
 const client = new PoBLuaApiClient({
   cwd: process.env.POB_FORK_PATH,
@@ -93,6 +94,9 @@ try {
   await client.loadBuildXml(xml, 'regression-fixture');
   const fixtureTree = await client.getTree();
   const fixtureStats = await client.getStats(['Life', 'EnergyShield', 'TotalDPS', 'CombinedDPS', 'TotalEHP']);
+  const shoppingContext = await handleFindItemUpgrades({ getLuaClient: () => client }, { slot: 'Amulet' });
+  assert.ok(shoppingContext.content[0].text.includes(`Life: ${fixtureStats.Life}`), 'shopping context does not match live PoB Life');
+  assert.ok(shoppingContext.content[0].text.includes('Prices and candidate items have not been checked'), 'shopping context must disclose missing price data');
   assert.equal(fixtureTree.className, 'Witch');
   assert.equal(fixtureTree.ascendClassName, 'Occultist');
   assert.equal(fixtureTree.nodes.length, 132);
