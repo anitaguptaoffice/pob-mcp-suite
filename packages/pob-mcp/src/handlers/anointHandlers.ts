@@ -9,7 +9,7 @@ export async function handleFindBestAnointment(context: { getLuaClient: () => Po
     const result = await client.evaluateAnointCandidates({ slot: args.slot, focus: args.focus, limit: Math.max(args.max_results ?? 10, 50) });
     const top = result.candidates.slice(0, args.max_results ?? 10);
     const baseDamage = result.base.damageValue;
-    const lines = [`=== 涂油试算 (slot: ${result.slot} / ${result.baseType}, focus: ${result.focus}) ===`, '', `基准（移除当前涂油）：${result.base.damageStat ?? '伤害未提供'}: ${baseDamage === undefined ? '未提供' : Math.round(baseDamage).toLocaleString()} | TotalEHP: ${result.base.ehpAvailable === false ? '未提供' : Math.round(result.base.TotalEHP).toLocaleString()}`, `已试算 ${result.evaluated} 项，跳过 ${result.skipped} 项，显示 ${top.length} 项；结果取决于当前技能和配置。`, ''];
+    const lines = [`=== Best Anointment (slot: ${result.slot} / ${result.baseType}, focus: ${result.focus}) ===`, '', `Baseline (without current anointment): ${result.base.damageStat ?? 'damage unavailable'}: ${baseDamage === undefined ? 'unavailable' : Math.round(baseDamage).toLocaleString()} | TotalEHP: ${result.base.ehpAvailable === false ? 'unavailable' : Math.round(result.base.TotalEHP).toLocaleString()}`, `Evaluated ${result.evaluated}, skipped ${result.skipped}, showing ${top.length}; results depend on the current skill and configuration.`, ''];
     for (const [index, candidate] of top.entries()) {
       const dpsPct = baseDamage ? candidate.dpsDelta / baseDamage * 100 : 0;
       const ehpPct = result.base.TotalEHP ? candidate.ehpDelta / result.base.TotalEHP * 100 : 0;
