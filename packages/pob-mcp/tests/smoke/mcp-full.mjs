@@ -58,6 +58,14 @@ try {
   if (!otherAnalysis.includes('Live Calculated Stats') || !otherAnalysis.includes('isolated engine')) throw new Error(`isolated live analysis failed: ${otherAnalysis}`);
   const afterAnalysis = await call('lua_get_build_snapshot');
   if (!afterAnalysis.includes('Level 89')) throw new Error(`analysis overwrote unsaved changes: ${afterAnalysis}`);
+  const otherDefenses = await call('analyze_defenses', { build_name: 'other.xml' });
+  if (!otherDefenses.includes('Defensive Analysis') || !otherDefenses.includes('isolated engine')) throw new Error(`isolated defence analysis failed: ${otherDefenses}`);
+  const otherNodes = await call('suggest_optimal_nodes', { build_name: 'other.xml', goal: 'life', points_available: 2 });
+  if (!otherNodes.includes('isolated engine')) throw new Error(`isolated node analysis failed: ${otherNodes}`);
+  const otherTree = await call('optimize_tree', { build_name: 'other.xml', goal: 'balanced', max_points: 2 });
+  if (!otherTree.includes('isolated engine')) throw new Error(`isolated tree analysis failed: ${otherTree}`);
+  const afterOptimization = await call('lua_get_build_snapshot');
+  if (!afterOptimization.includes('Level 89')) throw new Error(`optimization overwrote unsaved changes: ${afterOptimization}`);
   const comparison = await call('compare_builds', { build1: 'example.xml', build2: 'example.xml' });
   if (!comparison.includes('Build Comparison (Live Stats)') || !comparison.includes('isolated engine')) throw new Error(`isolated live comparison failed: ${comparison}`);
   const afterComparison = await call('lua_get_build_snapshot');

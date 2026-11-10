@@ -23,6 +23,8 @@ export async function readNamedBuild(buildName: string, buildsDir?: string): Pro
   }
 }
 
+export class BuildMismatchError extends Error {}
+
 /** Require the requested saved build to be the current bridge build without
  * replacing potentially unsaved edits. Loading another build is explicit. */
 export async function loadBuildIfDifferent(
@@ -41,5 +43,5 @@ export async function loadBuildIfDifferent(
     } catch { /* The bridge state is unknown; do not replace it. */ }
   }
   await readNamedBuild(buildName, buildsDir);
-  throw new Error(`Cannot analyze "${buildName}" without replacing the current build, which may have unsaved edits. Save it first, then use lua_load_build to load the requested build.`);
+  throw new BuildMismatchError(`Cannot analyze "${buildName}" without replacing the current build, which may have unsaved edits. Save it first, then use lua_load_build to load the requested build.`);
 }

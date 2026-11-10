@@ -997,7 +997,7 @@ export function getOptimizationToolSchemas(): ToolSchema[] {
     {
       name: "suggest_optimal_nodes",
       truncatable: true,
-      description: "AI-powered suggestion of optimal passive nodes based on build goals",
+      description: "Heuristic search for passive nodes matching build goals; does not calculate gains, confirm reachability, or guarantee optimal nodes.",
       inputSchema: {
         type: "object",
         properties: {
@@ -1020,7 +1020,7 @@ export function getOptimizationToolSchemas(): ToolSchema[] {
     {
       name: "optimize_tree",
       truncatable: true,
-      description: "Full passive tree optimization - removes inefficient nodes and reallocates to better options",
+      description: "Suggest nearby passive nodes using the active tree and version. Does not reallocate nodes, recalculate gains, or guarantee an optimal tree.",
       inputSchema: {
         type: "object",
         properties: {

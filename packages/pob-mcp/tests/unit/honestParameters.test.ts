@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, jest } from '@jest/globals';
 import { handleFindItemUpgrades } from '../../src/handlers/itemShoppingHandler.js';
 import { handleOptimizeTree } from '../../src/handlers/optimizationHandlers.js';
 import type { PoBLuaApiClient } from '../../src/pobLuaBridge.js';
@@ -70,6 +70,26 @@ describe('handleOptimizeTree constraints', () => {
       getTree: async () => ({ nodes: [1, 2, 3], ascendancyPointsUsed: 0, classId: 0, ascendClassId: 0, secondaryAscendClassId: 0, masteryEffects: {}, treeVersion: '3_26' }),
     }),
     ensureLuaClient: async () => {},
+  });
+
+  it('uses live allocated nodes and the live tree version rather than saved XML', async () => {
+    const c = context();
+    const getTreeData = jest.fn(async (_version?: string) => ({ nodes: new Map() }));
+    const findNearbyNodes = jest.fn((_nodes: Set<string>) => nearby);
+    c.treeService = { getTreeData, findNearbyNodes } as unknown as OptContext['treeService'];
+    c.buildService = { readBuild: async () => ({ Tree: { activeSpec: '1' } }),
+      parseAllocatedNodes: () => ['999'], extractBuildVersion: () => '3_13' } as unknown as OptContext['buildService'];
+    await handleOptimizeTree(c, '', 'balanced');
+    expect(getTreeData).toHaveBeenCalledWith('3_26');
+    expect(findNearbyNodes.mock.calls[0][0]).toEqual(new Set(['1', '2', '3']));
+  });
+
+  it('refuses to guess a tree version when the bridge does not provide one', async () => {
+    const c = context();
+    const client = c.getLuaClient()!;
+    client.getTree = async () => ({ nodes: [1], ascendancyPointsUsed: 0, classId: 0, ascendClassId: 0, secondaryAscendClassId: 0, masteryEffects: {} });
+    c.getLuaClient = () => client;
+    await expect(handleOptimizeTree(c, '', 'balanced')).rejects.toThrow('tree version or allocated nodes are unavailable');
   });
 
   it('excludes protected nodes from recommendations', async () => {

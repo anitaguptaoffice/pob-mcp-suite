@@ -64,6 +64,7 @@ interface OptimizationContext {
   pobDirectory: string;
   getLuaClient: () => PoBLuaApiClient | null;
   ensureLuaClient: () => Promise<void>;
+  createIsolatedLuaClient?: () => Promise<{ client: PoBLuaApiClient; close: () => Promise<void> }>;
 }
 
 /**
@@ -192,6 +193,7 @@ export class ContextBuilder {
       pobDirectory: this.deps.pobDirectory,
       getLuaClient: this.deps.getLuaClient,
       ensureLuaClient: this.deps.ensureLuaClient,
+      createIsolatedLuaClient: this.deps.createIsolatedLuaClient,
     };
   }
 
