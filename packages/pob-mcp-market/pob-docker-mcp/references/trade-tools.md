@@ -17,7 +17,7 @@ Trade tools are environment-gated.
 - Use `search_trade_items` for concrete item searches.
 - Use `get_item_price` for simple price checks.
 - Use `find_item_upgrades`, `find_resistance_gear`, and `generate_shopping_list` only after loading or identifying the build.
-- Use `compare_trade_items` when the user provides two specific options.
+- Use `compare_trade_items` to display raw details of specific listings. It does not compare currencies or calculate PoB replacement benefits; evaluate those separately.
 
 ## Search Workflow
 

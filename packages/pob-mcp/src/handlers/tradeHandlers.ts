@@ -2,7 +2,7 @@ import { auditStatSourceCoverage } from '../services/tradeSourceAudit.js';
 import { wrapHandler } from '../utils/errorHandling.js';
 import { TradeApiClient } from '../services/tradeClient.js';
 import { TradeQueryBuilder } from '../services/tradeQueryBuilder.js';
-import type { TradeItem, TradeQuery } from '../types/tradeTypes.js';
+import type { TradeQuery } from '../types/tradeTypes.js';
 import { StatMapper } from '../services/statMapper.js';
 import { ItemRecommendationEngine } from '../services/itemRecommendationEngine.js';
 import {
@@ -14,7 +14,6 @@ import {
   StatFilterGroup,
   TradeStatus,
 } from '../types/tradeTypes.js';
-import { CostBenefitAnalyzer } from '../services/costBenefitAnalyzer.js';
 import { PoeNinjaClient } from '../services/poeNinjaClient.js';
 
 interface TradeContext {
@@ -136,7 +135,7 @@ export async function handleSearchTradeItems(
       max_price,
       price_currency = 'chaos',
       status,
-      online_only = true,
+      online_only,
       online_status,
       item_rarity,
       rarity,
@@ -150,6 +149,9 @@ export async function handleSearchTradeItems(
       sort = 'price_asc',
       limit = 5,
     } = args;
+    if (typeof league !== 'string' || !league.trim() || !Number.isInteger(limit) || limit < 1 || limit > 10) {
+      throw new Error('exact league and limit between 1 and 10 are required');
+    }
     const normalizedRarity = item_rarity ?? rarity;
     const normalizedStats = toStatFilters(stats, mods);
 
@@ -190,7 +192,7 @@ export async function handleSearchTradeItems(
 
     builder.applyOptions({
       league,
-      status,
+      status: status ?? online_status ?? (online_only === undefined ? 'securable' : undefined),
       onlineOnly: online_only,
       onlineStatus: online_status,
       minPrice: min_price,
@@ -207,14 +209,14 @@ export async function handleSearchTradeItems(
     const sourceWarningText = formatSourceWarnings(sourceWarnings);
 
     // Execute search
-    const searchResult = await context.tradeClient.searchItems(league, query);
+    const searchResult = await context.tradeClient.searchItems(league.trim(), query);
 
     if (!searchResult.result || searchResult.result.length === 0) {
       return {
         content: [
           {
             type: 'text',
-            text: `${sourceWarningText}No items found matching your search criteria in ${league} league.`,
+            text: `${sourceWarningText}No items found matching your search criteria in ${league.trim()} league. Status: ${query.query.status?.option ?? 'unknown'}.${searchResult.inexact ? ' 官方交易站标记搜索为近似匹配。' : ''}`,
           },
         ],
       };
@@ -224,8 +226,7 @@ export async function handleSearchTradeItems(
     const itemIdsToFetch = searchResult.result.slice(0, Math.min(limit, 10));
     const items = await context.tradeClient.fetchItems(itemIdsToFetch, searchResult.id);
 
-    // Format results with real-time currency rates
-    const output = await formatSearchResults(items, searchResult.total, league, searchResult.id, context.ninjaClient);
+    const output = formatSearchResults(items, searchResult.total, league.trim(), searchResult.id, query.query.status?.option ?? 'unknown', searchResult.inexact === true);
 
     return {
       content: [
@@ -418,155 +419,34 @@ export async function handleGetLeagues(
 // Helper Functions
 // ========================================
 
-/**
- * Fetch and map currency rates from poe.ninja
- * Maps full currency names to short names used by trade API
- */
-async function getCurrencyRatesMap(ninjaClient: PoeNinjaClient | undefined, league: string): Promise<Map<string, number>> {
-  if (!ninjaClient) {
-    return new Map();
+function formatListingDetails(listing: ItemListing): string {
+  const item = listing.item;
+  const price = listing.listing.price;
+  let output = `   价格：${price ? `${price.amount} ${price.currency}` : '未标价'}\n`;
+  if (item.ilvl !== undefined) output += `   物品等级：${item.ilvl}${item.corrupted ? '（已腐化）' : ''}\n`;
+  if (item.sockets?.length) output += `   最大连接数：${getMaxLinks(item.sockets)}\n`;
+  const modGroups: Array<[string, string[] | undefined]> = [
+    ['固定词缀', item.implicitMods], ['显式词缀', item.explicitMods], ['工艺词缀', item.craftedMods],
+    ['破裂词缀', item.fracturedMods], ['附魔', item.enchantMods], ['其他词缀', item.utilityMods],
+  ];
+  for (const [label, mods] of modGroups) {
+    if (mods?.length) output += `   ${label}：${mods.join('；')}\n`;
   }
-
-  try {
-    const rates = await ninjaClient.getCurrencyExchangeMap(league);
-
-    // Map poe.ninja names to trade API currency names
-    const mappedRates = new Map<string, number>();
-
-    // Common currency mappings
-    const nameMap: Record<string, string[]> = {
-      'Divine Orb': ['divine', 'div'],
-      'Chaos Orb': ['chaos', 'c'],
-      'Exalted Orb': ['exalted', 'exa', 'ex'],
-      'Mirror of Kalandra': ['mirror'],
-      'Orb of Alchemy': ['alchemy', 'alch'],
-      'Orb of Fusing': ['fusing', 'fuse'],
-      'Orb of Regret': ['regret'],
-      'Gemcutter\'s Prism': ['gcp'],
-      'Chromatic Orb': ['chrome', 'chromatic'],
-      'Jeweller\'s Orb': ['jewellers', 'jew'],
-      'Orb of Alteration': ['alt', 'alteration'],
-      'Vaal Orb': ['vaal'],
-      'Cartographer\'s Chisel': ['chisel'],
-      'Blessed Orb': ['blessed'],
-      'Orb of Scouring': ['scouring', 'scour'],
-    };
-
-    // Add mappings
-    for (const [fullName, chaosValue] of rates.entries()) {
-      // Add the full name
-      mappedRates.set(fullName, chaosValue);
-
-      // Add short name mappings
-      for (const [key, aliases] of Object.entries(nameMap)) {
-        if (fullName === key) {
-          for (const alias of aliases) {
-            mappedRates.set(alias, chaosValue);
-          }
-        }
-      }
-    }
-
-    return mappedRates;
-  } catch (error) {
-    console.error('[Trade] Failed to fetch currency rates from poe.ninja:', error);
-    return new Map();
-  }
+  output += `   卖家：${listing.listing.account?.name ?? 'unknown'}（${listing.listing.account?.online ? '在线' : '离线或状态未知'}）\n`;
+  return output;
 }
 
-async function formatSearchResults(items: ItemListing[], totalResults: number, league: string, searchId: string, ninjaClient?: PoeNinjaClient): Promise<string> {
-  let output = `=== Trade Search (${league}) ===\n`;
-  output += `Found: ${totalResults} | Showing: ${items.length}\n`;
-  output += `🔗 ${getTradeSearchUrl(league, searchId)}\n\n`;
-
-  // Fetch real-time currency rates from poe.ninja
-  const currencyRates = await getCurrencyRatesMap(ninjaClient, league);
-
-  // Analyze items for cost/benefit with real rates
-  const analyzer = new CostBenefitAnalyzer();
-  const analyses = analyzer.analyzeAndRank(items, currencyRates);
-
-  for (let i = 0; i < analyses.length; i++) {
-    const analysis = analyses[i];
-    const listing = analysis.listing;
+function formatSearchResults(items: ItemListing[], totalResults: number, league: string, searchId: string, status: string, inexact: boolean): string {
+  let output = `=== 交易搜索（${league}）===\n找到 ${totalResults} 条；展示 ${items.length} 条。筛选状态：${status}。\n`;
+  output += `链接：${getTradeSearchUrl(league, searchId)}\n`;
+  if (inexact) output += '官方交易站标记结果为近似匹配，需逐项核对。\n';
+  output += '按交易站返回顺序展示，数据可能来自缓存；未计算替换装备后的收益。\n\n';
+  items.forEach((listing, index) => {
     const item = listing.item;
-    const price = listing.listing.price;
-    const seller = listing.listing.account;
-    const metrics = analysis.metrics;
-
-    // Rank by value, not by search order
-    const valueRank = analysis.rank || (i + 1);
-    const searchRank = items.indexOf(listing) + 1;
-
-    output += `${searchRank}. ${item.name || item.typeLine}`;
-
-    // Show value indicator
-    const tierEmoji = {
-      'excellent': ' 💎',
-      'good': ' ✨',
-      'average': '',
-      'poor': ' ⚠️'
-    }[metrics.valueTier];
-    output += tierEmoji;
-
-    if (metrics.isBudgetPick) {
-      output += ' 💰';
-    }
-
-    output += `\n`;
-
-    if (item.name && item.typeLine && item.name !== item.typeLine) {
-      output += `   Base: ${item.typeLine}\n`;
-    }
-
-    if (price) {
-      output += `   Price: ${price.amount} ${price.currency}`;
-      if (analysis.priceInChaos > 0 && price.currency !== 'chaos') {
-        output += ` (~${analysis.priceInChaos.toFixed(0)} chaos)`;
-      }
-      output += `\n`;
-    } else {
-      output += `   Price: Not listed\n`;
-    }
-
-    // Show value score
-    output += `   Value: ${metrics.valueScore.toFixed(0)}/100 (${metrics.valueTier})`;
-    if (valueRank <= 3) {
-      output += ` - #${valueRank} best value`;
-    }
-    output += `\n`;
-
-    output += `   ilvl: ${item.ilvl}`;
-
-    if (item.corrupted) {
-      output += ' (Corrupted)';
-    }
-
-    output += '\n';
-
-    // Links
-    if (item.sockets && item.sockets.length > 0) {
-      const maxLinks = getMaxLinks(item.sockets);
-      if (maxLinks > 1) {
-        output += `   Links: ${maxLinks}L\n`;
-      }
-    }
-
-    // Show key stats in condensed format
-    const stats = analysis.stats;
-    const statParts: string[] = [];
-    if (stats.life > 0) statParts.push(`+${stats.life} Life`);
-    if (stats.es > 0) statParts.push(`+${stats.es} ES`);
-    if (stats.totalResist > 0) statParts.push(`+${stats.totalResist}% Res`);
-    if (statParts.length > 0) {
-      output += `   Stats: ${statParts.join(', ')}\n`;
-    }
-
-    output += `   ${seller?.online ? '🟢' : '🔴'} ${seller?.name ?? 'unknown'}\n`;
-    output += `   🔗 ${getTradeItemUrl(league, searchId, listing.id)}\n\n`;
-  }
-
-  output += `\n💎=excellent ✨=good ⚠️=poor 💰=budget 🟢=online 🔴=offline`;
+    output += `${index + 1}. ${item.name || item.typeLine}${item.name && item.typeLine && item.name !== item.typeLine ? ` (${item.typeLine})` : ''}\n`;
+    output += formatListingDetails(listing);
+    output += `   链接：${getTradeItemUrl(league, searchId, listing.id)}\n\n`;
+  });
   return output;
 }
 
@@ -892,181 +772,14 @@ export async function handleCompareTradeItems(
   });
 }
 
-function formatItemComparison(
-  items: ItemListing[],
-  buildContext?: {
-    life_needed?: number;
-    es_needed?: number;
-    dps_target?: number;
-    fire_resist_needed?: number;
-    cold_resist_needed?: number;
-    lightning_resist_needed?: number;
-  }
-): string {
-  let output = `=== Item Comparison (${items.length}) ===\n\n`;
-
-  const itemStats = items.map(listing => {
+function formatItemComparison(items: ItemListing[], buildContext?: object): string {
+  let output = `=== 交易物品比较（${items.length} 件）===\n`;
+  output += '以下是挂牌原始信息；不同通货未换算，也未计算替换后的伤害、防御或性价比。\n';
+  if (buildContext) output += '提供的 BD 需求未参与计算，请在 PoB 中核对实际替换效果。\n';
+  for (const [index, listing] of items.entries()) {
     const item = listing.item;
-    const price = listing.listing.price;
-
-    return {
-      name: item.name || item.typeLine,
-      typeLine: item.typeLine,
-      price: price ? price.amount + ' ' + price.currency : 'No price',
-      priceAmount: price?.amount || 0,
-      ilvl: item.ilvl,
-      corrupted: item.corrupted || false,
-      links: item.sockets ? getMaxLinks(item.sockets) : 0,
-      life: extractStatValue(item, 'life'),
-      es: extractStatValue(item, 'energy shield'),
-      armour: extractStatValue(item, 'armour'),
-      evasion: extractStatValue(item, 'evasion'),
-      fireResist: extractResistValue(item, 'fire'),
-      coldResist: extractResistValue(item, 'cold'),
-      lightningResist: extractResistValue(item, 'lightning'),
-      chaosResist: extractResistValue(item, 'chaos'),
-      seller: listing.listing.account?.name ?? 'unknown',
-      online: listing.listing.account?.online ?? false,
-    };
-  });
-
-  const maxLife = Math.max(...itemStats.map(i => i.life));
-  const maxES = Math.max(...itemStats.map(i => i.es));
-  const minPrice = Math.min(...itemStats.filter(i => i.priceAmount > 0).map(i => i.priceAmount));
-
-  for (let i = 0; i < itemStats.length; i++) {
-    const stats = itemStats[i];
-    output += (i + 1) + '. ' + stats.name + '\n';
-
-    if (stats.name !== stats.typeLine) {
-      output += '   Base: ' + stats.typeLine + '\n';
-    }
-
-    output += '   Price: ' + stats.price;
-    if (stats.priceAmount === minPrice && minPrice > 0) {
-      output += ' 💰 (Best Value)';
-    }
-    output += '\n';
-
-    output += '   ilvl: ' + stats.ilvl;
-    if (stats.corrupted) output += ' (Corrupted)';
-    output += '\n';
-
-    if (stats.links > 0) {
-      output += '   Links: ' + stats.links + 'L\n';
-    }
-
-    if (stats.life > 0) {
-      output += '   Life: +' + stats.life;
-      if (stats.life === maxLife) output += ' ⭐';
-      if (buildContext?.life_needed && stats.life >= buildContext.life_needed) {
-        output += ' ✓';
-      }
-      output += '\n';
-    }
-
-    if (stats.es > 0) {
-      output += '   ES: +' + stats.es;
-      if (stats.es === maxES) output += ' ⭐';
-      if (buildContext?.es_needed && stats.es >= buildContext.es_needed) {
-        output += ' ✓';
-      }
-      output += '\n';
-    }
-
-    if (stats.armour > 0) {
-      output += '   Armour: ' + stats.armour + '\n';
-    }
-
-    if (stats.evasion > 0) {
-      output += '   Evasion: ' + stats.evasion + '\n';
-    }
-
-    const resists = [];
-    if (stats.fireResist > 0) {
-      let resistStr = stats.fireResist + '% Fire';
-      if (buildContext?.fire_resist_needed && stats.fireResist >= buildContext.fire_resist_needed) {
-        resistStr += ' ✓';
-      }
-      resists.push(resistStr);
-    }
-    if (stats.coldResist > 0) {
-      let resistStr = stats.coldResist + '% Cold';
-      if (buildContext?.cold_resist_needed && stats.coldResist >= buildContext.cold_resist_needed) {
-        resistStr += ' ✓';
-      }
-      resists.push(resistStr);
-    }
-    if (stats.lightningResist > 0) {
-      let resistStr = stats.lightningResist + '% Lightning';
-      if (buildContext?.lightning_resist_needed && stats.lightningResist >= buildContext.lightning_resist_needed) {
-        resistStr += ' ✓';
-      }
-      resists.push(resistStr);
-    }
-    if (stats.chaosResist > 0) {
-      resists.push(stats.chaosResist + '% Chaos');
-    }
-
-    if (resists.length > 0) {
-      output += '   Resistances: ' + resists.join(', ') + '\n';
-    }
-
-    output += '   Seller: ' + stats.seller;
-    if (stats.online) output += ' (Online)';
-    output += '\n\n';
+    output += `\n${index + 1}. ${item.name || item.typeLine}${item.name && item.typeLine && item.name !== item.typeLine ? ` (${item.typeLine})` : ''}\n`;
+    output += formatListingDetails(listing);
   }
-
-  output += '=== Summary ===\n';
-  output += '⭐ = Best value for that stat\n';
-  output += '✓ = Meets build requirement\n';
-  output += '💰 = Cheapest option\n';
-
   return output;
-}
-
-function extractStatValue(item: TradeItem, statName: string): number {
-  const allMods = [
-    ...(item.explicitMods || []),
-    ...(item.implicitMods || []),
-    ...(item.craftedMods || []),
-  ];
-
-  for (const mod of allMods) {
-    if (mod.toLowerCase().includes(statName.toLowerCase())) {
-      const match = mod.match(/(\d+)/);
-      if (match) {
-        return parseInt(match[1], 10);
-      }
-    }
-  }
-
-  return 0;
-}
-
-function extractResistValue(item: TradeItem, element: string): number {
-  const allMods = [
-    ...(item.explicitMods || []),
-    ...(item.implicitMods || []),
-    ...(item.craftedMods || []),
-  ];
-
-  let total = 0;
-
-  for (const mod of allMods) {
-    const lowerMod = mod.toLowerCase();
-
-    if (lowerMod.includes(element + ' resistance')) {
-      const match = mod.match(/(-?\d+)%/);
-      if (match) total += parseInt(match[1], 10);
-    }
-
-    if ((element === 'fire' || element === 'cold' || element === 'lightning') &&
-        (lowerMod.includes('all elemental resistances') || lowerMod.includes('to all resistances'))) {
-      const match = mod.match(/(-?\d+)%/);
-      if (match) total += parseInt(match[1], 10);
-    }
-  }
-
-  return total;
 }

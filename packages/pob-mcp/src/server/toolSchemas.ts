@@ -1554,7 +1554,7 @@ export function getTradeToolSchemas(): ToolSchema[] {
     {
       name: "search_trade_items",
       truncatable: true,
-      description: "Search the Path of Exile trade site for items with filters. Returns matching items with prices, stats, and seller information. Default limit is 5 items to minimize token usage. REQUIRES: POE_TRADE_ENABLED environment variable set to true.",
+      description: "Search official Path of Exile trade listings. Defaults to securable instant-buyout listings; explicit status and legacy online_only options override this. Returns raw listing data in official search order, not calculated build benefit. REQUIRES: POE_TRADE_ENABLED=true.",
       inputSchema: {
         type: "object",
         properties: {
@@ -1584,7 +1584,7 @@ export function getTradeToolSchemas(): ToolSchema[] {
           },
           status: {
             type: "string",
-            description: "Official trade listing status. Use 'securable' for instant-buyout listings. Overrides online_only when provided.",
+            description: "Official trade listing status; defaults to securable when no legacy online_only option is supplied. Overrides online_only when provided.",
             enum: ["available", "securable", "online", "onlineleague", "any"],
           },
           item_rarity: {
@@ -1741,7 +1741,7 @@ export function getTradeToolSchemas(): ToolSchema[] {
     {
       name: "compare_trade_items",
       truncatable: true,
-      description: "Compare trade listings side by side with DPS/defense calculations. Takes listing ids from a prior search_trade_items result. REQUIRES: POE_TRADE_ENABLED environment variable set to true.",
+      description: "Show raw trade listing details side by side. Does not calculate DPS, defenses, price conversions, or build-specific value. REQUIRES: POE_TRADE_ENABLED=true.",
       inputSchema: {
         type: "object",
         properties: {
@@ -1756,7 +1756,7 @@ export function getTradeToolSchemas(): ToolSchema[] {
           },
           build_context: {
             type: "object",
-            description: "Optional build needs for context-aware scoring",
+            description: "Legacy input retained for compatibility; it is not used to calculate a score or replacement benefit.",
             properties: {
               life_needed: { type: "number" },
               es_needed: { type: "number" },

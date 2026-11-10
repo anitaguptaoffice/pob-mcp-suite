@@ -1,5 +1,5 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { handleSearchStats, handleSearchTradeItems } from '../../src/handlers/tradeHandlers';
+import { handleCompareTradeItems, handleSearchStats, handleSearchTradeItems } from '../../src/handlers/tradeHandlers';
 import { normalizeItemListing } from '../../src/services/tradeClient';
 
 function makeListing() {
@@ -38,6 +38,30 @@ function makeListing() {
 }
 
 describe('search_trade_items schema contract', () => {
+  it('defaults to securable and preserves official order without fabricated value rankings', async () => {
+    const first = makeListing();
+    first.listing.price = { type: '~price', amount: 1, currency: 'divine' };
+    first.item.name = 'First';
+    const second = makeListing();
+    second.item.name = 'Second';
+    const searchItems = jest.fn<(league: string, query: any) => Promise<any>>(async () => ({ id: 's', total: 2, result: ['1', '2'], inexact: true }));
+    const getCurrencyExchangeMap = jest.fn();
+    const result = await handleSearchTradeItems({ tradeClient: { searchItems, fetchItems: async () => [first, second] } as any, ninjaClient: { getCurrencyExchangeMap } as any }, { league: 'Test' });
+    expect(searchItems.mock.calls[0][1].query.status.option).toBe('securable');
+    expect(result.content[0].text.indexOf('First')).toBeLessThan(result.content[0].text.indexOf('Second'));
+    expect(result.content[0].text).toContain('近似匹配');
+    expect(result.content[0].text).toContain('1 divine');
+    expect(result.content[0].text).toContain('+50 to maximum Life');
+    expect(result.content[0].text).not.toContain('best value');
+    expect(getCurrencyExchangeMap).not.toHaveBeenCalled();
+  });
+
+  it('keeps explicit legacy online-only behavior', async () => {
+    const searchItems = jest.fn<(league: string, query: any) => Promise<any>>(async () => ({ id: 's', total: 0, result: [] }));
+    await handleSearchTradeItems({ tradeClient: { searchItems } as any }, { league: 'Test', online_only: true });
+    expect(searchItems.mock.calls[0][1].query.status.option).toBe('available');
+  });
+
   it('maps public schema keys into the official trade query', async () => {
     const searchItems = jest.fn<(league: string, query: any) => Promise<any>>(async () => ({
       id: 'query-1',
@@ -222,6 +246,18 @@ describe('search_trade_items schema contract', () => {
     expect(result.content[0].text).toContain('Stat source coverage warnings');
     expect(result.content[0].text).toContain('fractured');
     expect(result.content[0].text).toContain('count/or 分组');
+  });
+});
+
+describe('trade listing comparison', () => {
+  it('does not compare different currencies or claim build-specific results', async () => {
+    const first = makeListing(); first.listing.price = { type: '~price', amount: 1, currency: 'divine' };
+    const second = makeListing(); second.listing.price = { type: '~price', amount: 10, currency: 'chaos' };
+    const result = await handleCompareTradeItems({ tradeClient: { fetchItems: async () => [first, second] } as any }, { item_ids: ['a', 'b'], build_context: { life_needed: 10 } });
+    expect(result.content[0].text).toContain('1 divine');
+    expect(result.content[0].text).toContain('10 chaos');
+    expect(result.content[0].text).toContain('未参与计算');
+    expect(result.content[0].text).not.toContain('Best Value');
   });
 });
 

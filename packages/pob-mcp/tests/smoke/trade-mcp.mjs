@@ -24,7 +24,7 @@ try {
   const stats = await call('search_stats', { query: 'maximum life', limit: 1 });
   if (!stats.includes('=== Official Trade Stat Sources')) throw new Error(`stat lookup was incomplete: ${stats}`);
   const search = await call('search_trade_items', { league: 'Standard', item_name: 'Tabula Rasa', item_rarity: 'unique', max_price: 1, price_currency: 'divine', limit: 1 });
-  if (!search.includes('=== Trade Search (Standard) ===') && !search.includes('No items found')) throw new Error(`trade search was incomplete: ${search}`);
+  if (!search.includes('=== 交易搜索（Standard）===') && !search.includes('No items found')) throw new Error(`trade search was incomplete: ${search}`);
   const price = await call('get_item_price', { league: 'Standard', item_name: 'Tabula Rasa', rarity: 'unique' });
   if (!price.includes('=== Price Check: Tabula Rasa ===') && !price.includes('No instant-buyout price data found') && !price.includes('No valid priced instant-buyout listings found')) throw new Error(`price check was incomplete: ${price}`);
   const resistance = await call('find_resistance_gear', { league: 'Standard', fire_resist_needed: 10, slots: ['Ring 1'], limit: 1 });
