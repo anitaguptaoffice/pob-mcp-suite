@@ -131,7 +131,7 @@ Eternal Sword
 Source: No longer obtainable
 Variant: Pre 2.6.0
 Variant: Current
-LevelReq: 51
+Requires Level 51
 Implicits: 2
 {variant:1}18% increased Global Accuracy Rating
 {variant:2}+475 to Accuracy Rating
@@ -257,7 +257,6 @@ Adds (5-8) to (10-14) Physical Damage
 The Living Blade
 Ezomyte Blade
 League: Settlers of Kalguur
-Requires Level 61, 113 Str, 113 Dex
 Implicits: 1
 +25% to Global Critical Strike Multiplier
 (100-140)% increased Physical Damage
@@ -381,7 +380,7 @@ Source: No longer obtainable
 Variant: Pre 2.6.0
 Variant: Pre 3.7.0
 Variant: Current
-LevelReq: 61
+Requires Level 61
 Implicits: 2
 {variant:1}18% increased Global Accuracy Rating
 {variant:2,3}40% increased Global Accuracy Rating
@@ -494,6 +493,7 @@ Adds (75-92) to (125-154) Physical Damage
 The Redblade
 Gladius
 League: Crucible
+Source: Drops from Crucible monsters
 Implicits: 1
 40% increased Global Accuracy Rating
 (150-180)% increased Physical Damage
@@ -512,6 +512,7 @@ Variant: Pre 3.0.0
 Variant: Pre 3.21.0
 Variant: Current
 League: Breach
+Requires Level 69
 Implicits: 2
 {variant:1}18% increased Global Accuracy Rating
 {variant:2,3,4}40% increased Global Accuracy Rating
@@ -535,7 +536,7 @@ Variant: Pre 3.16.0
 Variant: Pre 3.21.0
 Variant: Current
 League: Breach
-LevelReq: 69
+Requires Level 69
 Implicits: 2
 {variant:1}18% increased Global Accuracy Rating
 {variant:2,3,4,5}40% increased Global Accuracy Rating
@@ -724,7 +725,6 @@ Grants 2 Life per Enemy Hit
 Nametaker
 Graceful Sword
 League: Affliction
-Requires Level 50, 78 Str, 94 Dex
 Implicits: 1
 +350 to Accuracy Rating
 (20-40)% increased Critical Strike Chance
@@ -848,7 +848,6 @@ Adds (60-68) to (90-102) Chaos Damage
 The Golden Charlatan
 Lion Sword
 Source: Drops from unique{Uber Incarnation of Dread} in normal{Moment of Reverence}
-Requires Level 65, 104 Str, 122 Dex
 Implicits: 1
 +50 to Strength and Dexterity
 +200 Intelligence Requirement
@@ -956,7 +955,7 @@ Source: No longer obtainable
 Variant: Pre 2.6.0
 Variant: Pre 3.8.0
 Variant: Current
-LevelReq: 38
+Requires Level 38
 Implicits: 2
 {variant:1}18% increased Global Accuracy Rating
 {variant:2,3}+185 to Accuracy Rating
@@ -974,7 +973,6 @@ Minions have (80-100)% increased Movement Speed
 ]],[[
 Rakiata's Dance
 Engraved Greatsword
-Requires Level 48, 91 Str, 76 Dex
 Implicits: 1
 60% increased Global Accuracy Rating
 Adds (150-200) to (300-350) Cold Damage
@@ -1005,7 +1003,7 @@ Bastard Sword
 Variant: Pre 2.6.0
 Variant: Pre 3.11.0
 Variant: Current
-LevelReq: 14
+Requires Level 14
 Implicits: 3
 {variant:1}18% increased Global Accuracy Rating
 {variant:2}40% increased Global Accuracy Rating
@@ -1071,5 +1069,22 @@ Your Elemental Damage can Shock
 {variant:3}Gain 700% of Weapon Physical Damage as Extra Damage of a random Element
 20% increased Area of Effect for Attacks
 Deal no Non-Elemental Damage
+]],[[
+Paradoxica
+Vaal Rapier
+League: Betrayal
+Source: Drops from unique{Intervention Leaders} in normal{Safehouses}
+Crafted: true
+Implicits: 1
++25% to Global Critical Strike Multiplier
+Attacks with this Weapon deal Double Damage
+]],[[
+Replica Paradoxica
+Vaal Rapier
+League: Heist
+Source: Steal from a unique{Curio Display} during a Grand Heist
+Crafted: true
+Implicits: 1
++25% to Global Critical Strike Multiplier
 ]]
 }
