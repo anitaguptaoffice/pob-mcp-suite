@@ -34,6 +34,15 @@ try {
 
   await call('lua_start');
   await call('lua_new_build', { class_name: 'Witch' });
+  const partialGems = await request('tools/call', { name: 'setup_skill_with_gems', arguments: {
+    label: 'Partial test', active_gem: 'Arc', support_gems: ['Not A Real Gem', 'Efficacy'], slot: 'Helmet',
+  } });
+  const partialGemsText = partialGems.result?.content?.[0]?.text ?? '';
+  if (!partialGems.result?.isError || !partialGemsText.includes('Socket group 1 was created') ||
+      !partialGemsText.includes('Arc (L20, Q0)') || !partialGemsText.includes('Gems not attempted: 1')) {
+    throw new Error(`partial skill setup was not reported: ${JSON.stringify(partialGems)}`);
+  }
+  await call('lua_new_build', { class_name: 'Witch' });
   const partialBatch = await request('tools/call', { name: 'add_multiple_items', arguments: { items: [
     { item_text: 'Rarity: RARE\nBatch Test\nGold Ring\nItem Level: 86\nImplicits: 0', slot_name: 'Ring 1' },
     { item_text: 'Rarity: RARE\nBatch Test 2\nGold Ring\nItem Level: 86\nImplicits: 0', slot_name: 'Not A Slot' },

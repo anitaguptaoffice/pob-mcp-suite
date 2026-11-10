@@ -659,8 +659,15 @@ export async function handleSetupSkillWithGems(
       throw new Error('Lua client not initialized. Use lua_start first.');
     }
 
-    if (!gems || gems.length === 0) {
+    if (!Array.isArray(gems) || gems.length === 0) {
       throw new Error('gems array cannot be empty');
+    }
+    if (gems.some(gem => !gem || typeof gem.name !== 'string' || !gem.name.trim() ||
+      (gem.level !== undefined && (!Number.isInteger(gem.level) || gem.level < 1 || gem.level > 40)) ||
+      (gem.quality !== undefined && (!Number.isInteger(gem.quality) || gem.quality < 0 || gem.quality > 23)) ||
+      (gem.quality_id !== undefined && (typeof gem.quality_id !== 'string' || !gem.quality_id.trim())) ||
+      (gem.enabled !== undefined && typeof gem.enabled !== 'boolean'))) {
+      throw new Error('invalid gem input; no socket group was created');
     }
 
     // Create socket group
@@ -673,21 +680,27 @@ export async function handleSetupSkillWithGems(
 
     // Add all gems to the group
     const addedGems: string[] = [];
-    for (const gem of gems) {
-      if (!gem.name || gem.name.trim().length === 0) {
-        throw new Error('gem name cannot be empty');
+    for (const [index, gem] of gems.entries()) {
+      try {
+        const result = await luaClient.addGem({
+          groupIndex: groupResult.index,
+          gemName: gem.name,
+          level: gem.level,
+          quality: gem.quality,
+          qualityId: gem.quality_id,
+          enabled: gem.enabled,
+        });
+        addedGems.push(`${result.name} (L${gem.level ?? 20}, Q${gem.quality ?? 0})`);
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        return { isError: true, content: [{ type: 'text' as const, text: [
+          `Socket group ${groupResult.index} was created; setup stopped at gem ${index + 1} of ${gems.length}: ${reason}`,
+          `Gems added before failure: ${addedGems.length}.`,
+          ...addedGems.map(name => `  - ${name}`),
+          `Gems not attempted: ${gems.length - index - 1}.`,
+          'The failing operation may have changed the group if the engine failed after mutation. Inspect the group before retrying; do not recreate it blindly.',
+        ].join('\n') }] };
       }
-
-      const result = await luaClient.addGem({
-        groupIndex: groupResult.index,
-        gemName: gem.name,
-        level: gem.level,
-        quality: gem.quality,
-        qualityId: gem.quality_id,
-        enabled: gem.enabled,
-      });
-
-      addedGems.push(`${result.name} (L${gem.level || 20}, Q${gem.quality || 0})`);
     }
 
     let text = `✅ Created socket group ${groupResult.index}`;
@@ -696,6 +709,7 @@ export async function handleSetupSkillWithGems(
     }
     text += ` with ${addedGems.length} gem${addedGems.length > 1 ? 's' : ''}:\n`;
     text += addedGems.map(g => `  - ${g}`).join('\n');
+    text += '\nSupport application, item sockets and game legality are not verified; inspect the PoB skill group.';
 
     return {
       content: [

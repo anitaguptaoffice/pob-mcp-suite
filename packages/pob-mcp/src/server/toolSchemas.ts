@@ -902,7 +902,7 @@ export function getLuaToolSchemas(): ToolSchema[] {
     },
     {
       name: "setup_skill_with_gems",
-      description: "Setup a complete skill with multiple support gems in one operation. Does NOT auto-set as main skill for DPS. Call set_main_skill with the returned group_index afterward if this should be the primary DPS skill.",
+      description: "Create a socket group and add gems sequentially. On failure the response reports the created group, completed gems and unattempted gems; it is not atomic. Does not verify support application, socket capacity or item legality, and does not select the main skill.",
       inputSchema: {
         type: "object",
         properties: {
