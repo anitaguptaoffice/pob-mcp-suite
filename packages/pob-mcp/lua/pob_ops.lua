@@ -491,7 +491,6 @@ end
 -- params: { addNodes?: number[], removeNodes?: number[], masteryEffects?: {[nodeId]: effectId}, useFullDPS?: boolean }
 function M.calc_with(params)
   if not build or not build.calcsTab then return nil, 'build not initialized' end
-  local calcFunc = build.calcsTab:GetMiscCalculator()
   local override = {}
   if params and type(params.addNodes) == 'table' then
     override.addNodes = {}
@@ -513,6 +512,17 @@ function M.calc_with(params)
   -- Temporarily override mastery selections for simulation
   local origMastery = nil
   if params and type(params.masteryEffects) == 'table' then
+    for k, v in pairs(params.masteryEffects) do
+      local nodeId, effectId = tonumber(k), tonumber(v)
+      local node = nodeId and build.spec.nodes[nodeId]
+      local valid = false
+      if node and node.isMastery and build.spec.allocNodes[nodeId] then
+        for _, option in ipairs(node.masteryEffects or {}) do
+          if option.effect == effectId then valid = true; break end
+        end
+      end
+      if not valid then return nil, 'invalid or unallocated mastery effect: ' .. tostring(k) .. '=' .. tostring(v) end
+    end
     origMastery = {}
     for k, v in pairs(build.spec.masterySelections or {}) do
       origMastery[k] = v
@@ -525,12 +535,18 @@ function M.calc_with(params)
   -- pcall returns (ok, result...): the first value is the success flag, not
   -- the stats table. Reading it as the result made every simulation silently
   -- return the caller's CURRENT stats regardless of the override.
-  local calcOk, out = pcall(calcFunc, override, params and params.useFullDPS)
+  local calcOk, out = pcall(function()
+    if origMastery then build.spec:BuildAllDependsAndPaths() end
+    local calcFunc = build.calcsTab:GetMiscCalculator()
+    return calcFunc(override, params and params.useFullDPS)
+  end)
   -- Restore original mastery selections on EVERY path: if calcFunc raised and
   -- we skipped the restore, the next get_tree/save_build would report and
   -- persist masteries the caller never committed.
   if origMastery then
     build.spec.masterySelections = origMastery
+    local restoreOk, restoreErr = pcall(function() build.spec:BuildAllDependsAndPaths() end)
+    if not restoreOk then return nil, 'failed to restore mastery state: ' .. tostring(restoreErr) end
   end
   if not calcOk then
     return nil, 'calc_with failed: ' .. tostring(out)
@@ -1343,7 +1359,7 @@ function M.search_nodes(params)
       if node.isKeystone then nType = 'keystone'
       elseif node.isNotable then nType = 'notable'
       elseif node.isJewelSocket then nType = 'jewel'
-      elseif node.isMultipleChoiceOption then nType = 'mastery'
+      elseif node.isMastery or node.type == 'Mastery' then nType = 'mastery'
       elseif node.ascendancyName then nType = 'ascendancy'
       end
       if nType ~= nodeType then goto continue end
@@ -1388,7 +1404,7 @@ function M.search_nodes(params)
       if node.isKeystone then nodeType = 'keystone'
       elseif node.isNotable then nodeType = 'notable'
       elseif node.isJewelSocket then nodeType = 'jewel'
-      elseif node.isMultipleChoiceOption then nodeType = 'mastery'
+      elseif node.isMastery or node.type == 'Mastery' then nodeType = 'mastery'
       elseif node.ascendancyName then nodeType = 'ascendancy'
       end
 
@@ -1412,6 +1428,7 @@ function M.search_nodes(params)
         orbit = node.orbit,
         orbitIndex = node.orbitIndex,
         ascendancyName = node.ascendancyName,
+        isMastery = node.isMastery == true or node.type == 'Mastery',
         pathNodes = pathNodes,
         -- Blight notables sit off the tree and are reached by anointing, not by
         -- spending a point; callers need to tell them apart from real nodes.
