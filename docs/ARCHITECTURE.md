@@ -1,4 +1,10 @@
+**Accepted decisions:** [ARCHITECTURE_DECISIONS.md](ARCHITECTURE_DECISIONS.md). The remainder describes the earlier proposal and current prototype; where it conflicts, the accepted decisions take precedence.
+
 # Architecture and parallel development
+
+**Status: proposal for discussion, not an approved design.** The registry is a
+working prototype, not an agreement to migrate all modules in this form. See
+the Chinese discussion draft in [ARCHITECTURE_PROPOSAL.md](ARCHITECTURE_PROPOSAL.md).
 
 ## Scope and current state
 
@@ -46,8 +52,10 @@ and how to call tools; they are not a source of game calculations.
 3. **Crafting:** carry the input item state, version, mechanic, assumptions and
    probability source. Unknown legality or odds remain unknown; a PoB weight
    or mathematical model is not by itself a crafting probability.
-4. **MCP compatibility:** preserve tool names and existing wire formats during
-   migration. A registered tool must have one authoritative schema, handler,
+4. **MCP migration:** the user permits changing tool names and wire formats for
+   a coherent new design. Document old-to-new mappings, affected clients and
+   skills, and any temporary compatibility period before applying changes.
+   A registered tool must have one authoritative schema, handler,
    availability policy and truncation policy. Detect duplicate names and test
    direct invocation as well as advertisement. Do not treat `toolGate.ts` as
    permission enforcement; it is currently a no-op.

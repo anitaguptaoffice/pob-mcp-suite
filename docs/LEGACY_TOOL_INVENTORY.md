@@ -1,0 +1,187 @@
+# Legacy tool inventory
+
+Generated from registered schema groups in the current build. All entries are pending migration, replacement design and validation. Skill references below are exact-name matches in packaged skill Markdown only; clients, aliases, scripts and dynamic references still require assessment. Group names indicate current source, not final module ownership. Capability-gated tools are included.
+
+## getBuildGoalsToolSchemas
+
+- `get_build_issues` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `get_passive_upgrades` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `suggest_masteries` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `find_best_anointment` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `analyze_build_cluster_jewels` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `analyze_cluster_jewels` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `suggest_watchers_eye` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `check_boss_readiness` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `suggest_crafting` — target: crafting and item data; replacement: item data/crafting module; status: not migrated; skill references: `skills/pob-crafting/SKILL.md`.
+
+## getConfigToolSchemas
+
+- `get_config` — target: calculation and configuration; replacement: snapshot evaluation or typed configuration change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `set_config` — target: calculation and configuration; replacement: snapshot evaluation or typed configuration change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `set_enemy_stats` — target: calculation and configuration; replacement: snapshot evaluation or typed configuration change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `save_config_preset` — target: calculation and configuration; replacement: snapshot evaluation or typed configuration change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `load_config_preset` — target: calculation and configuration; replacement: snapshot evaluation or typed configuration change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `list_config_presets` — target: calculation and configuration; replacement: snapshot evaluation or typed configuration change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+
+## getExportToolSchemas
+
+- `export_build` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: `skills/pob-docker-mcp/SKILL.md`.
+- `save_tree` — target: tree and versioned data; replacement: versioned tree query or typed tree/spec change; status: not migrated; skill references: `skills/pob-docker-mcp/SKILL.md`.
+- `snapshot_build` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: `skills/pob-docker-mcp/SKILL.md`.
+- `list_snapshots` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `restore_snapshot` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: `skills/pob-docker-mcp/SKILL.md`.
+- `export_build_summary` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+
+## getLuaToolSchemas
+
+- `inspect_item_affix_weight` — target: crafting and item data; replacement: item data/crafting module; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `compare_equipment_candidate` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: `references/trade-tools.md`.
+- `lua_get_capabilities` — target: engine lifecycle and introspection; replacement: internal engine lifecycle and capability query; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `lua_get_build_snapshot` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `lua_start` — target: engine lifecycle and introspection; replacement: internal engine lifecycle and capability query; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `lua_stop` — target: engine lifecycle and introspection; replacement: internal engine lifecycle and capability query; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `lua_new_build` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `lua_save_build` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `lua_load_build` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: `references/tool-workflows.md`, `references/tree-optimization.md`, `skills/pob-docker-mcp/SKILL.md`.
+- `lua_import_code` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `list_specs` — target: tree and versioned data; replacement: versioned tree query or typed tree/spec change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `select_spec` — target: tree and versioned data; replacement: versioned tree query or typed tree/spec change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `create_spec` — target: tree and versioned data; replacement: versioned tree query or typed tree/spec change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `delete_spec` — target: tree and versioned data; replacement: versioned tree query or typed tree/spec change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `rename_spec` — target: tree and versioned data; replacement: versioned tree query or typed tree/spec change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `list_item_sets` — target: equipment and gems; replacement: snapshot equipment/gem query or typed isolated change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `select_item_set` — target: equipment and gems; replacement: snapshot equipment/gem query or typed isolated change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `set_character_level` — target: calculation and configuration; replacement: snapshot evaluation or typed configuration change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `lua_get_ailments` — target: calculation and configuration; replacement: snapshot evaluation or typed configuration change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `lua_get_stats` — target: calculation and configuration; replacement: snapshot evaluation or typed configuration change; status: not migrated; skill references: `references/tool-workflows.md`, `references/tree-optimization.md`, `skills/pob-docker-mcp/SKILL.md`.
+- `lua_get_tree` — target: tree and versioned data; replacement: versioned tree query or typed tree/spec change; status: not migrated; skill references: `references/tool-workflows.md`, `references/tree-optimization.md`, `references/troubleshooting.md`, `skills/pob-docker-mcp/SKILL.md`.
+- `lua_set_tree` — target: tree and versioned data; replacement: versioned tree query or typed tree/spec change; status: not migrated; skill references: `skills/pob-docker-mcp/SKILL.md`.
+- `update_tree_delta` — target: tree and versioned data; replacement: versioned tree query or typed tree/spec change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `lua_get_build_info` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: `references/tool-workflows.md`, `skills/pob-docker-mcp/SKILL.md`.
+- `lua_reload_build` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `search_tree_nodes` — target: tree and versioned data; replacement: versioned tree query or typed tree/spec change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `add_item` — target: equipment and gems; replacement: snapshot equipment/gem query or typed isolated change; status: not migrated; skill references: `skills/pob-docker-mcp/SKILL.md`.
+- `get_equipped_items` — target: equipment and gems; replacement: snapshot equipment/gem query or typed isolated change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `toggle_flask` — target: equipment and gems; replacement: snapshot equipment/gem query or typed isolated change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `get_skill_setup` — target: equipment and gems; replacement: snapshot equipment/gem query or typed isolated change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `set_main_skill` — target: equipment and gems; replacement: snapshot equipment/gem query or typed isolated change; status: not migrated; skill references: `skills/pob-docker-mcp/SKILL.md`.
+- `create_socket_group` — target: equipment and gems; replacement: snapshot equipment/gem query or typed isolated change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `add_gem` — target: equipment and gems; replacement: snapshot equipment/gem query or typed isolated change; status: not migrated; skill references: `skills/pob-docker-mcp/SKILL.md`.
+- `set_gem_level` — target: equipment and gems; replacement: snapshot equipment/gem query or typed isolated change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `set_gem_quality` — target: equipment and gems; replacement: snapshot equipment/gem query or typed isolated change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `remove_skill` — target: equipment and gems; replacement: snapshot equipment/gem query or typed isolated change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `remove_gem` — target: equipment and gems; replacement: snapshot equipment/gem query or typed isolated change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `toggle_socket_group` — target: equipment and gems; replacement: snapshot equipment/gem query or typed isolated change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `toggle_gem` — target: equipment and gems; replacement: snapshot equipment/gem query or typed isolated change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `setup_skill_with_gems` — target: equipment and gems; replacement: snapshot equipment/gem query or typed isolated change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `add_multiple_items` — target: equipment and gems; replacement: snapshot equipment/gem query or typed isolated change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `plan_leveling` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `find_item_upgrades` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: `references/trade-tools.md`.
+
+## getOptimizationToolSchemas
+
+- `analyze_defenses` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `suggest_optimal_nodes` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: `references/tool-workflows.md`, `references/tree-optimization.md`, `skills/pob-docker-mcp/SKILL.md`.
+- `optimize_tree` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: `references/tree-optimization.md`, `skills/pob-docker-mcp/SKILL.md`.
+- `analyze_items` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `optimize_skill_links` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `create_budget_build` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+
+## getPoeNinjaToolSchemas
+
+- `get_currency_rates` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `find_arbitrage` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `calculate_trading_profit` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `find_timeless_jewel_seeds` — target: timeless jewels; replacement: independent timeless-jewel search module; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+
+## getSkillGemToolSchemas
+
+- `analyze_skill_links` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `suggest_support_gems` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `compare_gem_setups` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `rank_support_gems` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `validate_gem_quality` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `find_optimal_links` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `gem_upgrade_path` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+
+## getToolSchemas
+
+- `analyze_build` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: `references/tool-workflows.md`, `skills/pob-docker-mcp/SKILL.md`.
+- `compare_builds` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: `skills/pob-docker-mcp/SKILL.md`.
+- `list_builds` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: `references/tool-workflows.md`, `references/troubleshooting.md`, `skills/pob-docker-mcp/SKILL.md`.
+- `get_build_stats` — target: calculation and configuration; replacement: snapshot evaluation or typed configuration change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `start_watching` — target: file observation; replacement: optional local file observation adapter; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `stop_watching` — target: file observation; replacement: optional local file observation adapter; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `get_recent_changes` — target: file observation; replacement: optional local file observation adapter; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `watch_status` — target: file observation; replacement: optional local file observation adapter; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `refresh_tree_data` — target: tree and versioned data; replacement: versioned tree query or typed tree/spec change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `compare_trees` — target: tree and versioned data; replacement: versioned tree query or typed tree/spec change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `get_nearby_nodes` — target: tree and versioned data; replacement: versioned tree query or typed tree/spec change; status: not migrated; skill references: `references/tool-workflows.md`, `references/tree-optimization.md`, `skills/pob-docker-mcp/SKILL.md`.
+- `find_path_to_node` — target: tree and versioned data; replacement: versioned tree query or typed tree/spec change; status: not migrated; skill references: `references/tool-workflows.md`, `references/tree-optimization.md`, `skills/pob-docker-mcp/SKILL.md`.
+- `get_build_notes` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: `skills/pob-docker-mcp/SKILL.md`.
+- `set_build_notes` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: `skills/pob-docker-mcp/SKILL.md`.
+- `classify_item_affixes` — target: crafting and item data; replacement: item data/crafting module; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `list_craftable_mods` — target: crafting and item data; replacement: item data/crafting module; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `find_affix_tiers` — target: crafting and item data; replacement: item data/crafting module; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+
+## getTradeToolSchemas
+
+- `compare_trade_listings_in_pob` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: `references/trade-tools.md`.
+- `compare_trade_listing_in_pob` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: `references/trade-tools.md`.
+- `find_weighted_trade_items` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `search_trade_items` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: `references/trade-tools.md`.
+- `get_item_price` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: `references/trade-tools.md`.
+- `get_leagues` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: `references/trade-tools.md`.
+- `search_stats` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: `references/trade-tools.md`, `skills/pob-docker-mcp/SKILL.md`.
+- `compare_trade_items` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: `references/trade-tools.md`.
+- `find_resistance_gear` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: `references/trade-tools.md`.
+- `search_cluster_jewels` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `generate_shopping_list` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: `references/trade-tools.md`.
+
+## getValidationToolSchemas
+
+- `validate_build` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: `skills/pob-docker-mcp/SKILL.md`.
+
+## buildCostSchemas
+
+- `estimate_build_cost` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: `skills/pob-economy/SKILL.md`.
+
+## comparableToolSchemas
+
+- `estimate_comparable_item` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: `skills/pob-economy/SKILL.md`.
+
+## featureRegistry
+
+- `compare_craft_budget` — target: crafting and item data; replacement: item data/crafting module; status: not migrated; skill references: `skills/pob-economy/SKILL.md`, `skills/pob-crafting/SKILL.md`.
+- `simulate_simple_annul` — target: crafting and item data; replacement: item data/crafting module; status: not migrated; skill references: `skills/pob-crafting/SKILL.md`.
+
+
+## Replacement and acceptance contracts by target
+
+These are migration targets, not claims that a replacement is complete. Every
+row above inherits the corresponding contract below; each tool additionally
+requires its own parity fixture, exact caller/skill mapping and evidence before
+removal from compatibility mode.
+
+| Target | Replacement and required evidence |
+| --- | --- |
+| build lifecycle / snapshot | Import, read, list and export through snapshot IDs; prove share-code/XML equivalence, parent linkage, explicit overwrite and restart persistence. Legacy named files and notes need separate migration semantics; the existing `foundation_*` tools cover only part of this group. |
+| engine lifecycle and introspection | Hide process start/stop inside the engine executor; provide a read-only capability/version report. Test unavailable engine, concurrent startup, crash, timeout and mismatched identity. Do not reproduce mutable session lifecycle in the new API. |
+| calculation and configuration | Use `foundation_evaluate` for read-only stats and isolated selection/config overrides; persistent changes require a typed derived snapshot. Validate player/minion metrics, explicit unknowns, rejected options and unchanged baseline against real PoB. Configuration presets and ailments require their own contracts. |
+| tree and versioned data | Read/query the tree with its actual tree/data version; express mutations as typed derived snapshots. Test legacy/event tree versions, ascendancy names, masteries, allocation and export/reload against the engine. Existing `foundation_derive_level` is not a tree replacement. |
+| equipment and gems | Read the corresponding snapshot state; apply validated typed item/gem/skill changes in an isolated engine. Compare actual equipped state, enabled flags, socket groups and selected effects after reload; reject partial publication. Single-slot item changes are implemented with restrictions; gem mutations are not. |
+| analysis and optimization | Preserve each workflow as a feature over explicit snapshots and metrics, with candidate scope and partial failures. Real-engine comparisons must prove baseline isolation and player/minion metric correctness. Do not equate heuristic recommendations with a verified optimum. |
+| market and workflows | Move official trade, ninja and composition behind separate adapters; preserve exact league, `securable` and priced conditions, source coverage, timestamps and original currencies. For PoB comparisons test each listing against the same captured snapshot, including partial failure. |
+| crafting and item data | Keep versioned item/affix data and crafting mechanics separate. Test source classifications, zero versus unknown weight, item state and probability provenance. Mathematical budget results cannot become asserted crafting odds without independently verified rules. |
+| timeless jewels | Independent feature using PoB versioned tree and jewel data, not a dependency of ordinary calculations. Compare actual seed/node transformations against PoB with version-specific fixtures. |
+| file observation | Optional local file adapter that creates explicit imports or notifications; it must not silently mutate an existing snapshot. Test file replacement, duplicate events and shutdown. |
+
+Known partial associations: `lua_import_code` maps to
+`foundation_import_code`; `lua_load_build` requires an explicit XML import;
+`lua_get_stats` maps partially to `foundation_evaluate`; `set_character_level`
+maps to `foundation_derive_level`; `export_build` and `list_snapshots` map
+partially to `foundation_export_build` and `foundation_list_snapshots`. These
+interfaces differ in state and arguments, so each affected client and skill
+still needs migration and regression tests. No other old tool is deemed replaced
+solely by its category label. Detailed mappings and acceptance cases are being
+developed in [LEGACY_MIGRATION_CONTRACTS.md](LEGACY_MIGRATION_CONTRACTS.md).

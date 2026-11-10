@@ -8,7 +8,8 @@
     "test:all": "npm --prefix packages/pob-mcp test -- --runInBand",
     "validate:market": "python3 packages/pob-mcp-market/scripts/validate_market.py",
     "validate:shell": "bash -n packages/pob-mcp-market/pob-docker-mcp/scripts/pob-mcp-docker.sh && bash -n packages/pob-mcp-market/pob-docker-mcp/scripts/smoke-test.sh",
-    "validate": "npm run build && npm run test:all && npm run validate:market && npm run validate:shell"
+    "validate": "npm run build && npm run validate:inventory && npm run test:all && npm run validate:market && npm run validate:shell",
+    "validate:inventory": "node scripts/check-legacy-tool-inventory.mjs"
   },
   "workspaces": [
     "packages/pob-mcp"

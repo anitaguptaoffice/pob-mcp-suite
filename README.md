@@ -12,7 +12,9 @@
 
 PoB 引擎和 MCP 适配层分别维护。本仓库保留军团珠宝种子搜索、特殊升华名称和交易查询等定制；对照版本、改动与测试范围见[相对上游 MCP 的改动记录](UPSTREAM_MCP_CHANGES.md)。详细 MCP 工具与开发参考见 [MCP 说明](packages/pob-mcp/README.md)，插件和客户端入口见[插件说明](packages/pob-mcp-market/README.md)。
 
-模块边界、并行开发分工与分层验收见[架构设计](docs/ARCHITECTURE.md)。当前仅有两个制作工具迁入统一注册入口，其余功能将逐步迁移。
+已确认的方向是一个本地 `stdio` 服务、内部模块化；PoB、poe.ninja 和官方交易分别作为数据源适配能力。设计和当前验收边界见[架构决策](docs/ARCHITECTURE_DECISIONS.md)，旧工具迁移计划见[迁移清单](docs/LEGACY_TOOL_INVENTORY.md)。新基础层仍在试验，旧业务尚未迁移。
+
+本地设置 `POB_FOUNDATION_ENABLED=true` 可试用隔离快照接口；此模式默认隐藏旧工具，可额外设置 `POB_LEGACY_ENABLED=true` 暂时启用兼容入口。普通导入和变更快照永久保存；变更时显式传入 `trial: true` 创建试算快照，7 天后可在服务下次启动时清理。调用 `foundation_retain_snapshot` 或保存构筑文件会永久保留该快照及其祖先。试验接口和旧接口的构筑状态互不共享。
 
 造价功能和操作指引独立维护。`estimate_build_cost` 按国际服指定赛季查询 poe.ninja 公开行情，列出暗金和宝石参考价及无法估价的项目；稀有装备尚未自动估价，参考小计不是整套造价。`pob-economy` Skill 负责引导 AI 使用造价、交易与制作工具。
 

@@ -1,0 +1,91 @@
+import { strict as assert } from 'node:assert';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { PoBLuaApiClient } from '../../build/pobLuaBridge.js';
+import { BuildFoundation } from '../../build/foundation/buildFoundation.js';
+import { SnapshotStore } from '../../build/foundation/snapshotStore.js';
+import { openPoBEngine } from '../../build/foundation/pobEngineAdapter.js';
+import { smokePoBSrc } from './pobSource.mjs';
+import { startMcpServer } from './mcpClient.mjs';
+import { once } from 'node:events';
+const dir = await mkdtemp(join(tmpdir(), 'pob-mastery-'));
+const options = { cwd: smokePoBSrc(), command: process.env.POB_CMD, adapterPath: resolve('lua/vanilla_stdio_bridge.lua'), timeoutMs: 60000 };
+const client = new PoBLuaApiClient({ cwd: options.cwd, cmd: options.command, args: [options.adapterPath], env: { POB_API_STDIO: '0' }, timeoutMs: 60000 });
+try {
+  await client.start();
+  await client.newBuild({ className: 'Witch' });
+  await client.setTree({ classId: 3, ascendClassId: 0, nodes: [], treeVersion: '3_29' });
+  const nodes = await client.searchNodes({ keyword: 'Life Mastery', nodeType: 'mastery', maxResults: 100, includeAllocated: false });
+  const mastery = nodes.nodes.find(node => node.id === 4139);
+  assert.ok(mastery?.pathNodes?.length);
+  const initialTree = await client.getTree();
+  const autoLevelXml = await client.exportBuildXml();
+  await client.setLevel(90);
+  const unallocatedXml = await client.exportBuildXml();
+  await client.setTree({ ...initialTree, nodes: [...initialTree.nodes, ...mastery.pathNodes], masteryEffects: { 4139: 47642 } });
+  const xml = await client.exportBuildXml();
+  await client.stop();
+  const foundation = new BuildFoundation(new SnapshotStore(dir), () => openPoBEngine(options));
+  const unallocated = await foundation.importBuild(unallocatedXml, 'unallocated-mastery-fixture');
+  const nodeOptions = await foundation.masteryNodeOptions(unallocated.id, 4139);
+  assert.equal(nodeOptions.allocated, false);
+  assert.equal(nodeOptions.treeVersion, '3_29');
+  assert.ok(nodeOptions.availableEffects.some(effect => effect.effectId === 31822));
+  await assert.rejects(foundation.masteryNodeOptions(unallocated.id, 99999999), /unavailable/);
+  await assert.rejects(foundation.deriveTree(unallocated.id, mastery.pathNodes, [], { 4139: 999999 }), /Invalid new mastery effect/);
+  const autoLevel = await foundation.importBuild(autoLevelXml, 'auto-level-fixture');
+  const autoDerived = await foundation.deriveTree(autoLevel.id, mastery.pathNodes, [], { 4139: 47642 });
+  const autoState = await foundation.inspect(autoDerived.id, ['build', 'tree']);
+  assert.equal(autoState.data.tree.masteryEffects['4139'], 47642);
+  assert.ok(autoState.data.build.level > 1);
+  assert.match(await foundation.exportBuild(autoDerived.id), /characterLevelAutoMode="true"/);
+  assert.equal(await foundation.exportBuild(autoLevel.id), autoLevelXml);
+  const allocated = await foundation.deriveTree(unallocated.id, mastery.pathNodes, [], { 4139: 47642 });
+  const allocatedTree = await foundation.inspect(allocated.id, ['tree']);
+  assert.ok(mastery.pathNodes.every(node => allocatedTree.data.tree.nodes.includes(node)));
+  assert.equal(allocatedTree.data.tree.masteryEffects['4139'], 47642);
+  assert.equal((await foundation.inspect(unallocated.id, ['tree'])).data.tree.masteryEffects['4139'], undefined);
+
+  const parent = await foundation.importBuild(xml, 'mastery-fixture');
+  const optionsResult = await foundation.masteryOptions(parent.id);
+  assert.equal(optionsResult.treeVersion, '3_29');
+  const lifeOptions = optionsResult.masteries.find(node => Number(node.nodeId) === 4139);
+  assert.ok(lifeOptions?.availableEffects.some(effect => effect.effectId === 31822 && typeof effect.stat === 'string' && effect.stat.length > 0));
+  const before = await foundation.evaluate(parent.id, ['Life']);
+  const child = await foundation.deriveMasteries(parent.id, { 4139: 31822 });
+  const after = await foundation.evaluate(child.id, ['Life']);
+  assert.notEqual(before.stats.Life, after.stats.Life);
+  const inspected = await foundation.inspect(child.id, ['tree']);
+  assert.equal(inspected.data.tree.masteryEffects['4139'], 31822);
+  assert.equal((await foundation.inspect(parent.id, ['tree'])).data.tree.masteryEffects['4139'], 47642);
+  await assert.rejects(foundation.deriveMasteries(parent.id, { 4139: 999999 }), /Invalid or unallocated mastery effect/);
+  const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
+  mcp.child.stderr.on('data', () => {});
+  const exited = once(mcp.child, 'exit');
+  try {
+    await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'mastery-smoke', version: '1' } });
+    mcp.notify('notifications/initialized', {});
+    const call = async (name, args) => {
+      const response = await mcp.request('tools/call', { name, arguments: args });
+      assert.ok(!response.error && !response.result?.isError, JSON.stringify(response));
+      return JSON.parse(response.result.content[0].text);
+    };
+    const unallocatedOptions = await call('foundation_mastery_node_options', { snapshot_id: unallocated.id, node_id: 4139 });
+    assert.equal(unallocatedOptions.allocated, false);
+    assert.ok(unallocatedOptions.availableEffects.some(effect => effect.effectId === 31822));
+    const allocatedThroughMcp = await call('foundation_derive_tree', { snapshot_id: unallocated.id, add_nodes: mastery.pathNodes, mastery_effects: { 4139: 47642 } });
+    assert.equal(allocatedThroughMcp.id, allocated.id);
+
+    const queried = await call('foundation_mastery_options', { snapshot_id: parent.id });
+    assert.ok(queried.masteries.some(node => Number(node.nodeId) === 4139));
+    const derived = await call('foundation_derive_masteries', { snapshot_id: parent.id, effects: { 4139: 31822 } });
+    assert.equal(derived.id, child.id);
+    mcp.child.stdin.end();
+    assert.equal((await exited)[0], 0);
+  } finally {
+    if (mcp.child.exitCode === null && mcp.child.signalCode === null) { mcp.child.kill('SIGTERM'); await exited; }
+  }
+
+  console.log('foundation mastery roundtrip passed');
+} finally { await client.stop(); await rm(dir, { recursive: true, force: true }); }

@@ -29,3 +29,12 @@ export class FeatureRegistry {
 
   get(name: string): FeatureTool | undefined { return this.tools.get(name); }
 }
+
+/** Fail before serving if any advertised tool has an ambiguous name. */
+export function assertUniqueToolSchemas(tools: readonly ToolSchema[]): void {
+  const names = new Set<string>();
+  for (const tool of tools) {
+    if (!tool.name || names.has(tool.name)) throw new Error(`duplicate or empty tool name: ${tool.name}`);
+    names.add(tool.name);
+  }
+}

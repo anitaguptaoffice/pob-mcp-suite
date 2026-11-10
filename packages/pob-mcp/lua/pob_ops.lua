@@ -394,6 +394,23 @@ function M.get_build_info()
   return info
 end
 
+-- Reuse PoB's progress estimator after an isolated passive-tree change.
+-- The engine does not run the desktop frame loop in stdio mode.
+function M.refresh_tree_progress()
+  if not build then return nil, 'build not initialized' end
+  if not build.characterLevelAutoMode then return true end
+  if type(build.EstimatePlayerProgress) ~= 'function' then return nil, 'PoB automatic level estimation unavailable' end
+  local ok, err = pcall(function()
+    local output, calcErr = M.get_main_output()
+    if not output then error(calcErr or 'calculation unavailable') end
+    build:EstimatePlayerProgress()
+    local updated, updateErr = M.get_main_output()
+    if not updated then error(updateErr or 'recalculation unavailable') end
+  end)
+  if not ok then return nil, 'PoB automatic level estimation failed: ' .. tostring(err) end
+  return true
+end
+
 function M.update_tree_delta(params)
   if not build or not build.spec then return nil, 'build/spec not initialized' end
   local current, err = M.get_tree()
@@ -737,6 +754,8 @@ function M.get_skills()
     end
     local slotEnabled = nil
     if calcReady then slotEnabled = g.slotEnabled end
+    local selected = g.displaySkillList and g.displaySkillList[tonumber(g.mainActiveSkill) or 1]
+    local selectedSource = selected and selected.activeEffect and selected.activeEffect.srcInstance
     table.insert(groups, {
       index = idx,
       label = g.label,
@@ -745,6 +764,7 @@ function M.get_skills()
       slotEnabled = slotEnabled,
       includeInFullDPS = g.includeInFullDPS,
       mainActiveSkill = g.mainActiveSkill,
+      selectedSkillPart = selectedSource and selectedSource.skillPart or nil,
       skills = names,
       gems = gems,
     })
@@ -825,16 +845,23 @@ local function itemComparisonMetrics(output)
 end
 
 -- Capture XML and its item-preview baseline in one bridge request.
-function M.item_comparison_snapshot()
+local function capture_snapshot(preserve_raw)
   if not build or not build.calcsTab or not build.itemsTab then return nil, 'build not initialized' end
   local ok, result = pcall(function()
     -- ItemsTab:Save normally calls BuildAndParseRaw on every live item, which
     -- mutates their parsed state and raw strings. Save can serialize BuildRaw
     -- and existing modifier ranges without re-parsing the live objects.
     local saved = {}
+    if preserve_raw then
+      for _, item in pairs(build.itemsTab.items or {}) do
+        if type(item.raw) ~= 'string' or item.raw == '' then
+          error('cannot capture item without existing raw text')
+        end
+      end
+    end
     for _, item in pairs(build.itemsTab.items or {}) do
       table.insert(saved, { item = item, raw = item.raw, method = rawget(item, 'BuildAndParseRaw') })
-      item.BuildAndParseRaw = function(self) self.raw = self:BuildRaw() end
+      item.BuildAndParseRaw = preserve_raw and function() end or function(self) self.raw = self:BuildRaw() end
     end
     local savedOk, xml, err = pcall(M.export_build_xml)
     for _, entry in ipairs(saved) do
@@ -850,6 +877,15 @@ function M.item_comparison_snapshot()
   end)
   if not ok then return nil, 'item comparison snapshot failed: ' .. tostring(result) end
   return result
+end
+
+function M.item_comparison_snapshot()
+  return capture_snapshot(false)
+end
+
+-- Only suitable for operations that have not modified item objects.
+function M.unchanged_items_snapshot()
+  return capture_snapshot(true)
 end
 
 -- Delegate base/influence tag weighting to PoB; crafting mechanics are separate.
@@ -1738,6 +1774,28 @@ function M.get_mastery_options()
     end
   end
   return { masteries = result }
+end
+
+
+-- Exposes data only. An option existing does not prove the node is allocatable.
+function M.get_mastery_node_options(params)
+  if not build or not build.spec then return nil, 'build/spec not initialized' end
+  local id = type(params) == 'table' and params.nodeId or nil
+  if type(id) ~= 'number' or id < 1 or id ~= math.floor(id) or id >= math.huge then return nil, 'invalid mastery node ID' end
+  local spec = build.spec
+  local node = spec.nodes and spec.nodes[id]
+  if not node or not (node.isMastery or node.type == 'Mastery') or type(node.masteryEffects) ~= 'table' then
+    return nil, 'mastery node or options unavailable'
+  end
+  local effects = setmetatable({}, { __jsontype = 'array' })
+  for _, entry in ipairs(node.masteryEffects) do
+    if type(entry.effect) == 'number' then
+      table.insert(effects, { effectId = entry.effect, stat = entry.stats and table.concat(entry.stats, ', ') or tostring(entry.effect) })
+    end
+  end
+  return { nodeId = id, nodeName = node.name or 'Mastery', allocated = not not (spec.allocNodes and spec.allocNodes[id]),
+    allocatedEffect = spec.masterySelections and spec.masterySelections[id] or nil,
+    ascendancyName = node.ascendancyName, availableEffects = effects }
 end
 
 

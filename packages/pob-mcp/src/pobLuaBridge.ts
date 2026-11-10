@@ -134,6 +134,7 @@ export interface SocketGroupEntry {
   slotEnabled?: boolean;
   includeInFullDPS?: boolean;
   mainActiveSkill?: number;
+  selectedSkillPart?: number;
   skills: string[];
   gems: SkillGemEntry[];
 }
@@ -600,6 +601,12 @@ export class PoBLuaApiClient {
     return !!res.ok;
   }
 
+  async getVersion(): Promise<{ number?: string; branch?: string; platform?: string; adapter?: string }> {
+    const res = await this.send({ action: 'version' });
+    if (!res.ok || !res.version || typeof res.version !== 'object') throw new Error(res.error || 'PoB version unavailable');
+    return res.version as { number?: string; branch?: string; platform?: string; adapter?: string };
+  }
+
   async getCapabilities(): Promise<BridgeCapabilities> {
     const res = await this.send({ action: "get_capabilities" });
     if (!res.ok) return { mode: 'unreported', adapter: 'unknown', capabilitiesReported: false };
@@ -851,6 +858,11 @@ async setTree(params: {
     return res.results;
   }
 
+  async refreshTreeProgress(): Promise<void> {
+    const res = await this.send({ action: 'refresh_tree_progress' });
+    if (!res.ok) throw new Error(res.error || 'refresh_tree_progress failed');
+  }
+
   async updateTreeDelta(params: { addNodes?: Array<number | string>; removeNodes?: Array<number | string>; masteryEffects?: Record<string, number>; classId?: number; ascendClassId?: number; secondaryAscendClassId?: number; treeVersion?: string; }): Promise<{ tree: TreeState; droppedNodes?: number[] }> {
     const res = await this.send({ action: "update_tree_delta", params });
     if (!res.ok) throw new Error(res.error || "update_tree_delta failed");
@@ -878,6 +890,13 @@ async setTree(params: {
     return res.result as { xml: string; baseline: Record<string, number> };
   }
 
+  /** Only for isolated operations that do not change item objects. */
+  async unchangedItemsSnapshot(): Promise<{ xml: string; baseline: Record<string, number> }> {
+    const res = await this.send({ action: 'unchanged_items_snapshot' });
+    if (!res.ok) throw new Error(res.error || 'unchanged_items_snapshot failed');
+    return res.result as { xml: string; baseline: Record<string, number> };
+  }
+
   async getCostSnapshot(): Promise<{ items: EquippedItem[]; skills: SkillsOutput }> {
     const res = await this.send({ action: 'get_cost_snapshot' });
     if (!res.ok) throw new Error(res.error || 'get_cost_snapshot failed');
@@ -888,6 +907,12 @@ async setTree(params: {
     const res = await this.send({ action: 'get_item_affix_weight', params: { modId, itemText } });
     if (!res.ok) throw new Error(res.error || 'get_item_affix_weight failed');
     return res.result as { modId: string; base: string; weight: number; itemLevel?: number; requiredItemLevel?: number; affixType?: string; affixGroup?: string };
+  }
+
+  async getMasteryNodeOptions(nodeId: number): Promise<{ nodeId: number; nodeName: string; allocated: boolean; allocatedEffect?: number; ascendancyName?: string; availableEffects: Array<{ effectId: number; stat: string }> }> {
+    const res = await this.send({ action: 'get_mastery_node_options', params: { nodeId } });
+    if (!res.ok) throw new Error(res.error || 'get_mastery_node_options failed');
+    return res.result as { nodeId: number; nodeName: string; allocated: boolean; allocatedEffect?: number; ascendancyName?: string; availableEffects: Array<{ effectId: number; stat: string }> };
   }
 
   async getMasteryOptions(): Promise<MasteryOptions> {

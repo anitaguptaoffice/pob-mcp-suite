@@ -1,0 +1,61 @@
+import { strict as assert } from 'node:assert';
+import { mkdtemp, rm, access, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { once } from 'node:events';
+import { startMcpServer } from './mcpClient.mjs';
+import { JobStore } from '../../build/foundation/jobStore.js';
+import { SnapshotStore } from '../../build/foundation/snapshotStore.js';
+const dir = await mkdtemp(join(tmpdir(), 'pob-gating-'));
+const clients = [];
+function start(env) { const c = startMcpServer(env); c.child.stderr.on('data', () => {}); clients.push(c.child); return c; }
+async function init(c) { await c.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'gating', version: '1' } }); c.notify('notifications/initialized', {}); }
+try {
+  const disabled = start({ POB_FOUNDATION_ENABLED: 'false' });
+  await init(disabled);
+  const tools = await disabled.request('tools/list', {});
+  assert.ok(!tools.result.tools.some(t => t.name === 'foundation_import_build'));
+  const hidden = await disabled.request('tools/call', { name: 'foundation_import_build', arguments: { xml: '<x/>', source: 'test' } });
+  assert.equal(hidden.result.isError, true);
+  disabled.child.stdin.end(); await once(disabled.child, 'exit');
+  const jobs = new JobStore(join(dir, 'jobs'));
+  const snapshot = await new SnapshotStore(dir).create({ xml: '<build/>', source: 'gating', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
+  const abandoned = await jobs.create(1, [{ snapshotId: snapshot.id }]);
+  await jobs.start(abandoned.id);
+  const first = start({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir });
+  await init(first);
+  assert.equal((await jobs.get(abandoned.id)).status, 'interrupted');
+  const foundationOnly = await first.request('tools/list', {});
+  assert.ok(foundationOnly.result.tools.some(t => t.name === 'foundation_import_build'));
+  assert.ok(!foundationOnly.result.tools.some(t => t.name === 'list_builds'));
+  const denied = await first.request('tools/call', { name: 'list_builds', arguments: {} });
+  assert.equal(denied.result.isError, true);
+  const resources = await first.request('resources/list', {});
+  assert.deepEqual(resources.result.resources, []);
+  const second = start({ POB_FOUNDATION_ENABLED: 'true', POB_SNAPSHOT_DIRECTORY: dir });
+  const [secondCode] = await once(second.child, 'exit');
+  assert.notEqual(secondCode, 0);
+  await access(join(dir, '.writer.lock'));
+  first.child.stdin.end();
+  const [code] = await once(first.child, 'exit');
+  assert.equal(code, 0);
+  await assert.rejects(access(join(dir, '.writer.lock')));
+  const compat = start({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'true', POB_SNAPSHOT_DIRECTORY: dir });
+  await init(compat);
+  const combined = await compat.request('tools/list', {});
+  assert.ok(combined.result.tools.some(t => t.name === 'foundation_import_build'));
+  assert.ok(combined.result.tools.some(t => t.name === 'list_builds'));
+  compat.child.stdin.end();
+  const [compatCode] = await once(compat.child, 'exit');
+  assert.equal(compatCode, 0);
+  const corrupt = await jobs.create(1);
+  await writeFile(join(dir, 'jobs', `${corrupt.id}.json`), '{');
+  const broken = start({ POB_FOUNDATION_ENABLED: 'true', POB_SNAPSHOT_DIRECTORY: dir });
+  const [brokenCode] = await once(broken.child, 'exit');
+  assert.notEqual(brokenCode, 0);
+  await assert.rejects(access(join(dir, '.writer.lock')));
+  console.log('foundation gating and store ownership passed');
+} finally {
+  for (const child of clients) if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');
+  await rm(dir, { recursive: true, force: true });
+}

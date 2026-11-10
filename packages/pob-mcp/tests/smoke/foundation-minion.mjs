@@ -1,0 +1,42 @@
+import { strict as assert } from 'node:assert';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { PoBLuaApiClient } from '../../build/pobLuaBridge.js';
+import { BuildFoundation } from '../../build/foundation/buildFoundation.js';
+import { SnapshotStore } from '../../build/foundation/snapshotStore.js';
+import { openPoBEngine } from '../../build/foundation/pobEngineAdapter.js';
+import { gearedBuildXml, smokePoBSrc } from './pobSource.mjs';
+
+const dir = await mkdtemp(join(tmpdir(), 'pob-minion-'));
+const options = { cwd: smokePoBSrc(), command: process.env.POB_CMD, adapterPath: resolve('lua/vanilla_stdio_bridge.lua'), timeoutMs: 60000 };
+const client = new PoBLuaApiClient({ cwd: options.cwd, cmd: options.command, args: [options.adapterPath], env: { POB_API_STDIO: '0' }, timeoutMs: 60000 });
+const fields = ['Life', 'TotalDPS', 'CombinedDPS', 'MinionTotalDPS', 'MinionCombinedDPS'];
+try {
+  await client.start();
+  await client.loadBuildXml(await readFile(gearedBuildXml, 'utf8'));
+  const group = await client.createSocketGroup({ label: 'poison-minion', slot: 'Helmet' });
+  await client.addGem({ groupIndex: group.index, gemName: 'Summon Raging Spirit', level: 20 });
+  await client.setMainSelection({ mainSocketGroup: group.index });
+  const config = await client.setConfig({ customMods: 'Minions have 100% chance to Poison on Hit' });
+  assert.ok(config.applied.customMods);
+  const expected = await client.getStats(fields);
+  assert.ok(expected.MinionCombinedDPS > expected.MinionTotalDPS && expected.MinionTotalDPS > 0);
+  const { xml } = await client.unchangedItemsSnapshot();
+  await client.stop();
+  const foundation = new BuildFoundation(new SnapshotStore(dir), () => openPoBEngine(options));
+  const parent = await foundation.importBuild(xml, 'poison-minion-fixture');
+  const actual = await foundation.evaluate(parent.id, fields);
+  for (const key of fields) assert.ok(Math.abs(actual.stats[key] - expected[key]) < 0.01, `${key}: ${actual.stats[key]} vs ${expected[key]}`);
+  assert.ok(actual.metrics.MinionCombinedDPS.value > actual.metrics.MinionTotalDPS.value);
+  assert.equal(actual.context.skills.mainSocketGroup, group.index);
+  const item = 'Rarity: RARE\nMinion Test\nCitrine Amulet\nItem Level: 86\nImplicits: 0\nMinions deal 40% increased Damage';
+  const child = await foundation.deriveItem(parent.id, 'Amulet', item);
+  const changed = await foundation.evaluate(child.id, fields);
+  assert.ok(changed.metrics.MinionCombinedDPS.value > actual.metrics.MinionCombinedDPS.value);
+  const reload = await foundation.importBuild(await foundation.exportBuild(child.id), 'reload-minion');
+  const reloaded = await foundation.evaluate(reload.id, fields);
+  assert.deepEqual(reloaded.stats, changed.stats);
+  assert.equal(await foundation.exportBuild(parent.id), xml);
+  console.log('foundation poison minion roundtrip passed');
+} finally { await client.stop(); await rm(dir, { recursive: true, force: true }); }

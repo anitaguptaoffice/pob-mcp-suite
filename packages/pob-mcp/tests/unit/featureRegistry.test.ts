@@ -28,3 +28,12 @@ describe('feature tool registry', () => {
     expect(JSON.parse(result.content[0].text).scenarios[0].expectedChaos).toBe(4);
   });
 });
+
+describe('all advertised schema names', () => {
+  it('rejects duplicates across independently supplied groups', () => {
+    const { assertUniqueToolSchemas } = require('../../src/server/featureRegistry.js');
+    const schema = { name: 'same', description: 'x', inputSchema: { type: 'object' } };
+    expect(() => assertUniqueToolSchemas([schema, schema])).toThrow('duplicate or empty tool name');
+    expect(() => assertUniqueToolSchemas([schema])).not.toThrow();
+  });
+});

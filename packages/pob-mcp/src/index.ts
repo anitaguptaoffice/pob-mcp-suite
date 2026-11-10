@@ -13,6 +13,13 @@ if (!process.env.POB_REPO_ROOT) {
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { BuildFoundation } from './foundation/buildFoundation.js';
+import { SnapshotStore } from './foundation/snapshotStore.js';
+import { openPoBEngine } from './foundation/pobEngineAdapter.js';
+import { acquireStoreLock } from './foundation/storeLock.js';
+import { JobStore } from './foundation/jobStore.js';
+import { JobRunner } from './foundation/jobRunner.js';
+import { foundationSchemas, invokeFoundation } from './foundation/mcpTools.js';
 import {
   CallToolRequestSchema,
   ListResourcesRequestSchema,
@@ -35,6 +42,7 @@ import { NinjaPrices } from "./features/buildCost/ninjaPrices.js";
 import { buildCostSchemas } from "./features/buildCost/tool.js";
 import { comparableToolSchemas } from "./features/tradeComparable/tool.js";
 import { featureRegistry } from "./server/featureModules.js";
+import { assertUniqueToolSchemas } from "./server/featureRegistry.js";
 
 // Import utilities
 import { ContextBuilder } from "./utils/contextBuilder.js";
@@ -49,6 +57,11 @@ import { wrapWithTruncation, shouldTruncate } from "./server/responseUtils.js";
 class PoBMCPServer {
   private server: Server;
   private pobDirectory: string;
+  private foundation: BuildFoundation | null = null;
+  private foundationJobs: JobRunner | null = null;
+  private releaseFoundationLock: (() => Promise<void>) | null = null;
+  private foundationClosing = false;
+  private foundationPending = new Set<Promise<unknown>>();
 
   // Services
   private buildService: BuildService;
@@ -77,6 +90,7 @@ class PoBMCPServer {
   private allToolSchemas(): ToolSchema[] {
     const legacy = [
       ...getToolSchemas(),
+      ...foundationSchemas,
       ...getLuaToolSchemas(),
       ...buildCostSchemas(),
       ...getOptimizationToolSchemas(),
@@ -90,7 +104,9 @@ class PoBMCPServer {
       ...getBuildGoalsToolSchemas(),
     ];
     featureRegistry.assertNoCollisions(legacy);
-    return [...legacy, ...featureRegistry.schemas()];
+    const all = [...legacy, ...featureRegistry.schemas()];
+    assertUniqueToolSchemas(all);
+    return all;
   }
 
   constructor() {
@@ -174,6 +190,7 @@ class PoBMCPServer {
       console.error('[MCP Server] PoB Lua Bridge enabled (stdio mode)');
     }
 
+    this.allToolSchemas(); // Validate all names, including currently disabled capability groups.
     this.setupHandlers();
 
     // Error handling
@@ -184,8 +201,8 @@ class PoBMCPServer {
     // Handle EPIPE errors (broken pipe) gracefully
     process.stdout.on('error', (err: NodeJS.ErrnoException) => {
       if (err.code === 'EPIPE') {
-        // Client disconnected, exit gracefully
-        process.exit(0);
+        // Client disconnected; drain work and release the snapshot lock.
+        void shutdown();
       } else {
         console.error('stdout error:', err);
       }
@@ -193,24 +210,49 @@ class PoBMCPServer {
 
     process.stderr.on('error', (err: NodeJS.ErrnoException) => {
       if (err.code === 'EPIPE') {
-        // Client disconnected, exit gracefully
-        process.exit(0);
+        // Client disconnected; drain work and release the snapshot lock.
+        void shutdown();
       }
     });
 
+    let shuttingDown = false;
     const shutdown = async () => {
-      await this.watchService.stopWatching();
-      await this.luaClientManager.stopClient();
-      await this.server.close();
+      if (shuttingDown) return;
+      shuttingDown = true;
+      this.foundationClosing = true;
+      await Promise.allSettled([...this.foundationPending]);
+      let jobsError: unknown;
+      try { await this.foundationJobs?.close(); } catch (error) { jobsError = error; }
+      const results = await Promise.allSettled([
+        this.watchService.stopWatching(), this.luaClientManager.stopClient(), this.server.close(),
+      ]);
+      if (jobsError !== undefined) results.push({ status: 'rejected', reason: jobsError });
+      if (this.releaseFoundationLock) {
+        try { await this.releaseFoundationLock(); }
+        catch (error) { results.push({ status: 'rejected', reason: error }); }
+      }
+      const errors = results.filter((result): result is PromiseRejectedResult => result.status === 'rejected');
+      if (errors.length) {
+        for (const error of errors) console.error('[Shutdown Error]', error.reason);
+        process.exit(1);
+      }
       process.exit(0);
     };
     process.on("SIGINT", shutdown);
     process.on("SIGTERM", shutdown);
+    process.stdin.once("end", () => { void shutdown(); });
+  }
+
+  private legacyEnabled(): boolean {
+    // During migration, the existing default remains usable. Enabling the new
+    // foundation opts into the new surface; legacy requires explicit opt-in.
+    return process.env.POB_FOUNDATION_ENABLED !== 'true' || process.env.POB_LEGACY_ENABLED === 'true';
   }
 
   private setupHandlers() {
     // List available resources (build files)
     this.server.setRequestHandler(ListResourcesRequestSchema, async () => {
+      if (!this.legacyEnabled()) return { resources: [] };
       try {
         const builds = await this.buildService.listBuilds();
         return {
@@ -229,6 +271,7 @@ class PoBMCPServer {
 
     // Read a specific build file
     this.server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+      if (!this.legacyEnabled()) throw new Error('Legacy resources are unavailable');
       const uri = request.params.uri;
       const match = uri.match(/^pob:\/\/build\/(.+)$/);
 
@@ -258,6 +301,11 @@ class PoBMCPServer {
 
     // List available tools
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
+      if (!this.legacyEnabled()) {
+        const tools = this.foundation ? foundationSchemas : [];
+        assertUniqueToolSchemas(tools);
+        return { tools: tools.map(({ truncatable: _truncatable, ...wire }) => wire) };
+      }
       // Get base tools
       const tools: ToolSchema[] = getToolSchemas();
 
@@ -296,6 +344,8 @@ class PoBMCPServer {
       tools.push(...getPoeNinjaToolSchemas());
       featureRegistry.assertNoCollisions(tools);
       tools.push(...featureRegistry.schemas());
+      if (this.foundation) tools.push(...foundationSchemas);
+      assertUniqueToolSchemas(tools);
 
       // The truncatable flag is server-side policy, not part of the MCP wire
       // contract - strip it from what clients see.
@@ -307,6 +357,16 @@ class PoBMCPServer {
       const { name, arguments: args } = request.params;
 
       try {
+        if (foundationSchemas.some(tool => tool.name === name)) {
+          if (!this.foundation || this.foundationClosing) throw new Error('Foundation tools are unavailable');
+          const pending = invokeFoundation(this.foundation, name, args ?? {}, this.foundationJobs ?? undefined, this.pobDirectory);
+          this.foundationPending.add(pending);
+          try {
+            const result = await pending;
+            return { content: [{ type: 'text' as const, text: JSON.stringify(result) }] };
+          } finally { this.foundationPending.delete(pending); }
+        }
+        if (!this.legacyEnabled()) throw new Error('Legacy tools are unavailable');
         // Build router dependencies
         const routerDeps: ToolRouterDependencies = {
           contextBuilder: this.contextBuilder,
@@ -355,6 +415,24 @@ class PoBMCPServer {
    * Initialize async components
    */
   private async initialize() {
+    if (process.env.POB_FOUNDATION_ENABLED === 'true') {
+      const directory = process.env.POB_SNAPSHOT_DIRECTORY || path.join(this.pobDirectory, '.pob-snapshots');
+      this.releaseFoundationLock = await acquireStoreLock(directory);
+      const jobs = new JobStore(path.join(directory, 'jobs'));
+      await jobs.markInterrupted();
+      const store = new SnapshotStore(directory);
+      let protectedIds: Set<string> | undefined;
+      try { protectedIds = await jobs.protectedSnapshotIds(); }
+      catch (error) { console.error('[Snapshot retention] Collection skipped because job references are unavailable:', error); }
+      if (protectedIds) await store.collectExpired(protectedIds);
+      const adapterPath = process.env.POB_ADAPTER_PATH || path.join(process.env.POB_REPO_ROOT!, 'lua', 'vanilla_stdio_bridge.lua');
+      this.foundation = new BuildFoundation(store, () => openPoBEngine({
+        cwd: process.env.POB_PATH || process.env.POB_FORK_PATH, command: process.env.POB_CMD,
+        adapterPath, timeoutMs: process.env.POB_TIMEOUT_MS ? Number(process.env.POB_TIMEOUT_MS) : undefined,
+      }));
+      const foundation = this.foundation;
+      this.foundationJobs = new JobRunner(jobs, input => foundation.evaluate(input.snapshotId, input.fields, input.options));
+    }
     // StatMapper is intentionally static-only: the trade API /stats dump keys
     // everything by hashed ID (no PoB names), so swapping it in at startup used
     // to erase the curated aliases that search_stats matches against. Official
@@ -363,15 +441,16 @@ class PoBMCPServer {
   }
 
   async run() {
-    // Initialize async components first
-    await this.initialize();
-
     const transport = new StdioServerTransport();
-    await this.server.connect(transport);
+    try { await this.initialize(); await this.server.connect(transport); }
+    catch (error) {
+      if (this.releaseFoundationLock) await this.releaseFoundationLock();
+      throw error;
+    }
     console.error("Path of Building MCP Server running on stdio");
   }
 }
 
 // Start the server
 const server = new PoBMCPServer();
-server.run().catch(console.error);
+server.run().catch(error => { console.error(error); process.exitCode = 1; });
