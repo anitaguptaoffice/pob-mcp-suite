@@ -60,6 +60,9 @@ by server configuration. Never assume legacy tools are exposed alongside it.
 - `foundation_create_spec` creates a blank spec or copies `copy_from`, with an
   explicit `activate` option. `foundation_rename_spec` changes a spec's title;
   both produce a new snapshot and verify the other spec observations.
+- `foundation_delete_spec` deletes a spec in a child snapshot; provide
+  `replacement_spec` using the indices after deletion when deleting the active
+  spec. PoB requires at least one spec to remain.
 - Use `compare_snapshot_trees` for allocated node and mastery differences between
   two snapshots with the same known tree version. It does not prove legality,
   compute point cost, or measure the resulting damage.

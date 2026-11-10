@@ -49,6 +49,18 @@ try {
   await assert.rejects(foundation.deriveSpec(parent.id, 99), /Passive spec not found/);
   await assert.rejects(foundation.deriveCreateSpec(parent.id, { copyFrom: 99 }), /Source passive spec not found/);
   await assert.rejects(foundation.deriveRenameSpec(parent.id, 99, 'missing'), /Passive spec not found/);
+  const removeInactive = await foundation.deriveDeleteSpec(parent.id, 2);
+  const single = await foundation.specs(removeInactive.id);
+  assert.equal(single.activeSpec, 1); assert.equal(single.specs.length, 1);
+  assert.deepEqual((await foundation.inspect(removeInactive.id, ['tree'])).data.tree, original);
+  await assert.rejects(foundation.deriveDeleteSpec(parent.id, 1), /replacement_spec/);
+  const removeActive = await foundation.deriveDeleteSpec(parent.id, 1, 1);
+  assert.deepEqual((await foundation.inspect(removeActive.id, ['tree'])).data.tree, alternative);
+  const reindexed = await foundation.deriveDeleteSpec(child.id, 1);
+  assert.equal((await foundation.specs(reindexed.id)).activeSpec, 1);
+  assert.deepEqual((await foundation.inspect(reindexed.id, ['tree'])).data.tree, alternative);
+  await assert.rejects(foundation.deriveDeleteSpec(removeInactive.id, 1), /only passive spec/);
+  assert.equal((await foundation.specs(parent.id)).specs.length, 2);
   const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
   mcp.child.stderr.on('data', () => {}); const exited = once(mcp.child, 'exit');
   try {
@@ -63,6 +75,9 @@ try {
     const created = await mcp.request('tools/call', { name: 'foundation_create_spec', arguments: { snapshot_id: parent.id, title: 'MCP Copy', copy_from: 2, activate: false, trial: true } });
     assert.ok(!created.error && !created.result?.isError, JSON.stringify(created));
     assert.equal(JSON.parse(created.result.content[0].text).retention.kind, 'trial');
+    const deleted = await mcp.request('tools/call', { name: 'foundation_delete_spec', arguments: { snapshot_id: parent.id, spec_index: 1, replacement_spec: 1, trial: true } });
+    assert.ok(!deleted.error && !deleted.result?.isError, JSON.stringify(deleted));
+    assert.equal(JSON.parse(deleted.result.content[0].text).retention.kind, 'trial');
     mcp.child.stdin.end(); assert.equal((await exited)[0], 0);
   } finally { if (mcp.child.exitCode === null && mcp.child.signalCode === null) { mcp.child.kill('SIGTERM'); await exited; } }
   console.log('foundation passive specs passed');

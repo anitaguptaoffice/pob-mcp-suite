@@ -42,6 +42,7 @@ export interface BuildEngine {
   selectSpec(index: number): Promise<{ activeSpec: number; specs: Array<{ index: number; title: string; active: boolean; className?: string; ascendClassName?: string; treeVersion?: string; nodeCount: number }> }>;
   createSpec(params: { title?: string; copyFrom?: number; activate?: boolean }): Promise<unknown>;
   renameSpec(index: number, title: string): Promise<unknown>;
+  deleteSpec(index: number): Promise<unknown>;
   getCompatibleSupports(params: { groupIndex?: number; query?: string; limit?: number; includeExceptional?: boolean }): Promise<{
     groupIndex: number; skillName?: string; candidates: Array<{ id: string; name: string; exceptional: boolean; alreadySocketed: boolean }>;
     total: number; failed: number;
@@ -678,6 +679,33 @@ export class BuildFoundation {
     }, trial, async engine => {
       const catalog = await this.readSpecCatalog(engine);
       if (!isDeepStrictEqual(catalog, catalogAfter) || !isDeepStrictEqual(expected, await this.inspectSpecs(engine, catalog, catalog.activeSpec))) throw new Error('Renamed passive specs did not survive serialization');
+    });
+  }
+
+  async deriveDeleteSpec(id: string, index: number, replacementSpec?: number, trial = false): Promise<SnapshotRecord> {
+    if (!Number.isSafeInteger(index) || index < 1 || (replacementSpec !== undefined && (!Number.isSafeInteger(replacementSpec) || replacementSpec < 1))) throw new Error('Invalid passive spec deletion');
+    let expected: Awaited<ReturnType<BuildFoundation['inspectSpecs']>> = [];
+    let catalogAfter: Awaited<ReturnType<BuildFoundation['readSpecCatalog']>>;
+    return this.derive(id, 'derived:delete-spec', async engine => {
+      const before = await this.readSpecCatalog(engine);
+      if (index > before.specs.length) throw new Error('Passive spec not found');
+      if (before.specs.length <= 1) throw new Error('Cannot delete the only passive spec');
+      if (index === before.activeSpec && replacementSpec === undefined) throw new Error('replacement_spec is required when deleting the active passive spec');
+      if (index !== before.activeSpec && replacementSpec !== undefined) throw new Error('replacement_spec is only accepted when deleting the active passive spec');
+      if (replacementSpec !== undefined && replacementSpec >= before.specs.length) throw new Error('Replacement passive spec is out of range after deletion');
+      const wanted = index === before.activeSpec ? replacementSpec! : before.activeSpec - (index < before.activeSpec ? 1 : 0);
+      const previous = await this.inspectSpecs(engine, before, before.activeSpec);
+      await engine.deleteSpec(index);
+      if ((await this.readSpecCatalog(engine)).activeSpec !== wanted) await engine.selectSpec(wanted);
+      catalogAfter = await this.readSpecCatalog(engine);
+      const originalCatalog = before.specs.filter(spec => spec.index !== index).map((spec, i) => ({ ...spec, index: i + 1, active: i + 1 === wanted }));
+      if (catalogAfter.activeSpec !== wanted || !isDeepStrictEqual(catalogAfter.specs, originalCatalog)) throw new Error('PoB did not confirm passive spec deletion');
+      expected = await this.inspectSpecs(engine, catalogAfter, wanted);
+      const surviving = previous.filter(spec => spec.index !== index).map((spec, i) => ({ ...spec, index: i + 1 }));
+      if (!isDeepStrictEqual(expected, surviving)) throw new Error('Passive spec deletion modified surviving specs');
+    }, trial, async engine => {
+      const catalog = await this.readSpecCatalog(engine);
+      if (!isDeepStrictEqual(catalog, catalogAfter) || !isDeepStrictEqual(expected, await this.inspectSpecs(engine, catalog, catalog.activeSpec))) throw new Error('Remaining passive specs did not survive serialization');
     });
   }
 
