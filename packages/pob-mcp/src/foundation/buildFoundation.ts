@@ -26,6 +26,9 @@ export interface BuildEngine {
   addItem(itemText: string, slot: string): Promise<{ id: number; slot?: string }>;
   getItemAffixWeight(modId: string, itemText: string): Promise<{ modId: string; base: string; weight: number; itemLevel?: number; requiredItemLevel?: number; affixType?: string; affixGroup?: string }>;
   getSkills(): Promise<unknown>;
+  setGemLevel(params: { groupIndex: number; gemIndex: number; level: number }): Promise<void>;
+  setGemQuality(params: { groupIndex: number; gemIndex: number; quality: number; qualityId?: string }): Promise<void>;
+  setGemEnabled(params: { groupIndex: number; gemIndex: number; enabled: boolean }): Promise<void>;
   getCompatibleSupports(params: { groupIndex?: number; query?: string; limit?: number; includeExceptional?: boolean }): Promise<{
     groupIndex: number; skillName?: string; candidates: Array<{ id: string; name: string; exceptional: boolean; alreadySocketed: boolean }>;
     total: number; failed: number;
@@ -284,6 +287,42 @@ export class BuildFoundation {
         return rest;
       };
       if (!isDeepStrictEqual(structuralGroup(original.groups.find(entry => entry.index === updated.mainSocketGroup)), structuralGroup(group))) throw new Error('Skill selection changed unrelated selected group data');
+    }, trial);
+  }
+
+  async deriveGem(id: string, groupIndex: number, gemIndex: number, changes: { level?: number; quality?: number; enabled?: boolean }, trial = false): Promise<SnapshotRecord> {
+    if (!Number.isSafeInteger(groupIndex) || groupIndex < 1 || !Number.isSafeInteger(gemIndex) || gemIndex < 1 || !changes || typeof changes !== 'object' || Array.isArray(changes) ||
+        !Object.keys(changes).length || Object.keys(changes).some(key => !['level', 'quality', 'enabled'].includes(key)) ||
+        (changes.level !== undefined && (!Number.isInteger(changes.level) || changes.level < 1 || changes.level > 40)) ||
+        (changes.quality !== undefined && (!Number.isInteger(changes.quality) || changes.quality < 0 || changes.quality > 99)) ||
+        (changes.enabled !== undefined && typeof changes.enabled !== 'boolean') || Object.values(changes).some(value => value === undefined)) throw new Error('Invalid gem change');
+    return this.derive(id, 'derived:gem', async engine => {
+      const before = normalizeObservation({ tree: await engine.getTree(), items: await engine.getItems(), config: await engine.getConfig(), skills: await engine.getSkills() });
+      type Gem = Record<string, unknown> & { index?: number };
+      type Group = { index?: number; gems?: Gem[] };
+      const groups = (value: unknown): Group[] => {
+        const list = (value as { groups?: Group[] })?.groups;
+        if (!Array.isArray(list) || list.some(group => !Array.isArray(group.gems))) throw new Error('PoB returned invalid skill groups');
+        return list;
+      };
+      const original = groups(before.skills);
+      const target = original.find(group => group.index === groupIndex)?.gems?.find(gem => gem.index === gemIndex);
+      if (!target) throw new Error('Gem not found in requested group');
+      if (changes.level !== undefined) await engine.setGemLevel({ groupIndex, gemIndex, level: changes.level });
+      if (changes.quality !== undefined) await engine.setGemQuality({ groupIndex, gemIndex, quality: changes.quality });
+      if (changes.enabled !== undefined) await engine.setGemEnabled({ groupIndex, gemIndex, enabled: changes.enabled });
+      const after = normalizeObservation({ tree: await engine.getTree(), items: await engine.getItems(), config: await engine.getConfig(), skills: await engine.getSkills() });
+      for (const section of ['tree', 'items', 'config'] as const) if (!isDeepStrictEqual(before[section], after[section])) throw new Error(`Gem change modified unrelated ${section}`);
+      const updated = groups(after.skills);
+      const actual = updated.find(group => group.index === groupIndex)?.gems?.find(gem => gem.index === gemIndex);
+      if (!actual || Object.entries(changes).some(([key, value]) => actual[key] !== value)) throw new Error('PoB did not confirm requested gem changes');
+      const canonical = (list: Group[]) => list.map(group => ({ ...group, ...(group.index === groupIndex ? { skills: undefined, selectedSkillPart: undefined } : {}), gems: group.gems!.map(gem => {
+        const copy = { ...gem };
+        delete copy.appliedToSelectedSkill;
+        if (group.index === groupIndex && gem.index === gemIndex) for (const key of Object.keys(changes)) delete copy[key];
+        return copy;
+      }) }));
+      if (!isDeepStrictEqual(canonical(original), canonical(updated))) throw new Error('Gem change modified unrelated skill or gem data');
     }, trial);
   }
 

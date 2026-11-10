@@ -1,0 +1,62 @@
+import { strict as assert } from 'node:assert';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { once } from 'node:events';
+import { PoBLuaApiClient } from '../../build/pobLuaBridge.js';
+import { BuildFoundation } from '../../build/foundation/buildFoundation.js';
+import { SnapshotStore } from '../../build/foundation/snapshotStore.js';
+import { openPoBEngine } from '../../build/foundation/pobEngineAdapter.js';
+import { smokePoBSrc } from './pobSource.mjs';
+import { startMcpServer } from './mcpClient.mjs';
+
+const dir = await mkdtemp(join(tmpdir(), 'pob-gem-'));
+const options = { cwd: smokePoBSrc(), command: process.env.POB_CMD, adapterPath: resolve('lua/vanilla_stdio_bridge.lua'), timeoutMs: 60000 };
+const client = new PoBLuaApiClient({ cwd: options.cwd, cmd: options.command, args: [options.adapterPath], env: { POB_API_STDIO: '0' }, timeoutMs: 60000 });
+try {
+  await client.start();
+  await client.newBuild({ className: 'Witch' });
+  await client.createSocketGroup({ label: 'primary', slot: 'Helmet' });
+  await client.addGem({ groupIndex: 1, gemName: 'Arc', level: 20 });
+  await client.addGem({ groupIndex: 1, gemName: 'Added Lightning Damage Support', level: 20 });
+  await client.createSocketGroup({ label: 'other', slot: 'Gloves' });
+  await client.addGem({ groupIndex: 2, gemName: 'Fireball', level: 20 });
+  const xml = await client.exportBuildXml();
+  await client.stop();
+  const foundation = new BuildFoundation(new SnapshotStore(dir), () => openPoBEngine(options));
+  const parent = await foundation.importBuild(xml, 'gem-fixture');
+  const before = await foundation.inspect(parent.id, ['skills']);
+  const child = await foundation.deriveGem(parent.id, 1, 2, { level: 15, quality: 12, enabled: false });
+  assert.equal(child.parentId, parent.id);
+  const after = await foundation.inspect(child.id, ['skills']);
+  const baseline = await foundation.evaluate(parent.id, ['TotalDPS']);
+  const changed = await foundation.evaluate(child.id, ['TotalDPS']);
+  assert.ok(baseline.metrics.TotalDPS.status === 'available' && changed.metrics.TotalDPS.status === 'available');
+  assert.ok(baseline.stats.TotalDPS > changed.stats.TotalDPS && changed.stats.TotalDPS > 0);
+  assert.equal(after.data.skills.groups[0].gems[1].level, 15);
+  assert.equal(after.data.skills.groups[0].gems[1].quality, 12);
+  assert.equal(after.data.skills.groups[0].gems[1].qualityId, before.data.skills.groups[0].gems[1].qualityId);
+  assert.equal(after.data.skills.groups[0].gems[1].enabled, false);
+  assert.deepEqual(after.data.skills.groups[1], before.data.skills.groups[1]);
+  assert.deepEqual((await foundation.inspect(parent.id, ['skills'])).data.skills, before.data.skills);
+  assert.equal(await foundation.exportBuild(parent.id), xml);
+  await assert.rejects(foundation.deriveGem(parent.id, 1, 99, { level: 2 }), /Gem not found/);
+  await assert.rejects(foundation.deriveGem(parent.id, 1, 2, { quality: 100 }), /Invalid gem change/);
+  const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
+  mcp.child.stderr.on('data', () => {});
+  const exited = once(mcp.child, 'exit');
+  try {
+    await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'gem-smoke', version: '1' } });
+    mcp.notify('notifications/initialized', {});
+    const response = await mcp.request('tools/call', { name: 'foundation_derive_gem', arguments: { snapshot_id: parent.id, group_index: 1, gem_index: 2, changes: { level: 15, quality: 12, enabled: false }, trial: true } });
+    assert.ok(!response.error && !response.result?.isError, JSON.stringify(response));
+    const trial = JSON.parse(response.result.content[0].text);
+    assert.equal(trial.parentId, parent.id);
+    assert.equal(trial.retention.kind, 'trial');
+    const inspected = await mcp.request('tools/call', { name: 'foundation_inspect', arguments: { snapshot_id: trial.id, sections: ['skills'] } });
+    assert.ok(!inspected.error && !inspected.result?.isError, JSON.stringify(inspected));
+    assert.equal(JSON.parse(inspected.result.content[0].text).data.skills.groups[0].gems[1].quality, 12);
+    mcp.child.stdin.end(); assert.equal((await exited)[0], 0);
+  } finally { if (mcp.child.exitCode === null && mcp.child.signalCode === null) { mcp.child.kill('SIGTERM'); await exited; } }
+  console.log('foundation gem mutation passed');
+} finally { await client.stop(); await rm(dir, { recursive: true, force: true }); }

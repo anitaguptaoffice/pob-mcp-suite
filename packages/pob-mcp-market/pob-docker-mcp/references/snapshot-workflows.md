@@ -31,8 +31,10 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   `foundation_derive_tree` takes explicit additions/removals and does not find
   paths; use `foundation_search_tree` and mastery option tools to inspect
   candidates. `foundation_derive_item` equips an explicit slot. Config and
-  character level have dedicated derivations. Gem editing and several other
-  operations are not yet available in this mode; do not invent substitutes.
+  character level have dedicated derivations. `foundation_derive_gem` changes
+  an existing gem's level, quality or enabled state using explicit one-based
+  group and gem indices; its existing quality type is retained. Gem creation,
+  removal and quality-type changes are not yet available in this mode.
 - Use `compare_snapshot_trees` for allocated node and mastery differences between
   two snapshots with the same known tree version. It does not prove legality,
   compute point cost, or measure the resulting damage.

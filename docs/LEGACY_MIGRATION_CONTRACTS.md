@@ -74,12 +74,12 @@ acceptance work to perform during migration, not claims of completed tests.
 | `get_skill_setup` | `inspect` with `skills`; caller must select main-only view explicitly. | Compare all groups, selected group, enabled gems and quality against PoB. |
 | `create_socket_group` | Typed skill-group creation is needed. | Verify slot, label, enabled and full-DPS flags after reload without asserting socket legality. |
 | `add_gem` | Typed gem addition is needed. | Validate resolved gem, requested level, quality and enabled flag, then reload; do not assert in-game availability. |
-| `set_gem_level` | Typed gem-level change is needed. | Correct group/index changes and other gems remain unchanged after reload. |
-| `set_gem_quality` | Typed gem-quality change is needed. | Quality and supported quality type are preserved; unsupported types fail explicitly. |
+| `set_gem_level` | `foundation_derive_gem` changes an explicit existing gem; legacy callers require migration. | `foundation-gem.mjs` verifies correct group/index and reload; unrelated gems are preserved. |
+| `set_gem_quality` | `foundation_derive_gem` changes quality while preserving the existing quality type; changing the type itself remains unsupported. | Verify quality and existing type after reload; unknown change keys are rejected. |
 | `remove_skill` | Typed group removal is needed. | Correct group removed, remaining groups and selected skill handled explicitly. |
 | `remove_gem` | Typed gem removal is needed. | Correct indexed gem removed and remaining gems survive reload. |
 | `toggle_socket_group` | Typed group-enable change is needed. | Enabled state and recalculated result match after reload. |
-| `toggle_gem` | Typed gem-enable change is needed. | Enabled state and recalculated result match after reload. |
+| `toggle_gem` | `foundation_derive_gem` changes the enabled state using an explicit boolean. | `foundation-gem.mjs` checks enabled state and recalculated damage after reload; legacy callers require migration. |
 | `setup_skill_with_gems` | Atomic typed group-plus-gems change is needed; legacy tool reports partial progress. | Invalid later gem publishes no child; success preserves requested order and flags. |
 | `add_multiple_items` | Atomic multi-item changeset is needed; legacy tool can partially apply. | Any incompatible item publishes no child and leaves parent unchanged. |
 

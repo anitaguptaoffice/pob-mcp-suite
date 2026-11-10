@@ -66,6 +66,7 @@ export async function openPoBEngine(options: PoBEngineOptions): Promise<BuildEng
     captureSnapshot: () => client.unchangedItemsSnapshot(), getTree: () => client.getTree(),
     refreshTreeProgress: () => client.refreshTreeProgress(), searchNodes: params => client.searchNodes(params), getMasteryOptions: () => client.getMasteryOptions(), getMasteryNodeOptions: nodeId => client.getMasteryNodeOptions(nodeId), updateTreeDelta: params => client.updateTreeDelta(params),
     getItems: () => client.getItems(), addItem: (text, slot) => client.addItem(text, slot), getItemAffixWeight: (modId, itemText) => client.getItemAffixWeight(modId, itemText), getSkills: () => client.getSkills(),
+    setGemLevel: params => client.setGemLevel(params), setGemQuality: params => client.setGemQuality(params), setGemEnabled: params => client.setGemEnabled(params),
     getCompatibleSupports: params => client.getCompatibleSupports(params),
     getConfig: () => client.getConfig(), close: () => client.stop(),
   };

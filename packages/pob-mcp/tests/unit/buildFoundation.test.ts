@@ -5,6 +5,33 @@ import { BuildFoundation, type BuildEngine } from '../../src/foundation/buildFou
 import { SnapshotStore } from '../../src/foundation/snapshotStore.js';
 
 describe('BuildFoundation isolation', () => {
+  it('rejects unapplied and partial gem edits without publishing a snapshot', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'pob-gem-failure-'));
+    try {
+      const store = new SnapshotStore(dir);
+      const parent = await store.create({ xml: '<build/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
+      let level = 20;
+      let failQuality = false;
+      let corruptGem = false;
+      const engine = {
+        identity: { engineVersion: null, dataVersion: null, adapterVersion: null }, loadBuildXml: async () => { level = 20; },
+        getTree: async () => ({}), getItems: async () => [], getConfig: async () => ({}),
+        getSkills: async () => ({ mainSocketGroup: 1, groups: [{ index: 1, gems: [{ index: 1, name: corruptGem && level !== 20 ? 'Changed' : 'Arc', level, quality: 0, enabled: true }] }] }),
+        setGemLevel: async ({ level: value }: { level: number }) => { level = value; },
+        setGemQuality: async () => { if (failQuality) throw new Error('quality failed'); },
+        setGemEnabled: async () => {}, close: async () => {},
+      } as unknown as BuildEngine;
+      const foundation = new BuildFoundation(store, async () => engine);
+      await expect(foundation.deriveGem(parent.id, 1, 1, { quality: 10 })).rejects.toThrow('did not confirm');
+      failQuality = true;
+      await expect(foundation.deriveGem(parent.id, 1, 1, { level: 10, quality: 10 })).rejects.toThrow('quality failed');
+      corruptGem = true;
+      await expect(foundation.deriveGem(parent.id, 1, 1, { level: 10 })).rejects.toThrow('unrelated skill or gem data');
+      await expect(foundation.deriveGem(parent.id, 1, 1, { level: 0 })).rejects.toThrow('Invalid gem change');
+      expect(await readdir(dir)).toEqual([`${parent.id}.json`]);
+      expect((await store.read(parent.id)).xml).toBe('<build/>');
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
   it('does not publish a skill selection when PoB fails to apply it or changes another group', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'pob-skill-selection-'));
     try {
@@ -100,6 +127,7 @@ describe('BuildFoundation isolation', () => {
       let loads = 0;
       let closed = false;
       const engine: BuildEngine = {
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {},
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -133,6 +161,7 @@ describe('BuildFoundation isolation', () => {
         engineVersion: null, dataVersion: null, adapterVersion: null });
       let closed = false;
       const engine: BuildEngine = {
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {},
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -162,6 +191,7 @@ describe('BuildFoundation isolation', () => {
         engineVersion: '1', dataVersion: null, adapterVersion: 'a', runtimeVersion: 'runtime-a', executableVersion: 'exe-a' });
       let loaded = false;
       const engine: BuildEngine = {
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {},
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -207,6 +237,7 @@ describe('BuildFoundation isolation', () => {
       const config = jest.fn(async () => ({ rejected: { badOption: 'unknown' } }));
       const closed = jest.fn(async () => {});
       const engine: BuildEngine = {
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {},
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -243,6 +274,7 @@ describe('BuildFoundation isolation', () => {
       const getItems = jest.fn(async () => [{ slot: 'Helmet' }]);
       const close = jest.fn(async () => {});
       const engine: BuildEngine = {
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {},
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -277,6 +309,7 @@ describe('BuildFoundation isolation', () => {
         engineVersion: null, dataVersion: null, adapterVersion: null });
       const searchNodes = jest.fn(async () => ({ nodes: [{ id: 1, name: 'Life' }], count: 1 }));
       const engine: BuildEngine = {
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {},
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -307,6 +340,7 @@ describe('BuildFoundation isolation', () => {
         engineVersion: null, dataVersion: null, adapterVersion: null });
       const search = jest.fn(async () => ({ groupIndex: 1, skillName: 'Vortex', candidates: [{ id: 'x', name: 'Efficacy', exceptional: false, alreadySocketed: false }], total: 1, failed: 2 }));
       const engine: BuildEngine = {
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {},
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -337,6 +371,7 @@ describe('BuildFoundation isolation', () => {
       const parent = await store.create({ xml: '<original/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
       const weight = jest.fn(async (modId: string) => ({ modId, base: 'Ring', weight: 0 }));
       const engine: BuildEngine = {
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {},
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -365,6 +400,7 @@ describe('BuildFoundation isolation', () => {
       const parent = await store.create({ xml: '<original/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
       const close = jest.fn(async () => {});
       const engine: BuildEngine = {
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {},
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -393,6 +429,7 @@ describe('BuildFoundation isolation', () => {
       const parent = await store.create({ xml: '<original/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
       const base = { nodes: [1, 2], treeVersion: '3_28', classId: 1, ascendClassId: 0, secondaryAscendClassId: 0, masteryEffects: {} };
       const engine: BuildEngine = {
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {},
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -423,6 +460,7 @@ describe('BuildFoundation isolation', () => {
       let unexpected = false;
       const refresh = jest.fn(async () => {});
       const engine: BuildEngine = {
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {},
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: refresh,
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -451,6 +489,7 @@ describe('BuildFoundation isolation', () => {
       const tree = { nodes: [1], treeVersion: '3_28', classId: 1, ascendClassId: 0, secondaryAscendClassId: 0, masteryEffects: { '1': 5 } };
       const update = jest.fn(async () => ({ tree }));
       const engine: BuildEngine = {
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {},
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
