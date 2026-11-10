@@ -19,6 +19,7 @@ try {
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_derive_selection'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_derive_gem'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_replace_support'));
+  assert.ok(!tools.result.tools.some(t => t.name === 'foundation_derive_gem_setup'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_derive_gem_list'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_derive_skill_group'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_derive_skill_group_enabled'));
@@ -68,6 +69,7 @@ try {
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_selection').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_gem').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_replace_support').length, 1);
+  assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_gem_setup').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_gem_list').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_skill_group').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_skill_group_enabled').length, 1);

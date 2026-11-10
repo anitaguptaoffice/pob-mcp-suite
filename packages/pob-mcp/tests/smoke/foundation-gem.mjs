@@ -63,6 +63,15 @@ try {
   const beforeFailure = (await foundation.listSnapshots()).snapshots.length;
   await assert.rejects(foundation.deriveSupportReplacement(parent.id, 1, 2, { gemName: 'No Such Gem Fixture' }, true), /unrecognized gem/);
   assert.equal((await foundation.listSnapshots()).snapshots.length, beforeFailure);
+  const setup = await foundation.deriveGemSetup(parent.id, 1, [{ gemName: 'Arc', level: 19 }, { gemName: 'Controlled Destruction Support', quality: 7 }, { gemName: 'Faster Casting Support' }], true);
+  const setupSkills = (await foundation.inspect(setup.id, ['skills'])).data.skills;
+  assert.deepEqual(setupSkills.groups[0].gems.map(gem => gem.name), ['Arc', 'Controlled Destruction', 'Faster Casting']);
+  assert.equal(setupSkills.groups[0].gems[0].level, 19);
+  assert.equal(setupSkills.groups[0].gems[1].quality, 7);
+  assert.deepEqual(setupSkills.groups[1], before.data.skills.groups[1]);
+  const beforeSetupFailure = (await foundation.listSnapshots()).snapshots.length;
+  await assert.rejects(foundation.deriveGemSetup(parent.id, 1, [{ gemName: 'Arc' }, { gemName: 'Controlled Destruction Support' }, { gemName: 'No Such Gem Fixture' }], true), /unrecognized gem/);
+  assert.equal((await foundation.listSnapshots()).snapshots.length, beforeSetupFailure);
   const combined = await foundation.deriveSkillGroup(parent.id, { label: 'atomic', slot: 'Boots', enabled: true, includeInFullDPS: true }, [
     { gemName: 'Arc', level: 18, quality: 10 }, { gemName: 'Added Lightning Damage Support', level: 15, enabled: false },
   ]);
@@ -96,6 +105,13 @@ try {
     assert.ok(!replaceResponse.error && !replaceResponse.result?.isError, JSON.stringify(replaceResponse));
     const replacementTrial = JSON.parse(replaceResponse.result.content[0].text);
     assert.equal(replacementTrial.parentId, parent.id); assert.equal(replacementTrial.retention.kind, 'trial');
+    const setupResponse = await mcp.request('tools/call', { name: 'foundation_derive_gem_setup', arguments: { snapshot_id: parent.id, group_index: 1, gems: [{ gemName: 'Arc' }, { gemName: 'Controlled Destruction Support' }, { gemName: 'Faster Casting Support' }], trial: true } });
+    assert.ok(!setupResponse.error && !setupResponse.result?.isError, JSON.stringify(setupResponse));
+    const setupTrial = JSON.parse(setupResponse.result.content[0].text);
+    assert.equal(setupTrial.parentId, parent.id); assert.equal(setupTrial.retention.kind, 'trial');
+    const setupComparison = await mcp.request('tools/call', { name: 'compare_snapshot_gem_setups', arguments: { snapshot_id: parent.id, group_index: 1, candidate_snapshot_ids: [setupTrial.id] } });
+    assert.ok(!setupComparison.error && !setupComparison.result?.isError, JSON.stringify(setupComparison));
+    assert.equal(JSON.parse(setupComparison.result.content[0].text).results[0].status, 'ok');
     const rankingResponse = await mcp.request('tools/call', { name: 'rank_snapshot_supports', arguments: { snapshot_id: parent.id, group_index: 1, gem_index: 2, metric: 'CombinedDPS', candidates: [{ gem_name: 'Controlled Destruction Support' }, { gem_name: 'No Such Gem Fixture' }] } });
     assert.ok(!rankingResponse.error && !rankingResponse.result?.isError, JSON.stringify(rankingResponse));
     const ranking = JSON.parse(rankingResponse.result.content[0].text);

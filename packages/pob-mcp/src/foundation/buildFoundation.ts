@@ -469,6 +469,64 @@ export class BuildFoundation {
     }, trial);
   }
 
+  async deriveGemSetup(id: string, groupIndex: number, gems: Array<{ gemName: string; level?: number; quality?: number; enabled?: boolean }>, trial = false): Promise<SnapshotRecord> {
+    const validInt = (value: unknown, min: number, max: number) => typeof value === 'number' && Number.isSafeInteger(value) && value >= min && value <= max;
+    const normalize = (value: unknown) => typeof value === 'string' ? value.trim().toLowerCase().replace(/ support$/, '') : '';
+    if (!validInt(groupIndex, 1, 10000) || !Array.isArray(gems) || gems.length < 1 || gems.length > 6 || gems.some(gem => !gem || typeof gem !== 'object' || Array.isArray(gem) || Object.keys(gem).some(key => !['gemName', 'level', 'quality', 'enabled'].includes(key)) || typeof gem.gemName !== 'string' || !gem.gemName.trim() || gem.gemName.length > 200 || (gem.level !== undefined && !validInt(gem.level, 1, 40)) || (gem.quality !== undefined && !validInt(gem.quality, 0, 99)) || (gem.enabled !== undefined && typeof gem.enabled !== 'boolean') || Object.values(gem).some(value => value === undefined)) || new Set(gems.map(gem => normalize(gem.gemName))).size !== gems.length) throw new Error('Invalid gem setup');
+    const requested = new Map(gems.map(gem => [normalize(gem.gemName), gem]));
+    return this.derive(id, 'derived:gem-setup', async engine => {
+      const read = async () => normalizeObservation({ tree: await engine.getTree(), items: await engine.getItems(), config: await engine.getConfig(), skills: await engine.getSkills() });
+      type Gem = Record<string, unknown> & { index?: number };
+      type Group = Record<string, unknown> & { index?: number; gems?: Gem[] };
+      const groups = (skills: unknown): Group[] => {
+        const list = (skills as { groups?: Group[] })?.groups;
+        if (!Array.isArray(list) || list.some((group, i) => group.index !== i + 1 || !Array.isArray(group.gems) || group.gems.some((gem, j) => gem.index !== j + 1 || !normalize(gem.name)))) throw new Error('PoB returned invalid skill groups');
+        return list;
+      };
+      const before = await read(), original = groups(before.skills), group = original.find(entry => entry.index === groupIndex);
+      if (!group || group.enabled !== true || group.slotEnabled !== true || (before.skills as Record<string, unknown>).mainSocketGroup !== groupIndex || !group.gems?.length || new Set(group.gems.map(gem => normalize(gem.name))).size !== group.gems.length) throw new Error('Gem setup requires an unambiguous active main group');
+      const active = group.gems.filter(gem => gem.isSupport === false);
+      if (active.length !== 1 || active[0].enabled !== true || !requested.has(normalize(active[0].name)) || requested.get(normalize(active[0].name))?.enabled === false) throw new Error('Gem setup must retain the enabled active gem');
+      const originalNames = new Set(group.gems.map(gem => normalize(gem.name)));
+      const removedPositions: number[] = [];
+      for (let i = group.gems.length - 1; i >= 0; i--) if (!requested.has(normalize(group.gems[i].name))) { removedPositions.unshift(i + 1); await engine.removeGem({ groupIndex, gemIndex: i + 1 }); }
+      let size = group.gems.length - removedPositions.length;
+      const addedNames = new Map<string, string>();
+      for (const candidate of gems) {
+        const key = normalize(candidate.gemName);
+        if (originalNames.has(key)) continue;
+        const position = Math.min(removedPositions.shift() ?? size + 1, size + 1);
+        const added = await engine.addGem({ groupIndex, gemName: candidate.gemName.trim(), level: candidate.level ?? 20, quality: candidate.quality ?? 0, enabled: candidate.enabled ?? true, insertIndex: position });
+        if (added.gemIndex !== position || typeof added.name !== 'string' || normalize(added.name) !== key) throw new Error('PoB did not confirm the requested gem');
+        addedNames.set(key, added.name); size++;
+      }
+      const interim = groups((await read()).skills).find(entry => entry.index === groupIndex);
+      if (!interim?.gems) throw new Error('Skill group disappeared during gem setup');
+      for (const gem of interim.gems) {
+        const key = normalize(gem.name), candidate = requested.get(key);
+        if (!candidate || !validInt(gem.index, 1, 10000)) throw new Error('PoB returned unexpected gem during setup');
+        if (candidate.level !== undefined && gem.level !== candidate.level) await engine.setGemLevel({ groupIndex, gemIndex: gem.index!, level: candidate.level });
+        if (candidate.quality !== undefined && gem.quality !== candidate.quality) await engine.setGemQuality({ groupIndex, gemIndex: gem.index!, quality: candidate.quality });
+        if (candidate.enabled !== undefined && gem.enabled !== candidate.enabled) await engine.setGemEnabled({ groupIndex, gemIndex: gem.index!, enabled: candidate.enabled });
+      }
+      const after = await read(), updated = groups(after.skills), changed = updated.find(entry => entry.index === groupIndex);
+      for (const section of ['tree', 'items', 'config'] as const) if (!isDeepStrictEqual(before[section], after[section])) throw new Error(`Gem setup modified unrelated ${section}`);
+      for (const key of ['mainSocketGroup', 'calcsSkillNumber']) if ((before.skills as Record<string, unknown>)[key] !== (after.skills as Record<string, unknown>)[key]) throw new Error(`Gem setup modified unrelated ${key}`);
+      if (!changed?.gems || changed.gems.length !== gems.length || new Set(changed.gems.map(gem => normalize(gem.name))).size !== gems.length || changed.mainActiveSkill !== group.mainActiveSkill || changed.selectedSkillPart !== group.selectedSkillPart || changed.gems.filter(gem => gem.isSupport === false).length !== 1 || changed.gems.some(gem => !requested.has(normalize(gem.name)))) throw new Error('PoB did not confirm the requested gem setup');
+      for (const actual of changed.gems) {
+        const key = normalize(actual.name), candidate = requested.get(key)!;
+        if ((candidate.level !== undefined && actual.level !== candidate.level) || (candidate.quality !== undefined && actual.quality !== candidate.quality) || (candidate.enabled !== undefined && actual.enabled !== candidate.enabled)) throw new Error('PoB did not confirm the requested gem properties');
+        if (addedNames.has(key) && (actual.name !== addedNames.get(key) || actual.isSupport !== true || actual.level !== (candidate.level ?? 20) || actual.quality !== (candidate.quality ?? 0) || actual.enabled !== (candidate.enabled ?? true) || actual.qualityId !== 'Default' || actual.count !== 1 || actual.enableGlobal1 !== true || actual.enableGlobal2 !== false)) throw new Error('PoB did not confirm new support properties');
+      }
+      const canonical = (list: Group[], retained: boolean) => list.map(entry => ({ ...entry, ...(entry.index === groupIndex ? { skills: undefined } : {}), gems: entry.gems!.filter(gem => entry.index !== groupIndex || (retained ? originalNames.has(normalize(gem.name)) : requested.has(normalize(gem.name)))).map(gem => {
+        const copy = { ...gem }; delete copy.appliedToSelectedSkill;
+        if (entry.index === groupIndex) { delete copy.index; const candidate = requested.get(normalize(gem.name)); for (const key of ['level', 'quality', 'enabled'] as const) if (candidate?.[key] !== undefined) delete copy[key]; }
+        return copy;
+      }) }));
+      if (!isDeepStrictEqual(canonical(original, false), canonical(updated, true))) throw new Error('Gem setup modified unrelated skill or gem data');
+    }, trial);
+  }
+
   async deriveSkillGroup(id: string, group: { label?: string; slot?: string; enabled?: boolean; includeInFullDPS?: boolean }, gems: Array<{ gemName: string; level?: number; quality?: number; enabled?: boolean }>, trial = false): Promise<SnapshotRecord> {
     if (!group || typeof group !== 'object' || Array.isArray(group) || Object.keys(group).some(key => !['label', 'slot', 'enabled', 'includeInFullDPS'].includes(key)) ||
         (group.label !== undefined && (typeof group.label !== 'string' || group.label.length > 200)) || (group.slot !== undefined && (typeof group.slot !== 'string' || !group.slot.trim() || group.slot.length > 100)) ||

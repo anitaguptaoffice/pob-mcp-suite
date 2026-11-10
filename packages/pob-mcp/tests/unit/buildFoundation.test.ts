@@ -5,6 +5,21 @@ import { BuildFoundation, type BuildEngine } from '../../src/foundation/buildFou
 import { SnapshotStore } from '../../src/foundation/snapshotStore.js';
 
 describe('BuildFoundation isolation', () => {
+  it('does not publish a full gem setup if adding a later gem fails', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'pob-gem-setup-'));
+    try {
+      const store = new SnapshotStore(dir);
+      const parent = await store.create({ xml: '<build/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
+      const removeGem = jest.fn(async () => {}), addGem = jest.fn(async () => { throw new Error('unknown gem'); });
+      const engine = { identity: { engineVersion: null, dataVersion: null, adapterVersion: null }, loadBuildXml: async () => {},
+        getTree: async () => ({}), getItems: async () => [], getConfig: async () => ({}), getSkills: async () => ({ mainSocketGroup: 1, groups: [{ index: 1, enabled: true, slotEnabled: true, gems: [{ index: 1, name: 'Arc', isSupport: false, enabled: true }, { index: 2, name: 'Support', isSupport: true, enabled: true }] }] }), removeGem, addGem, close: async () => {},
+      } as unknown as BuildEngine;
+      const foundation = new BuildFoundation(store, async () => engine);
+      await expect(foundation.deriveGemSetup(parent.id, 1, [{ gemName: 'Arc' }, { gemName: 'Unknown Support' }], true)).rejects.toThrow('unknown gem');
+      expect(removeGem).toHaveBeenCalledTimes(1); expect(addGem).toHaveBeenCalledTimes(1);
+      expect(await readdir(dir)).toEqual([`${parent.id}.json`]);
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
   it('publishes no snapshot when replacement fails after removing a support', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'pob-support-replace-'));
     try {
