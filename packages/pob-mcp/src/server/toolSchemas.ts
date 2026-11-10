@@ -649,14 +649,14 @@ export function getLuaToolSchemas(): ToolSchema[] {
           },
           slot_name: {
             type: "string",
-            description: "Slot to equip in, using PoB's exact slot names: Weapon 1, Weapon 2, Helmet, Body Armour, Gloves, Boots, Amulet, Ring 1, Ring 2, Belt, Flask 1-5, plus any version-specific slots (e.g. Ring 3, Graft 1/2) as reported by get_equipped_items. Unknown names fail with the item reported as added-but-not-equipped.",
+            description: "Optional exact PoB slot name, such as Weapon 1, Helmet, or Ring 2. Unknown or incompatible slots are rejected before adding the item. An explicit slot takes precedence over no_auto_equip.",
           },
           no_auto_equip: {
             type: "boolean",
-            description: "Add the item to the build's item list without equipping it in a slot (default: false)",
+            description: "Without slot_name, add the item without auto-equipping it (default: false).",
           },
         },
-        required: ["item_text", "slot_name"],
+        required: ["item_text"],
       },
     },
     {

@@ -970,28 +970,34 @@ function M.add_item_text(params)
 
   local ok, item = pcall(function() return new('Item'):Item(params.text) end)
   if not ok then return nil, 'invalid item text: ' .. tostring(item) end
-  if not item or not item.baseName then return nil, 'failed to parse item' end
+  if not item or not item.baseName or not item.base then return nil, 'failed to parse item base' end
+
+  local tab, selectedSlot = build.itemsTab, nil
+  if params.slotName ~= nil then
+    if type(params.slotName) ~= 'string' or params.slotName == '' then return nil, 'invalid slot name' end
+    selectedSlot = tab.slots[params.slotName]
+    if not selectedSlot then return nil, string.format('unknown slot "%s"; item was not added', params.slotName) end
+    local valid, compatible = pcall(function() return tab:IsItemValidForSlot(item, params.slotName) end)
+    if not valid or not compatible then return nil, 'item is incompatible with the requested slot; item was not added' end
+  end
 
   -- Preserve clipboard quality; PoB's UI-oriented normalizer can silently
   -- raise an uncorrupted item without a Unique ID to 20%.
   if item.quality == nil and item.base and (item.base.armour or item.base.weapon) then item.quality = 0 end
-  build.itemsTab:AddItem(item, params.noAutoEquip == true)
-  if params.slotName then
-    local slot = tostring(params.slotName)
-    if not build.itemsTab.slots[slot] then
-      -- Never claim a slot we did not equip into: an unknown name used to
-      -- fall through silently while the response echoed the requested slot.
-      -- The item IS already in the build (above), so say so - a plain error
-      -- would invite a retry that duplicates the item.
-      return nil, string.format('unknown slot "%s" (item was added to the build as id %d but NOT equipped) - use the exact slot names reported by get_equipped_items (they vary with the PoB version)', slot, item.id)
-    end
-    build.itemsTab.slots[slot]:SetSelItemId(item.id)
-    build.itemsTab:PopulateSlots()
+  -- Explicit destination must not also auto-equip into a different empty slot.
+  tab:AddItem(item, selectedSlot ~= nil or params.noAutoEquip == true)
+  if selectedSlot then
+    selectedSlot:SetSelItemId(item.id)
+    tab:PopulateSlots()
   end
-  build.itemsTab:AddUndoState()
+  local equippedSlot
+  for slotName, slot in pairs(tab.slots) do
+    if slot.selItemId == item.id then equippedSlot = slotName; break end
+  end
+  tab:AddUndoState()
   build.buildFlag = true
   M.get_main_output()
-  return { id = item.id, name = item.name, slot = params.slotName or item:GetPrimarySlot() }
+  return { id = item.id, name = item.name, slot = equippedSlot }
 end
 
 function M.set_flask_active(params)

@@ -135,15 +135,14 @@ try {
   }
 
   // add_item: an unknown equip slot must fail loudly and disclose the
-  // half-applied state (item added, not equipped) - it used to "succeed"
-  // while echoing the bogus slot back.
+  // Reject invalid destinations before adding the item to the build.
   let slotErr = null;
   try {
     await client.addItem("Rarity: Unique\nKaom's Sign\nIron Ring\n--------\nItem Level: 83\n", 'Not A Slot');
   } catch (e) {
     slotErr = e;
   }
-  if (!slotErr || !/unknown slot/i.test(slotErr.message) || !/NOT equipped/i.test(slotErr.message)) {
+  if (!slotErr || !/unknown slot/i.test(slotErr.message) || !/not added/i.test(slotErr.message)) {
     throw new Error(`unknown equip slot must fail loudly, got: ${slotErr ? slotErr.message : 'no error'}`);
   }
 
