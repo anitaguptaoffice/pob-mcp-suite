@@ -6,6 +6,7 @@ import { toFiniteNumber } from "../pobLuaBridge.js";
 import type { TreeComparison } from "../types.js";
 import type { PoBLuaApiClient } from "../pobLuaBridge.js";
 import { handleGetBuildIssues } from "./buildGoalsHandlers.js";
+import { selectDamageMetric } from '../utils/damageMetric.js';
 
 interface TreeHandlerContext {
   buildService: BuildService;
@@ -349,7 +350,8 @@ export async function handleFindPath(
 export async function handleGetPassiveUpgrades(
   context: PassiveUpgradesContext,
   focus: 'dps' | 'defence' | 'both' = 'both',
-  maxResults: number = 10
+  maxResults: number = 10,
+  requestedDamageMetric?: string
 ) {
   await context.ensureLuaClient();
   const luaClient = context.getLuaClient();
@@ -358,8 +360,7 @@ export async function handleGetPassiveUpgrades(
   // Step 1: get current base stats and issues to determine search keywords
   const { issues, stats: baseStats } = await handleGetBuildIssues(context);
 
-  const damageKey = (['CombinedDPS', 'TotalDPS', 'MinionCombinedDPS', 'MinionTotalDPS'] as const)
-    .find(key => (toFiniteNumber(baseStats[key]) ?? 0) > 0);
+  const damageKey = focus === 'defence' ? undefined : selectDamageMetric(baseStats, requestedDamageMetric);
   const defenceKey = (['TotalEHP', 'Life'] as const)
     .find(key => (toFiniteNumber(baseStats[key]) ?? 0) > 0);
   const baseDPS = damageKey ? toFiniteNumber(baseStats[damageKey])! : undefined;
@@ -532,7 +533,7 @@ interface ScoredEffect {
   ehpDelta: number;
 }
 
-export async function handleSuggestMasteries(context: PassiveUpgradesContext) {
+export async function handleSuggestMasteries(context: PassiveUpgradesContext, requestedDamageMetric?: string) {
   await context.ensureLuaClient();
   const luaClient = context.getLuaClient();
   if (!luaClient) throw new Error('Lua bridge not active. Use lua_load_build first.');
@@ -548,7 +549,7 @@ export async function handleSuggestMasteries(context: PassiveUpgradesContext) {
 
   // Get base stats for scoring
   const baseStats = await luaClient.getStats(['TotalDPS', 'CombinedDPS', 'MinionTotalDPS', 'MinionCombinedDPS', 'TotalEHP', 'Life']);
-  const damageKey = (['CombinedDPS', 'TotalDPS', 'MinionCombinedDPS', 'MinionTotalDPS'] as const).find(key => (toFiniteNumber(baseStats[key]) ?? 0) > 0);
+  const damageKey = selectDamageMetric(baseStats, requestedDamageMetric);
   const defenceKey = (['TotalEHP', 'Life'] as const).find(key => (toFiniteNumber(baseStats[key]) ?? 0) > 0);
   if (!damageKey || !defenceKey) return { content: [{ type: 'text' as const, text: '无法取得非零伤害和防御基准，无法可靠比较天赋专精。' }] };
   const baseDPS = toFiniteNumber(baseStats[damageKey])!;

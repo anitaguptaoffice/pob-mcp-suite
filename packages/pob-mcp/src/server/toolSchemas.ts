@@ -1935,6 +1935,7 @@ export function getBuildGoalsToolSchemas(): ToolSchema[] {
             type: "number",
             description: "Maximum number of upgrade suggestions to return (default: 10)",
           },
+          damage_metric: { type: "string", enum: ["CombinedDPS", "TotalDPS", "MinionCombinedDPS", "MinionTotalDPS"], description: "Required when player and minion damage are both positive. Unused for defence-only ranking." },
         },
       },
     },
@@ -1942,7 +1943,7 @@ export function getBuildGoalsToolSchemas(): ToolSchema[] {
       name: "suggest_masteries",
       truncatable: true,
       description: "Evaluate the effects available on allocated mastery nodes against the live PoB build and rank the strongest DPS and defence choices. Requires a loaded build.",
-      inputSchema: { type: "object", properties: {} },
+      inputSchema: { type: "object", properties: { damage_metric: { type: "string", enum: ["CombinedDPS", "TotalDPS", "MinionCombinedDPS", "MinionTotalDPS"], description: "Required when player and minion damage are both positive." } } },
     },
     {
       name: "find_best_anointment",

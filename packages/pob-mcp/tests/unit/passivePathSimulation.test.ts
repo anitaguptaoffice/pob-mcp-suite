@@ -57,4 +57,21 @@ describe('passive path simulation', () => {
     expect(result.content[0].text).toContain('MinionCombinedDPS = 150');
     expect(result.content[0].text).toContain('MinionCombinedDPS Δ: +50');
   });
+
+  it('requires an explicit metric for mixed player and minion damage and honors the chosen minion metric', async () => {
+    const calcWith = jest.fn(async () => ({ TotalDPS: 100, Minion: { TotalDPS: 100, CombinedDPS: 200 }, Life: 1000 }));
+    const client = {
+      getStats: async () => ({ TotalDPS: 100, MinionTotalDPS: 100, MinionCombinedDPS: 150, Life: 1000 }),
+      getBuildInfo: async () => ({ level: 1 }), getTree: async () => ({ nodes: [] }),
+      getItems: async () => [], getSkills: async () => ({ groups: [] }),
+      searchNodes: async () => ({ nodes: [{ id: 123, name: 'Poison node', type: 'notable', stats: [], pathNodes: [123] }] }), calcWith,
+    };
+    const context = { ensureLuaClient: async () => {}, getLuaClient: () => client } as unknown as Parameters<typeof handleGetPassiveUpgrades>[0];
+    await expect(handleGetPassiveUpgrades(context, 'dps')).rejects.toThrow('specify damage_metric');
+    expect(calcWith).not.toHaveBeenCalled();
+    const result = await handleGetPassiveUpgrades(context, 'dps', 10, 'MinionCombinedDPS');
+    expect(result.content[0].text).toContain('MinionCombinedDPS = 150');
+    expect(result.content[0].text).toContain('MinionCombinedDPS Δ: +50');
+    expect((await handleGetPassiveUpgrades(context, 'defence')).content[0].text).toContain('Poison node');
+  });
 });

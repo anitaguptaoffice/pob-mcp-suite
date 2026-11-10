@@ -776,7 +776,7 @@ export async function routeToolCall(
       };
       const focus = (args?.focus as 'dps' | 'defence' | 'both') || 'both';
       const maxResults = (args?.max_results as number) || 10;
-      return await handleGetPassiveUpgrades(upgradesContext, focus, maxResults);
+      return await handleGetPassiveUpgrades(upgradesContext, focus, maxResults, args?.damage_metric as string | undefined);
     }
 
     case "analyze_build_cluster_jewels":
@@ -813,7 +813,7 @@ export async function routeToolCall(
       return await handleSuggestMasteries({
         getLuaClient: deps.getLuaClient,
         ensureLuaClient: deps.ensureLuaClient,
-      });
+      }, args?.damage_metric as string | undefined);
 
     case "find_best_anointment":
       if (!args?.slot || typeof args.slot !== 'string') throw new Error('find_best_anointment requires a slot');
