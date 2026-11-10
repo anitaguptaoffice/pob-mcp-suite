@@ -58,13 +58,8 @@ export class TreeService {
     return new Promise((resolve, reject) => {
       const req = https.get(url, (response) => {
         if (response.statusCode === 404) {
-          // Version not found, try fallback to 3_28
-          console.error(`[Tree Data] Version ${version} not found, falling back to 3_28`);
-          if (version !== "3_28") {
-            this.fetchTreeDataFromRepo("3_28").then(resolve).catch(reject);
-            return;
-          }
-          reject(new Error(`Failed to fetch tree data: HTTP ${response.statusCode}`));
+          response.resume();
+          reject(new Error(`Tree data for version ${version} was not found (HTTP 404); refusing to use a different version`));
           return;
         }
         if (response.statusCode !== 200) {
