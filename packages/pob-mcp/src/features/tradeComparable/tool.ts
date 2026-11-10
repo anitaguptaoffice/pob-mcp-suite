@@ -57,6 +57,6 @@ export async function estimateComparable(client: Pick<TradeApiClient, 'searchIte
     return { currency, sampleCount: amounts.length, min: amounts[0], median: amounts.length % 2 ? amounts[midpoint] : (amounts[midpoint - 1] + amounts[midpoint]) / 2, max: amounts[amounts.length - 1] };
   });
   return { league, baseType: base, query, searchUrl: `https://www.pathofexile.com/trade/search/${encodeURIComponent(league)}/${encodeURIComponent(search.id)}`,
-    checkedAt: new Date().toISOString(), totalMatches: search.total, fetchedCount: listings.length, byCurrency,
-    warnings: ['仅比较指定条件匹配的在售物品；结果不是原物品的精确价格。', '最多取最便宜的前 10 条，统计值不是全部市场的中位数；不同通货分开统计。', '词缀来源、数值、底材、腐化等未包含的条件可能显著影响价格。'] };
+    checkedAt: new Date().toISOString(), totalMatches: search.total, fetchedCount: listings.length, inexact: search.inexact === true, byCurrency,
+    warnings: [...(search.inexact ? ['官方交易搜索标记结果为近似匹配，不能认定所有条件均严格满足。'] : []), '仅比较指定条件筛选的在售物品；结果不是原物品的精确价格。', '最多取价格排序靠前的 10 条，统计值不是全部市场的中位数；不同通货分开统计。', '词缀来源、数值、底材、腐化等未包含的条件可能显著影响价格。'] };
 }

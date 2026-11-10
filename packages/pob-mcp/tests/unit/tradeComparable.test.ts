@@ -30,4 +30,11 @@ describe('comparable trade prices', () => {
     await expect(estimateComparable(client, { league: 'Standard', base_type: 'Hubris Circlet', stat_groups: [] })).rejects.toThrow();
     expect(client.searchItems).not.toHaveBeenCalled();
   });
+
+  it('discloses inexact trade searches even when results are returned', async () => {
+    const client = { searchItems: async () => ({ id: 'abc', complexity: 1, total: 0, result: [], inexact: true }), fetchItems: async () => [] } as unknown as Pick<TradeApiClient, 'searchItems' | 'fetchItems'>;
+    const report = await estimateComparable(client, { league: 'Standard', base_type: 'Hubris Circlet', stat_groups: [{ type: 'and', filters: [{ stat_id: 'explicit.stat_1', min: 50 }] }] });
+    expect(report.inexact).toBe(true);
+    expect(report.warnings.join(' ')).toContain('近似匹配');
+  });
 });
