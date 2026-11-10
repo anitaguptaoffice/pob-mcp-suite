@@ -230,6 +230,27 @@ export function loadModData(fileName: 'ModExplicit.lua' | 'ModMaster.lua', sourc
 
 export const loadExplicitMods = (): ModEntry[] => loadModData("ModExplicit.lua", "explicit").entries;
 
+/** Project the generated Watcher's Eye source without applying its legacy variants. */
+export function parseWatchersEyeFile(text: string): Array<{ id: string; lines: string[] }> {
+  const entries: Array<{ id: string; lines: string[] }> = [], ids = new Set<string>();
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('--') || trimmed === 'return {' || trimmed === '}') continue;
+    const key = /^\["((?:[^"\\]|\\.)*)"\]\s*=\s*/.exec(trimmed);
+    if (!key) throw new Error('Unexpected Watcher\'s Eye data format');
+    const id = unescapeLua(key[1]);
+    if (ids.has(id)) throw new Error('Duplicate Watcher\'s Eye modifier ID');
+    ids.add(id);
+    const table = new LuaLiteralParser(trimmed.slice(key[0].length).replace(/,$/, '')).parseTable();
+    const lines = table.array.filter((item): item is string => typeof item === 'string');
+    const statOrder = numbers(table.fields.get('statOrder'));
+    if (!lines.length || lines.length !== statOrder.length) throw new Error(`Invalid Watcher's Eye data for ${id}`);
+    if (!id.startsWith('SublimeVision') && !id.startsWith('SummonArbalist')) entries.push({ id, lines });
+  }
+  if (!entries.length) throw new Error('Watcher\'s Eye data contains no modifiers');
+  return entries;
+}
+
 export const loadMasterMods = (): ModEntry[] => loadModData("ModMaster.lua", "master").entries;
 
 let combined: { explicit: ModEntry[]; master: ModEntry[]; all: ModEntry[] } | null = null;

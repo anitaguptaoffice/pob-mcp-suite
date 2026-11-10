@@ -1,0 +1,34 @@
+import { strict as assert } from 'node:assert';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { once } from 'node:events';
+import { PoBLuaApiClient } from '../../build/pobLuaBridge.js';
+import { PoBWatchersEyeSource } from '../../build/adapters/watchersEye/pobSource.js';
+import { gearedBuildXml, smokePoBSrc } from './pobSource.mjs';
+import { startMcpServer } from './mcpClient.mjs';
+const dir = await mkdtemp(join(tmpdir(), 'pob-watcher-'));
+const client = new PoBLuaApiClient({ cwd: smokePoBSrc(), cmd: process.env.POB_CMD, args: [resolve('lua/vanilla_stdio_bridge.lua')], env: { POB_API_STDIO: '0' }, timeoutMs: 60000 });
+let child;
+try {
+  await client.start(); await client.loadBuildXml(await readFile(gearedBuildXml, 'utf8'));
+  const enabled = await client.createSocketGroup({ label: 'watcher-enabled', slot: 'Helmet', enabled: true });
+  await client.addGem({ groupIndex: enabled.index, gemName: 'Grace', level: 20 });
+  const disabled = await client.createSocketGroup({ label: 'watcher-disabled', slot: 'Helmet', enabled: false });
+  await client.addGem({ groupIndex: disabled.index, gemName: 'Grace', level: 20 });
+  const xml = await client.exportBuildXml(); await client.stop();
+  const source = new PoBWatchersEyeSource().read(), actualMod = source.entries.find(entry => entry.id === 'GraceChanceToDodge');
+  assert.ok(actualMod?.lines.some(line => line.includes('Suppress Spell Damage')));
+  const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
+  child = mcp.child; child.stderr.on('data', () => {}); const exited = once(child, 'exit');
+  await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'watcher-smoke', version: '1' } }); mcp.notify('notifications/initialized', {});
+  const call = async (name, args) => { const response = await mcp.request('tools/call', { name, arguments: args }); assert.ok(!response.error && !response.result?.isError, JSON.stringify(response).slice(0, 1600)); return JSON.parse(response.result.content[0].text); };
+  const parent = await call('foundation_import_build', { xml, source: 'watcher-fixture' });
+  const report = await call('inspect_snapshot_watchers_eye', { snapshot_id: parent.id });
+  const a = report.candidates.find(c => c.groupIndex === enabled.index && c.gemName === 'Grace');
+  const b = report.candidates.find(c => c.groupIndex === disabled.index && c.gemName === 'Grace');
+  assert.equal(a.enabledState, 'enabled_in_pob'); assert.equal(b.enabledState, 'disabled');
+  assert.deepEqual(a.modifiers.find(m => m.id === actualMod.id), actualMod); assert.equal(report.source.sha256, source.sha256);
+  assert.equal((await call('foundation_export_build', { snapshot_id: parent.id })).xml, xml);
+  child.stdin.end(); assert.equal((await exited)[0], 0); console.log('foundation watchers eye passed');
+} finally { if (child && child.exitCode === null && child.signalCode === null) child.kill('SIGTERM'); await client.stop(); await rm(dir, { recursive: true, force: true }); }

@@ -140,6 +140,12 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   report missing graphs as jewels with no notables. This does not assess synergy,
   DPS, legality or jewels stored outside the active tree. Use a separate
   `search_cluster_listings` query for bounded international Trade candidates.
+- Use `inspect_snapshot_watchers_eye` for source-backed Watcher's Eye modifier
+  candidates matching saved gem names. Check each gem's `enabledState` and
+  `matchKind`; an enabled aura gem does not prove the character is affected,
+  and Vaal-name matches are only candidates. The PoB table can include legacy
+  variants. No ranking, current item availability or damage gain is established;
+  verify explicit candidates in PoB and prices through official Trade separately.
 - For a saved local file without starting PoB, `inspect_local_cluster_jewels`
   reads its active tree spec, socket references and serialized item text. Check
   `socketDataAvailable`, `unresolvedSockets`, the file digest and warnings.
