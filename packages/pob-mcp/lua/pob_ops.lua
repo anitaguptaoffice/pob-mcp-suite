@@ -996,8 +996,31 @@ function M.add_gem(params)
   local socketGroup = skillSet.socketGroupList[groupIndex]
   if not socketGroup then return nil, 'socket group not found at index ' .. tostring(groupIndex) end
 
+  if not build.data or type(build.data.gems) ~= 'table' then return nil, 'PoB gem data unavailable' end
+  local requested = tostring(params.gemName):match('^%s*(.-)%s*$')
+  if requested == '' then return nil, 'unrecognized gem: empty name' end
+  local folded = requested:lower()
+  local matches = {}
+  for id, gemData in pairs(build.data.gems) do
+    local name = gemData.name and tostring(gemData.name):lower()
+    local spec = gemData.nameSpec and tostring(gemData.nameSpec):lower()
+    if name == folded or spec == folded then matches[tostring(id)] = gemData end
+  end
+  -- PoB's base-name index handles the conventional "Support" suffix.
+  if not next(matches) and build.data.gemForBaseName then
+    local id = build.data.gemForBaseName[folded]
+    if id and build.data.gems[id] then matches[tostring(id)] = build.data.gems[id] end
+  end
+  local matchId, match, count = nil, nil, 0
+  for id, gemData in pairs(matches) do matchId, match, count = id, gemData, count + 1 end
+  if count == 0 then return nil, 'unrecognized gem: ' .. requested end
+  if count > 1 then return nil, 'ambiguous gem name: ' .. requested end
+  if not match.grantedEffect then return nil, 'unrecognized gem effect: ' .. requested end
   local gemInstance = {
-    nameSpec = tostring(params.gemName),
+    nameSpec = match.name or requested,
+    gemId = match.id or matchId,
+    skillId = match.grantedEffect.id or match.grantedEffectId,
+    gemData = match,
     level = tonumber(params.level) or 20,
     quality = tonumber(params.quality) or 0,
     qualityId = params.qualityId or 'Default',
@@ -1006,21 +1029,6 @@ function M.add_gem(params)
     enableGlobal2 = params.enableGlobal2 == true,
     count = tonumber(params.count) or 1,
   }
-
-  if build.data and build.data.gems then
-    for _, gemData in pairs(build.data.gems) do
-      if gemData.name == gemInstance.nameSpec or gemData.nameSpec == gemInstance.nameSpec then
-        gemInstance.gemId = gemData.id
-        if gemData.grantedEffect then
-          gemInstance.skillId = gemData.grantedEffect.id
-        elseif gemData.grantedEffectId then
-          gemInstance.skillId = gemData.grantedEffectId
-        end
-        gemInstance.gemData = gemData
-        break
-      end
-    end
-  end
 
   local gemIndex = #socketGroup.gemList + 1
   if params.insertIndex ~= nil then

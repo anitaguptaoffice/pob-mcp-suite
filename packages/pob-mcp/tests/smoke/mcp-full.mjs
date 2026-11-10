@@ -35,6 +35,10 @@ try {
   await call('lua_start');
   await call('lua_new_build', { class_name: 'Witch' });
   await call('create_socket_group', { label: 'Smoke Gems', slot: 'Body Armour' });
+  const beforeInvalidGem = await call('get_skill_setup');
+  const invalidGem = await request('tools/call', { name: 'add_gem', arguments: { group_index: 1, gem_name: 'Not A Real Gem' } });
+  if (!invalidGem.result?.isError || !JSON.stringify(invalidGem).includes('unrecognized gem')) throw new Error(`invalid gem was not rejected: ${JSON.stringify(invalidGem)}`);
+  if (await call('get_skill_setup') !== beforeInvalidGem) throw new Error('invalid gem changed the current build');
   await call('add_gem', { group_index: 1, gem_name: 'Fireball', level: 1, quality: 0 });
   await call('set_gem_level', { group_index: 1, gem_index: 1, level: 2 });
   await call('set_gem_quality', { group_index: 1, gem_index: 1, quality: 5 });

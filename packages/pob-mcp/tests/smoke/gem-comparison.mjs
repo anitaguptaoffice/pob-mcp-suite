@@ -36,6 +36,13 @@ try {
   try {
     await direct.client.loadBuildXml(await readFile(fixture, 'utf8'), 'control', fixture);
     const group = (await direct.client.getSkills()).groups.find(g => g.index === 5);
+    await assert.rejects(direct.client.addGem({ groupIndex: 5, gemName: 'Not A Real Gem' }), /unrecognized gem/);
+    assert.deepEqual((await direct.client.getSkills()).groups.find(g => g.index === 5).gems.map(g => g.name), group.gems.map(g => g.name), 'invalid gem must not mutate the group');
+    await direct.client.addGem({ groupIndex: 5, gemName: 'eFFicAcy SuPport', level: 20 });
+    const alias = (await direct.client.getSkills()).groups.find(g => g.index === 5).gems.at(-1);
+    assert.equal(alias.name, 'Efficacy', 'official support alias should resolve to the canonical PoB name');
+    assert.equal(alias.isSupport, true);
+    await direct.client.loadBuildXml(await readFile(fixture, 'utf8'), 'control', fixture);
     await assert.rejects(direct.client.addGem({ groupIndex: 5, gemName: 'Added Cold Damage', insertIndex: 0 }), /insertIndex/);
     assert.deepEqual((await direct.client.getSkills()).groups.find(g => g.index === 5).gems.map(g => g.name), group.gems.map(g => g.name), 'invalid position must not mutate the group');
     const compatible = await direct.client.getCompatibleSupports({ groupIndex: 5, query: 'Efficacy', limit: 25 });
