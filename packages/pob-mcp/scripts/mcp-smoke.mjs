@@ -119,6 +119,11 @@ try {
   await callTool("lua_get_stats", { category: "defense" });
   const weight = JSON.parse(readText(await callTool('inspect_item_affix_weight', { mod_id: 'AddedPhysicalDamage7', item_text: 'Rarity: RARE\nWeight Test\nCitrine Amulet\nItem Level: 1\nImplicits: 0' })));
   if (weight.weight !== 1000 || weight.itemLevelAllows !== false) throw new Error('PoB affix weight MCP result is incomplete');
+  const mod_lines = ['9% increased Energy Shield', '6% increased Stun and Block Recovery'];
+  const unspecified = readText(await callTool('classify_item_affixes', { mod_lines }));
+  if (!unspecified.includes('Open affix slots: unknown')) throw new Error('unconfirmed affix inventory reported open slots');
+  const magic = readText(await callTool('classify_item_affixes', { mod_lines, rarity: 'magic', explicit_mods_complete: true, ordinary_capacity_confirmed: true }));
+  if (!magic.includes('Prefixes: 1/1 (0 open)   Suffixes: 0/1 (1 open)')) throw new Error('confirmed magic affix capacity was not applied');
 
   const jewel = await callTool("find_timeless_jewel_seeds", {
     socket_node_id: 60735,

@@ -843,7 +843,7 @@ export async function routeToolCall(
     }
 
     case "classify_item_affixes":
-      return await handleClassifyItemAffixes({ mod_lines: (args?.mod_lines as string[]) ?? [] });
+      return await handleClassifyItemAffixes({ mod_lines: (args?.mod_lines as string[]) ?? [], rarity: args?.rarity as string | undefined, explicit_mods_complete: args?.explicit_mods_complete as boolean | undefined, ordinary_capacity_confirmed: args?.ordinary_capacity_confirmed as boolean | undefined });
 
     case "list_craftable_mods":
       return await handleListCraftableMods({

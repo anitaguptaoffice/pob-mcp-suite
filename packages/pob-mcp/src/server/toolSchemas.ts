@@ -221,7 +221,7 @@ export function getToolSchemas(): ToolSchema[] {
     },
     {
       name: "classify_item_affixes",
-      description: "Resolve an item's explicit mod lines back to the affixes that produced them, using Path of Building's ModExplicit (legacy ModItem) and ModMaster tables. Reports matched prefix and suffix counts, remaining slots when the classification is complete and unambiguous, affix ranges and minimum item levels, and which lines belong to one hybrid affix. USE THIS BEFORE recommending any craft or reroll: one affix can print several lines, and counting those lines separately inverts the answer (a hybrid energy shield prefix also prints stun recovery, which reads like a suffix). LIMITS: explicit mods only. Unmatched lines may be unrecognized explicit affixes that still occupy slots. Remaining slots are reported as unknown when any lines are unmatched or ambiguous. An item whose lines admit more than one reading is flagged as ambiguous rather than guessed. Slot counts assume a rare, which holds three prefixes and three suffixes; a magic item holds one of each.",
+      description: "Classify supplied explicit modifier lines using PoB data, including hybrid affixes and ambiguous matches. Remaining slots are unknown unless rarity, complete explicit modifiers, and ordinary item capacity are confirmed and all lines are unambiguous. This does not validate the item or crafting legality.",
       inputSchema: {
         type: "object",
         properties: {
@@ -230,6 +230,9 @@ export function getToolSchemas(): ToolSchema[] {
             items: { type: "string" },
             description: "The item's mod lines, one per entry, exactly as printed (e.g. '+42 to maximum Life'). PoB tags such as {crafted} are stripped automatically.",
           },
+          rarity: { type: "string", enum: ["rare", "magic"], description: "Confirmed item rarity; required for slot counts." },
+          explicit_mods_complete: { type: "boolean", description: "Set true only after confirming all explicit modifier lines are supplied. Does not validate item state or special rules." },
+          ordinary_capacity_confirmed: { type: "boolean", description: "Set true only after confirming no special item rules change ordinary prefix or suffix capacity." },
         },
         required: ["mod_lines"],
       },

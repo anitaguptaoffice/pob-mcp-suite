@@ -18,12 +18,20 @@ const affixType = (value: string | undefined): AffixSlot | undefined =>
 
 const tierRange = (statLines: string[]): string => statLines.join(" / ");
 
-export async function handleClassifyItemAffixes(args: { mod_lines: string[] }) {
+export async function handleClassifyItemAffixes(args: { mod_lines: string[]; rarity?: string; explicit_mods_complete?: boolean; ordinary_capacity_confirmed?: boolean }) {
   return wrapHandler("classify item affixes", async () => {
     const lines = args.mod_lines ?? [];
     if (!lines.length) throw new Error("mod_lines was empty. Pass the item's explicit mod lines, one per entry.");
+    if (args.rarity !== undefined && args.rarity !== 'rare' && args.rarity !== 'magic') throw new Error('rarity must be rare or magic');
+    if (args.explicit_mods_complete !== undefined && typeof args.explicit_mods_complete !== 'boolean') throw new Error('explicit_mods_complete must be a boolean');
+    if (args.ordinary_capacity_confirmed !== undefined && typeof args.ordinary_capacity_confirmed !== 'boolean') throw new Error('ordinary_capacity_confirmed must be a boolean');
 
     const resolution = resolveAffixes(lines, loadAllMods());
+    const capacity = args.rarity === 'rare' ? 3 : args.rarity === 'magic' ? 1 : null;
+    const overflow = capacity !== null && (resolution.prefixCount > capacity || resolution.suffixCount > capacity);
+    const slotsKnown = capacity !== null && args.explicit_mods_complete === true && args.ordinary_capacity_confirmed === true && !overflow &&
+      resolution.openPrefixes !== null && resolution.openSuffixes !== null;
+    const matchedCounts = `Matched prefixes: ${resolution.prefixCount}${capacity === null ? '' : `/${capacity}`}   Matched suffixes: ${resolution.suffixCount}${capacity === null ? '' : `/${capacity}`}`;
 
     const body = resolution.affixes.flatMap((affix) => {
       const tierList = affix.tiers.length
@@ -44,10 +52,11 @@ export async function handleClassifyItemAffixes(args: { mod_lines: string[] }) {
     return text([
       "=== Affix Classification ===",
       "",
-      ...(resolution.openPrefixes === null || resolution.openSuffixes === null
-        ? [`Matched prefixes: ${resolution.prefixCount}/3   Matched suffixes: ${resolution.suffixCount}/3`,
-          'Open affix slots: unknown. Verify the item in game before recommending a craft.']
-        : [`Prefixes: ${resolution.prefixCount}/3 (${resolution.openPrefixes} open)   Suffixes: ${resolution.suffixCount}/3 (${resolution.openSuffixes} open)`]),
+      ...(!slotsKnown
+        ? [matchedCounts, 'Open affix slots: unknown. Verify rarity, complete explicit modifiers and item state in game before recommending a craft.',
+          ...(overflow ? ['WARNING: Matched counts exceed the supplied rarity capacity.'] : [])]
+        : [`Prefixes: ${resolution.prefixCount}/${capacity} (${capacity! - resolution.prefixCount} open)   Suffixes: ${resolution.suffixCount}/${capacity} (${capacity! - resolution.suffixCount} open)`,
+          'Slot counts assume the caller supplied every explicit modifier and that no special item rules change capacity.']),
       "",
       ...body,
       ...(resolution.unmatched.length

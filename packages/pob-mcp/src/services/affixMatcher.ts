@@ -152,7 +152,7 @@ function otherReadings(chosen: Attempt, lines: string[], index: Map<string, ModE
   const rival = new Set(
     chosen.consumed
       .flatMap((lineIndex) => candidatesFor(lines[lineIndex], index))
-      .filter((entry) => entry.group !== chosen.entry.group)
+      .filter((entry) => entry.group !== chosen.entry.group || entry.type !== chosen.entry.type)
       .filter((entry) => attempt(entry, lines, new Set(), strict) !== null)
       .map((entry) => `${entry.type} "${entry.affix}" (${entry.group})`)
   );

@@ -19,6 +19,7 @@ withPoB('affix tools', () => {
   it('tells the caller a hybrid is one affix, and how many slots stay open', async () => {
     const text = textOf(await handleClassifyItemAffixes({
       mod_lines: ['9% increased Energy Shield', '6% increased Stun and Block Recovery'],
+      rarity: 'rare', explicit_mods_complete: true, ordinary_capacity_confirmed: true,
     }));
 
     expect(text).toContain('Prefixes: 1/3 (2 open)   Suffixes: 0/3 (3 open)');

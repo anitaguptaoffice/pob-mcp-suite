@@ -17,6 +17,7 @@ describe('affix output with incomplete knowledge', () => {
   it('keeps known counts but refuses to promise slots for an unmatched explicit', async () => {
     const result = await handleClassifyItemAffixes({
       mod_lines: ['+33% to Chaos Resistance', 'An unlisted explicit modifier'],
+      rarity: 'rare', explicit_mods_complete: true, ordinary_capacity_confirmed: true,
     });
     const text = result.content[0].text;
 
@@ -29,9 +30,28 @@ describe('affix output with incomplete knowledge', () => {
   it('still reports precise open slots for an unambiguous hybrid', async () => {
     const result = await handleClassifyItemAffixes({
       mod_lines: ['9% increased Energy Shield', '6% increased Stun and Block Recovery'],
+      rarity: 'rare', explicit_mods_complete: true, ordinary_capacity_confirmed: true,
     });
 
     expect(result.content[0].text).toContain('Prefixes: 1/3 (2 open)   Suffixes: 0/3 (3 open)');
+  });
+
+  it('does not assume rarity or completeness from a list of matching lines', async () => {
+    const mod_lines = ['9% increased Energy Shield', '6% increased Stun and Block Recovery'];
+    for (const args of [{ mod_lines }, { mod_lines, rarity: 'rare' }, { mod_lines, explicit_mods_complete: true }, { mod_lines, rarity: 'rare', explicit_mods_complete: true }]) {
+      const text = (await handleClassifyItemAffixes(args)).content[0].text;
+      expect(text).toContain('Open affix slots: unknown');
+      expect(text).not.toMatch(/\(\d open\)/);
+    }
+  });
+
+  it('uses magic capacity and rejects an inconsistent magic classification', async () => {
+    const mod_lines = ['9% increased Energy Shield', '6% increased Stun and Block Recovery'];
+    const valid = (await handleClassifyItemAffixes({ mod_lines, rarity: 'magic', explicit_mods_complete: true, ordinary_capacity_confirmed: true })).content[0].text;
+    expect(valid).toContain('Prefixes: 1/1 (0 open)   Suffixes: 0/1 (1 open)');
+    const invalid = (await handleClassifyItemAffixes({ mod_lines: ['+9% to Chaos Resistance', '+13% to Chaos Resistance'], rarity: 'magic', explicit_mods_complete: true, ordinary_capacity_confirmed: true })).content[0].text;
+    expect(invalid).toContain('Open affix slots: unknown');
+    expect(invalid).toContain('exceed the supplied rarity capacity');
   });
 
   it('does not relabel a lower affix when item-level filtering hides the highest one', async () => {
