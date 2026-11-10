@@ -140,6 +140,11 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   report missing graphs as jewels with no notables. This does not assess synergy,
   DPS, legality or jewels stored outside the active tree. Use a separate
   `search_cluster_listings` query for bounded international Trade candidates.
+- For a saved local file without starting PoB, `inspect_local_cluster_jewels`
+  reads its active tree spec, socket references and serialized item text. Check
+  `socketDataAvailable`, `unresolvedSockets`, the file digest and warnings.
+  Listed notable names and `serializedNodePresent` do not establish runtime
+  allocation; import the file and use the snapshot tool for PoB graph results.
 - Use `trial: true` for experiments. Trial snapshots default to seven days;
   retain a wanted result with `foundation_retain_snapshot`. Check returned IDs
   and retention metadata rather than assuming the parent changed. Inspect and

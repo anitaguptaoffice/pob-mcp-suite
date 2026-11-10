@@ -76,6 +76,8 @@ import { EngineLimiter } from './foundation/engineLimiter.js';
 import { PoBEngineStatusAdapter } from './adapters/pobEngineStatus/source.js';
 import { engineStatusSchema, createEngineStatusTool } from './features/engineStatus/tool.js';
 import { clusterAnalysisSchema, createClusterAnalysisTool } from './features/clusterAnalysis/tool.js';
+import { createClusterFileTool } from './features/clusterAnalysis/fileTool.js';
+import { readLocalBuild } from './foundation/localBuildFile.js';
 import { createModifierDataTools } from './features/modifierData/tools.js';
 import { PoBModifierData } from './adapters/modifierData/pobModifierData.js';
 import { LocalBuildFileCatalog } from './adapters/localBuild/fileCatalog.js';
@@ -220,7 +222,7 @@ class PoBMCPServer {
     // Default Path of Building directory (can be customized)
     this.pobDirectory = process.env.POB_DIRECTORY || defaultBuildsDirectory();
     this.localBuildWatcher = new LocalBuildFileWatcher(this.pobDirectory);
-    this.buildFileCatalog = new FeatureRegistry([createBuildFileCatalogTool(new LocalBuildFileCatalog(this.pobDirectory)), ...createBuildWatchTools(this.localBuildWatcher)]);
+    this.buildFileCatalog = new FeatureRegistry([createBuildFileCatalogTool(new LocalBuildFileCatalog(this.pobDirectory)), createClusterFileTool(name => readLocalBuild(this.pobDirectory, name)), ...createBuildWatchTools(this.localBuildWatcher)]);
     this.localConfigPresets = new LocalConfigPresetStore(this.pobDirectory);
     this.configPresetCatalog = new FeatureRegistry(createConfigPresetCatalogTools(this.localConfigPresets));
 
