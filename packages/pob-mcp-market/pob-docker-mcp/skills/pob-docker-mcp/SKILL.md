@@ -33,6 +33,8 @@ available, use the snapshot workflow in `../../references/snapshot-workflows.md`
 Build operations after import must name their snapshot; do not call legacy `lua_*` tools or assume
 there is an implicitly loaded build. The snapshot API is still being migrated:
 if a requested operation has no advertised equivalent, say it is unavailable.
+For build comparisons and notes, that reference describes explicit snapshot IDs,
+saved calculation contexts, and saving a derived snapshot back to a file.
 
 The following workflow applies only when the server advertises the legacy tools:
 

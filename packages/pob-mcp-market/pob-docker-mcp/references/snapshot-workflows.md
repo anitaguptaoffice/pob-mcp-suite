@@ -25,6 +25,25 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   `selection`: `mainSocketGroup`, `mainActiveSkill`, and `skillPart` are separate
   one-based PoB indices. Inspect and evaluate the child to confirm the result.
 
+## Compare builds and edit notes
+
+- Import each build separately and keep both returned IDs. Call
+  `compare_snapshot_builds` with `baseline_snapshot_id` and
+  `candidate_snapshot_id`; optionally supply the exact PoB metric `fields`.
+  The comparison evaluates each build in its saved context. Check the returned
+  `comparability`, skill and config contexts, metric statuses and warnings before
+  interpreting deltas. Different configurations or tree versions can explain a
+  difference; unknown or different engine identities limit comparability.
+  For a controlled change, derive a child from one parent and compare those IDs.
+- Read notes using `foundation_read_notes` with `snapshot_id`. To replace them,
+  call `foundation_derive_notes` with that ID and the complete new `notes` text;
+  use an empty string to clear them. The returned child ID is the edited build;
+  neither the parent nor an existing file is changed. Read the child notes back.
+  If a local file should be updated, explicitly call `foundation_save_file` for
+  the child, specifying `build_name` and `overwrite: true` only when replacing
+  an existing file is intended. Re-import the file to verify persisted notes.
+  Retention and file-write results must be checked separately.
+
 ## Isolated changes and export
 
 - Derive a child with the appropriate advertised `foundation_derive_*` tool.
@@ -77,3 +96,22 @@ by server configuration. Never assume legacy tools are exposed alongside it.
 - Do not claim an item is obtainable, a tree is optimal, or a support gem raises
   damage merely because it was accepted or listed as compatible. Source errors,
   engine/data version warnings, partial results and missing metrics stay visible.
+
+## Compare explicit gem setups
+
+- Inspect `skills` and use the selected main group's one-based index. Submit
+  `submit_snapshot_gem_setups` with `snapshot_id`, `group_index`, and 2–5
+  `setups`: each has a unique `name` and a complete `gems` array of 1–6
+  objects with `gemName` and optional `level`, `quality`, and `enabled`.
+  Every setup must retain the enabled active gem. Existing gem properties are
+  retained unless explicitly changed; newly added gems default to level 20 and
+  quality 0. The tool compares the submitted candidates, not every possible gem.
+- Poll `summarize_snapshot_gem_setups` with the returned `job_id`. Pending,
+  failed, and unranked entries make the result partial; preserve their reasons
+  and any returned trial snapshot IDs. `foundation_cancel_job` requests a stop
+  after the current item. Check baseline, metric availability, identity warnings
+  and skill context before interpreting deltas. Trial snapshots expire after
+  seven days unless retained; neither the source snapshot nor a file changes.
+- The computation does not establish gem availability, socket colours, mana
+  requirements or in-game legality. Inspect and evaluate the selected trial,
+  then retain or save it explicitly if the user wants to keep it.

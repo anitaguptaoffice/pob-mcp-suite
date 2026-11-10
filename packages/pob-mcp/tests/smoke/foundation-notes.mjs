@@ -14,7 +14,7 @@ try {
   await client.start(); await client.newBuild({ className: 'Witch' });
   const xml = await client.exportBuildXml();
   await client.stop();
-  const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
+  const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_DIRECTORY: dir, POB_SNAPSHOT_DIRECTORY: join(dir, 'snapshots'), POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
   child = mcp.child; child.stderr.on('data', () => {}); const exited = once(child, 'exit');
   await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'notes-smoke', version: '1' } });
   mcp.notify('notifications/initialized', {});
@@ -29,6 +29,13 @@ try {
   const derived = await call('foundation_derive_notes', { snapshot_id: parent.id, notes: text });
   assert.equal(derived.parentId, parent.id);
   assert.equal((await call('foundation_read_notes', { snapshot_id: derived.id })).notes, text);
+  const comparison = await call('compare_snapshot_builds', { baseline_snapshot_id: parent.id, candidate_snapshot_id: derived.id, fields: ['Life'] });
+  assert.equal(comparison.metrics.Life.delta, 0);
+  assert.equal(comparison.comparability.configDifferent, false);
+  const saved = await call('foundation_save_file', { snapshot_id: derived.id, build_name: 'notes-workflow' });
+  assert.equal(saved.retained, true);
+  const fileImport = await call('foundation_import_file', { build_name: 'notes-workflow' });
+  assert.equal((await call('foundation_read_notes', { snapshot_id: fileImport.id })).notes, text);
   const exported = (await call('foundation_export_build', { snapshot_id: derived.id })).xml;
   const reimported = await call('foundation_import_build', { xml: exported, source: 'notes-reloaded' });
   assert.equal((await call('foundation_read_notes', { snapshot_id: reimported.id })).notes, text);
