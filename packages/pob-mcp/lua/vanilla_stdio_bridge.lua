@@ -91,17 +91,40 @@ local function evaluate_anoint_candidates(params)
     local calc = build.calcsTab:GetMiscCalculator()
     local repSlotName = item.base and item.base.type or slotName
     local base = calc({ repSlotName = repSlotName, repItem = tab:anointItem(nil) })
-    local baseDps = tonumber(base.CombinedDPS or base.TotalDPS or 0) or 0
-    local baseEhp = tonumber(base.TotalEHP or 0) or 0
+    local focus = params.focus or 'both'
+    if focus ~= 'dps' and focus ~= 'defence' and focus ~= 'both' then error('invalid anoint focus') end
+    local function number(value)
+      value = tonumber(value)
+      if not value or value ~= value or value == math.huge or value == -math.huge then return nil end
+      return value
+    end
+    local damageStat, baseDps
+    for _, candidate in ipairs({
+      { 'CombinedDPS', base.CombinedDPS }, { 'TotalDPS', base.TotalDPS },
+      { 'MinionCombinedDPS', base.Minion and base.Minion.CombinedDPS },
+      { 'MinionTotalDPS', base.Minion and base.Minion.TotalDPS },
+    }) do
+      local value = number(candidate[2])
+      if value and value > 0 then damageStat, baseDps = candidate[1], value; break end
+    end
+    local baseEhp = number(base.TotalEHP)
+    if focus ~= 'defence' and not baseDps then error('no positive damage baseline for anoint evaluation') end
+    if focus ~= 'dps' and (not baseEhp or baseEhp <= 0) then error('no positive effective hit pool baseline for anoint evaluation') end
+    local function damage(output)
+      if damageStat == 'MinionCombinedDPS' then return number(output.Minion and output.Minion.CombinedDPS) end
+      if damageStat == 'MinionTotalDPS' then return number(output.Minion and output.Minion.TotalDPS) end
+      return damageStat and number(output[damageStat]) or nil
+    end
     local candidates, evaluated, skipped = {}, 0, 0
     for id, node in pairs(build.spec.tree.nodes or {}) do
       if node.recipe and node.dn and node.modKey ~= '' and not build.spec.allocNodes[id] then
         local candidateOk, output = pcall(calc, { repSlotName = repSlotName, repItem = tab:anointItem(node) })
-        if candidateOk and output then
-          local dps = (tonumber(output.CombinedDPS or output.TotalDPS or 0) or 0) - baseDps
-          local ehp = (tonumber(output.TotalEHP or 0) or 0) - baseEhp
-          local focus = params.focus or 'both'
-          local score = focus == 'dps' and dps or (focus == 'defence' and ehp or (dps / math.max(baseDps, 1) + 0.5 * ehp / math.max(baseEhp, 1)))
+        local candidateDps = candidateOk and output and damage(output) or nil
+        local candidateEhp = candidateOk and output and number(output.TotalEHP) or nil
+        if candidateOk and output and (focus == 'defence' or candidateDps ~= nil) and (focus == 'dps' or candidateEhp ~= nil) then
+          local dps = candidateDps and baseDps and candidateDps - baseDps or 0
+          local ehp = candidateEhp and baseEhp and candidateEhp - baseEhp or 0
+          local score = focus == 'dps' and dps or (focus == 'defence' and ehp or (dps / baseDps + 0.5 * ehp / baseEhp))
           local recipe = {}; for _, oil in ipairs(node.recipe or {}) do table.insert(recipe, tostring(oil)) end
           table.insert(candidates, { nodeId = tonumber(id) or id, name = node.dn, dpsDelta = dps, ehpDelta = ehp, score = score, recipe = recipe })
           evaluated = evaluated + 1
@@ -111,7 +134,7 @@ local function evaluate_anoint_candidates(params)
     table.sort(candidates, function(a, b) return a.score > b.score end)
     local limit = math.min(math.max(tonumber(params.limit) or 50, 1), 500)
     while #candidates > limit do table.remove(candidates) end
-    return { ok = true, candidates = candidates, base = { CombinedDPS = baseDps, TotalEHP = baseEhp }, evaluated = evaluated, skipped = skipped, slot = slotName, baseType = item.baseName or repSlotName, focus = params.focus or 'both' }
+    return { ok = true, candidates = candidates, base = { CombinedDPS = number(base.CombinedDPS) or 0, TotalEHP = baseEhp or 0, damageStat = damageStat, damageValue = baseDps, ehpAvailable = baseEhp ~= nil }, evaluated = evaluated, skipped = skipped, slot = slotName, baseType = item.baseName or repSlotName, focus = focus }
   end)
   tab:SetDisplayItem(previousItem); tab.anointEnchantSlot = previousEnchantSlot
   if not ok then return { ok = false, error = 'anoint evaluation failed: ' .. tostring(result) } end

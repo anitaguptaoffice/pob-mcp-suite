@@ -109,6 +109,22 @@ try {
   for (const key of ['Life', 'TotalDPS', 'CombinedDPS']) {
     assert.ok(Math.abs(actual[key] - simulated[key]) < 0.01, `path simulation ${key} disagrees with allocation: ${simulated[key]} vs ${actual[key]}`);
   }
+  await client.loadBuildXml(xml, 'poison-anoint-fixture');
+  const group = await client.createSocketGroup({ label: 'poison-minion', slot: 'Helmet' });
+  await client.addGem({ groupIndex: group.index, gemName: 'Summon Raging Spirit', level: 20 });
+  await client.setMainSelection({ mainSocketGroup: group.index });
+  await client.setConfig({ customMods: 'Minions have 100% chance to Poison on Hit' });
+  const itemIdentity = items => items.filter(item => item.id > 0).map(({ slot, id, raw }) => ({ slot, id, raw }));
+  const originalItems = itemIdentity(await client.getItems());
+  const originalAnointStats = await client.getStats(['Life', 'MinionTotalDPS', 'MinionCombinedDPS']);
+  const originalAnointTree = await client.getTree();
+  const anoint = await client.evaluateAnointCandidates({ slot: 'Amulet', focus: 'dps', limit: 5 });
+  assert.equal(anoint.base.damageStat, 'MinionCombinedDPS', 'anoint ranking must score poison-inclusive minion damage');
+  assert.ok(anoint.base.damageValue > 0 && anoint.candidates.some(candidate => candidate.dpsDelta > 0), 'poison anoint fixture must have meaningful damage gains');
+  assert.deepEqual(itemIdentity(await client.getItems()), originalItems, 'anoint simulation changed equipped items');
+  const afterAnointStats = await client.getStats(['Life', 'MinionTotalDPS', 'MinionCombinedDPS']);
+  assert.deepEqual(afterAnointStats, originalAnointStats, 'anoint simulation changed calculated stats');
+  assert.deepEqual(await client.getTree(), originalAnointTree, 'anoint simulation changed passive tree');
   console.log(JSON.stringify({ spellDps: spell.TotalDPS, minionDps: minion.MinionTotalDPS, jewels: jewels.length }));
 } finally {
   await client.stop();
