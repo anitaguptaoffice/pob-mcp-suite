@@ -7,6 +7,12 @@ by server configuration. Never assume legacy tools are exposed alongside it.
 
 ## Import and inspect
 
+- Use `list_local_build_files` to discover XML names under the configured build
+  directory, including nested folders. Check `complete` and `issues`; absence
+  from a partial scan is not proof that a file does not exist. For more pages,
+  pass both `nextCursor` as `after` and the `catalogFingerprint` as
+  `catalog_fingerprint`; restart the listing if it changed. Listing files does
+  not import them, and hidden paths and symlinks are excluded.
 - Import XML with `foundation_import_build` (`xml`, `source`), an existing local
   file with `foundation_import_file` (`build_name`), or a PoB share code with
   `foundation_import_code` (`code`). A URL is not a share code: obtain its code

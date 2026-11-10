@@ -65,6 +65,8 @@ import { passiveRankingSchemas, createPassiveRankingTools, evaluatePassive } fro
 import { anointmentSchema, createAnointmentTool } from './features/anointment/tool.js';
 import { createModifierDataTools } from './features/modifierData/tools.js';
 import { PoBModifierData } from './adapters/modifierData/pobModifierData.js';
+import { LocalBuildFileCatalog } from './adapters/localBuild/fileCatalog.js';
+import { createBuildFileCatalogTool } from './features/localBuildCatalog/tool.js';
 import { createCurrencyReferenceTools, currencyReferenceSchemas } from './features/currencyReference/tools.js';
 import { createCurrencySpreadTool, currencySpreadSchema } from './features/currencySpread/tool.js';
 import { createTradePreviewTool, tradePreviewSchema } from './features/tradePreview/tool.js';
@@ -89,6 +91,7 @@ class PoBMCPServer {
   private foundation: BuildFoundation | null = null;
   private foundationFeatures: FeatureRegistry | null = null;
   private readonly modifierFeatures = new FeatureRegistry(createModifierDataTools(new PoBModifierData()));
+  private buildFileCatalog!: FeatureRegistry;
   private marketFeatures: FeatureRegistry | null = null;
   private foundationJobs: JobRunner | null = null;
   private releaseFoundationLock: (() => Promise<void>) | null = null;
@@ -143,6 +146,7 @@ class PoBMCPServer {
       ...passiveRankingSchemas(),
       anointmentSchema(),
       ...this.modifierFeatures.schemas(),
+      ...this.buildFileCatalog.schemas(),
       ...currencyReferenceSchemas(),
       currencySpreadSchema(),
       tradePreviewSchema(),
@@ -184,6 +188,7 @@ class PoBMCPServer {
 
     // Default Path of Building directory (can be customized)
     this.pobDirectory = process.env.POB_DIRECTORY || defaultBuildsDirectory();
+    this.buildFileCatalog = new FeatureRegistry([createBuildFileCatalogTool(new LocalBuildFileCatalog(this.pobDirectory))]);
 
     // Initialize services
     this.buildService = new BuildService(this.pobDirectory);
@@ -362,7 +367,7 @@ class PoBMCPServer {
     // List available tools
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       if (!this.legacyEnabled()) {
-        const tools = [...(this.foundation ? [...foundationSchemas, ...featureRegistry.schemas(), ...(this.foundationFeatures?.schemas() ?? [])] : []), ...this.modifierFeatures.schemas(), ...(this.marketFeatures?.schemas() ?? [])];
+        const tools = [...(this.foundation ? [...foundationSchemas, ...featureRegistry.schemas(), ...(this.foundationFeatures?.schemas() ?? [])] : []), ...this.modifierFeatures.schemas(), ...this.buildFileCatalog.schemas(), ...(this.marketFeatures?.schemas() ?? [])];
         assertUniqueToolSchemas(tools);
         return { tools: tools.map(({ truncatable: _truncatable, ...wire }) => wire) };
       }
@@ -405,6 +410,7 @@ class PoBMCPServer {
       featureRegistry.assertNoCollisions(tools);
       tools.push(...featureRegistry.schemas());
       tools.push(...this.modifierFeatures.schemas());
+      tools.push(...this.buildFileCatalog.schemas());
       tools.push(...(this.marketFeatures?.schemas() ?? []));
       if (this.foundation) tools.push(...foundationSchemas, ...(this.foundationFeatures?.schemas() ?? []));
       assertUniqueToolSchemas(tools);
@@ -421,6 +427,13 @@ class PoBMCPServer {
       try {
         const modifierFeature = this.modifierFeatures.get(name);
         if (modifierFeature) return await modifierFeature.invoke(args ?? {});
+        const catalogFeature = this.buildFileCatalog.get(name);
+        if (catalogFeature) {
+          if (this.foundationClosing) throw new Error('Build catalog is unavailable during shutdown');
+          const pending = Promise.resolve().then(() => catalogFeature.invoke(args ?? {}));
+          this.foundationPending.add(pending);
+          try { return await pending; } finally { this.foundationPending.delete(pending); }
+        }
         const marketFeature = this.marketFeatures?.get(name);
         if (marketFeature) {
           if (this.foundationClosing) throw new Error('Market tools are unavailable during shutdown');

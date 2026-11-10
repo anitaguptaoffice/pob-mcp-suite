@@ -108,7 +108,7 @@ Generated from registered schema groups in the current build. Most entries are p
 
 - `analyze_build` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: `references/tool-workflows.md`, `skills/pob-docker-mcp/SKILL.md`.
 - `compare_builds` — target: analysis and optimization; replacement: `compare_snapshot_builds` with explicit snapshot IDs and saved calculation contexts; status: partially migrated (snapshot skill workflow documented; legacy file-name callers remain); skill references: `skills/pob-docker-mcp/SKILL.md`.
-- `list_builds` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: `references/tool-workflows.md`, `references/troubleshooting.md`, `skills/pob-docker-mcp/SKILL.md`.
+- `list_builds` — target: build lifecycle / snapshot; replacement: `list_local_build_files` plus `foundation_import_file`; status: partially migrated (legacy callers remain); skill references: `references/tool-workflows.md`, `references/troubleshooting.md`, `skills/pob-docker-mcp/SKILL.md`.
 - `get_build_stats` — target: calculation and configuration; replacement: snapshot evaluation or typed configuration change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
 - `start_watching` — target: file observation; replacement: optional local file observation adapter; status: not migrated; skill references: no exact name found in packaged skill Markdown.
 - `stop_watching` — target: file observation; replacement: optional local file observation adapter; status: not migrated; skill references: no exact name found in packaged skill Markdown.

@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { mkdtemp, readFile, rm, access, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, access, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { once } from 'node:events';
@@ -26,6 +26,11 @@ try {
   }
   const xml = await readFile(resolve('example-build.xml'), 'utf8');
   await writeFile(join(dir, 'example.xml'), xml);
+  await mkdir(join(dir, 'league')); await writeFile(join(dir, 'league', 'nested.xml'), xml);
+  const files = await call('list_local_build_files', { limit: 100 });
+  assert.ok(files.complete && files.names.includes('example.xml') && files.names.includes(join('league', 'nested.xml')));
+  const nested = await call('foundation_import_file', { build_name: join('league', 'nested.xml') });
+  assert.equal((await call('foundation_export_build', { snapshot_id: nested.id })).xml, xml);
   const fromFile = await call('foundation_import_file', { build_name: 'example' });
   await writeFile(join(dir, 'example.xml'), '<changed/>');
   assert.equal((await call('foundation_export_build', { snapshot_id: fromFile.id })).xml, xml);
