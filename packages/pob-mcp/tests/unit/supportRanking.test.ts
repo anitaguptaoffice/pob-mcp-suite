@@ -12,7 +12,7 @@ const compare = jest.mocked(compareGemSetups);
 describe('support gem ranking', () => {
   let dir: string;
   const close = jest.fn(async () => {});
-  const client = { loadBuildXml: async () => ({}), getSkills: async () => ({ mainSocketGroup: 1, groups: [{ index: 1, enabled: true, gems: [
+  const client = { loadBuildXml: async () => ({}), getSkills: async () => ({ mainSocketGroup: 1, groups: [{ index: 1, enabled: true, slotEnabled: true, gems: [
     { name: 'Summon Raging Spirit', enabled: true, isSupport: false }, { name: 'Old Support', enabled: true, isSupport: true },
   ] }] }) } as unknown as PoBLuaApiClient;
   const source = () => ({ pobDirectory: dir, createIsolatedLuaClient: async () => ({ client, close }) });
@@ -31,7 +31,8 @@ describe('support gem ranking', () => {
     const result = await rankSupportGems(source(), { build_name: 'saved', replace_gem: 'Old Support', candidates: ['Good', 'Bad', 'Unknown'] });
     expect(result.metric).toBe('MinionCombinedDPS');
     expect(result.metricSelection).toBe('automatic');
-    expect(result.warnings.join(' ')).toContain('自动选择');
+    expect(result.warnings.join(' ')).toContain('selected automatically');
+    expect(compare.mock.calls[0][2]).toEqual({ xml: '<PathOfBuilding/>', path: path.join(dir, 'saved.xml') });
     expect(result.ranked).toEqual([{ gem: 'Good', damage: 150, delta: 50, deltaPercent: 50 }]);
     expect(result.unranked.map(g => g.gem)).toEqual(['Bad', 'Unknown']);
     expect(close).toHaveBeenCalledTimes(1);

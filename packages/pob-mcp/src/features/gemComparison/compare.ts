@@ -11,7 +11,7 @@ const metrics = ['TotalDPS', 'CombinedDPS', 'MinionTotalDPS', 'MinionCombinedDPS
 const normalize = (name: string) => name.trim().toLowerCase();
 
 /** Compare explicit full gem sets in a disposable PoB engine. */
-export async function compareGemSetups(context: CompareContext, args: { build_name: string; skill_index?: number; setups: Setup[] }) {
+export async function compareGemSetups(context: CompareContext, args: { build_name: string; skill_index?: number; setups: Setup[] }, snapshot?: { xml: string; path: string }) {
   if (!args.build_name || !context.pobDirectory) throw new Error('build_name and builds directory are required');
   if (!Array.isArray(args.setups) || args.setups.length < 2 || args.setups.length > 5 || args.setups.some(setup =>
     !setup || typeof setup.name !== 'string' || !setup.name.trim() || !Array.isArray(setup.gems) ||
@@ -34,8 +34,8 @@ export async function compareGemSetups(context: CompareContext, args: { build_na
     }
   }
   if (!context.createIsolatedLuaClient) throw new Error('isolated PoB engine is unavailable');
-  const xml = await readNamedBuild(args.build_name, context.pobDirectory);
-  const buildPath = resolveBuildFile(args.build_name, context.pobDirectory);
+  const xml = snapshot?.xml ?? await readNamedBuild(args.build_name, context.pobDirectory);
+  const buildPath = snapshot?.path ?? resolveBuildFile(args.build_name, context.pobDirectory);
   const isolated = await context.createIsolatedLuaClient();
   const { client } = isolated;
   try {
@@ -47,6 +47,8 @@ export async function compareGemSetups(context: CompareContext, args: { build_na
     if (!Number.isInteger(groupIndex) || groupIndex !== mainIndex) throw new Error('comparison currently requires the saved main socket group');
     const group = skills.groups.find(g => g.index === groupIndex);
     if (!group || group.enabled === false) throw new Error('saved main skill group is missing or disabled');
+    if (group.slotEnabled !== true) throw new Error(group.slotEnabled === false
+      ? 'saved main skill group belongs to an inactive equipment slot' : 'saved main skill group equipment-slot state is unknown');
     const active = group.gems.filter(gem => !gem.isSupport);
     if (active.length !== 1 || !active[0].enabled || (group.mainActiveSkill ?? 1) !== 1) throw new Error('comparison requires exactly one enabled active gem with the first active effect selected');
     const activeGem = active[0];
@@ -97,7 +99,8 @@ export async function compareGemSetups(context: CompareContext, args: { build_na
         if (override.quality !== undefined && override.quality !== gem.quality) await client.setGemQuality({ groupIndex: groupIndex!, gemIndex: gem.index, quality: override.quality });
       }
       const after = (await client.getSkills()).groups.find(g => g.index === groupIndex);
-      if (!after || after.gems.length !== names.length || after.gems.filter(g => g.enabled && !g.isSupport).length !== 1) {
+      if (!after || after.gems.length !== names.length || after.gems.filter(g => g.enabled && !g.isSupport).length !== 1 ||
+          names.some(name => !after.gems.some(gem => normalize(gem.name) === normalize(name)))) {
         throw new Error(`setup "${setup.name}" contains an unrecognized gem or more than one active gem`);
       }
       const stats = await client.getStats([...metrics]);
@@ -109,11 +112,11 @@ export async function compareGemSetups(context: CompareContext, args: { build_na
     }
     return { source: 'saved_build_isolated_pob', mainGroup: groupIndex, activeGem: activeGem.name,
       baseline: Object.fromEntries(metrics.map(key => [key, toFiniteNumber(baseline[key]) ?? null])), setups,
-      warnings: ['使用已保存构筑和其配置，未读取当前未保存修改；当前构筑保持不变。',
-        '未指定时，新宝石按 20 级、0% 品质模拟，原有宝石保留等级和品质；显式设置会覆盖它们。等级和品质属于 PoB 模拟输入，不保证游戏中可获得；请检查宝石版本、装备孔数和辅助兼容性。',
-        '替换宝石按输入顺序填入原宝石的位置；宝石数量变化时其余位置可能移动，请核对插槽。',
-        '辅助宝石是否作用于选中技能取自 PoB 计算结果；未知状态不能视为已生效。',
-        '分别列出角色和召唤物伤害，不自动求和或判断最优；结果受 PoB 选中技能及配置影响。'] };
+      warnings: ['Uses a saved build snapshot and its configuration; unsaved changes are not read and the current build is unchanged.',
+        'New gems default to level 20 and 0% quality; retained gems keep their existing values unless overridden. PoB simulation inputs do not establish availability; verify gem versions, sockets and compatibility.',
+        'Replacement gems fill removed positions in input order; other positions may move if the gem count changes.',
+        'Support application to the selected skill comes from PoB; unknown does not mean applied.',
+        'Player and minion damage are reported separately, without summing or selecting an optimum; results depend on PoB skill selection and configuration.'] };
   } finally {
     await isolated.close();
   }

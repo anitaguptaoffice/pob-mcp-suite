@@ -28,6 +28,8 @@ export async function rankSupportGems(context: Context, args: Args) {
     const skills = await probe.client.getSkills();
     const group = skills.groups.find(g => g.index === skills.mainSocketGroup);
     if (!group || group.enabled === false || group.gems.some(gem => !gem.enabled)) throw new Error('saved main group is missing, disabled, or contains disabled gems');
+    if (group.slotEnabled !== true) throw new Error(group.slotEnabled === false
+      ? 'saved main skill group belongs to an inactive equipment slot' : 'saved main skill group equipment-slot state is unknown');
     if (group.gems.length > 6 || new Set(group.gems.map(g => normal(g.name))).size !== group.gems.length) throw new Error('saved main group has too many or ambiguous gems');
     const replacement = group.gems.find(g => normal(g.name) === normal(args.replace_gem));
     if (!replacement?.isSupport) throw new Error('replace_gem must identify an enabled support in the saved main group');
@@ -38,7 +40,7 @@ export async function rankSupportGems(context: Context, args: Args) {
   const setups = [{ name: 'baseline', gems: original }, ...args.candidates.map(name => ({
     name, gems: original.map(gem => normal(gem) === normal(args.replace_gem) ? name : gem),
   }))];
-  const comparison = await compareGemSetups(context, { build_name: args.build_name, setups });
+  const comparison = await compareGemSetups(context, { build_name: args.build_name, setups }, { xml, path });
   const same = metrics.every(key => comparison.baseline[key] === comparison.setups[0].stats[key]);
   if (!same) throw new Error('saved baseline changed during simulation; refusing to rank candidates');
   let metric = args.damage_metric;
@@ -57,14 +59,14 @@ export async function rankSupportGems(context: Context, args: Args) {
     const gem = setup.gems.find(g => normal(g.name) === normal(setup.name));
     const value = setup.stats[metric];
     if (gem?.appliedToSelectedSkill !== true) {
-      unranked.push({ gem: setup.name, reason: gem?.appliedToSelectedSkill === false ? '未作用于所选技能' : '无法确认是否生效' });
+      unranked.push({ gem: setup.name, reason: gem?.appliedToSelectedSkill === false ? 'Not applied to the selected skill' : 'Support application is unknown' });
     } else if (typeof value !== 'number') {
-      unranked.push({ gem: setup.name, reason: '伤害指标不可用' });
+      unranked.push({ gem: setup.name, reason: 'Damage metric is unavailable' });
     } else {
       const delta = value - base;
       const percent = base === 0 ? null : delta / base * 100;
       if (!Number.isFinite(delta)) {
-        unranked.push({ gem: setup.name, reason: '伤害变化超出数值范围' });
+        unranked.push({ gem: setup.name, reason: 'Damage change exceeds the supported numeric range' });
       } else {
         ranked.push({ gem: setup.name, damage: value, delta, deltaPercent: percent !== null && Number.isFinite(percent) ? percent : null });
       }
@@ -72,7 +74,7 @@ export async function rankSupportGems(context: Context, args: Args) {
   }
   ranked.sort((a, b) => b.damage - a.damage);
   return { source: comparison.source, activeGem: comparison.activeGem, replaceGem: args.replace_gem, metric, metricSelection: args.damage_metric ? 'explicit' : 'automatic', baseline: base, ranked, unranked,
-    warnings: [...comparison.warnings, '仅比较给定候选的伤害，不代表全市场或所有宝石的最优方案；收益为指定 PoB 配置下的计算结果。',
-      '排序不评估防御、魔力消耗、手感、清图范围或价格；需要分别核对。',
-      ...(args.damage_metric ? [] : ['伤害指标由可用的角色或召唤物综合伤害自动选择；其他技能或指标可能得出不同排序。'])] };
+    warnings: [...comparison.warnings, 'Only supplied candidates are compared, using the specified PoB configuration; the result is not a global optimum.',
+      'Ranking does not assess defense, mana cost, play feel, clear coverage, or price.',
+      ...(args.damage_metric ? [] : ['The damage metric was selected automatically from player or minion combined damage; another skill or metric may rank candidates differently.'])] };
 }

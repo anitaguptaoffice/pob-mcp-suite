@@ -20,6 +20,14 @@ describe('isolated gem comparison', () => {
     expect(factory).not.toHaveBeenCalled();
   });
 
+  it.each([false, undefined])('refuses inactive or unknown equipment-slot state: %s', async (slotEnabled) => {
+    const close = jest.fn(async () => {});
+    const client = { loadBuildXml: async () => ({}), getSkills: async () => ({ mainSocketGroup: 1, groups: [{ index: 1, enabled: true, slotEnabled, gems: [] }] }) } as unknown as PoBLuaApiClient;
+    await expect(compareGemSetups({ pobDirectory: dir, createIsolatedLuaClient: async () => ({ client, close }) },
+      { build_name: 'saved', setups: [{ name: 'one', gems: ['Active'] }, { name: 'two', gems: ['Active'] }] })).rejects.toThrow('equipment');
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
   it('preserves existing gem parameters and does not fabricate missing DPS', async () => {
     const original = [
       { index: 1, name: 'Active', isSupport: false, enabled: true, level: 21, quality: 20, qualityId: 'Default', count: 3, enableGlobal1: true, enableGlobal2: true },
@@ -32,7 +40,7 @@ describe('isolated gem comparison', () => {
     });
     const close = jest.fn(async () => {});
     const client = {
-      loadBuildXml: async () => { gems = [...original]; }, getSkills: async () => ({ mainSocketGroup: 1, groups: [{ index: 1, enabled: true, mainActiveSkill: 1, gems }] }),
+      loadBuildXml: async () => { gems = [...original]; }, getSkills: async () => ({ mainSocketGroup: 1, groups: [{ index: 1, enabled: true, slotEnabled: true, mainActiveSkill: 1, gems }] }),
       removeGem: async ({ gemIndex }: { gemIndex: number }) => { gems.splice(gemIndex - 1, 1); gems.forEach((gem, index) => { gem.index = index + 1; }); }, addGem,
       setGemLevel: async ({ gemIndex, level }: { gemIndex: number; level: number }) => { gems[gemIndex - 1].level = level; },
       setGemQuality: async ({ gemIndex, quality }: { gemIndex: number; quality: number }) => { gems[gemIndex - 1].quality = quality; },
