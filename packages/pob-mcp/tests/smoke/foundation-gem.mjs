@@ -52,6 +52,24 @@ try {
   assert.deepEqual((await foundation.inspect(removed.id, ['skills'])).data.skills, before.data.skills);
   await assert.rejects(foundation.deriveGemList(parent.id, 1, { type: 'add', gemName: 'No Such Gem Fixture' }), /unrecognized gem/);
   await assert.rejects(foundation.deriveGemList(parent.id, 1, { type: 'remove', gemIndex: 99 }), /Gem not found/);
+  const combined = await foundation.deriveSkillGroup(parent.id, { label: 'atomic', slot: 'Boots', enabled: true, includeInFullDPS: true }, [
+    { gemName: 'Arc', level: 18, quality: 10 }, { gemName: 'Added Lightning Damage Support', level: 15, enabled: false },
+  ]);
+  const combinedSkills = (await foundation.inspect(combined.id, ['skills'])).data.skills;
+  assert.equal(combinedSkills.groups.length, 3);
+  assert.equal(combinedSkills.groups[2].label, 'atomic');
+  assert.equal(combinedSkills.groups[2].slot, 'Boots');
+  assert.equal(combinedSkills.groups[2].includeInFullDPS, true);
+  assert.deepEqual(combinedSkills.groups[2].gems.map(gem => gem.name), ['Arc', 'Added Lightning Damage']);
+  assert.equal(combinedSkills.groups[2].gems[1].enabled, false);
+  const emptyGroup = await foundation.deriveSkillGroup(parent.id, {}, []);
+  const emptySkills = (await foundation.inspect(emptyGroup.id, ['skills'])).data.skills;
+  assert.equal(emptySkills.groups[2].gems.length, 0);
+  assert.equal(emptySkills.groups[2].includeInFullDPS, false);
+  const snapshotCount = (await foundation.listSnapshots()).snapshots.length;
+  await assert.rejects(foundation.deriveSkillGroup(parent.id, { slot: 'Boots' }, [{ gemName: 'Arc' }, { gemName: 'No Such Gem Fixture' }]), /unrecognized gem/);
+  assert.equal((await foundation.listSnapshots()).snapshots.length, snapshotCount);
+  assert.deepEqual((await foundation.inspect(parent.id, ['skills'])).data.skills, before.data.skills);
   const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
   mcp.child.stderr.on('data', () => {});
   const exited = once(mcp.child, 'exit');
@@ -69,6 +87,9 @@ try {
     const addResult = await mcp.request('tools/call', { name: 'foundation_derive_gem_list', arguments: { snapshot_id: parent.id, group_index: 1, operation: { type: 'add', gemName: 'Fireball', insertIndex: 2 }, trial: true } });
     assert.ok(!addResult.error && !addResult.result?.isError, JSON.stringify(addResult));
     assert.equal(JSON.parse(addResult.result.content[0].text).retention.kind, 'trial');
+    const groupResult = await mcp.request('tools/call', { name: 'foundation_derive_skill_group', arguments: { snapshot_id: parent.id, group: { label: 'test', slot: 'Boots' }, gems: [{ gemName: 'Arc' }], trial: true } });
+    assert.ok(!groupResult.error && !groupResult.result?.isError, JSON.stringify(groupResult));
+    assert.equal(JSON.parse(groupResult.result.content[0].text).retention.kind, 'trial');
     mcp.child.stdin.end(); assert.equal((await exited)[0], 0);
   } finally { if (mcp.child.exitCode === null && mcp.child.signalCode === null) { mcp.child.kill('SIGTERM'); await exited; } }
   console.log('foundation gem mutation passed');

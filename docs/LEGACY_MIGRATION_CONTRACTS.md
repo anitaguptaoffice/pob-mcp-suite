@@ -72,7 +72,7 @@ acceptance work to perform during migration, not claims of completed tests.
 | `get_equipped_items` | `inspect` with `items`; empty and hidden slots have different representation. | Preserve each occupied item's raw modifiers and distinguish hidden from empty slots. |
 | `toggle_flask` | Typed flask-activation change is needed. | Active flag, recalculated effects and reload match PoB for the requested flask. |
 | `get_skill_setup` | `inspect` with `skills`; caller must select main-only view explicitly. | Compare all groups, selected group, enabled gems and quality against PoB. |
-| `create_socket_group` | Typed skill-group creation is needed. | Verify slot, label, enabled and full-DPS flags after reload without asserting socket legality. |
+| `create_socket_group` | `foundation_derive_skill_group` creates a group with an empty gem list; legacy callers require migration. | `foundation-gem.mjs` checks empty group and slot, label, enabled and full-DPS flags after reload without asserting socket legality. |
 | `add_gem` | `foundation_derive_gem_list` adds one PoB-resolved gem at an explicit or appended index; legacy callers require migration. | `foundation-gem.mjs` checks insertion, properties, reload and unknown name; availability and socket legality are not established. |
 | `set_gem_level` | `foundation_derive_gem` changes an explicit existing gem; legacy callers require migration. | `foundation-gem.mjs` verifies correct group/index and reload; unrelated gems are preserved. |
 | `set_gem_quality` | `foundation_derive_gem` changes quality while preserving the existing quality type; changing the type itself remains unsupported. | Verify quality and existing type after reload; unknown change keys are rejected. |
@@ -80,7 +80,7 @@ acceptance work to perform during migration, not claims of completed tests.
 | `remove_gem` | `foundation_derive_gem_list` removes one indexed gem; legacy callers require migration. | `foundation-gem.mjs` checks insertion and removal restore the original skills, and missing indices fail. |
 | `toggle_socket_group` | Typed group-enable change is needed. | Enabled state and recalculated result match after reload. |
 | `toggle_gem` | `foundation_derive_gem` changes the enabled state using an explicit boolean. | `foundation-gem.mjs` checks enabled state and recalculated damage after reload; legacy callers require migration. |
-| `setup_skill_with_gems` | Atomic typed group-plus-gems change is needed; legacy tool reports partial progress. | Invalid later gem publishes no child; success preserves requested order and flags. |
+| `setup_skill_with_gems` | `foundation_derive_skill_group` creates a group and ordered gems atomically; legacy callers require migration. | `foundation-gem.mjs` checks requested order, flags, reload and failure on a later gem with no published child. |
 | `add_multiple_items` | Atomic multi-item changeset is needed; legacy tool can partially apply. | Any incompatible item publishes no child and leaves parent unchanged. |
 
 ## Analysis, comparison and tree data

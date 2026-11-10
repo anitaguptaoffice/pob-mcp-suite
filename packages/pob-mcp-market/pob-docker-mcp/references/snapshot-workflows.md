@@ -37,6 +37,9 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   quality type is not yet available in this mode. Use
   `foundation_derive_gem_list` to add a uniquely resolved gem or remove an
   existing one by index; it does not verify socket legality or game availability.
+- Use `foundation_derive_skill_group` to create a new group and its ordered gems
+  atomically. An unrecognized or ambiguous gem prevents publishing the child;
+  this operation does not verify socket legality or game availability.
 - Use `compare_snapshot_trees` for allocated node and mastery differences between
   two snapshots with the same known tree version. It does not prove legality,
   compute point cost, or measure the resulting damage.

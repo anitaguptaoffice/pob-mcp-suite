@@ -31,6 +31,7 @@ export interface BuildEngine {
   setGemEnabled(params: { groupIndex: number; gemIndex: number; enabled: boolean }): Promise<void>;
   addGem(params: { groupIndex: number; gemName: string; level?: number; quality?: number; enabled?: boolean; count?: number; enableGlobal1?: boolean; enableGlobal2?: boolean; insertIndex?: number }): Promise<{ gemIndex: number; name?: string }>;
   removeGem(params: { groupIndex: number; gemIndex: number }): Promise<void>;
+  createSocketGroup(params: { label?: string; slot?: string; enabled?: boolean; includeInFullDPS?: boolean }): Promise<{ index: number; label?: string }>;
   getCompatibleSupports(params: { groupIndex?: number; query?: string; limit?: number; includeExceptional?: boolean }): Promise<{
     groupIndex: number; skillName?: string; candidates: Array<{ id: string; name: string; exceptional: boolean; alreadySocketed: boolean }>;
     total: number; failed: number;
@@ -374,6 +375,44 @@ export class BuildFoundation {
         const copy = { ...gem }; delete copy.index; delete copy.appliedToSelectedSkill; return copy;
       }) }));
       if (!isDeepStrictEqual(canonical(original, operation.type === 'remove'), canonical(updated, operation.type === 'add'))) throw new Error('Gem operation modified unrelated skill or gem data');
+    }, trial);
+  }
+
+  async deriveSkillGroup(id: string, group: { label?: string; slot?: string; enabled?: boolean; includeInFullDPS?: boolean }, gems: Array<{ gemName: string; level?: number; quality?: number; enabled?: boolean }>, trial = false): Promise<SnapshotRecord> {
+    if (!group || typeof group !== 'object' || Array.isArray(group) || Object.keys(group).some(key => !['label', 'slot', 'enabled', 'includeInFullDPS'].includes(key)) ||
+        (group.label !== undefined && (typeof group.label !== 'string' || group.label.length > 200)) || (group.slot !== undefined && (typeof group.slot !== 'string' || !group.slot.trim() || group.slot.length > 100)) ||
+        [group.enabled, group.includeInFullDPS].some(value => value !== undefined && typeof value !== 'boolean') || Object.values(group).some(value => value === undefined) ||
+        !Array.isArray(gems) || gems.length > 30 || gems.some(gem => !gem || typeof gem !== 'object' || Array.isArray(gem) || Object.keys(gem).some(key => !['gemName', 'level', 'quality', 'enabled'].includes(key)) ||
+          typeof gem.gemName !== 'string' || !gem.gemName.trim() || gem.gemName.length > 200 || (gem.level !== undefined && (!Number.isInteger(gem.level) || gem.level < 1 || gem.level > 40)) ||
+          (gem.quality !== undefined && (!Number.isInteger(gem.quality) || gem.quality < 0 || gem.quality > 99)) || (gem.enabled !== undefined && typeof gem.enabled !== 'boolean') || Object.values(gem).some(value => value === undefined))) throw new Error('Invalid skill group or gems');
+    return this.derive(id, 'derived:skill-group', async engine => {
+      const read = async () => normalizeObservation({ tree: await engine.getTree(), items: await engine.getItems(), config: await engine.getConfig(), skills: await engine.getSkills() });
+      const before = await read();
+      type Gem = Record<string, unknown> & { index?: number };
+      type Group = Record<string, unknown> & { index?: number; gems?: Gem[] };
+      const groups = (skills: unknown): Group[] => {
+        const result = (skills as { groups?: Group[] })?.groups;
+        if (!Array.isArray(result) || result.some((entry, i) => entry.index !== i + 1 || !Array.isArray(entry.gems) || entry.gems.some((gem, j) => gem.index !== j + 1))) throw new Error('PoB returned invalid skill groups');
+        return result;
+      };
+      const original = groups(before.skills);
+      const created = await engine.createSocketGroup(group);
+      if (created.index !== original.length + 1) throw new Error('PoB did not confirm the new skill group index');
+      const names: string[] = [];
+      for (const [index, gem] of gems.entries()) {
+        const added = await engine.addGem({ ...gem, groupIndex: created.index });
+        if (added.gemIndex !== index + 1 || typeof added.name !== 'string' || !added.name) throw new Error('PoB did not confirm the new gem');
+        names.push(added.name);
+      }
+      const after = await read();
+      for (const section of ['tree', 'items', 'config'] as const) if (!isDeepStrictEqual(before[section], after[section])) throw new Error(`Skill group creation modified unrelated ${section}`);
+      for (const key of ['mainSocketGroup', 'calcsSkillNumber']) if ((before.skills as Record<string, unknown>)[key] !== (after.skills as Record<string, unknown>)[key]) throw new Error(`Skill group creation modified unrelated ${key}`);
+      const updated = groups(after.skills), createdGroup = updated.at(-1);
+      if (updated.length !== original.length + 1 || !createdGroup || createdGroup.index !== created.index || createdGroup.label !== (group.label ?? '') ||
+          (group.slot !== undefined && createdGroup.slot !== group.slot) || createdGroup.enabled !== (group.enabled ?? true) || createdGroup.includeInFullDPS !== (group.includeInFullDPS ?? false) || createdGroup.gems?.length !== gems.length ||
+          gems.some((gem, i) => { const actual = createdGroup.gems?.[i]; return !actual || actual.name !== names[i] || actual.level !== (gem.level ?? 20) || actual.quality !== (gem.quality ?? 0) || actual.enabled !== (gem.enabled ?? true) || actual.qualityId !== 'Default'; })) throw new Error('PoB did not confirm the requested skill group and gems');
+      const canonical = (list: Group[]) => list.map(entry => ({ ...entry, gems: entry.gems!.map(gem => { const copy = { ...gem }; delete copy.appliedToSelectedSkill; return copy; }) }));
+      if (!isDeepStrictEqual(canonical(original), canonical(updated.slice(0, -1)))) throw new Error('Skill group creation modified existing skill groups');
     }, trial);
   }
 
