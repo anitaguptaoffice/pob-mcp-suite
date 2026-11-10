@@ -39,6 +39,12 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   them together without establishing what PoB already includes.
 - Evaluation `selection` and `config` overrides apply only to that calculation;
   they do not change the snapshot. Compare results under the same settings.
+- Use `inspect_snapshot_ailments` to inspect player non-damaging ailment effects
+  under the saved skill and enemy configuration. `appliedEffect` is what PoB
+  credits; `calculatedEffect` is a separate estimate, not an uptime guarantee.
+  Review `uncredited` and `unknown`. When the calculation-tab selection does not
+  match the main skill, estimates and thresholds are withheld instead of mixed.
+  Minion and damaging ailments and freeze duration are outside this report.
 - Use `save_snapshot_config_preset` to persist every observed configuration
   value in the versioned local preset store; overwrite requires `overwrite: true`.
   `list_local_config_presets` and `read_local_config_preset` also expose legacy

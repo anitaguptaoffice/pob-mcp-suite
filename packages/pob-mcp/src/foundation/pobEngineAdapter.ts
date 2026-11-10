@@ -82,6 +82,6 @@ export async function openPoBEngine(options: PoBEngineOptions): Promise<BuildEng
     compareItem: (slot, text) => client.compareItem(slot, text),
     findTimelessJewelSeedsDetailed: params => client.findTimelessJewelSeedsDetailed(params),
     getCompatibleSupports: params => client.getCompatibleSupports(params),
-    getConfig: () => client.getConfig(), getEnemyLevelSetting: () => client.getEnemyLevelSetting(), close: () => client.stop(),
+    getConfig: () => client.getConfig(), getEnemyLevelSetting: () => client.getEnemyLevelSetting(), getAilments: () => client.getAilments(), close: () => client.stop(),
   };
 }

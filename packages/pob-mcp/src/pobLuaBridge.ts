@@ -958,14 +958,14 @@ async setTree(params: {
     return res.result as MasteryOptions;
   }
 
-  async getAilments(): Promise<{ ailments: AilmentReport[] }> {
+  async getAilments(): Promise<{ ailments: AilmentReport[]; calculationSelectionMatchesMain?: boolean }> {
     const res = await this.send({ action: "get_ailments" });
     if (!res.ok) throw new Error(res.error || "get_ailments failed");
     const result = res.result;
     if (!result || typeof result !== "object" || !Array.isArray((result as { ailments?: unknown }).ailments)) {
       throw new Error("get_ailments returned an unexpected shape");
     }
-    return result as { ailments: AilmentReport[] };
+    return result as { ailments: AilmentReport[]; calculationSelectionMatchesMain?: boolean };
   }
 
   async evaluateAnointCandidates(params: { slot: string; focus?: 'dps' | 'defence' | 'both'; limit?: number; enchantSlot?: number; damageMetric?: 'CombinedDPS' | 'TotalDPS' | 'MinionCombinedDPS' | 'MinionTotalDPS' }): Promise<{

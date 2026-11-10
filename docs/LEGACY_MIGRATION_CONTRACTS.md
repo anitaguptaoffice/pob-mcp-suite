@@ -49,7 +49,7 @@ acceptance work to perform during migration, not claims of completed tests.
 | `set_character_level` | `foundation_derive_level`. | Verify actual requested level, parent isolation and reloaded state; automatic-level behavior remains explicit. |
 | `lua_get_stats` | `evaluate` with explicit fields; legacy category-to-fields mapping is needed. | Compare player, minion and full DPS separately against PoB; missing metrics remain unknown. |
 | `get_build_stats` | Explicit file import and `evaluate` with field mapping. | File version and selected metrics come from the same snapshot, with unknowns explicit. |
-| `lua_get_ailments` | Dedicated snapshot-bound ailment calculation/report is needed. | Distinguish credited from inflicted magnitude under the selected enemy configuration. |
+| `lua_get_ailments` | `inspect_snapshot_ailments` reports non-damaging player ailments against the snapshot's saved skill and enemy configuration. | Real PoB fixture checks uncredited and configured shock, parent isolation and different calculation-tab selection. Estimated magnitudes are withheld when the calculation-tab skill cannot be matched to the main skill; minions and damaging ailments are outside this report. Legacy callers remain. |
 | `set_main_skill` | `foundation_derive_selection` creates a child with persistent selection; `evaluate.selection` remains temporary. Legacy callers require migration. | `foundation-selection.mjs` verifies skill part, damage, parent isolation and MCP trial snapshots against PoB; invalid inputs and unintended group changes publish no snapshot. |
 
 ## Tree, equipment and skills

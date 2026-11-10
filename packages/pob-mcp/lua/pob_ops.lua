@@ -238,7 +238,15 @@ function M.get_ailments()
       }
     end
   end
-  return { ailments = result }
+  local mainGroup = tonumber(build.mainSocketGroup)
+  local calcsGroup = build.calcsTab.input and tonumber(build.calcsTab.input.skill_number)
+  local group = mainGroup and build.skillsTab and build.skillsTab.socketGroupList[mainGroup]
+  local mainSkill = group and (tonumber(group.mainActiveSkill) or 1)
+  local calcsSkill = group and (tonumber(group.mainActiveSkillCalcs) or 1)
+  local mainEffect = group and group.displaySkillList and group.displaySkillList[mainSkill] and group.displaySkillList[mainSkill].activeEffect
+  local calcsEffect = group and group.displaySkillListCalcs and group.displaySkillListCalcs[calcsSkill] and group.displaySkillListCalcs[calcsSkill].activeEffect
+  local sameEffect = mainEffect and calcsEffect and mainEffect.srcInstance and mainEffect.srcInstance == calcsEffect.srcInstance and mainEffect.grantedEffect == calcsEffect.grantedEffect
+  return { ailments = result, calculationSelectionMatchesMain = not not (mainGroup ~= nil and calcsGroup ~= nil and mainGroup == calcsGroup and sameEffect) }
 end
 
 function M.export_stats(fields)
