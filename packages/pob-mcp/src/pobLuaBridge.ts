@@ -34,10 +34,11 @@ export class PoBLuaApiClient {
     // Prevent unhandled 'error' events (emitted on process exit) from crashing Node.js
     this.dataEmitter.on("error", () => {});
     const forkSrc = options.cwd || path.join(os.homedir(), "Projects", "PathOfBuilding", "src");
+    const adapter = process.env.POB_ADAPTER_PATH || path.resolve(path.dirname(process.argv[1] || "."), "../lua/vanilla_stdio_bridge.lua");
     this.options = {
       cwd: forkSrc,
       cmd: options.cmd || "luajit",
-      args: options.args || ["HeadlessWrapper.lua"],
+      args: options.args || [adapter],
       env: options.env || {},
       timeoutMs: options.timeoutMs ?? 30000, // Increased from 10s to 30s
     };
@@ -62,13 +63,14 @@ export class PoBLuaApiClient {
     const luaExt = isWindows ? 'dll' : 'so';
 
     // On Windows, use semicolons and backslashes; on Unix, use colons and forward slashes
-    const pathSep = isWindows ? ';' : ':';
+    const pathSep = ';';
+    const adapterDir = path.dirname(process.env.POB_ADAPTER_PATH || path.resolve(path.dirname(process.argv[1] || "."), "../lua/vanilla_stdio_bridge.lua"));
 
     const env = {
       ...process.env,
       ...this.options.env,
-      POB_API_STDIO: "1",
-      LUA_PATH: `${runtimeLuaPath}${path.sep}?.lua${pathSep}${runtimeLuaPath}${path.sep}?${path.sep}init.lua${pathSep}${pathSep}`,
+      POB_API_STDIO: "0",
+      LUA_PATH: `${adapterDir}${path.sep}?.lua${pathSep}${runtimeLuaPath}${path.sep}?.lua${pathSep}${runtimeLuaPath}${path.sep}?${path.sep}init.lua${pathSep}${pathSep}`,
       LUA_CPATH: `${runtimeDir}${path.sep}?.${luaExt}${pathSep}${luaRocksPath}${path.sep}?.${luaExt}${pathSep}${pathSep}`,
     } as NodeJS.ProcessEnv;
 

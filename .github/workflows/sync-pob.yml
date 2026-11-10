@@ -99,6 +99,8 @@ jobs:
             -e POB_LUA_ENABLED=true -e POE_TRADE_ENABLED=false \
             pob-mcp-sync-check /opt/pob-mcp/scripts/mcp-smoke.mjs \
             node /opt/pob-mcp/build/index.js
+          docker run --rm --entrypoint node pob-mcp-sync-check \
+            /opt/pob-mcp/scripts/engine-regression.mjs
 
       - name: Push changes
         if: ${{ steps.changes.outputs.changed == 'true' && (github.event_name == 'schedule' || inputs.dry_run == false) }}

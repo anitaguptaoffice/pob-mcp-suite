@@ -36,10 +36,10 @@ describe('PoBLuaApiClient', () => {
 
       expect(mockSpawn).toHaveBeenCalledWith(
         'luajit',
-        ['HeadlessWrapper.lua'],
+        [expect.stringMatching(/lua[\\/]vanilla_stdio_bridge\.lua$/)],
         expect.objectContaining({
           cwd: '/test/path',
-          env: expect.objectContaining({ POB_API_STDIO: '1' }),
+          env: expect.objectContaining({ POB_API_STDIO: '0' }),
           stdio: ['pipe', 'pipe', 'pipe'],
         })
       );

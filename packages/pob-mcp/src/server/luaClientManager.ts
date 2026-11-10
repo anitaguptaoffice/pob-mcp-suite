@@ -55,7 +55,7 @@ export class LuaClientManager {
 
       // Wait for HeadlessWrapper to be fully ready (loadBuildFromXML available)
       console.error('[Lua Bridge] Waiting for HeadlessWrapper to finish loading...');
-      const testXml = '<?xml version="1.0" encoding="UTF-8"?><PathOfBuilding><Build level="1" className="Witch"/></PathOfBuilding>';
+      const testXml = '<?xml version="1.0" encoding="UTF-8"?><PathOfBuilding><Build level="1" targetVersion="3_0" className="Witch"/></PathOfBuilding>';
       let attempts = 0;
       const maxAttempts = 5;
 
