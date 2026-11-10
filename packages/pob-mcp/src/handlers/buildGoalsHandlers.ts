@@ -1,4 +1,5 @@
 import type { PoBLuaApiClient } from "../pobLuaBridge.js";
+import { toFiniteNumber } from "../pobLuaBridge.js";
 import { noteIgnoredError } from '../utils/errorHandling.js';
 import { isEquippableGearSlot, isGearSlotVisible } from '../itemAnalyzer.js';
 import type { BuildIssue } from "../types.js";
@@ -31,7 +32,8 @@ export async function handleGetBuildIssues(context: BuildGoalsHandlerContext) {
 
     // Elemental resistances
     for (const r of ['Fire', 'Cold', 'Lightning'] as const) {
-      const val = (stats[`${r}Resist`] as number) ?? 0;
+      const val = toFiniteNumber(stats[`${r}Resist`]);
+      if (val === undefined) continue;
       if (val < 0) {
         issues.push({ severity: 'error', category: 'resistance', message: `${r} resist is ${val}% (negative)` });
       } else if (val < 75) {
@@ -60,15 +62,15 @@ export async function handleGetBuildIssues(context: BuildGoalsHandlerContext) {
     }
 
     // Health pools
-    const life = (stats.Life as number) ?? 0;
-    const es = (stats.EnergyShield as number) ?? 0;
-    if (life < 500 && es < 500) {
+    const life = toFiniteNumber(stats.Life);
+    const es = toFiniteNumber(stats.EnergyShield);
+    if (life !== undefined && es !== undefined && life < 500 && es < 500) {
       issues.push({ severity: 'warning', category: 'survivability', message: `Low health pool — Life: ${life}, ES: ${es}` });
     }
 
     // Reservation checks
-    const lifeUnreserved = (stats.LifeUnreserved as number) ?? life;
-    if (lifeUnreserved <= 0) {
+    const lifeUnreserved = toFiniteNumber(stats.LifeUnreserved);
+    if (lifeUnreserved !== undefined && lifeUnreserved <= 0) {
       issues.push({ severity: 'error', category: 'reservation', message: 'Unreserved life is 0 or negative' });
     }
 
@@ -84,9 +86,9 @@ export async function handleGetBuildIssues(context: BuildGoalsHandlerContext) {
     }
 
     // Zero DPS check
-    const totalDPS = (stats.TotalDPS as number) ?? 0;
-    const combinedDPS = (stats.CombinedDPS as number) ?? 0;
-    const minionDPS = (stats.MinionTotalDPS as number) ?? 0;
+    const totalDPS = toFiniteNumber(stats.TotalDPS);
+    const combinedDPS = toFiniteNumber(stats.CombinedDPS);
+    const minionDPS = toFiniteNumber(stats.MinionTotalDPS);
     if (totalDPS === 0 && combinedDPS === 0 && minionDPS === 0) {
       issues.push({ severity: 'error', category: 'gems', message: 'Build does 0 DPS — no main skill selected, gems not linked, or skill not dealing damage. Check skill setup.' });
     }
@@ -94,7 +96,7 @@ export async function handleGetBuildIssues(context: BuildGoalsHandlerContext) {
     // Unspent passive points check
     try {
       const tree = await luaClient.getTree();
-      if (tree?.nodes && buildLevel > 1) {
+      if (tree?.nodes && buildLevel > 1 && tree.treeVersion && !tree.treeVersion.includes('_alternate')) {
         const totalAllocated = tree.nodes.length;
         const ascNodes = tree.ascendancyPointsUsed ?? 0;
         // Subtract: 1 class start + ascendancy start (if ascendancy allocated) + ascendancy nodes
@@ -118,7 +120,7 @@ export async function handleGetBuildIssues(context: BuildGoalsHandlerContext) {
       if (Array.isArray(items)) {
         // Find jewel slots that are empty (id === 0)
         const jewelSlots = items.filter(it => it.slot && /jewel/i.test(it.slot));
-        const emptyJewelSlots = jewelSlots.filter(it => !it.id || it.id === 0);
+        const emptyJewelSlots = jewelSlots.filter(it => it.shown !== false && (!it.id || it.id === 0));
         if (emptyJewelSlots.length > 0) {
           issues.push({
             severity: 'warning',
