@@ -36,6 +36,8 @@ export interface BuildEngine {
   setSocketGroupEnabled(params: { groupIndex: number; enabled: boolean }): Promise<{ groupIndex: number; enabled: boolean }>;
   removeSkill(params: { groupIndex: number }): Promise<void>;
   setFlaskActive(index: number, active: boolean): Promise<void>;
+  listItemSets(): Promise<{ activeItemSetId: number; itemSets: Array<{ id: number; title: string; active: boolean; useSecondWeaponSet: boolean }> }>;
+  selectItemSet(id: number): Promise<{ activeItemSetId: number; itemSets: Array<{ id: number; title: string; active: boolean; useSecondWeaponSet: boolean }> }>;
   getCompatibleSupports(params: { groupIndex?: number; query?: string; limit?: number; includeExceptional?: boolean }): Promise<{
     groupIndex: number; skillName?: string; candidates: Array<{ id: string; name: string; exceptional: boolean; alreadySocketed: boolean }>;
     total: number; failed: number;
@@ -236,7 +238,7 @@ export class BuildFoundation {
     });
   }
 
-  private async derive(id: string, source: string, apply: (engine: BuildEngine) => Promise<void>, trial: boolean): Promise<SnapshotRecord> {
+  private async derive(id: string, source: string, apply: (engine: BuildEngine) => Promise<void>, trial: boolean, verifyReload?: (engine: BuildEngine) => Promise<void>): Promise<SnapshotRecord> {
     if (typeof trial !== 'boolean') throw new Error('Invalid trial flag');
     const parent = await this.store.read(id);
     return this.limiter.withEngine(async engine => {
@@ -253,6 +255,11 @@ export class BuildFoundation {
       const afterReload = await observe(engine);
       const reloadChanges = sections.filter(section => !isDeepStrictEqual(before[section], afterReload[section]));
       if (reloadChanges.length) throw new Error(`Derived build did not survive serialization without state changes: ${reloadChanges.join(', ')}`);
+      if (verifyReload) {
+        await verifyReload(engine);
+        const afterVerification = await observe(engine);
+        if (!isDeepStrictEqual(afterReload, afterVerification)) throw new Error('Reload verification changed the derived build state');
+      }
       await engine.verifyIdentity();
       return await this.store.create({ xml, source, parentId: id,
         engineVersion: parent.engineVersion, dataVersion: parent.dataVersion, adapterVersion: parent.adapterVersion, runtimeVersion: parent.runtimeVersion, executableVersion: parent.executableVersion }, trial);
@@ -513,6 +520,57 @@ export class BuildFoundation {
       const canonical = (items: Item[]) => items.map(item => { const copy = { ...item }; if (item.slot === slot) delete copy.active; return copy; });
       if (!isDeepStrictEqual(canonical(before.items), canonical(after.items))) throw new Error('Flask state change modified unrelated item data');
     }, trial);
+  }
+
+  private async readItemSetCatalog(engine: BuildEngine) {
+    const result = await engine.listItemSets();
+    if (!result || !Number.isSafeInteger(result.activeItemSetId) || result.activeItemSetId < 1 || !Array.isArray(result.itemSets) || result.itemSets.length < 1 || result.itemSets.length > 100 ||
+        result.itemSets.some(set => !Number.isSafeInteger(set.id) || set.id < 1 || typeof set.title !== 'string' || typeof set.active !== 'boolean' || typeof set.useSecondWeaponSet !== 'boolean') ||
+        new Set(result.itemSets.map(set => set.id)).size !== result.itemSets.length || result.itemSets.filter(set => set.active).length !== 1 || !result.itemSets.some(set => set.id === result.activeItemSetId && set.active)) throw new Error('PoB returned invalid item set catalog');
+    return result;
+  }
+
+  async itemSets(id: string) {
+    const snapshot = await this.store.read(id);
+    return this.limiter.withEngine(async engine => {
+      const warnings = checkIdentity(snapshot, engine);
+      await engine.loadBuildXml(snapshot.xml);
+      const catalog = await this.readItemSetCatalog(engine);
+      await engine.verifyIdentity();
+      return { snapshotId: id, ...catalog, identity: engine.identity, warnings };
+    });
+  }
+
+  async deriveItemSet(id: string, itemSetId: number, trial = false): Promise<SnapshotRecord> {
+    if (!Number.isSafeInteger(itemSetId) || itemSetId < 1) throw new Error('Invalid item set ID');
+    let expected: Array<{ id: number; items: unknown }> = [];
+    let catalogBefore: Awaited<ReturnType<BuildFoundation['readItemSetCatalog']>>;
+    const inspectAll = async (engine: BuildEngine, catalog: typeof catalogBefore, restoreId: number) => {
+      const results = [];
+      for (const itemSet of catalog.itemSets) {
+        await engine.selectItemSet(itemSet.id);
+        if ((await this.readItemSetCatalog(engine)).activeItemSetId !== itemSet.id) throw new Error('PoB did not confirm item set selection');
+        const items = normalizeObservation({ items: await engine.getItems() }).items;
+        if (!Array.isArray(items)) throw new Error('PoB returned invalid equipment');
+        results.push({ id: itemSet.id, items });
+      }
+      await engine.selectItemSet(restoreId);
+      if ((await this.readItemSetCatalog(engine)).activeItemSetId !== restoreId) throw new Error('PoB did not restore selected item set');
+      return results;
+    };
+    return this.derive(id, 'derived:item-set', async engine => {
+      catalogBefore = await this.readItemSetCatalog(engine);
+      if (!catalogBefore.itemSets.some(set => set.id === itemSetId)) throw new Error('Item set not found');
+      expected = await inspectAll(engine, catalogBefore, itemSetId);
+      const selected = await this.readItemSetCatalog(engine);
+      if (selected.activeItemSetId !== itemSetId) throw new Error('PoB did not confirm requested item set');
+      const withoutActive = (catalog: typeof catalogBefore) => catalog.itemSets.map(({ active: _active, ...rest }) => rest);
+      if (!isDeepStrictEqual(withoutActive(catalogBefore), withoutActive(selected))) throw new Error('Item set selection modified the catalog');
+    }, trial, async engine => {
+      const reloaded = await this.readItemSetCatalog(engine);
+      if (reloaded.activeItemSetId !== itemSetId || !isDeepStrictEqual(catalogBefore.itemSets.map(({ active: _active, ...rest }) => rest), reloaded.itemSets.map(({ active: _active, ...rest }) => rest))) throw new Error('Item set catalog did not survive serialization');
+      if (!isDeepStrictEqual(expected, await inspectAll(engine, reloaded, itemSetId))) throw new Error('Item set equipment did not survive serialization');
+    });
   }
 
   async deriveTree(id: string, addNodes: number[], removeNodes: number[], masteryEffects: Record<string, number> = {}, trial = false): Promise<SnapshotRecord> {

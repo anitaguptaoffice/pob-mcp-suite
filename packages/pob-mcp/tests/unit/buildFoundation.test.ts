@@ -5,6 +5,24 @@ import { BuildFoundation, type BuildEngine } from '../../src/foundation/buildFou
 import { SnapshotStore } from '../../src/foundation/snapshotStore.js';
 
 describe('BuildFoundation isolation', () => {
+  it('rejects an item-set switch if inactive equipment changes on reload', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'pob-item-sets-failure-'));
+    try {
+      const store = new SnapshotStore(dir);
+      const parent = await store.create({ xml: '<build/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
+      let active = 1, loads = 0;
+      const list = () => ({ activeItemSetId: active, itemSets: [1, 2].map(id => ({ id, title: String(id), active: id === active, useSecondWeaponSet: false })) });
+      const engine = { identity: { engineVersion: null, dataVersion: null, adapterVersion: null },
+        loadBuildXml: async () => { loads++; active = loads === 1 ? 1 : 2; },
+        listItemSets: async () => list(), selectItemSet: async (id: number) => { active = id; return list(); },
+        getItems: async () => [{ slot: 'Ring 1', id: active === 1 ? (loads > 1 ? 99 : 1) : 2 }],
+        getTree: async () => ({}), getSkills: async () => ({}), getConfig: async () => ({}), getBuildInfo: async () => ({}), getStats: async () => ({}),
+        captureSnapshot: async () => ({ xml: '<changed/>' }), verifyIdentity: async () => {}, close: async () => {},
+      } as unknown as BuildEngine;
+      await expect(new BuildFoundation(store, async () => engine).deriveItemSet(parent.id, 2)).rejects.toThrow('equipment did not survive serialization');
+      expect(await readdir(dir)).toEqual([`${parent.id}.json`]);
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
   it('does not publish when the flask state was not applied', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'pob-flask-failure-'));
     try {
@@ -217,7 +235,7 @@ describe('BuildFoundation isolation', () => {
       let loads = 0;
       let closed = false;
       const engine: BuildEngine = {
-        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {},
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {}, listItemSets: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), selectItemSet: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }),
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -251,7 +269,7 @@ describe('BuildFoundation isolation', () => {
         engineVersion: null, dataVersion: null, adapterVersion: null });
       let closed = false;
       const engine: BuildEngine = {
-        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {},
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {}, listItemSets: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), selectItemSet: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }),
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -281,7 +299,7 @@ describe('BuildFoundation isolation', () => {
         engineVersion: '1', dataVersion: null, adapterVersion: 'a', runtimeVersion: 'runtime-a', executableVersion: 'exe-a' });
       let loaded = false;
       const engine: BuildEngine = {
-        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {},
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {}, listItemSets: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), selectItemSet: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }),
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -327,7 +345,7 @@ describe('BuildFoundation isolation', () => {
       const config = jest.fn(async () => ({ rejected: { badOption: 'unknown' } }));
       const closed = jest.fn(async () => {});
       const engine: BuildEngine = {
-        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {},
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {}, listItemSets: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), selectItemSet: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }),
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -364,7 +382,7 @@ describe('BuildFoundation isolation', () => {
       const getItems = jest.fn(async () => [{ slot: 'Helmet' }]);
       const close = jest.fn(async () => {});
       const engine: BuildEngine = {
-        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {},
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {}, listItemSets: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), selectItemSet: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }),
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -399,7 +417,7 @@ describe('BuildFoundation isolation', () => {
         engineVersion: null, dataVersion: null, adapterVersion: null });
       const searchNodes = jest.fn(async () => ({ nodes: [{ id: 1, name: 'Life' }], count: 1 }));
       const engine: BuildEngine = {
-        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {},
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {}, listItemSets: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), selectItemSet: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }),
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -430,7 +448,7 @@ describe('BuildFoundation isolation', () => {
         engineVersion: null, dataVersion: null, adapterVersion: null });
       const search = jest.fn(async () => ({ groupIndex: 1, skillName: 'Vortex', candidates: [{ id: 'x', name: 'Efficacy', exceptional: false, alreadySocketed: false }], total: 1, failed: 2 }));
       const engine: BuildEngine = {
-        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {},
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {}, listItemSets: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), selectItemSet: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }),
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -461,7 +479,7 @@ describe('BuildFoundation isolation', () => {
       const parent = await store.create({ xml: '<original/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
       const weight = jest.fn(async (modId: string) => ({ modId, base: 'Ring', weight: 0 }));
       const engine: BuildEngine = {
-        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {},
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {}, listItemSets: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), selectItemSet: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }),
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -490,7 +508,7 @@ describe('BuildFoundation isolation', () => {
       const parent = await store.create({ xml: '<original/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
       const close = jest.fn(async () => {});
       const engine: BuildEngine = {
-        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {},
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {}, listItemSets: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), selectItemSet: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }),
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -519,7 +537,7 @@ describe('BuildFoundation isolation', () => {
       const parent = await store.create({ xml: '<original/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
       const base = { nodes: [1, 2], treeVersion: '3_28', classId: 1, ascendClassId: 0, secondaryAscendClassId: 0, masteryEffects: {} };
       const engine: BuildEngine = {
-        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {},
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {}, listItemSets: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), selectItemSet: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }),
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -550,7 +568,7 @@ describe('BuildFoundation isolation', () => {
       let unexpected = false;
       const refresh = jest.fn(async () => {});
       const engine: BuildEngine = {
-        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {},
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {}, listItemSets: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), selectItemSet: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }),
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: refresh,
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),
@@ -579,7 +597,7 @@ describe('BuildFoundation isolation', () => {
       const tree = { nodes: [1], treeVersion: '3_28', classId: 1, ascendClassId: 0, secondaryAscendClassId: 0, masteryEffects: { '1': 5 } };
       const update = jest.fn(async () => ({ tree }));
       const engine: BuildEngine = {
-        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {},
+        setGemLevel: async () => {}, setGemQuality: async () => {}, setGemEnabled: async () => {}, addGem: async () => ({ gemIndex: 1, name: "fixture" }), removeGem: async () => {}, createSocketGroup: async () => ({ index: 1 }), setSocketGroupEnabled: async ({ groupIndex, enabled }) => ({ groupIndex, enabled }), removeSkill: async () => {}, setCalcsSelection: async () => {}, setFlaskActive: async () => {}, listItemSets: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }), selectItemSet: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: "fixture", active: true, useSecondWeaponSet: false }] }),
         addItem: async () => ({ id: 1 }),
         refreshTreeProgress: async () => {},
         getMasteryNodeOptions: async nodeId => ({ nodeId, nodeName: 'Mastery', allocated: false, availableEffects: [] }),

@@ -1,0 +1,52 @@
+import { strict as assert } from 'node:assert';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { once } from 'node:events';
+import { BuildFoundation } from '../../build/foundation/buildFoundation.js';
+import { SnapshotStore } from '../../build/foundation/snapshotStore.js';
+import { openPoBEngine } from '../../build/foundation/pobEngineAdapter.js';
+import { gearedBuildXml, smokePoBSrc } from './pobSource.mjs';
+import { startMcpServer } from './mcpClient.mjs';
+
+const dir = await mkdtemp(join(tmpdir(), 'pob-item-sets-'));
+const options = { cwd: smokePoBSrc(), command: process.env.POB_CMD, adapterPath: resolve('lua/vanilla_stdio_bridge.lua'), timeoutMs: 60000 };
+try {
+  const fixture = await readFile(gearedBuildXml, 'utf8');
+  const first = fixture.match(/<ItemSet\b[^>]*\bid="1"[^>]*>[\s\S]*?<\/ItemSet>/)?.[0];
+  assert.ok(first);
+  const second = first.replace('id="1"', 'id="7" title="Alternative"').replace('<Slot name="Ring 1" itemId="5"/>', '<Slot name="Ring 1" itemId="0"/>');
+  assert.notEqual(first, second); assert.ok(second.includes('name="Ring 1" itemId="0"'));
+  const xml = fixture.replace(first, `${first}\n${second}`);
+  const foundation = new BuildFoundation(new SnapshotStore(dir), () => openPoBEngine(options));
+  const parent = await foundation.importBuild(xml, 'item-sets-fixture');
+  const catalog = await foundation.itemSets(parent.id);
+  assert.equal(catalog.activeItemSetId, 1); assert.deepEqual(catalog.itemSets.map(set => set.id), [1, 7]);
+  const base = await foundation.evaluate(parent.id, ['Life']);
+  const child = await foundation.deriveItemSet(parent.id, 7);
+  assert.equal(child.parentId, parent.id);
+  assert.equal((await foundation.itemSets(child.id)).activeItemSetId, 7);
+  const target = await foundation.inspect(child.id, ['items']);
+  assert.equal(target.data.items.find(item => item.slot === 'Ring 1').id, 0);
+  const alternative = await foundation.evaluate(child.id, ['Life']);
+  assert.ok(base.stats.Life > alternative.stats.Life);
+  assert.equal((await foundation.itemSets(parent.id)).activeItemSetId, 1);
+  const back = await foundation.deriveItemSet(child.id, 1);
+  assert.equal((await foundation.inspect(back.id, ['items'])).data.items.find(item => item.slot === 'Ring 1').id, 5);
+  assert.equal((await foundation.evaluate(back.id, ['Life'])).stats.Life, base.stats.Life);
+  await assert.rejects(foundation.deriveItemSet(parent.id, 999), /Item set not found/);
+  const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
+  mcp.child.stderr.on('data', () => {}); const exited = once(mcp.child, 'exit');
+  try {
+    await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'item-set-smoke', version: '1' } });
+    mcp.notify('notifications/initialized', {});
+    const listing = await mcp.request('tools/call', { name: 'foundation_item_sets', arguments: { snapshot_id: parent.id } });
+    assert.ok(!listing.error && !listing.result?.isError, JSON.stringify(listing));
+    assert.equal(JSON.parse(listing.result.content[0].text).itemSets.length, 2);
+    const response = await mcp.request('tools/call', { name: 'foundation_derive_item_set', arguments: { snapshot_id: parent.id, item_set_id: 7, trial: true } });
+    assert.ok(!response.error && !response.result?.isError, JSON.stringify(response));
+    const trial = JSON.parse(response.result.content[0].text); assert.equal(trial.parentId, parent.id); assert.equal(trial.retention.kind, 'trial');
+    mcp.child.stdin.end(); assert.equal((await exited)[0], 0);
+  } finally { if (mcp.child.exitCode === null && mcp.child.signalCode === null) { mcp.child.kill('SIGTERM'); await exited; } }
+  console.log('foundation item sets passed');
+} finally { await rm(dir, { recursive: true, force: true }); }

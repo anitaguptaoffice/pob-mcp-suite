@@ -66,8 +66,8 @@ acceptance work to perform during migration, not claims of completed tests.
 | `create_spec` | Typed spec creation/copy is needed. | Copy source and activation flag are honored, with no partial publication on failure. |
 | `delete_spec` | Typed spec deletion is needed. | Invalid and active-spec cases are explicit; other specs and parent survive. |
 | `rename_spec` | Typed spec rename is needed. | Name survives reload and no unrelated spec changes. |
-| `list_item_sets` | Snapshot item-set listing is needed. | List active and alternate item sets using PoB's IDs. |
-| `select_item_set` | Typed item-set selection is needed. | The selected set and resulting stats survive reload; other sets and parent remain intact. |
+| `list_item_sets` | `foundation_item_sets` lists sets for an explicit snapshot using PoB IDs; legacy callers require migration. | `foundation-item-sets.mjs` checks active and alternate IDs against real PoB. |
+| `select_item_set` | `foundation_derive_item_set` selects a set in a child; legacy callers require migration. | `foundation-item-sets.mjs` verifies selected equipment and stats, switching back, parent isolation and MCP; `buildFoundation.test.ts` rejects corruption of an inactive set after reload. |
 | `add_item` | `foundation_derive_item` only covers a specified slot; no auto-slot or inventory-only equivalent. | Check exact slot, other slots, item raw text, reload and incompatible item; test auto/inventory behavior separately. `foundation-item.mjs` covers a ring fixture. |
 | `get_equipped_items` | `inspect` with `items`; empty and hidden slots have different representation. | Preserve each occupied item's raw modifiers and distinguish hidden from empty slots. |
 | `toggle_flask` | `foundation_derive_flask_active` sets an explicit flask state in a child snapshot; legacy callers require migration. The shared PoB adapter now updates both live slot and saved item-set state. | `foundation-flask.mjs` compares immediate and reloaded armour, parent isolation, activation state and MCP trial; uptime is not inferred. |

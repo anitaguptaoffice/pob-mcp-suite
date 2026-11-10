@@ -50,6 +50,9 @@ by server configuration. Never assume legacy tools are exposed alongside it.
 - Use `foundation_derive_flask_active` for an explicit PoB flask activation
   state and evaluate the child to measure its effect. This does not establish
   whether the flask can be kept active in game.
+- `foundation_item_sets` lists PoB item-set IDs. Use `foundation_derive_item_set`
+  to select one in a child snapshot, then inspect and evaluate that child. The
+  switch verifies all sets on reload and rejects catalogs larger than 100 sets.
 - Use `compare_snapshot_trees` for allocated node and mastery differences between
   two snapshots with the same known tree version. It does not prove legality,
   compute point cost, or measure the resulting damage.
