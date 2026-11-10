@@ -30,6 +30,9 @@ export async function estimateComparable(client: Pick<TradeApiClient, 'searchIte
   if (!league || !base || !Array.isArray(groups) || !groups.length) throw new Error('league, base_type and at least one stat group are required');
   if (groups.length > 10 || groups.some(group => !group || !['and', 'or', 'count'].includes(group.type) || !Array.isArray(group.filters) || !group.filters.length || group.filters.length > 20 ||
     (group.min !== undefined && !Number.isFinite(group.min)) || (group.max !== undefined && !Number.isFinite(group.max)) ||
+    (group.min !== undefined && group.max !== undefined && group.min > group.max) ||
+    (group.type === 'count' && ([group.min, group.max].some(value => value !== undefined && (!Number.isInteger(value) || value < 0)) ||
+      (group.min !== undefined && group.min > group.filters.length))) ||
     group.filters.some(filter => !filter || typeof filter.stat_id !== 'string' || !filter.stat_id.trim() ||
       (filter.min !== undefined && !Number.isFinite(filter.min)) || (filter.max !== undefined && !Number.isFinite(filter.max)) ||
       (filter.min !== undefined && filter.max !== undefined && filter.min > filter.max)))) {
@@ -41,7 +44,7 @@ export async function estimateComparable(client: Pick<TradeApiClient, 'searchIte
   }));
   const sourceWarnings = client.getStats
     ? await auditStatSourceCoverage({ getStats: client.getStats.bind(client) }, normalized)
-    : ['无法读取官方词缀来源数据，未完成来源覆盖审计。'];
+    : ['Official stat data is unavailable; source coverage could not be audited.'];
   const builder = new TradeQueryBuilder().withRarity('rare').withOnlineStatus('securable').withSaleType('priced').withStatGroups(normalized).withSort('price', 'asc');
   const query = builder.build();
   query.query.type = base;
@@ -64,5 +67,11 @@ export async function estimateComparable(client: Pick<TradeApiClient, 'searchIte
   });
   return { league, baseType: base, query, searchUrl: `https://www.pathofexile.com/trade/search/${encodeURIComponent(league)}/${encodeURIComponent(search.id)}`,
     listingScope: 'instant_buyout', sourceWarnings, sourceStatistics, checkedAt: new Date().toISOString(), totalMatches: search.total, fetchedCount: listings.length, inexact: search.inexact === true, byCurrency,
-    warnings: [...sourceWarnings, ...(search.inexact ? ['官方交易搜索标记结果为近似匹配，不能认定所有条件均严格满足。'] : []), '仅比较可即时购买的指定条件物品；卖家可离线，实际购买前仍需确认挂单有效。结果不是原物品的精确价格。', 'checkedAt 是报告生成时间；交易查询和物品详情可能来自缓存，不能作为行情抓取时间。', '最多取价格排序靠前的 10 条，统计值不是全部市场的中位数；不同通货分开统计。', '词缀来源统计只按官方 hashes 与查询 ID 精确匹配，并非验证词缀数值；hashComparable 为 false 的条件（包括综合词缀）不能以此统计来源，零计数不表示没有匹配。缺少或不完整的 hashes 不能证明不存在对应来源。listingsContainingSource 统计有该来源的物品，可能与搜索条件无关；同一物品可计入多个来源。', '词缀来源、数值、底材、腐化等未包含的条件可能显著影响价格。'] };
+    warnings: [...sourceWarnings, ...(search.inexact ? ['The official search reports inexact results; not every condition is guaranteed to match.'] : []),
+      ...(groups.some(group => group.type === 'count' && group.min === 0) ? ['A count group explicitly permits zero matches, so its filters are not required to be present.'] : []),
+      'The search targets instant-buyout listings matching the supplied conditions; sellers may be offline and listings may no longer be available. This is not an exact appraisal.',
+      'checkedAt is report generation time; search and item details may be cached and it is not the market retrieval time.',
+      'At most ten price-sorted listings are sampled; the median does not represent the entire market, and currencies are reported separately.',
+      'Source counts match official hashes to query IDs and do not validate values. Conditions with hashComparable=false, including pseudo stats, cannot be counted this way; zero or missing hashes do not prove absence. listingsContainingSource may be unrelated to the query and a listing can count under multiple sources.',
+      'Unspecified sources, values, base, corruption and other conditions can materially affect price.'] };
 }

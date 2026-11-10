@@ -245,7 +245,7 @@ describe('search_trade_items schema contract', () => {
 
     expect(result.content[0].text).toContain('Stat source coverage warnings');
     expect(result.content[0].text).toContain('fractured');
-    expect(result.content[0].text).toContain('count/or 分组');
+    expect(result.content[0].text).toContain('count/or group');
   });
 });
 

@@ -23,7 +23,7 @@ describe('comparable trade prices', () => {
     ]);
     expect(report.totalMatches).toBe(20);
     expect(report.searchUrl).toContain('/Standard/abc');
-    expect(report.warnings.join(' ')).toContain('可能来自缓存');
+    expect(report.warnings.join(' ')).toContain('may be cached');
   });
 
   it('audits source coverage and counts exact matching sources only when hashes are available', async () => {
@@ -57,7 +57,7 @@ describe('comparable trade prices', () => {
     const report = await estimateComparable(client, { league: 'Standard', base_type: 'Hubris Circlet', stat_groups: [
       { type: 'and', filters: [{ stat_id: 'explicit.stat_1', min: 50 }] },
     ] });
-    expect(report.sourceWarnings.join(' ')).toContain('未能核对来源覆盖');
+    expect(report.sourceWarnings.join(' ')).toContain('source coverage could not be audited');
   });
 
   it('refuses an unspecified search instead of pricing unrelated items', async () => {
@@ -70,6 +70,18 @@ describe('comparable trade prices', () => {
     const client = { searchItems: async () => ({ id: 'abc', complexity: 1, total: 0, result: [], inexact: true }), fetchItems: async () => [] } as unknown as Pick<TradeApiClient, 'searchItems' | 'fetchItems'>;
     const report = await estimateComparable(client, { league: 'Standard', base_type: 'Hubris Circlet', stat_groups: [{ type: 'and', filters: [{ stat_id: 'explicit.stat_1', min: 50 }] }] });
     expect(report.inexact).toBe(true);
-    expect(report.warnings.join(' ')).toContain('近似匹配');
+    expect(report.warnings.join(' ')).toContain('inexact');
+  });
+
+  it('rejects impossible or contradictory count groups before calling trade', async () => {
+    const client = { searchItems: jest.fn(), fetchItems: jest.fn() } as unknown as Pick<TradeApiClient, 'searchItems' | 'fetchItems'>;
+    for (const group of [
+      { type: 'count', min: 2, filters: [{ stat_id: 'explicit.a' }] },
+      { type: 'count', min: 0.5, filters: [{ stat_id: 'explicit.a' }] },
+      { type: 'count', min: 1, max: 0, filters: [{ stat_id: 'explicit.a' }] },
+    ]) {
+      await expect(estimateComparable(client, { league: 'Standard', base_type: 'Hubris Circlet', stat_groups: [group] })).rejects.toThrow('invalid stat_groups');
+    }
+    expect(client.searchItems).not.toHaveBeenCalled();
   });
 });
