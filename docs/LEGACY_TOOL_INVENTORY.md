@@ -6,7 +6,7 @@ Generated from registered schema groups in the current build. Most entries are p
 
 - `get_build_issues` — target: analysis and optimization; replacement: `check_snapshot_issues`; status: partially migrated (legacy callers remain; full validation is separate); skill references: no exact name found in packaged skill Markdown.
 - `get_passive_upgrades` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
-- `suggest_masteries` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `suggest_masteries` — target: analysis and optimization; replacement: `rank_snapshot_mastery_effects`; status: partially migrated (explicit candidate IDs only; automatic discovery and legacy callers remain); skill references: no exact name found in packaged skill Markdown.
 - `find_best_anointment` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
 - `analyze_build_cluster_jewels` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
 - `analyze_cluster_jewels` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.

@@ -23,7 +23,7 @@ export interface BuildEngine {
   getTree(): Promise<unknown>;
   refreshTreeProgress(): Promise<void>;
   updateTreeDelta(params: { addNodes: number[]; removeNodes: number[]; masteryEffects?: Record<string, number> }): Promise<{ tree: unknown; droppedNodes?: number[] }>;
-  getMasteryNodeOptions(nodeId: number): Promise<{ nodeId: number; nodeName: string; allocated: boolean; availableEffects: Array<{ effectId: number; stat: string }> }>;
+  getMasteryNodeOptions(nodeId: number): Promise<{ nodeId: number; nodeName: string; allocated: boolean; allocatedEffect?: number; ascendancyName?: string; availableEffects: Array<{ effectId: number; stat: string }> }>;
   getMasteryOptions(): Promise<{ masteries: Array<{ nodeId: number | string; availableEffects: Array<{ effectId: number }> }> }>;
   searchNodes(params: { keyword: string; nodeType?: string; maxResults: number; includeAllocated: boolean }): Promise<{ nodes: unknown[]; count: number }>;
   getItems(): Promise<unknown>;

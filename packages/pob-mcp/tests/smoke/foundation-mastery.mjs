@@ -16,6 +16,10 @@ try {
   await client.start();
   await client.newBuild({ className: 'Witch' });
   await client.setTree({ classId: 3, ascendClassId: 0, nodes: [], treeVersion: '3_29' });
+  const group = await client.createSocketGroup({ label: 'poison-minion', slot: 'Helmet' });
+  await client.addGem({ groupIndex: group.index, gemName: 'Summon Raging Spirit', level: 20 });
+  await client.setMainSelection({ mainSocketGroup: group.index });
+  assert.ok((await client.setConfig({ customMods: 'Minions have 100% chance to Poison on Hit' })).applied.customMods);
   const nodes = await client.searchNodes({ keyword: 'Life Mastery', nodeType: 'mastery', maxResults: 100, includeAllocated: false });
   const mastery = nodes.nodes.find(node => node.id === 4139);
   assert.ok(mastery?.pathNodes?.length);
@@ -55,6 +59,9 @@ try {
   const before = await foundation.evaluate(parent.id, ['Life']);
   const child = await foundation.deriveMasteries(parent.id, { 4139: 31822 });
   const after = await foundation.evaluate(child.id, ['Life']);
+  const minionBefore = await foundation.evaluate(parent.id, ['MinionTotalDPS', 'MinionCombinedDPS']);
+  const minionAfter = await foundation.evaluate(child.id, ['MinionTotalDPS', 'MinionCombinedDPS']);
+  assert.ok(minionBefore.metrics.MinionCombinedDPS.value > minionBefore.metrics.MinionTotalDPS.value);
   assert.notEqual(before.stats.Life, after.stats.Life);
   const inspected = await foundation.inspect(child.id, ['tree']);
   assert.equal(inspected.data.tree.masteryEffects['4139'], 31822);
@@ -79,6 +86,24 @@ try {
 
     const queried = await call('foundation_mastery_options', { snapshot_id: parent.id });
     assert.ok(queried.masteries.some(node => Number(node.nodeId) === 4139));
+    const ranking = await call('rank_snapshot_mastery_effects', { snapshot_id: parent.id, node_id: 4139, effect_ids: [31822, 999999], metric: 'Life' });
+    assert.equal(ranking.currentEffect, 47642);
+    assert.deepEqual(ranking.rankedEffectIds, [31822]);
+    assert.equal(ranking.results[0].delta, after.metrics.Life.value - before.metrics.Life.value);
+    assert.equal(ranking.results[1].status, 'unavailable');
+    const candidateMeta = await call('foundation_read_snapshot', { snapshot_id: ranking.results[0].snapshotId });
+    assert.equal(candidateMeta.parentId, parent.id);
+    assert.equal((await call('foundation_snapshot_retention', { snapshot_id: ranking.results[0].snapshotId })).kind, 'trial');
+    assert.equal((await call('foundation_inspect', { snapshot_id: parent.id, sections: ['tree'] })).data.tree.masteryEffects['4139'], 47642);
+    const minionRanking = await call('rank_snapshot_mastery_effects', { snapshot_id: parent.id, node_id: 4139, effect_ids: [31822], metric: 'MinionCombinedDPS' });
+    assert.deepEqual(minionRanking.rankedEffectIds, [31822]);
+    assert.equal(minionRanking.baseline.value, minionBefore.metrics.MinionCombinedDPS.value);
+    assert.equal(minionRanking.results[0].value, minionAfter.metrics.MinionCombinedDPS.value);
+    const fourEffects = lifeOptions.availableEffects.slice(0, 4).map(effect => effect.effectId);
+    assert.equal(fourEffects.length, 4);
+    const batch = await call('rank_snapshot_mastery_effects', { snapshot_id: parent.id, node_id: 4139, effect_ids: fourEffects, metric: 'Life' });
+    assert.equal(batch.results.length, 4);
+    assert.ok(batch.results.every(result => result.status === 'ok'));
     const derived = await call('foundation_derive_masteries', { snapshot_id: parent.id, effects: { 4139: 31822 } });
     assert.equal(derived.id, child.id);
     mcp.child.stdin.end();

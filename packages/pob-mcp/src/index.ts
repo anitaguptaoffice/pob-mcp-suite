@@ -55,6 +55,7 @@ import { createSnapshotBuildComparisonTool, snapshotBuildComparisonSchema } from
 import { createTreePathTools, treePathSchemas } from './features/treePaths/tool.js';
 import { buildIssuesSchema, createBuildIssuesTool } from './features/buildIssues/tool.js';
 import { bossReadinessSchema, createBossReadinessTool } from './features/bossReadiness/tool.js';
+import { masteryRankingSchema, createMasteryRankingTool } from './features/masteryRanking/tool.js';
 import { createCurrencyReferenceTools, currencyReferenceSchemas } from './features/currencyReference/tools.js';
 import { createCurrencySpreadTool, currencySpreadSchema } from './features/currencySpread/tool.js';
 import { createTradePreviewTool, tradePreviewSchema } from './features/tradePreview/tool.js';
@@ -121,6 +122,7 @@ class PoBMCPServer {
       ...treePathSchemas(),
       buildIssuesSchema(),
       bossReadinessSchema(),
+      masteryRankingSchema(),
       ...currencyReferenceSchemas(),
       currencySpreadSchema(),
       tradePreviewSchema(),
@@ -479,7 +481,7 @@ class PoBMCPServer {
       }));
       const foundation = this.foundation;
       const economy = new PoeNinjaAdapter();
-      const migrated = [createSnapshotCostTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), createSnapshotBuildComparisonTool(foundation), ...createTreePathTools(foundation), createBuildIssuesTool(foundation), createBossReadinessTool(foundation), createTimelessSearchTool(foundation), ...createCurrencyReferenceTools(economy), createCurrencySpreadTool(economy)];
+      const migrated = [createSnapshotCostTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), createSnapshotBuildComparisonTool(foundation), ...createTreePathTools(foundation), createBuildIssuesTool(foundation), createBossReadinessTool(foundation), createMasteryRankingTool(foundation), createTimelessSearchTool(foundation), ...createCurrencyReferenceTools(economy), createCurrencySpreadTool(economy)];
       // Until the legacy Trade client is retired, do not run two independent
       // rate limiters in one service against the same official API.
       if (process.env.POE_TRADE_ENABLED === 'true' && !this.legacyEnabled()) {
