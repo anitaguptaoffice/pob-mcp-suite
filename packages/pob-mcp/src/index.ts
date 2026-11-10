@@ -68,6 +68,8 @@ import { skillInspectionSchema, createSkillInspectionTool } from './features/ski
 import { enemyConfigSchema, createEnemyConfigTool } from './features/enemyConfig/tool.js';
 import { snapshotAilmentsSchema, createSnapshotAilmentsTool } from './features/ailments/tool.js';
 import { snapshotDefensesSchema, createSnapshotDefensesTool } from './features/defenses/tool.js';
+import { craftingContextSchema, createCraftingContextTool } from './features/craftingContext/tool.js';
+import { PoedbBaseReference } from './adapters/baseReference/poedb.js';
 import { createModifierDataTools } from './features/modifierData/tools.js';
 import { PoBModifierData } from './adapters/modifierData/pobModifierData.js';
 import { LocalBuildFileCatalog } from './adapters/localBuild/fileCatalog.js';
@@ -162,6 +164,7 @@ class PoBMCPServer {
       enemyConfigSchema(),
       snapshotAilmentsSchema(),
       snapshotDefensesSchema(),
+      craftingContextSchema(),
       ...this.modifierFeatures.schemas(),
       ...this.buildFileCatalog.schemas(),
       ...this.configPresetCatalog.schemas(),
@@ -567,6 +570,7 @@ class PoBMCPServer {
       const migrated = [createSnapshotCostTool(foundation, economy), createShoppingListTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), createSnapshotBuildComparisonTool(foundation), createSnapshotGemComparisonTool(foundation), ...createGemSetupJobTools(foundation, this.foundationJobs), createSnapshotSupportRankingTool(foundation), ...createTreePathTools(foundation), createBuildIssuesTool(foundation), createBossReadinessTool(foundation), createMasteryRankingTool(foundation), createMasteryDiscoveryTool(foundation), ...createMasteryJobTools(foundation, this.foundationJobs), ...createPassiveRankingTools(foundation, this.foundationJobs), createAnointmentTool(foundation), createSnapshotSummaryTool(foundation), createSkillInspectionTool(foundation), createEnemyConfigTool(foundation), ...createSnapshotConfigPresetTools(foundation, this.localConfigPresets), createTimelessSearchTool(foundation)];
       migrated.push(createSnapshotAilmentsTool(foundation));
       migrated.push(createSnapshotDefensesTool(foundation));
+      migrated.push(createCraftingContextTool(foundation, new PoedbBaseReference()));
       if (trade) migrated.push(createTradePreviewTool(foundation, trade));
       this.foundationFeatures = new FeatureRegistry(migrated);
     }

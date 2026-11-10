@@ -7,7 +7,16 @@ description: Use for Path of Exile 1 item crafting, crafting steps, success prob
 
 Use Simplified Chinese and verified Chinese game terms. The user plays the international realm. Verify the item, game version, base, level, existing modifiers, available slots, and currency mechanic before suggesting a step. Explain uncertainty and possible loss of modifiers.
 
-`suggest_crafting` gathers context; it is not a rules engine or probability simulator. Never present its suggestions or fallback prices as verified. A Scouring Orb normally removes all explicit modifiers and returns an item to normal rarity; protection and special-item rules require separate verification.
+When advertised, `prepare_crafting_context` gathers an explicitly supplied base
+or an active equipped item from a snapshot. It does not validate the target's
+item level, modifiers, special state, eligibility or crafting steps. Optional
+`verify_base: true` checks the PoEDB page title only. For an exact international
+league, obtain reference currency prices separately with
+`reference_currency_rates`; use a securable priced official Trade search for
+buyable comparisons. On a legacy server `suggest_crafting` gathers similar
+context. Neither tool is a rules engine or probability simulator. A Scouring Orb
+normally removes all explicit modifiers and returns an item to normal rarity;
+protection and special-item rules require separate verification.
 
 When advertised, `classify_modifier_lines`, `query_bench_modifiers`, and
 `query_modifier_tiers` provide PoB table evidence without a loaded build. Check
