@@ -136,6 +136,7 @@ Triggers Level 20 Elemental Aegis when Equipped
 Redblade Banner
 Painted Tower Shield
 League: Warbands
+Source: Drops from Redblade Mercenary monsters
 Variant: Pre 2.6.0
 Variant: Pre 3.0.0
 Variant: Pre 3.11.0
@@ -157,7 +158,7 @@ Implicits: 1
 Svalinn
 Girded Tower Shield
 League: Settlers of Kalguur
-Requires Level 51, 123 Str
+Source: Drops from unique{The Black Knight} in a normal{Starfall Crater}
 Implicits: 1
 +(10-20) to maximum Life
 (10-15)% Chance to Block Spell Damage
@@ -247,7 +248,7 @@ Hex Reflection
 Atziri's Reflection
 Golden Buckler
 Source: Drops from unique{Atziri, Queen of the Vaal} in normal{The Alluring Abyss}
-LevelReq: 68
+Requires Level 68
 Implicits: 1
 6% increased Movement Speed
 +(40-60) to Intelligence
@@ -266,7 +267,7 @@ Variant: Pre 3.17.0
 Variant: Pre 3.19.0
 Variant: Current
 Implicits: 1
-{variant:3,4}9% increased Movement Speed
+{variant:3,4,5}9% increased Movement Speed
 {variant:1,2,3,4}+1 to Level of Socketed Curse Gems
 {variant:5}+3 to Level of Socketed Curse Gems
 (30-50)% increased Evasion Rating
@@ -356,7 +357,6 @@ Reflects (25-50) Cold Damage to Melee Attackers
 ]],[[
 Kiloava's Bluster
 Ironwood Buckler
-Requires Level 57, 137 Dex
 Implicits: 1
 3% increased Movement Speed
 (100-150)% increased Evasion Rating
@@ -392,6 +392,7 @@ You are at Maximum Chance to Block Spell Damage if you have not Blocked Recently
 Mutewind Pennant
 Enameled Buckler
 League: Warbands
+Source: Drop from Mutewind Mercenary monsters
 Variant: Pre 2.6.0
 Variant: Pre 3.0.0
 Variant: Pre 3.11.0
@@ -427,7 +428,6 @@ Implicits: 1
 ]],[[
 Cowards' Wail
 Ezomyte Tower Shield
-Requires Level 64, 159 Str
 Implicits: 1
 +(30-40) to maximum Life
 (120-240)% increased Armour
@@ -536,6 +536,7 @@ Your Raised Spectres also gain Arcane Surge when you do
 Brinerot Flag
 Tarnished Spirit Shield
 League: Warbands
+Source: Drops from Brinerot Warband monsters
 Variant: Pre 2.6.0
 Variant: Pre 3.0.0
 Variant: Pre 3.11.0
@@ -557,9 +558,9 @@ The Draugur's Lantern
 Ancient Spirit Shield
 League: Allflame
 Source: Drops from unique{Filthscrabble} in normal{The Fathomless Depths}
-Requires Level 45, 110 Int
-(15-20)% Chance to Block Spell Damage
+Implicits: 1
 (5-10)% increased Spell Damage
+(15-20)% Chance to Block Spell Damage
 +(66-99) to maximum Life
 Ignites you inflict deal Damage (15-20)% faster
 Draugurflames burn enemies around you for 8 seconds after you Ignite a target
@@ -672,6 +673,7 @@ Shocks you when you reach Maximum Power Charges
 Manastorm
 {variant:1}Fossilised Spirit Shield
 {variant:2,3}Lacewood Spirit Shield
+Source: Drops from unique{Nightmare of Uhtred} in normal{Citadel Map}
 Variant: Pre 3.19.0
 Variant: Pre 3.24.0
 Variant: Current
@@ -711,7 +713,7 @@ Implicits: 2
 Whakatutuki o Matua
 Tarnished Spirit Shield
 Source: No longer obtainable
-LevelReq: 63
+Requires Level 63
 Implicits: 1
 (5-10)% increased Spell Damage
 +3 to Level of Socketed Minion Gems
@@ -732,12 +734,13 @@ Variant: 3.19.0
 Variant: Pre 3.29.0
 Variant: Current
 Implicits: 0
+{variant:5}(10-15)% Chance to Block Spell Damage
 {variant:1,2}(40-60)% increased Spell Damage
 (120-160)% increased Energy Shield
 10% increased maximum Life
 {variant:1,2}+25% to Lightning Resistance
 {variant:1}+(12-18)% Chance to Block Spell Damage
-{variant:2,3,4,5}+(10-15)% Chance to Block Spell Damage
+{variant:2,3,4}+(10-15)% Chance to Block Spell Damage
 {variant:3}Sacrifice 4% of your Life when you Use or Trigger a Spell Skill
 {variant:4,5}Sacrifice 10% of your Life when you Use or Trigger a Spell Skill
 {variant:3}2% increased Spell Critical Strike Chance per 100 Player Maximum Life
@@ -749,6 +752,7 @@ Implicits: 0
 ]],[[
 The Scales of Justice
 Chiming Spirit Shield
+Source: Labyrinth
 Implicits: 1
 (10-15)% increased Spell Damage
 Has no Energy Shield
@@ -777,7 +781,7 @@ Curse Enemies with Elemental Weakness when you Block their Spell Damage, ignorin
 The Flawed Refuge
 Maple Round Shield
 League: Affliction
-Requires Level 39, 52 Str, 52 Dex
+Source: Drops from Viridian Wildwood and Ritual monsters
 Implicits: 1
 180% increased Block Recovery
 (100-150)% increased Armour and Evasion
@@ -827,13 +831,14 @@ Teak Round Shield
 Variant: Pre 3.16.0
 Variant: Current
 League: Heist
+Source: Reward from Mercenary duel
 Implicits: 1
 180% increased Block Recovery
 +2 to Level of Socketed Support Gems
 Triggers Level 20 Physical Aegis when Equipped
 (300-400)% increased Armour and Evasion
-{variant:2}Bleeding cannot be inflicted on you
 {variant:1}(30-50)% chance to Avoid Bleeding
+{variant:2}100% chance to Avoid Bleeding
 (8-15)% increased Attack and Cast Speed while Physical Aegis is depleted
 (50-70)% increased Critical Strike Chance while Physical Aegis is depleted
 Nearby Enemies are Blinded while Physical Aegis is not depleted
@@ -852,7 +857,6 @@ Seablister
 Spiny Round Shield
 League: Allflame
 Source: Drops from unique{Velka, the Tide Witch}
-Requires Level 62, 85 Str, 85 Dex
 Implicits: 1
 60% increased Block Recovery
 Grants Level 20 Savage Barnacle
@@ -887,6 +891,7 @@ Socketed Support Gems can also Support Skills from your Main Hand
 ]],[[
 Vix Lunaris
 Cardinal Round Shield
+Source: Drops from unique{Selenia, the Endless Night} in normal{The Twilight Temple}
 Implicits: 0
 +2 to Level of Socketed Gems
 Triggers Level 20 Cold Aegis when Equipped
@@ -914,7 +919,6 @@ Implicits: 1
 Bitter Instinct
 Spiny Round Shield
 Source: Drops from unique{Uber Incarnation of Neglect} in normal{Moment of Loneliness}
-Requires Level 68, 85 Str, 85 Dex
 Implicits: 1
 60% increased Block Recovery
 (170-250)% increased Armour and Evasion
@@ -943,6 +947,7 @@ Implicits: 0
 Broken Faith
 Archon Kite Shield
 League: Warbands
+Source: Drops from Renegade Warband monsters
 Variant: Pre 2.6.0
 Variant: Pre 3.11.0
 Variant: Current
@@ -976,6 +981,7 @@ Glancing Blows
 ]],[[
 Invictus Solaris
 Archon Kite Shield
+Source: Drops from unique{Helial, the Day Unending}
 Implicits: 1
 +12% to all Elemental Resistances
 +2 to Level of Socketed Gems
@@ -1082,7 +1088,7 @@ Variant: Pre 2.0.0
 Variant: Pre 2.6.0
 Variant: Pre 3.19.0
 Variant: Current
-LevelReq: 40
+Requires Level 40
 Implicits: 2
 {variant:1}+8% to all Elemental Resistances
 {variant:2,3,4,5}+4% to all Elemental Resistances
@@ -1214,7 +1220,6 @@ Implicits: 2
 ]],[[
 Leper's Alms
 Mirrored Spiked Shield
-Source: Drops from unique{The Eradicator}
 Variant: Pre 3.5.0
 Variant: Current
 Implicits: 1
@@ -1281,7 +1286,6 @@ Azadi Crest
 Lacquered Buckler
 Source: Drops from unique{Mercenary} after winning a duel
 League: Mercenaries of Trarthus
-Requires Level 60, 154 Dex
 Implicits: 1
 6% increased Movement Speed
 +(1-100) to maximum Life

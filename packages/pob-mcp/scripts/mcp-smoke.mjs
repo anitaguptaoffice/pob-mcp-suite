@@ -117,6 +117,16 @@ try {
   await callTool("lua_get_build_info");
   await callTool("lua_get_stats", { category: "defense" });
 
+  const jewel = await callTool("find_timeless_jewel_seeds", {
+    socket_node_id: 60735,
+    desired_node_ids: ["eternal_notable_minion_1"],
+    seeds: [130660],
+  });
+  const matches = JSON.parse(readText(jewel));
+  if (!matches.some((match) => match.seed === 130660 && match.hits?.length > 0)) {
+    throw new Error("Timeless jewel lookup did not return the known seed");
+  }
+
   console.log("pob-mcp smoke passed");
 } finally {
   child.kill("SIGTERM");

@@ -60,7 +60,7 @@ jobs:
           LOOKUP_TABLE: vendor/PathOfBuilding/src/Data/TimelessJewelData/ElegantHubris.zip
         run: |
           test -s "${LOOKUP_TABLE}"
-          unzip -tq "${LOOKUP_TABLE}"
+          python3 -c 'import os, pathlib, zlib; data = zlib.decompress(pathlib.Path(os.environ["LOOKUP_TABLE"]).read_bytes()); assert data, "empty lookup table"'
           echo "sha256=$(sha256sum "${LOOKUP_TABLE}" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
           if git diff --quiet origin/main HEAD -- "${LOOKUP_TABLE}"; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
@@ -90,6 +90,15 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
             echo "Vendor changes detected"
           fi
+
+      - name: Verify updated calculation engine
+        if: ${{ steps.changes.outputs.changed == 'true' }}
+        run: |
+          docker build -t pob-mcp-sync-check .
+          docker run --rm --entrypoint node \
+            -e POB_LUA_ENABLED=true -e POE_TRADE_ENABLED=false \
+            pob-mcp-sync-check /opt/pob-mcp/scripts/mcp-smoke.mjs \
+            node /opt/pob-mcp/build/index.js
 
       - name: Push changes
         if: ${{ steps.changes.outputs.changed == 'true' && (github.event_name == 'schedule' || inputs.dry_run == false) }}

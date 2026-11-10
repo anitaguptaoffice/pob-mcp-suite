@@ -28,4 +28,4 @@ docker run --rm --entrypoint node -e POB_LUA_ENABLED=true -e POE_TRADE_ENABLED=f
 
 ## Vendor Synchronization
 
-`.github/workflows/sync-pob.yml` syncs the Path of Building Community `dev` branch every Monday. After merging the vendor subtree, it validates `src/Data/TimelessJewelData/ElegantHubris.zip` with `unzip -tq`, records its SHA-256 and whether it changed in the workflow summary, then publishes a fresh Docker image when the vendor changed. This keeps the native Timeless Jewel seed lookup table aligned with the bundled PoB version.
+`.github/workflows/sync-pob.yml` syncs the Path of Building Community `dev` branch every Monday. After merging the vendor subtree, it validates the zlib-compressed `src/Data/TimelessJewelData/ElegantHubris.zip`, records its SHA-256 and whether it changed, and runs an engine smoke test before publishing a fresh Docker image. Conflicts or compatibility failures require manual repair.
