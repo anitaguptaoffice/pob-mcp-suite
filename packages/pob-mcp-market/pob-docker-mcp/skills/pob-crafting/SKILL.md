@@ -9,6 +9,15 @@ Use Simplified Chinese and verified Chinese game terms. The user plays the inter
 
 `suggest_crafting` gathers context; it is not a rules engine or probability simulator. Never present its suggestions or fallback prices as verified. A Scouring Orb normally removes all explicit modifiers and returns an item to normal rarity; protection and special-item rules require separate verification.
 
+When advertised, `classify_modifier_lines`, `query_bench_modifiers`, and
+`query_modifier_tiers` provide PoB table evidence without a loaded build. Check
+the returned data fingerprints, unknown slot counts, pagination, and warnings.
+Only supply `item_tags` with `item_tags_complete: true` after independently
+confirming the complete tag set including `default`; a broad `slot_tags` match
+does not prove eligibility. A base spawn rule is neither a crafting probability
+nor proof that a modifier can be obtained on the item. On older servers, inspect
+advertised tools and use their corresponding legacy queries if available.
+
 `compare_craft_budget` is a mathematical repeated-attempt model. It requires independently verified per-attempt probability, the complete cost per attempt, and the probability's source/version. It does not derive odds from PoE data. Distinguish the expected cost from the 50% and 90% budgets, and name any omitted base, salvage, protection, or intermediate-step costs. For market listings, use the separate `pob-economy` skill.
 
 `simulate_simple_annul` enumerates one use of an Orb of Annulment only for an ordinary item when every assumption is explicitly confirmed: no fractured affixes, protection, catalyst weighting, corruption, mirroring, or other special rules. It cannot inspect or validate the item itself. Obtain and verify the complete list of explicit affixes first; a hybrid affix can produce multiple lines. If classification is ambiguous, do not guess. This is a one-use outcome, not a repeatable process.

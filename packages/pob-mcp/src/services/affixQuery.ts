@@ -17,14 +17,14 @@ const matchesText = (entry: ModEntry, needle: string): boolean => {
   );
 };
 
-interface CraftableQuery {
+export interface CraftableQuery {
   itemClass: string;
   itemLevel: number;
   affixType?: AffixSlot;
   search?: string;
 }
 
-interface CraftableResult {
+export interface CraftableResult {
   /** Bench crafts the base can take at this item level. */
   mods: ModEntry[];
   /** Crafts for this class that the item level locks out, so the caller can say why. */
@@ -37,8 +37,7 @@ interface CraftableResult {
  * Bench crafts are keyed by item class ("Body Armour"), not by the base tags explicit
  * mods use, so the two vocabularies never mix.
  */
-export function findCraftableMods(query: CraftableQuery): CraftableResult {
-  const entries = loadMasterMods();
+export function findCraftableMods(query: CraftableQuery, entries = loadMasterMods()): CraftableResult {
   const knownItemClasses = [...new Set(entries.flatMap((entry) => entry.itemClasses))].sort();
 
   const forClass = entries
@@ -56,7 +55,7 @@ export function findCraftableMods(query: CraftableQuery): CraftableResult {
 const byGroupThenLevel = (a: ModEntry, b: ModEntry): number =>
   a.group.localeCompare(b.group) || a.level - b.level;
 
-interface TierQuery {
+export interface TierQuery {
   search: string;
   affixType?: AffixSlot;
   /** Base tags from `weightKey`, e.g. "ring" or "int_armour". Matches any of them. */
@@ -66,6 +65,7 @@ interface TierQuery {
   maxItemLevel?: number;
   includeUnobtainable?: boolean;
   limit: number;
+  offset?: number;
 }
 
 /** Mirrors PoB's first matching base spawn rule; does not apply multiplier or crafting mechanics. */
@@ -74,7 +74,7 @@ export function firstMatchingSpawnRule(entry: ModEntry, itemTags: string[]): { t
   return entry.weightRules.find(rule => tags.has(rule.tag));
 }
 
-interface TierResult {
+export interface TierResult {
   /** Matching tiers grouped by affix group, highest tier last. */
   groups: Array<{ group: string; type: AffixSlot; tiers: ModEntry[] }>;
   totalGroups: number;
@@ -88,8 +88,7 @@ interface TierResult {
  * an influenced variant carries `body_armour_elder`, so a guessed expansion would quietly
  * mix mods the player cannot obtain into the answer.
  */
-export function findAffixTiers(query: TierQuery): TierResult {
-  const entries = loadExplicitMods();
+export function findAffixTiers(query: TierQuery, entries = loadExplicitMods()): TierResult {
   const knownSlotTags = [...new Set(entries.flatMap((entry) => entry.allSlotTags))].sort();
 
   const matched = entries
@@ -116,7 +115,7 @@ export function findAffixTiers(query: TierQuery): TierResult {
   }));
 
   return {
-    groups: ordered.slice(0, query.limit),
+    groups: ordered.slice(query.offset ?? 0, (query.offset ?? 0) + query.limit),
     totalGroups: ordered.length,
     knownSlotTags,
   };

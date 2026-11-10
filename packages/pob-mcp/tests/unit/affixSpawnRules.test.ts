@@ -3,6 +3,7 @@ import { parseModFile } from '../../src/services/modDataStore.js';
 import * as store from '../../src/services/modDataStore.js';
 import { firstMatchingSpawnRule } from '../../src/services/affixQuery.js';
 import { handleFindAffixTiers } from '../../src/handlers/affixHandlers.js';
+import { routeToolCall, type ToolRouterDependencies } from '../../src/server/toolRouter.js';
 
 const fixture = `return {
 ["Example"] = { type = "Prefix", affix = "Example", "+(1-5) to maximum Life", statOrder = { 1 }, level = 1, group = "Life", weightKey = { "special_ring", "ring", "default" }, weightVal = { 0, 1000, 0 }, modTags = { "life" }, },
@@ -11,6 +12,13 @@ const entries = parseModFile(fixture, 'explicit');
 afterEach(() => { jest.restoreAllMocks(); });
 
 describe('ordered PoB spawn rules', () => {
+  it('passes complete item tags through the legacy MCP router', async () => {
+    jest.spyOn(store, 'loadExplicitMods').mockReturnValue(entries);
+    const deps = { contextBuilder: new Proxy({}, { get: () => () => ({}) }) } as ToolRouterDependencies;
+    const response = await routeToolCall('find_affix_tiers', { search: 'maximum Life', item_tags: ['special_ring', 'ring', 'default'], item_tags_complete: true, include_unobtainable: true }, deps);
+    expect(response.content[0].text).toContain('first matching base spawn rule: special_ring = 0');
+    await expect(routeToolCall('find_affix_tiers', { search: 'Life', item_tags: ['ring'], item_tags_complete: true }, deps)).rejects.toThrow('confirmed complete tag set');
+  });
   it('preserves the first matching zero-weight rule instead of selecting a later positive tag', () => {
     expect(firstMatchingSpawnRule(entries[0], ['default', 'ring', 'special_ring'])).toEqual({ tag: 'special_ring', weight: 0 });
     expect(firstMatchingSpawnRule(entries[0], ['default', 'ring'])).toEqual({ tag: 'ring', weight: 1000 });

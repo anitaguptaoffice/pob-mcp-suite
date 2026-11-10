@@ -62,6 +62,8 @@ import { bossReadinessSchema, createBossReadinessTool } from './features/bossRea
 import { masteryRankingSchema, createMasteryRankingTool, masteryDiscoverySchema, createMasteryDiscoveryTool, rankMasteryEffects } from './features/masteryRanking/tool.js';
 import { masteryJobSchemas, createMasteryJobTools } from './features/masteryRanking/jobTools.js';
 import { passiveRankingSchemas, createPassiveRankingTools, evaluatePassive } from './features/passiveRanking/tool.js';
+import { createModifierDataTools } from './features/modifierData/tools.js';
+import { PoBModifierData } from './adapters/modifierData/pobModifierData.js';
 import { createCurrencyReferenceTools, currencyReferenceSchemas } from './features/currencyReference/tools.js';
 import { createCurrencySpreadTool, currencySpreadSchema } from './features/currencySpread/tool.js';
 import { createTradePreviewTool, tradePreviewSchema } from './features/tradePreview/tool.js';
@@ -85,6 +87,7 @@ class PoBMCPServer {
   private pobDirectory: string;
   private foundation: BuildFoundation | null = null;
   private foundationFeatures: FeatureRegistry | null = null;
+  private readonly modifierFeatures = new FeatureRegistry(createModifierDataTools(new PoBModifierData()));
   private foundationJobs: JobRunner | null = null;
   private releaseFoundationLock: (() => Promise<void>) | null = null;
   private foundationClosing = false;
@@ -136,6 +139,7 @@ class PoBMCPServer {
       masteryDiscoverySchema(),
       ...masteryJobSchemas(),
       ...passiveRankingSchemas(),
+      ...this.modifierFeatures.schemas(),
       ...currencyReferenceSchemas(),
       currencySpreadSchema(),
       tradePreviewSchema(),
@@ -354,7 +358,7 @@ class PoBMCPServer {
     // List available tools
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       if (!this.legacyEnabled()) {
-        const tools = this.foundation ? [...foundationSchemas, ...featureRegistry.schemas(), ...(this.foundationFeatures?.schemas() ?? [])] : [];
+        const tools = this.foundation ? [...foundationSchemas, ...featureRegistry.schemas(), ...(this.foundationFeatures?.schemas() ?? []), ...this.modifierFeatures.schemas()] : this.modifierFeatures.schemas();
         assertUniqueToolSchemas(tools);
         return { tools: tools.map(({ truncatable: _truncatable, ...wire }) => wire) };
       }
@@ -396,6 +400,7 @@ class PoBMCPServer {
       tools.push(...getPoeNinjaToolSchemas());
       featureRegistry.assertNoCollisions(tools);
       tools.push(...featureRegistry.schemas());
+      tools.push(...this.modifierFeatures.schemas());
       if (this.foundation) tools.push(...foundationSchemas, ...(this.foundationFeatures?.schemas() ?? []));
       assertUniqueToolSchemas(tools);
 
@@ -409,6 +414,8 @@ class PoBMCPServer {
       const { name, arguments: args } = request.params;
 
       try {
+        const modifierFeature = this.modifierFeatures.get(name);
+        if (modifierFeature) return await modifierFeature.invoke(args ?? {});
         if (foundationSchemas.some(tool => tool.name === name)) {
           if (!this.foundation || this.foundationClosing) throw new Error('Foundation tools are unavailable');
           const pending = invokeFoundation(this.foundation, name, args ?? {}, this.foundationJobs ?? undefined, this.pobDirectory);

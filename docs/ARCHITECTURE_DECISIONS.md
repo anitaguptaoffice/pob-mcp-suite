@@ -36,6 +36,11 @@ preserve the exact requested filters rather than silently broadening them.
 Cross-domain workflows explicitly compose market facts with PoB evaluation and
 report missing items, partial failures and both data-source identities.
 
+The PoB modifier-table adapter is independently available without starting the
+calculation engine. It fingerprints the actual input bytes for each table and
+reuses parsed data only when that fingerprint matches; it exposes table facts,
+not crafting probabilities or proof of item legality.
+
 The cache mechanism is shared infrastructure; each adapter owns its cache keys,
 TTL and refresh/error policy. Cache hits retain the original provider fetch time;
 a stale, partial or failed response is never presented as a fresh complete

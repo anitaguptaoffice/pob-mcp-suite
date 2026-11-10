@@ -14,6 +14,7 @@ try {
   const disabled = start({ POB_FOUNDATION_ENABLED: 'false' });
   await init(disabled);
   const tools = await disabled.request('tools/list', {});
+  for (const name of ['classify_modifier_lines', 'query_bench_modifiers', 'query_modifier_tiers']) assert.equal(tools.result.tools.filter(t => t.name === name).length, 1);
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_import_build'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_read_notes' || t.name === 'foundation_derive_notes'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_derive_selection'));
@@ -65,6 +66,7 @@ try {
   await init(first);
   assert.equal((await jobs.get(abandoned.id)).status, 'interrupted');
   const foundationOnly = await first.request('tools/list', {});
+  for (const name of ['classify_modifier_lines', 'query_bench_modifiers', 'query_modifier_tiers']) assert.equal(foundationOnly.result.tools.filter(t => t.name === name).length, 1);
   assert.ok(foundationOnly.result.tools.some(t => t.name === 'foundation_import_build'));
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_read_notes').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_notes').length, 1);

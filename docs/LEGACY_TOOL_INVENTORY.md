@@ -120,9 +120,9 @@ Generated from registered schema groups in the current build. Most entries are p
 - `find_path_to_node` — target: tree and versioned data; replacement: `find_snapshot_tree_path`; status: partially migrated (legacy callers and skills remain); skill references: `references/tool-workflows.md`, `references/tree-optimization.md`, `skills/pob-docker-mcp/SKILL.md`.
 - `get_build_notes` — target: build lifecycle / snapshot; replacement: `foundation_read_notes`; status: partially migrated (snapshot skill workflow documented; legacy file-name callers remain); skill references: `skills/pob-docker-mcp/SKILL.md`.
 - `set_build_notes` — target: build lifecycle / snapshot; replacement: `foundation_derive_notes` and explicit file save; status: partially migrated (snapshot skill workflow documented; legacy file-name callers remain); skill references: `skills/pob-docker-mcp/SKILL.md`.
-- `classify_item_affixes` — target: crafting and item data; replacement: item data/crafting module; status: not migrated; skill references: no exact name found in packaged skill Markdown.
-- `list_craftable_mods` — target: crafting and item data; replacement: item data/crafting module; status: not migrated; skill references: no exact name found in packaged skill Markdown.
-- `find_affix_tiers` — target: crafting and item data; replacement: item data/crafting module; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `classify_item_affixes` — target: crafting and item data; replacement: `classify_modifier_lines` backed by independent PoB modifier data; status: partially migrated (legacy callers remain); skill references: no exact name found in packaged skill Markdown.
+- `list_craftable_mods` — target: crafting and item data; replacement: `query_bench_modifiers`; status: partially migrated (legacy callers remain); skill references: no exact name found in packaged skill Markdown.
+- `find_affix_tiers` — target: crafting and item data; replacement: `query_modifier_tiers`; status: partially migrated (legacy callers remain); skill references: no exact name found in packaged skill Markdown.
 
 ## getTradeToolSchemas
 

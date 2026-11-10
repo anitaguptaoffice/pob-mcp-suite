@@ -855,6 +855,8 @@ export async function routeToolCall(
         search: String(args?.search ?? ""),
         affix_type: args?.affix_type === undefined ? undefined : String(args.affix_type),
         slot_tags: (args?.slot_tags as string[]) ?? undefined,
+        item_tags: (args?.item_tags as string[]) ?? undefined,
+        item_tags_complete: args?.item_tags_complete as boolean | undefined,
         max_item_level: args?.max_item_level === undefined ? undefined : Number(args.max_item_level),
         include_unobtainable: Boolean(args?.include_unobtainable),
         max_results: args?.max_results === undefined ? undefined : Number(args.max_results),

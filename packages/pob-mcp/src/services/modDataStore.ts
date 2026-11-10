@@ -10,35 +10,10 @@
 
 import fs from "fs";
 import path from "path";
+import { createHash } from 'node:crypto';
 import { resolvePoBLayout } from "../utils/pobLayout.js";
-
-export type AffixSlot = "Prefix" | "Suffix";
-
-export interface ModEntry {
-  /** ModExplicit table key, or `master:<index>` for bench crafts, which are unkeyed. */
-  id: string;
-  source: "explicit" | "master";
-  type: AffixSlot;
-  /** The name the affix contributes to the item, e.g. "of Bameth". */
-  affix: string;
-  /** Every line this one affix prints. More than one means a hybrid. */
-  statLines: string[];
-  /** Minimum item level that can carry this tier. */
-  level: number;
-  /** Tiers of the same affix share a group; one group occupies one slot. */
-  group: string;
-  modTags: string[];
-  /** ModExplicit base tags with a non-zero spawn weight. Empty for bench crafts. */
-  slotTags: string[];
-  /** Every ModExplicit base tag listed, including the zero-weight ones. */
-  allSlotTags: string[];
-  /** Ordered base spawn rules; the first matching tag determines the base weight. */
-  weightRules: Array<{ tag: string; weight: number }>;
-  /** ModMaster item classes the bench can apply this to. Empty for explicit mods. */
-  itemClasses: string[];
-  /** True when at least one raw base spawn weight is positive; not a legality check. */
-  obtainable: boolean;
-}
+import type { ModEntry } from '../ports/modifierData.js';
+export type { AffixSlot, ModEntry } from '../ports/modifierData.js';
 
 type LuaValue = string | number | boolean | LuaTable;
 
@@ -217,8 +192,7 @@ export function parseModFile(text: string, source: ModEntry["source"], affixesOn
 }
 
 interface CachedFile {
-  mtimeMs: number;
-  size: number;
+  sha256: string;
   entries: ModEntry[];
 }
 
@@ -227,19 +201,19 @@ const cache = new Map<string, CachedFile>();
 export class ModDataUnavailableError extends Error {}
 
 /**
- * Cached on mtime and size: PoB updates its data files on its own schedule, and the
- * server outlives those updates, so a stale parse would quietly answer last patch's
- * questions. Nothing is read until a tool actually asks for it.
+ * Fingerprint bytes on every read and cache only the parsed projection. This keeps
+ * the reported data identity tied to the bytes used even if timestamps are reused.
+ * Nothing is read until a tool actually asks for it.
  */
-function loadFile(fileName: string, source: ModEntry["source"]): ModEntry[] {
+export function loadModData(fileName: 'ModExplicit.lua' | 'ModMaster.lua', source: ModEntry["source"]): { entries: ModEntry[]; fileName: string; sha256: string } {
   const layout = resolvePoBLayout(process.env.POB_PATH || process.env.POB_FORK_PATH);
   let filePath = path.join(layout.src, "Data", fileName);
   const legacy = fileName === 'ModExplicit.lua' && !fs.existsSync(filePath);
   if (legacy) filePath = path.join(layout.src, 'Data', 'ModItem.lua');
 
-  const stat = ((): fs.Stats => {
+  const content = ((): Buffer => {
     try {
-      return fs.statSync(filePath);
+      return fs.readFileSync(filePath);
     } catch {
       throw new ModDataUnavailableError(
         `Path of Building's ${fileName}${fileName === 'ModExplicit.lua' ? ' (or legacy ModItem.lua)' : ''} was not found at ${filePath}. Affix data needs an installed Path of Building or a checkout; point POB_PATH at one.`
@@ -247,17 +221,16 @@ function loadFile(fileName: string, source: ModEntry["source"]): ModEntry[] {
     }
   })();
 
-  const cached = cache.get(filePath);
-  if (cached && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size) return cached.entries;
-
-  const entries = parseModFile(fs.readFileSync(filePath, "utf8"), source, legacy);
-  cache.set(filePath, { mtimeMs: stat.mtimeMs, size: stat.size, entries });
-  return entries;
+  const sha256 = createHash('sha256').update(content).digest('hex'), cached = cache.get(filePath);
+  if (cached && cached.sha256 === sha256) return { entries: cached.entries, fileName: path.basename(filePath), sha256 };
+  const entries = parseModFile(content.toString('utf8'), source, legacy);
+  cache.set(filePath, { sha256, entries });
+  return { entries, fileName: path.basename(filePath), sha256 };
 }
 
-export const loadExplicitMods = (): ModEntry[] => loadFile("ModExplicit.lua", "explicit");
+export const loadExplicitMods = (): ModEntry[] => loadModData("ModExplicit.lua", "explicit").entries;
 
-export const loadMasterMods = (): ModEntry[] => loadFile("ModMaster.lua", "master");
+export const loadMasterMods = (): ModEntry[] => loadModData("ModMaster.lua", "master").entries;
 
 let combined: { explicit: ModEntry[]; master: ModEntry[]; all: ModEntry[] } | null = null;
 
