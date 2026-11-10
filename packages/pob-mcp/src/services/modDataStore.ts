@@ -1,8 +1,8 @@
 /**
  * Reader for Path of Building's generated affix tables.
  *
- * `Data/ModExplicit.lua` and `Data/ModMaster.lua` are the ground truth for whether a
- * stat line is a prefix or a suffix, what tier it is and where it can roll. They are
+ * `Data/ModExplicit.lua` and `Data/ModMaster.lua` provide PoB's affix data, not a
+ * complete determination of crafting eligibility. They are
  * plain Lua literals with no runtime dependencies, so we read them here rather than in
  * the Lua bridge: the bridge serves one request at a time, and a two-megabyte parse
  * there would stall every other call for data that never depends on the loaded build.
@@ -36,7 +36,7 @@ export interface ModEntry {
   weightRules: Array<{ tag: string; weight: number }>;
   /** ModMaster item classes the bench can apply this to. Empty for explicit mods. */
   itemClasses: string[];
-  /** False when every spawn weight is zero, so nothing can roll it. */
+  /** True when at least one raw base spawn weight is positive; not a legality check. */
   obtainable: boolean;
 }
 

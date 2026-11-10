@@ -35,6 +35,17 @@ try {
   assert.ok(ruleMod, 'expected modifier missing from PoB data');
   assert.equal(firstMatchingSpawnRule(ruleMod, ['amulet', 'default'])?.weight, amuletWeight.weight, 'parsed amulet rule disagrees with PoB');
   assert.equal(firstMatchingSpawnRule(ruleMod, ['ring', 'default'])?.weight, ringWeight.weight, 'parsed ring rule disagrees with PoB');
+  const armour = 'Rarity: RARE\nWeight Test\nVaal Regalia\nItem Level: 100\nImplicits: 0';
+  const elevatedMod = 'LocalIncreaseSocketedActiveGemLevelUberMaven';
+  const noInfluence = await client.getItemAffixWeight(elevatedMod, armour);
+  const shaperInfluence = await client.getItemAffixWeight(elevatedMod, `${armour}\nShaper Item`);
+  assert.equal(noInfluence.weight, 0, 'Elevated modifier unexpectedly matched un-influenced armour');
+  assert.equal(shaperInfluence.weight, 1000, 'PoB Elevated influence override was not applied');
+  const elevatedRule = parseModFile(modData, 'explicit').find(mod => mod.id === elevatedMod);
+  assert.equal(firstMatchingSpawnRule(elevatedRule, ['body_armour_shaper', 'default'])?.weight, 0, 'fixture must demonstrate raw weight override');
+  const weapon = 'Rarity: RARE\nWeight Test\nGlass Shank\nItem Level: 86\nImplicits: 0';
+  const dagger = await client.getItemAffixWeight('LocalIncreasedPhysicalDamagePercentAndAccuracyRating1', weapon);
+  assert.equal(dagger.weight, 1000, 'PoB failed to apply the first matching attack-dagger multiplier');
   assert.equal(amuletWeight.itemLevel, 1);
   assert.equal(amuletWeight.requiredItemLevel, 52);
   await assert.rejects(() => client.getItemAffixWeight('NotARealMod', 'Rarity: RARE\nTest\nCitrine Amulet'), /not found/);

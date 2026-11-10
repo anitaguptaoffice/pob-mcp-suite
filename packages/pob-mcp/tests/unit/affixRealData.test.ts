@@ -50,6 +50,13 @@ withPoB('the installed ModExplicit.lua', () => {
     expect(affixes).not.toContain('of Bameth');
   });
 
+  it('retains a zero-base-weight Elevated modifier for a matching influence candidate', () => {
+    const result = findAffixTiers({ search: '+1 to Level of Socketed Skill Gems',
+      itemTags: ['body_armour_shaper', 'body_armour', 'default'], limit: 500 });
+    expect(result.groups.flatMap(group => group.tiers.map(tier => tier.id)))
+      .toContain('LocalIncreaseSocketedActiveGemLevelUberMaven');
+  });
+
   it('hides mods no base can roll unless they are asked for', () => {
     const hidden = findAffixTiers({ search: 'LocalBaseArmourEvasionRatingAndLife', limit: 5 });
     const shown = findAffixTiers({ search: 'LocalBaseArmourEvasionRatingAndLife', includeUnobtainable: true, limit: 5 });

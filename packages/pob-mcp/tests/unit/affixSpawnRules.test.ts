@@ -32,4 +32,17 @@ describe('ordered PoB spawn rules', () => {
   it('refuses malformed weight arrays instead of applying shifted tags', () => {
     expect(() => parseModFile(fixture.replace('0, 1000, 0', '0, 1000'), 'explicit')).toThrow('mismatched spawn weight');
   });
+
+  it('retains zero-weight Elevated influence candidates without treating them as craftable', async () => {
+    const elevated = fixture.replace('"Example", "+(1-5)', '"Elevated Shaper\'s", "+(1-5)')
+      .replace('"special_ring", "ring", "default"', '"ring_shaper", "ring", "default"')
+      .replace('0, 1000, 0', '0, 0, 0');
+    jest.spyOn(store, 'loadExplicitMods').mockReturnValue(parseModFile(elevated, 'explicit'));
+    const result = await handleFindAffixTiers({ search: 'maximum Life', item_tags: ['ring_shaper', 'ring', 'default'], item_tags_complete: true });
+    expect(result.content[0].text).toContain('Elevated Shaper');
+    expect(result.content[0].text).toContain('first matching base spawn rule: ring_shaper = 0');
+    expect(result.content[0].text).toContain('candidates are retained for inspection');
+    const ordinary = await handleFindAffixTiers({ search: 'maximum Life', item_tags: ['ring', 'default'], item_tags_complete: true });
+    expect(ordinary.content[0].text).toContain('candidates are retained for inspection');
+  });
 });

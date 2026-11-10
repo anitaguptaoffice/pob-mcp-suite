@@ -95,10 +95,14 @@ export function findAffixTiers(query: TierQuery): TierResult {
   const matched = entries
     .filter((entry) => matchesText(entry, query.search))
     .filter((entry) => !query.affixType || entry.type === query.affixType)
-    .filter((entry) => query.includeUnobtainable || entry.obtainable)
+    // PoB may override a zero base weight for an Elevated influence modifier.
+    // Retain such candidates for inspection rather than asserting obtainability.
+    .filter((entry) => query.includeUnobtainable || entry.obtainable || entry.affix.includes('Elevated'))
     .filter((entry) => query.maxItemLevel === undefined || entry.level <= query.maxItemLevel)
-    .filter((entry) => !query.slotTags?.length || entry.slotTags.some((tag) => query.slotTags?.includes(tag)))
-    .filter((entry) => !query.itemTags || query.includeUnobtainable || (firstMatchingSpawnRule(entry, query.itemTags)?.weight ?? 0) > 0);
+    .filter((entry) => !query.slotTags?.length || entry.slotTags.some((tag) => query.slotTags?.includes(tag)) ||
+      (entry.affix.includes('Elevated') && entry.allSlotTags.some((tag) => tag !== 'default' && query.slotTags?.includes(tag))))
+    .filter((entry) => !query.itemTags || query.includeUnobtainable || (firstMatchingSpawnRule(entry, query.itemTags)?.weight ?? 0) > 0 ||
+      (entry.affix.includes('Elevated') && !!firstMatchingSpawnRule(entry, query.itemTags) && firstMatchingSpawnRule(entry, query.itemTags)?.tag !== 'default'));
 
   const grouped = matched.reduce((groups, entry) => {
     const key = `${entry.type}:${entry.group}`;

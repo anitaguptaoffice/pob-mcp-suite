@@ -156,7 +156,7 @@ export async function handleFindAffixTiers(args: {
       "",
       `${result.groups.length} of ${result.totalGroups} matching affix groups. ilvl is the minimum item level.`,
       'Entries are ordered by required item level. T1/T2 labels are not inferred from result order; these tables provide no authoritative tier-number field.',
-      'Positive-weight tags are not proof an item can roll a modifier: earlier matching zero-weight rules, multipliers, influence, item state, mod conflicts and crafting method can change eligibility. Base rules are not probabilities.',
+      'Positive-weight tags are not proof an item can roll a modifier: earlier matching zero-weight rules, multipliers, influence, item state, mod conflicts and crafting method can change eligibility. Elevated modifiers can have zero base weights overridden by PoB for influence; such candidates are retained for inspection. Base rules are not probabilities.',
       ...(args.item_tags ? ['First-match results depend on the caller-supplied complete tag set; modifiers and crafting mechanics are not validated.'] : []),
       "",
       ...body,

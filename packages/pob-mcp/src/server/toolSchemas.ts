@@ -279,7 +279,7 @@ export function getToolSchemas(): ToolSchema[] {
           slot_tags: {
             type: "array",
             items: { type: "string" },
-            description: "Broad filter: match any positive-weight tag. This does not verify eligibility for a particular item.",
+            description: "Broad filter: match any positive-weight tag; Elevated candidates may also match a zero-weight tag because PoB can override it for influence. This does not verify item eligibility.",
           },
           item_tags: { type: "array", items: { type: "string" }, description: "Complete independently verified item tag set including default; evaluates the first matching base spawn rule. Do not combine with slot_tags." },
           item_tags_complete: { type: "boolean", description: "Must be true when supplying item_tags; incomplete tags can yield a wrong rule." },
@@ -289,7 +289,7 @@ export function getToolSchemas(): ToolSchema[] {
           },
           include_unobtainable: {
             type: "boolean",
-            description: "Include zero-weight or non-matching base spawn rules. A zero base weight does not by itself prove a modifier cannot be forced by a special mechanic. Default false.",
+            description: "Include all zero-weight or non-matching base spawn rules; possible Elevated influence overrides remain candidates even when false. Zero base weight does not prove a modifier cannot be forced by a special mechanic. Default false.",
             default: false,
           },
           max_results: {
