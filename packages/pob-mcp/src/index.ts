@@ -53,7 +53,8 @@ import { createTradeSearchTool, tradeSearchSchema } from './features/tradeSearch
 import { createTradeItemPriceTool, tradeItemPriceSchema } from './features/tradePrice/tool.js';
 import { createSnapshotTreeComparisonTool, snapshotTreeComparisonSchema } from './features/treeComparison/tool.js';
 import { createSnapshotBuildComparisonTool, snapshotBuildComparisonSchema } from './features/buildComparison/tool.js';
-import { createSnapshotGemComparisonTool, snapshotGemComparisonSchema } from './features/snapshotGemComparison/tool.js';
+import { createSnapshotGemComparisonTool, snapshotGemComparisonSchema, compareSnapshotGemSetups } from './features/snapshotGemComparison/tool.js';
+import { createGemSetupJobTools, gemSetupJobSchemas } from './features/snapshotGemComparison/jobTools.js';
 import { createSnapshotSupportRankingTool, supportRankingSchema } from './features/snapshotSupportRanking/tool.js';
 import { createTreePathTools, treePathSchemas } from './features/treePaths/tool.js';
 import { buildIssuesSchema, createBuildIssuesTool } from './features/buildIssues/tool.js';
@@ -125,6 +126,7 @@ class PoBMCPServer {
       snapshotTreeComparisonSchema(),
       snapshotBuildComparisonSchema(),
       snapshotGemComparisonSchema(),
+      ...gemSetupJobSchemas(),
       supportRankingSchema(),
       ...treePathSchemas(),
       buildIssuesSchema(),
@@ -491,8 +493,13 @@ class PoBMCPServer {
       const foundation = this.foundation;
       const economy = new PoeNinjaAdapter();
       this.foundationJobs = new JobRunner(jobs, input => foundation.evaluate(input.snapshotId, input.fields, input.options), 2,
-        input => rankMasteryEffects(foundation, { snapshot_id: input.snapshotId, node_id: input.nodeId, effect_ids: [input.effectId], metric: input.metric, direction: input.direction }));
-      const migrated = [createSnapshotCostTool(foundation, economy), createShoppingListTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), createSnapshotBuildComparisonTool(foundation), createSnapshotGemComparisonTool(foundation), createSnapshotSupportRankingTool(foundation), ...createTreePathTools(foundation), createBuildIssuesTool(foundation), createBossReadinessTool(foundation), createMasteryRankingTool(foundation), createMasteryDiscoveryTool(foundation), ...createMasteryJobTools(foundation, this.foundationJobs), createTimelessSearchTool(foundation), ...createCurrencyReferenceTools(economy), createCurrencySpreadTool(economy)];
+        input => rankMasteryEffects(foundation, { snapshot_id: input.snapshotId, node_id: input.nodeId, effect_ids: [input.effectId], metric: input.metric, direction: input.direction }),
+        async input => {
+          const candidate = await foundation.deriveGemSetup(input.snapshotId, input.groupIndex, input.gems, true);
+          try { return await compareSnapshotGemSetups(foundation, { snapshot_id: input.snapshotId, group_index: input.groupIndex, candidate_snapshot_ids: [candidate.id] }); }
+          catch (error) { return { setupError: error instanceof Error ? error.message : String(error), candidateSnapshotId: candidate.id }; }
+        });
+      const migrated = [createSnapshotCostTool(foundation, economy), createShoppingListTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), createSnapshotBuildComparisonTool(foundation), createSnapshotGemComparisonTool(foundation), ...createGemSetupJobTools(foundation, this.foundationJobs), createSnapshotSupportRankingTool(foundation), ...createTreePathTools(foundation), createBuildIssuesTool(foundation), createBossReadinessTool(foundation), createMasteryRankingTool(foundation), createMasteryDiscoveryTool(foundation), ...createMasteryJobTools(foundation, this.foundationJobs), createTimelessSearchTool(foundation), ...createCurrencyReferenceTools(economy), createCurrencySpreadTool(economy)];
       // Until the legacy Trade client is retired, do not run two independent
       // rate limiters in one service against the same official API.
       if (process.env.POE_TRADE_ENABLED === 'true' && !this.legacyEnabled()) {

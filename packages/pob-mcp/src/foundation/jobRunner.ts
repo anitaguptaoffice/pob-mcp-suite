@@ -1,10 +1,11 @@
 import { JobStore, type JobRecord } from './jobStore.js';
-import { validateEvaluationOptions, type EvaluationOptions } from './buildFoundation.js';
+import { validateEvaluationOptions, type BuildFoundation, type EvaluationOptions } from './buildFoundation.js';
 
 export interface EvaluationInput { snapshotId: string; fields: string[]; options?: EvaluationOptions }
 export interface MasteryEvaluationInput { kind: 'mastery'; snapshotId: string; nodeId: number; effectId: number; metric: string; direction: 'higher' | 'lower'; treeVersion: string | null; discoveryIdentity: BuildIdentity; includeCurrent: boolean; selected: boolean | null; totalDiscovered: number; totalMasteries: number }
 type BuildIdentity = { engineVersion: string | null; adapterVersion: string | null; dataVersion: string | null; runtimeVersion?: string | null; executableVersion?: string | null };
-type JobInput = EvaluationInput | MasteryEvaluationInput;
+export interface GemSetupEvaluationInput { kind: 'gem_setup'; snapshotId: string; groupIndex: number; setupName: string; gems: Parameters<BuildFoundation['deriveGemSetup']>[2]; discoveryIdentity: BuildIdentity }
+type JobInput = EvaluationInput | MasteryEvaluationInput | GemSetupEvaluationInput;
 
 /** One bounded runner; cancellation is cooperative between complete items. */
 export class JobRunner {
@@ -13,7 +14,7 @@ export class JobRunner {
   private reservations = 0;
   private readonly submissions = new Set<Promise<JobRecord>>();
   constructor(private readonly store: JobStore, private readonly evaluate: (input: EvaluationInput) => Promise<unknown>, private readonly maxJobs = 2,
-    private readonly evaluateMastery?: (input: MasteryEvaluationInput) => Promise<unknown>) {}
+    private readonly evaluateMastery?: (input: MasteryEvaluationInput) => Promise<unknown>, private readonly evaluateGemSetup?: (input: GemSetupEvaluationInput) => Promise<unknown>) {}
 
   async submit(inputs: EvaluationInput[]): Promise<JobRecord> {
     if (this.closing) throw new Error('Job runner is closing');
@@ -34,6 +35,16 @@ export class JobRunner {
     });
     const first = inputs[0];
     if (inputs.some(input => !input || input.kind !== 'mastery' || !/^[a-f0-9]{64}$/.test(input.snapshotId) || !positive(input.nodeId) || !positive(input.effectId) || typeof input.metric !== 'string' || !/^[A-Za-z][A-Za-z0-9_]{0,99}$/.test(input.metric) || !['higher', 'lower'].includes(input.direction) || (input.treeVersion !== null && (typeof input.treeVersion !== 'string' || !input.treeVersion)) || !validIdentity(input.discoveryIdentity) || typeof input.includeCurrent !== 'boolean' || ![true, false, null].includes(input.selected) || (input.selected === true && !input.includeCurrent) || !Number.isSafeInteger(input.totalDiscovered) || input.totalDiscovered < inputs.length || !Number.isSafeInteger(input.totalMasteries) || input.totalMasteries < 1 || input.snapshotId !== first.snapshotId || input.metric !== first.metric || input.direction !== first.direction || input.treeVersion !== first.treeVersion || input.includeCurrent !== first.includeCurrent || input.totalDiscovered !== first.totalDiscovered || input.totalMasteries !== first.totalMasteries || JSON.stringify(input.discoveryIdentity) !== JSON.stringify(first.discoveryIdentity)) || new Set(inputs.map(input => `${input.nodeId}:${input.effectId}`)).size !== inputs.length) throw new Error('Invalid mastery evaluations');
+    return this.submitValidated(inputs);
+  }
+
+  async submitGemSetups(inputs: GemSetupEvaluationInput[]): Promise<JobRecord> {
+    if (this.closing) throw new Error('Job runner is closing');
+    if (!this.evaluateGemSetup || !Array.isArray(inputs) || inputs.length < 2 || inputs.length > 5) throw new Error('Provide 2 to 5 gem setups');
+    const first = inputs[0], validInt = (v: unknown, lo: number, hi: number) => typeof v === 'number' && Number.isSafeInteger(v) && v >= lo && v <= hi;
+    const normalize = (name: string) => name.trim().toLowerCase().replace(/ support$/, '');
+    const validGem = (gem: GemSetupEvaluationInput['gems'][number]) => gem && typeof gem === 'object' && !Array.isArray(gem) && Object.keys(gem).every(key => ['gemName', 'level', 'quality', 'enabled'].includes(key)) && Object.values(gem).every(value => value !== undefined) && typeof gem.gemName === 'string' && !!gem.gemName.trim() && gem.gemName.length <= 200 && (gem.level === undefined || validInt(gem.level, 1, 40)) && (gem.quality === undefined || validInt(gem.quality, 0, 99)) && (gem.enabled === undefined || typeof gem.enabled === 'boolean');
+    if (inputs.some(input => !input || input.kind !== 'gem_setup' || !/^[a-f0-9]{64}$/.test(input.snapshotId) || !validInt(input.groupIndex, 1, 10000) || typeof input.setupName !== 'string' || !input.setupName.trim() || input.setupName.length > 100 || !Array.isArray(input.gems) || input.gems.length < 1 || input.gems.length > 6 || input.gems.some(gem => !validGem(gem)) || new Set(input.gems.map(gem => normalize(gem.gemName))).size !== input.gems.length || !input.discoveryIdentity || typeof input.discoveryIdentity !== 'object' || Array.isArray(input.discoveryIdentity) || input.snapshotId !== first.snapshotId || input.groupIndex !== first.groupIndex || JSON.stringify(input.discoveryIdentity) !== JSON.stringify(first.discoveryIdentity)) || new Set(inputs.map(input => input.setupName.trim().toLowerCase())).size !== inputs.length) throw new Error('Invalid gem setup evaluations');
     return this.submitValidated(inputs);
   }
 
@@ -68,7 +79,7 @@ export class JobRunner {
         if (started.status === 'cancel_requested') break;
         try {
           const input = inputs[index];
-          const result = 'kind' in input && input.kind === 'mastery' ? await this.evaluateMastery!(input) : await this.evaluate(input as EvaluationInput);
+          const result = 'kind' in input && input.kind === 'mastery' ? await this.evaluateMastery!(input) : 'kind' in input && input.kind === 'gem_setup' ? await this.evaluateGemSetup!(input) : await this.evaluate(input as EvaluationInput);
           await this.store.recordItem(id, index, { status: 'completed', result });
         } catch (error) {
           await this.store.recordItem(id, index, { status: 'failed', error: error instanceof Error ? error.message : String(error) });

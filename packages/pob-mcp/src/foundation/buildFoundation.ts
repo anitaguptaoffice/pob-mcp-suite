@@ -480,11 +480,11 @@ export class BuildFoundation {
       type Group = Record<string, unknown> & { index?: number; gems?: Gem[] };
       const groups = (skills: unknown): Group[] => {
         const list = (skills as { groups?: Group[] })?.groups;
-        if (!Array.isArray(list) || list.some((group, i) => group.index !== i + 1 || !Array.isArray(group.gems) || group.gems.some((gem, j) => gem.index !== j + 1 || !normalize(gem.name)))) throw new Error('PoB returned invalid skill groups');
+        if (!Array.isArray(list) || list.some((group, i) => group.index !== i + 1 || !Array.isArray(group.gems) || group.gems.some((gem, j) => gem.index !== j + 1))) throw new Error('PoB returned invalid skill groups');
         return list;
       };
       const before = await read(), original = groups(before.skills), group = original.find(entry => entry.index === groupIndex);
-      if (!group || group.enabled !== true || group.slotEnabled !== true || (before.skills as Record<string, unknown>).mainSocketGroup !== groupIndex || !group.gems?.length || new Set(group.gems.map(gem => normalize(gem.name))).size !== group.gems.length) throw new Error('Gem setup requires an unambiguous active main group');
+      if (!group || group.enabled !== true || group.slotEnabled !== true || (before.skills as Record<string, unknown>).mainSocketGroup !== groupIndex || !group.gems?.length || group.gems.some(gem => !normalize(gem.name)) || new Set(group.gems.map(gem => normalize(gem.name))).size !== group.gems.length) throw new Error('Gem setup requires an unambiguous active main group');
       const active = group.gems.filter(gem => gem.isSupport === false);
       if (active.length !== 1 || active[0].enabled !== true || !requested.has(normalize(active[0].name)) || requested.get(normalize(active[0].name))?.enabled === false) throw new Error('Gem setup must retain the enabled active gem');
       const originalNames = new Set(group.gems.map(gem => normalize(gem.name)));

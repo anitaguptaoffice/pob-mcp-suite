@@ -7,6 +7,22 @@ import { JobStore } from '../../src/foundation/jobStore.js';
 function deferred() { let resolve!: () => void; const promise = new Promise<void>(done => { resolve = done; }); return { promise, resolve }; }
 const input = { snapshotId: 'a'.repeat(64), fields: ['Life'] };
 describe('JobRunner', () => {
+  it('runs gem setup jobs through the isolated dispatcher and cancels between setups', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'pob-gem-job-'));
+    try {
+      const entered = deferred(), gate = deferred(), store = new JobStore(dir);
+      const evaluateGem = jest.fn(async () => { entered.resolve(); await gate.promise; return { candidate: 'ok' }; });
+      const runner = new JobRunner(store, async () => { throw new Error('wrong dispatcher'); }, 1, undefined, evaluateGem);
+      const setup = { kind: 'gem_setup' as const, snapshotId: input.snapshotId, groupIndex: 1, setupName: 'one', gems: [{ gemName: 'Arc' }], discoveryIdentity: { engineVersion: 'a', adapterVersion: 'b', dataVersion: 'c' } };
+      const job = await runner.submitGemSetups([setup, { ...setup, setupName: 'two' }]);
+      await entered.promise; expect(await store.protectedSnapshotIds()).toEqual(new Set([input.snapshotId]));
+      expect((await runner.cancel(job.id)).status).toBe('cancel_requested');
+      gate.resolve(); await runner.close();
+      const final = await store.get(job.id); expect(final.status).toBe('cancelled');
+      expect(final.items.map(item => item.status)).toEqual(['completed', 'pending']);
+      expect(evaluateGem).toHaveBeenCalledTimes(1);
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
   it('runs mastery candidates with the same durable cancellation and snapshot protection', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'pob-mastery-runner-'));
     try {

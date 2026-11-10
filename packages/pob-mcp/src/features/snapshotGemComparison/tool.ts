@@ -26,8 +26,7 @@ function activeGems(group: SkillGroup) {
 export function snapshotGemComparisonSchema(): FeatureTool['schema'] {
   return { name: 'compare_snapshot_gem_setups', description: 'Compare explicit descendant snapshots with changes limited to the saved main skill group. Returns separate PoB player and minion metrics, without ranking or assuming support compatibility.', inputSchema: { type: 'object', additionalProperties: false, properties: { snapshot_id: { type: 'string' }, group_index: { type: 'integer', minimum: 1 }, candidate_snapshot_ids: { type: 'array', minItems: 1, maxItems: 3, uniqueItems: true, items: { type: 'string' } } }, required: ['snapshot_id', 'group_index', 'candidate_snapshot_ids'] } };
 }
-export function createSnapshotGemComparisonTool(foundation: Pick<BuildFoundation, 'readSnapshot' | 'inspect' | 'evaluate'>): FeatureTool {
-  return { schema: snapshotGemComparisonSchema(), invoke: async args => {
+export async function compareSnapshotGemSetups(foundation: Pick<BuildFoundation, 'readSnapshot' | 'inspect' | 'evaluate'>, args: Record<string, unknown>) {
     const validId = (value: unknown) => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
     const candidates = args.candidate_snapshot_ids;
     if (Object.keys(args).some(key => !['snapshot_id', 'group_index', 'candidate_snapshot_ids'].includes(key)) || !validId(args.snapshot_id) || typeof args.group_index !== 'number' || !Number.isSafeInteger(args.group_index) || args.group_index < 1 || !Array.isArray(candidates) || candidates.length < 1 || candidates.length > 3 || candidates.some(id => !validId(id)) || new Set(candidates).size !== candidates.length) throw new Error('Invalid snapshot gem comparison options');
@@ -71,7 +70,9 @@ export function createSnapshotGemComparisonTool(foundation: Pick<BuildFoundation
         results.push({ snapshotId: id, status: 'ok', ancestryDepth: depth, gems: candidateGroup.gems, metrics, identity: calculated.identity, identityUnknown: unknown, warnings: calculated.warnings });
       } catch (error) { results.push({ snapshotId: id, status: 'error', error: error instanceof Error ? error.message : String(error) }); }
     }
-    return { content: [{ type: 'text', text: JSON.stringify({ snapshotId: parentId, groupIndex, activeGem: active[0].name, baseline: { identity: baseline.identity, context: baseline.context, metrics: baseline.metrics, warnings: baseline.warnings }, results,
-      warnings: ['Only explicit descendant snapshots are compared; failed candidates are not ranked.', 'Player, minion and full DPS are separate PoB outputs and must not be added blindly. Check the selected metric, poison, skill uptime and configuration.', 'PoB support application is reported where available. This does not establish item or gem legality, socket colours, mana sustain, price or a global optimum.'] }) }] };
-  } };
+    return { snapshotId: parentId, groupIndex, activeGem: active[0].name, baseline: { identity: baseline.identity, context: baseline.context, metrics: baseline.metrics, warnings: baseline.warnings }, results,
+      warnings: ['Only explicit descendant snapshots are compared; failed candidates are not ranked.', 'Player, minion and full DPS are separate PoB outputs and must not be added blindly. Check the selected metric, poison, skill uptime and configuration.', 'PoB support application is reported where available. This does not establish item or gem legality, socket colours, mana sustain, price or a global optimum.'] };
+}
+export function createSnapshotGemComparisonTool(foundation: Pick<BuildFoundation, 'readSnapshot' | 'inspect' | 'evaluate'>): FeatureTool {
+  return { schema: snapshotGemComparisonSchema(), invoke: async args => ({ content: [{ type: 'text', text: JSON.stringify(await compareSnapshotGemSetups(foundation, args)) }] }) };
 }
