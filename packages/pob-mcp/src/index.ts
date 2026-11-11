@@ -99,6 +99,7 @@ import { createTradeListingComparisonTool, tradeListingComparisonSchema } from '
 import { createResistanceTradeTool, resistanceTradeSchema } from './features/resistanceTrade/tool.js';
 import { createClusterTradeTool, clusterTradeSchema } from './features/clusterTrade/tool.js';
 import { createTimelessSearchTool, timelessSearchSchema } from './features/timelessSearch/tool.js';
+import { createCachedStatsTool, cachedStatsSchema } from './features/cachedStats/tool.js';
 
 // Import utilities
 import type { LegacyRuntime } from './server/legacyRuntime.js';
@@ -190,6 +191,7 @@ class PoBMCPServer {
       resistanceTradeSchema(),
       clusterTradeSchema(),
       timelessSearchSchema(),
+      cachedStatsSchema('snapshot'),
     ];
     featureRegistry.assertNoCollisions(legacy);
     const all = [...legacy, ...featureRegistry.schemas()];
@@ -214,7 +216,7 @@ class PoBMCPServer {
     // Default Path of Building directory (can be customized)
     this.pobDirectory = process.env.POB_DIRECTORY || defaultBuildsDirectory();
     this.localBuildWatcher = new LocalBuildFileWatcher(this.pobDirectory);
-    this.buildFileCatalog = new FeatureRegistry([createBuildFileCatalogTool(new LocalBuildFileCatalog(this.pobDirectory)), createClusterFileTool(name => readLocalBuild(this.pobDirectory, name)), ...createBuildWatchTools(this.localBuildWatcher)]);
+    this.buildFileCatalog = new FeatureRegistry([createBuildFileCatalogTool(new LocalBuildFileCatalog(this.pobDirectory)), createClusterFileTool(name => readLocalBuild(this.pobDirectory, name)), createCachedStatsTool('local', name => readLocalBuild(this.pobDirectory, name)), ...createBuildWatchTools(this.localBuildWatcher)]);
     this.localConfigPresets = new LocalConfigPresetStore(this.pobDirectory);
     this.configPresetCatalog = new FeatureRegistry(createConfigPresetCatalogTools(this.localConfigPresets));
 
@@ -476,6 +478,7 @@ class PoBMCPServer {
       const migrated = [createSnapshotCostTool(foundation, economy), createShoppingListTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), createSnapshotBuildComparisonTool(foundation), createSnapshotGemComparisonTool(foundation), ...createGemSetupJobTools(foundation, this.foundationJobs), createSnapshotSupportRankingTool(foundation), createDiscoveredSupportRankingTool(foundation), ...createTreePathTools(foundation), createBuildIssuesTool(foundation), createBossReadinessTool(foundation), createMasteryRankingTool(foundation), createMasteryDiscoveryTool(foundation), ...createMasteryJobTools(foundation, this.foundationJobs), ...createPassiveRankingTools(foundation, this.foundationJobs), createAnointmentTool(foundation), createSnapshotSummaryTool(foundation), createSkillInspectionTool(foundation), createEnemyConfigTool(foundation), ...createSnapshotConfigPresetTools(foundation, this.localConfigPresets), createTimelessSearchTool(foundation)];
       migrated.push(createSnapshotTreeTransplantTool(foundation));
       migrated.push(createSupportContributionsTool(foundation));
+      migrated.push(createCachedStatsTool('snapshot', id => foundation.exportBuild(id)));
       migrated.push(createPassiveSuggestionsTool(foundation));
       migrated.push(createGemUpgradeTool(foundation));
       migrated.push(createSnapshotAilmentsTool(foundation));

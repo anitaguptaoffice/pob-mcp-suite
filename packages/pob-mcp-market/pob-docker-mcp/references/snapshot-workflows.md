@@ -7,6 +7,12 @@ by server configuration. Never assume legacy tools are exposed alongside it.
 
 ## Import and inspect
 
+- `inspect_local_cached_stats` reads historical PlayerStat and MinionStat values
+  saved in a named file; `inspect_snapshot_cached_stats` reads those in a
+  captured snapshot. Use the returned XML fingerprint when continuing pages.
+  Duplicates and raw strings are preserved, and missing fields are null. These
+  values can be stale or absent: use `foundation_evaluate` for calculations
+  against the current PoB engine and selected configuration.
 - Create a new build with `foundation_create_build`, providing the PoB class
   name and optionally an ascendancy and `tree_version`. Special-season
   ascendancies require the matching tree version; the name is checked against

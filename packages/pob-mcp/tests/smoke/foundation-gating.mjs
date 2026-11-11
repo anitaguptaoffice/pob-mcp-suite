@@ -22,6 +22,8 @@ try {
   assert.ok(bundledData.results.some(entry => entry.pobName === 'MinionDamage' && entry.officialStatus === 'unverified'));
   for (const name of ['classify_modifier_lines', 'query_bench_modifiers', 'query_modifier_tiers']) assert.equal(tools.result.tools.filter(t => t.name === name).length, 1);
   assert.equal(tools.result.tools.filter(t => t.name === 'list_local_build_files').length, 1);
+  assert.equal(tools.result.tools.filter(t => t.name === 'inspect_local_cached_stats').length, 1);
+  assert.ok(!tools.result.tools.some(t => t.name === 'inspect_snapshot_cached_stats'));
   for (const name of ['list_local_config_presets', 'read_local_config_preset']) assert.equal(tools.result.tools.filter(t => t.name === name).length, 1);
   assert.ok(!tools.result.tools.some(t => t.name === 'save_snapshot_config_preset' || t.name === 'apply_snapshot_config_preset'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_import_build'));
@@ -127,6 +129,8 @@ try {
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'compare_snapshot_jewels').length, 1);
   for (const name of ['submit_snapshot_jewels', 'summarize_snapshot_jewels']) assert.equal(foundationOnly.result.tools.filter(t => t.name === name).length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_read_notes').length, 1);
+  assert.equal(foundationOnly.result.tools.filter(t => t.name === 'inspect_local_cached_stats').length, 1);
+  assert.equal(foundationOnly.result.tools.filter(t => t.name === 'inspect_snapshot_cached_stats').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_notes').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_selection').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_gem').length, 1);
