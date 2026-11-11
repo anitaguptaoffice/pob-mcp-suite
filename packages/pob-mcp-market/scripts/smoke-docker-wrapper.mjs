@@ -9,7 +9,7 @@ import { once } from 'node:events';
 if (!process.env.POB_DOCKER_IMAGE) throw new Error('Set POB_DOCKER_IMAGE to the image under test');
 const builds = await mkdtemp(join(tmpdir(), 'pob-wrapper-smoke-'));
 try {
-  let parentId, childId, originalLevel, derivedLevel;
+  let parentId, childId, originalLevel, derivedLevel, derivedLife;
   for (const mode of ['legacy', 'create', 'restart']) {
     const foundation = mode !== 'legacy';
     const env = { ...process.env, POB_BUILDS_DIR: builds, POE_TRADE_ENABLED: 'true' };
@@ -43,6 +43,12 @@ try {
       assert.equal(names.has('foundation_import_build'), foundation);
       assert.equal(names.has('search_official_trade'), foundation);
       assert.equal(names.has('lua_load_build'), !foundation);
+      if (foundation) {
+        assert.ok(names.has('check_snapshot_issues'));
+        assert.ok(names.has('transplant_snapshot_tree'));
+        const hidden = await request('tools/call', { name: 'lua_load_build', arguments: { build_name: 'ignored.xml' } });
+        assert.equal(hidden.result.isError, true);
+      }
       const call = async (name, args) => {
         const result = await request('tools/call', { name, arguments: args });
         assert.ok(!result.error && !result.result?.isError, JSON.stringify(result));
@@ -58,6 +64,13 @@ try {
         childId = derived.id; assert.notEqual(childId, parentId);
         const after = await call('foundation_inspect', { snapshot_id: childId, sections: ['build'] });
         assert.equal(after.data.build.level, derivedLevel);
+        const fields = ['Life', 'ManaCost', 'ManaCostPayablePool'];
+        const evaluation = await call('foundation_evaluate', { snapshot_id: childId, fields });
+        assert.equal(evaluation.metrics.Life.status, 'available');
+        derivedLife = evaluation.metrics.Life.value;
+        const issues = await call('check_snapshot_issues', { snapshot_id: childId });
+        for (const field of fields) assert.deepEqual(issues.stats[field], evaluation.stats[field], field);
+        assert.equal(issues.snapshotId, childId);
         await call('foundation_save_file', { snapshot_id: childId, build_name: 'wrapper-derived.xml' });
         if (/^\d+:\d+$/.test(env.POB_DOCKER_USER ?? '')) {
           const [uid, gid] = env.POB_DOCKER_USER.split(':').map(Number);
@@ -72,6 +85,10 @@ try {
         assert.equal(derived.data.build.level, derivedLevel);
         const reimported = await call('foundation_import_file', { build_name: 'wrapper-derived.xml' });
         assert.equal((await call('foundation_inspect', { snapshot_id: reimported.id, sections: ['build'] })).data.build.level, derivedLevel);
+        const recalculated = await call('foundation_evaluate', { snapshot_id: reimported.id, fields: ['Life'] });
+        assert.equal(recalculated.metrics.Life.status, 'available');
+        assert.ok(recalculated.metrics.Life.value > 0);
+        assert.equal(recalculated.metrics.Life.value, derivedLife);
       }
       child.stdin.end(); assert.equal((await exited)[0], 0, stderr);
     } finally { if (child.exitCode === null && child.signalCode === null) { child.kill('SIGTERM'); await exited; } }
