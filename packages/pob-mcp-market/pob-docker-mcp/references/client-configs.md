@@ -63,8 +63,15 @@ Use an MCP server entry equivalent to:
 | `POB_BUILDS_DIR` | `~/Documents/Path of Building/Builds` | Host builds directory mounted to `/builds` |
 | `POB_FOUNDATION_ENABLED` | unset | Set to `true` to enable snapshot mode in an image that supports it |
 | `POB_LEGACY_ENABLED` | unset | Set to `true` only for legacy compatibility; independent Trade tools are disabled while legacy mode is enabled |
+| `POB_DOCKER_USER` | unset | Optional Docker `--user` value, such as `1000:1000`, for host-owned build and snapshot files |
 | `POE_TRADE_ENABLED` | `false` in the wrapper, `true` in the bundled Codex plugin | Enable live trade API tools |
 
 For image development, build the repository's root Dockerfile and set
 `POB_DOCKER_IMAGE` to the resulting local tag. The packaged configuration keeps
 using the published image unless explicitly overridden.
+
+The image otherwise runs as root and may create root-owned files in the mounted
+build directory. On Linux, set `POB_DOCKER_USER` to the host UID and GID (for
+example `$(id -u):$(id -g)` in a shell) if the mounted directory and existing
+snapshot store are writable by that identity. This does not change ownership of
+previous files. Check the Docker host's file-sharing semantics on other systems.

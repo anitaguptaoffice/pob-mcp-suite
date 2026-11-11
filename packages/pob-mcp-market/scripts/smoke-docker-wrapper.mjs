@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { once } from 'node:events';
@@ -9,7 +9,9 @@ import { once } from 'node:events';
 if (!process.env.POB_DOCKER_IMAGE) throw new Error('Set POB_DOCKER_IMAGE to the image under test');
 const builds = await mkdtemp(join(tmpdir(), 'pob-wrapper-smoke-'));
 try {
-  for (const foundation of [false, true]) {
+  let parentId, childId, originalLevel, derivedLevel;
+  for (const mode of ['legacy', 'create', 'restart']) {
+    const foundation = mode !== 'legacy';
     const env = { ...process.env, POB_BUILDS_DIR: builds, POE_TRADE_ENABLED: 'true' };
     delete env.POB_FOUNDATION_ENABLED;
     delete env.POB_LEGACY_ENABLED;
@@ -41,10 +43,40 @@ try {
       assert.equal(names.has('foundation_import_build'), foundation);
       assert.equal(names.has('search_official_trade'), foundation);
       assert.equal(names.has('lua_load_build'), !foundation);
+      const call = async (name, args) => {
+        const result = await request('tools/call', { name, arguments: args });
+        assert.ok(!result.error && !result.result?.isError, JSON.stringify(result));
+        return JSON.parse(result.result.content[0].text);
+      };
+      if (mode === 'create') {
+        const xml = await readFile(resolve('../pob-mcp/tests/fixtures/occ-vortex.xml'), 'utf8');
+        const parent = await call('foundation_import_build', { xml, source: 'docker-wrapper-smoke' });
+        parentId = parent.id;
+        const before = await call('foundation_inspect', { snapshot_id: parentId, sections: ['build'] });
+        originalLevel = before.data.build.level; derivedLevel = originalLevel === 84 ? 85 : 84;
+        const derived = await call('foundation_derive_level', { snapshot_id: parentId, level: derivedLevel });
+        childId = derived.id; assert.notEqual(childId, parentId);
+        const after = await call('foundation_inspect', { snapshot_id: childId, sections: ['build'] });
+        assert.equal(after.data.build.level, derivedLevel);
+        await call('foundation_save_file', { snapshot_id: childId, build_name: 'wrapper-derived.xml' });
+        if (/^\d+:\d+$/.test(env.POB_DOCKER_USER ?? '')) {
+          const [uid, gid] = env.POB_DOCKER_USER.split(':').map(Number);
+          const saved = await stat(join(builds, 'wrapper-derived.xml'));
+          assert.equal(saved.uid, uid); assert.equal(saved.gid, gid);
+        }
+      }
+      if (mode === 'restart') {
+        const parent = await call('foundation_inspect', { snapshot_id: parentId, sections: ['build'] });
+        const derived = await call('foundation_inspect', { snapshot_id: childId, sections: ['build'] });
+        assert.equal(parent.data.build.level, originalLevel);
+        assert.equal(derived.data.build.level, derivedLevel);
+        const reimported = await call('foundation_import_file', { build_name: 'wrapper-derived.xml' });
+        assert.equal((await call('foundation_inspect', { snapshot_id: reimported.id, sections: ['build'] })).data.build.level, derivedLevel);
+      }
       child.stdin.end(); assert.equal((await exited)[0], 0, stderr);
     } finally { if (child.exitCode === null && child.signalCode === null) { child.kill('SIGTERM'); await exited; } }
   }
-  console.log('Docker wrapper legacy and snapshot modes passed');
+  console.log('Docker wrapper modes, snapshot persistence and file reload passed');
 } finally {
   // The image runs as root and may own snapshot files in the temporary mount.
   // Remove only contents of the fresh test directory through the same image.

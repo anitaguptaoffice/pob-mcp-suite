@@ -16,7 +16,14 @@ if ! docker image inspect "${IMAGE}" >/dev/null 2>&1; then
   docker pull "${IMAGE}"
 fi
 
+if [[ -n "${POB_DOCKER_USER:-}" ]]; then
+  set -- --user "${POB_DOCKER_USER}"
+else
+  set --
+fi
+
 exec docker run --rm -i \
+  "$@" \
   -e POB_DIRECTORY=/builds \
   -e POB_FORK_PATH=/opt/PathOfBuilding/src \
   -e POB_LUA_ENABLED="${POB_LUA_ENABLED:-true}" \
