@@ -6,6 +6,7 @@ import { TrackedTrade } from '../tradeCommon/trackedTrade.js';
 import { collectSourceStatistics } from '../tradeComparable/sourceStatistics.js';
 import { auditWeightedSources } from './sourceAudit.js';
 import { fetchVerifiedListingBatch } from '../tradeCommon/listingFetch.js';
+import { classifyBuyoutEvidence, emptyBuyoutEvidenceCounts } from '../../domain/trade/buyoutEvidence.js';
 
 const weightSchema = { type: 'array', minItems: 1, maxItems: 4, description: 'Choose only metrics where a higher value is better; PoB may combine player and minion damage for unprefixed damage stats.', items: { type: 'object', additionalProperties: false, properties: { stat: { type: 'string' }, weight: { type: 'number', exclusiveMinimum: 0, maximum: 100 } }, required: ['stat', 'weight'] } };
 const commonProperties = { snapshot_id: { type: 'string' }, slot: { type: 'string' }, weights: weightSchema, include_corrupted: { type: 'boolean' }, include_mirrored: { type: 'boolean' }, include_eldritch: { type: 'boolean' }, include_scourge: { type: 'boolean' }, max_price: { type: 'number', exclusiveMinimum: 0 }, price_currency: { type: 'string' } };
@@ -53,6 +54,10 @@ export async function generateWeightedTrade(foundation: Pick<BuildFoundation, 'r
   if (trade.filters !== undefined && (!trade.filters || typeof trade.filters !== 'object' || Array.isArray(trade.filters))) throw new Error('PoB returned invalid trade filters');
   trade.filters ??= {};
   trade.filters.sale_type = { option: 'priced' };
+  if (args.max_price !== undefined) {
+    const price = trade.filters.price as (Record<string, unknown> & { max?: unknown; option?: unknown; min?: unknown }) | undefined;
+    if (!price || typeof price !== 'object' || Array.isArray(price) || price.max !== args.max_price || price.option !== args.price_currency || (price.disabled !== undefined && price.disabled !== false) || (price.min !== undefined && price.min !== 0)) throw new Error('PoB did not preserve the requested maximum price and currency');
+  }
   return { ...context, slot: args.slot as string, weights, options, observedStats: result.baseline, weightBaselines: nativeBaselines, query, generatorWarning: result.generated.warning ?? null,
     warnings: [...context.warnings, 'PoB generated a weighted candidate query; inspect the native baselines, metrics and filters before searching.', 'Weights must use higher-is-better metrics. Weights and listings do not prove an actual upgrade, item legality or affordability.', 'PoB power stats may combine player and minion damage; native weight baselines can differ from observedStats. FullDPS may use a different fallback per candidate.'] };
 }
@@ -76,10 +81,19 @@ export function createWeightedTradeTools(foundation: Pick<BuildFoundation, 'runR
     const missingIds = fetched?.missingIds ?? [];
     const ordered = ids.flatMap(id => byId.has(id) ? [byId.get(id)!] : []);
     const sourceStatistics = collectSourceStatistics(ordered, (generated.query.query.stats ?? []).flatMap(group => group.filters.map(filter => filter.id)));
+    const priceEvidenceCounts = emptyBuyoutEvidenceCounts();
+    const excludedListings: Array<{ itemId: string; reason: string }> = [];
+    const eligible = ordered.filter(item => {
+      const evidence = classifyBuyoutEvidence(item, league); priceEvidenceCounts[evidence]++;
+      if (evidence !== 'explicit_buyout') { excludedListings.push({ itemId: item.id, reason: evidence }); return false; }
+      const price = item.listing.price!;
+      if (args.max_price !== undefined && (price.currency !== args.price_currency || price.amount > (args.max_price as number))) { excludedListings.push({ itemId: item.id, reason: 'outside_requested_price_cap_or_currency' }); return false; }
+      return true;
+    });
     return { content: [{ type: 'text', text: JSON.stringify({ ...generated, source: 'official-trade', league, listingScope: 'instant_buyout', searchId: search.id,
       searchUrl: `https://www.pathofexile.com/trade/search/${encodeURIComponent(league)}/${encodeURIComponent(search.id)}`, totalMatches: search.total, inexact: search.inexact === true,
-      requestedCount: ids.length, fetchedCount: ordered.length, missingListingIds: missingIds, listings: ordered.map(({ id, item, listing }) => ({ id, item, listing: { price: listing?.price, indexed: listing?.indexed, account: listing?.account ? { name: listing.account.name } : undefined } })),
+      requestedCount: ids.length, fetchedCount: ordered.length, returnedCount: eligible.length, missingListingIds: missingIds, priceEvidenceCounts, excludedListings, listings: eligible.map(({ id, item, listing }) => ({ id, item, listing: { price: listing?.price, indexed: listing?.indexed, account: listing?.account ? { name: listing.account.name } : undefined } })),
       sourceAudit, sourceWarnings, sourceStatistics, sourceTimes: trade.sourceTimes, sourceFailures: trade.sourceFailures,
-      warnings: [...generated.warnings, ...(search.inexact ? ['Official Trade reports inexact results.'] : []), ...(missingIds.length ? ['Some requested listings were unavailable at fetch time.'] : []), 'Source counts match official hashes to query IDs and do not verify values; missing hashes and pseudo stats cannot establish source absence.', 'Listing availability and asking prices can change; preview each item in PoB before deciding.'] }) }] };
+      warnings: [...generated.warnings, ...(search.inexact ? ['Official Trade reports inexact results.'] : []), ...(missingIds.length ? ['Some requested listings were unavailable at fetch time.'] : []), 'Only explicit buyouts with verified items in the requested league and within any requested price cap are returned. Evidence counts and source statistics cover all fetched listings; evidence categories use mutually exclusive first-failure classification.', 'Source counts match official hashes to query IDs and do not verify values; missing hashes and pseudo stats cannot establish source absence.', 'Listing availability and asking prices can change; preview each item in PoB before deciding.'] }) }] };
   } }];
 }

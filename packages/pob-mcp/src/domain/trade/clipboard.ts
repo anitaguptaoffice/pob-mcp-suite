@@ -1,7 +1,7 @@
 import type { ItemListing } from '../../types/tradeTypes.js';
 
 /** Decode the official clipboard payload without reconstructing or losing modifiers. */
-export function tradeClipboardText(listing: ItemListing, league: string): string {
+export function tradeClipboardText(listing: Pick<ItemListing, 'item'>, league: string): string {
   const item = listing.item;
   if (!item || item.league !== league || item.identified !== true || typeof item.typeLine !== 'string' || !item.typeLine.trim()) throw new Error('listing item, league, identification, or type is not verified');
   const encoded = item.extended?.text;

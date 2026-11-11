@@ -3,6 +3,7 @@ import type { OfficialTradeSource } from '../../ports/officialTrade.js';
 import type { FeatureTool } from '../../server/featureRegistry.js';
 import { tradeClipboardText } from '../../domain/trade/clipboard.js';
 import { fetchVerifiedListingBatch } from '../tradeCommon/listingFetch.js';
+import { classifyBuyoutEvidence } from '../../domain/trade/buyoutEvidence.js';
 
 export function tradePreviewSchema(): FeatureTool['schema'] {
   return { name: 'preview_trade_listings', description: 'Fetch up to five official trade listings and compare each exact clipboard item against an immutable PoB snapshot. No ranking, legality or instant-buyout eligibility is inferred.',
@@ -28,13 +29,13 @@ export function createTradePreviewTool(foundation: Pick<BuildFoundation, 'previe
         const text = tradeClipboardText(listing, league);
         const preview = await foundation.previewItem(snapshotId, slot, text);
         const price = listing.listing?.price;
-        results.push({ itemId, status: 'ok', listingVerified: listing.item.verified === true,
+        results.push({ itemId, status: 'ok', listingVerified: typeof listing.item.verified === 'boolean' ? listing.item.verified : null, priceEvidence: classifyBuyoutEvidence(listing, league),
           price: price && typeof price.amount === 'number' && Number.isFinite(price.amount) && price.amount > 0 && typeof price.currency === 'string' && price.currency.trim() ? { amount: price.amount, currency: price.currency, type: typeof price.type === 'string' ? price.type : null } : null,
           clipboardText: text, preview });
       } catch (error) { results.push({ itemId, status: 'error', error: error instanceof Error ? error.message : String(error) }); }
     }
     return { content: [{ type: 'text', text: JSON.stringify({ snapshotId, league, slot, searchId, source: fetched.source, fetchedAt: fetched.fetchedAt,
       searchUrl: `https://www.pathofexile.com/trade/search/${encodeURIComponent(league)}/${encodeURIComponent(searchId)}`, requestedCount: ids.length, completedCount: results.filter(result => result.status === 'ok').length, results,
-      warnings: ['Listings may be cached or unavailable; search status and instant-buyout eligibility cannot be inferred from a price.', 'Previews use one immutable snapshot, but candidate legality, socket requirements, parsing completeness and market availability require verification.'] }) }] };
+      warnings: ['Price evidence reflects only the fetched listing; search status and instant-buyout eligibility cannot be inferred from a price.', 'Listings may be cached or unavailable. Previews use one immutable snapshot, but candidate legality, socket requirements, parsing completeness and market availability require verification.'] }) }] };
   } };
 }

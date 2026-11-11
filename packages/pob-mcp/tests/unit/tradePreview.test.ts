@@ -16,9 +16,20 @@ describe('snapshot trade listing previews', () => {
     const result = JSON.parse((await tool.invoke(params)).content[0].text);
     expect(previewItem).toHaveBeenCalledTimes(1); expect(previewItem).toHaveBeenCalledWith(snapshotId, 'Ring 1', text);
     expect(result.fetchedAt).toBe('2026-01-01T00:00:00.000Z'); expect(result.completedCount).toBe(1);
-    expect(result.results[0]).toMatchObject({ itemId: ids[0], status: 'ok', clipboardText: text, price: { amount: 2, currency: 'chaos' }, preview: { delta: { Life: 50 } } });
+    expect(result.results[0]).toMatchObject({ itemId: ids[0], status: 'ok', clipboardText: text, priceEvidence: 'unconfirmed_buyout', price: { amount: 2, currency: 'chaos' }, preview: { delta: { Life: 50 } } });
     expect(result.results[1]).toMatchObject({ itemId: ids[1], status: 'error', error: 'Trade listing is missing' });
     expect(result.results[2].error).toContain('league');
+  });
+  it('keeps an unknown verification flag distinct while still previewing an explicit item', async () => {
+    const entry = listing(ids[0]);
+    delete (entry.item as { verified?: boolean }).verified;
+    entry.listing.price.type = '~b/o';
+    const trade = { fetchListings: jest.fn(async (requested: string[], queryId?: string) => ({ source: 'official-trade' as const, fetchedAt: '2026-01-01T00:00:00.000Z', request: { ids: requested, queryId: queryId ?? null }, data: { listings: [entry], missingIds: [] } })) } as unknown as OfficialTradeSource;
+    const previewItem = jest.fn(async () => ({ snapshotId }));
+    const tool = createTradePreviewTool({ previewItem, readSnapshot: async () => ({ id: snapshotId }) } as unknown as Pick<BuildFoundation, 'previewItem' | 'readSnapshot'>, trade);
+    const result = JSON.parse((await tool.invoke({ ...params, item_ids: [ids[0]] })).content[0].text);
+    expect(result.results[0]).toMatchObject({ status: 'ok', listingVerified: null, priceEvidence: 'unverified_item' });
+    expect(previewItem).toHaveBeenCalledTimes(1);
   });
   it('rejects mismatched fetch provenance and invalid inputs before preview', async () => {
     const trade = { fetchListings: jest.fn(async () => ({ source: 'official-trade', fetchedAt: '2026-01-01T00:00:00.000Z', request: { ids, queryId: 'wrong' }, data: { listings: [], missingIds: ids } })) } as unknown as OfficialTradeSource;

@@ -11,7 +11,7 @@ function fixture() {
   const foundation = { runReadOnlySnapshot: async (id: string, operation: (engine: unknown) => Promise<unknown>) => ({ snapshotId: id, identity: { engineVersion: 'fixture' }, warnings: [], result: await operation({ getStats: async () => ({ MinionCombinedDPS: 100 }), generateWeightedTradeQuery: generate }) }) } as unknown as BuildFoundation;
   const search = jest.fn(async (league, input) => ({ source: 'official-trade', fetchedAt: time, request: { league, query: JSON.parse(JSON.stringify(input)) }, data: { id: 'search', total: 2, result: [itemId, missingId], inexact: true } }));
   const stats = jest.fn(async () => ({ source: 'official-trade', fetchedAt: time, request: { kind: 'stats' }, data: { result: [] } }));
-  const fetchListings = jest.fn(async (ids, queryId) => ({ source: 'official-trade', fetchedAt: time, request: { ids, queryId }, data: { listings: [{ id: itemId, item: { id: itemId }, listing: { price: { amount: 2, currency: 'chaos' } } }], missingIds: [missingId] } }));
+  const fetchListings = jest.fn(async (ids, queryId) => ({ source: 'official-trade', fetchedAt: time, request: { ids, queryId }, data: { listings: [{ id: itemId, item: { id: itemId, verified: true, league: 'Standard' }, listing: { price: { type: '~b/o', amount: 2, currency: 'chaos' } } }], missingIds: [missingId] } }));
   return { foundation, source: { search, stats, fetchListings } as unknown as OfficialTradeSource, generate, search, fetchListings, query };
 }
 
@@ -22,9 +22,36 @@ it('preserves PoB filters, enforces securable priced, and exposes missing listin
   expect(result.query.query.filters.trade_filters.filters).toEqual({ price: { max: 30, option: 'chaos' }, sale_type: { option: 'priced' } });
   expect(f.query.query.status.option).toBe('available');
   expect(result.listingScope).toBe('instant_buyout'); expect(result.missingListingIds).toEqual([missingId]);
+  expect(result.priceEvidenceCounts.explicit_buyout).toBe(1); expect(result.listings[0].id).toBe(itemId);
   expect(result.inexact).toBe(true); expect(result.sourceTimes).toEqual({ stats: time, search: time, listings: time });
   expect(f.search).toHaveBeenCalledWith('Standard', result.query); expect(f.fetchListings).toHaveBeenCalledWith([itemId, missingId], 'search');
   expect(f.generate).toHaveBeenCalledWith('Amulet', expect.objectContaining({ statWeights: [{ label: 'MinionCombinedDPS', stat: 'MinionCombinedDPS', weightMult: 1 }], maxPrice: 30, maxPriceType: 'chaos' }));
+});
+
+it('rejects generated queries that drop, alter, or disable the requested price cap', async () => {
+  for (const price of [undefined, { max: 31, option: 'chaos' }, { max: 30, option: 'divine' }, { max: 30, option: 'chaos', disabled: true }, { max: 30, min: 5, option: 'chaos' }]) {
+    const f = fixture(); Object.assign(f.query.query.filters.trade_filters.filters, { price });
+    await expect(createWeightedTradeTools(f.foundation, f.source, () => true)[1].invoke({ ...args, league: 'Standard' })).rejects.toThrow('requested maximum price');
+    expect(f.search).not.toHaveBeenCalled();
+  }
+});
+
+it('returns only verified buyouts within the requested league and price cap', async () => {
+  const f = fixture();
+  const ids = Array.from({ length: 5 }, (_, index) => String(index + 1).repeat(64));
+  f.search.mockImplementationOnce(async (league, input) => ({ source: 'official-trade', fetchedAt: time, request: { league, query: JSON.parse(JSON.stringify(input)) }, data: { id: 'search', total: 5, result: ids, inexact: false } }));
+  f.fetchListings.mockImplementationOnce(async (requested, queryId) => ({ source: 'official-trade', fetchedAt: time, request: { ids: requested, queryId }, data: { listings: [
+    { id: ids[0], item: { id: ids[0], verified: true, league: 'Standard' }, listing: { price: { type: '~b/o', amount: 2, currency: 'chaos' } } },
+    { id: ids[1], item: { id: ids[1], verified: true, league: 'Standard' }, listing: { price: { type: '~price', amount: 1, currency: 'chaos' } } },
+    { id: ids[2], item: { id: ids[2], verified: false, league: 'Standard' }, listing: { price: { type: '~b/o', amount: 1, currency: 'chaos' } } },
+    { id: ids[3], item: { id: ids[3], verified: true, league: 'Other' }, listing: { price: { type: '~b/o', amount: 1, currency: 'chaos' } } },
+    { id: ids[4], item: { id: ids[4], verified: true, league: 'Standard' }, listing: { price: { type: '~b/o', amount: 31, currency: 'chaos' } } },
+  ], missingIds: [] } }));
+  const result = JSON.parse((await createWeightedTradeTools(f.foundation, f.source, () => true)[1].invoke({ ...args, league: 'Standard', limit: 5 })).content[0].text);
+  expect(result.listings.map((entry: { id: string }) => entry.id)).toEqual([ids[0]]);
+  expect(result.priceEvidenceCounts).toEqual({ explicit_buyout: 2, invalid_price: 0, unconfirmed_buyout: 1, unverified_item: 1, league_unconfirmed: 1 });
+  expect(result.excludedListings.map((entry: { reason: string }) => entry.reason)).toEqual(['unconfirmed_buyout', 'unverified_item', 'league_unconfirmed', 'outside_requested_price_cap_or_currency']);
+  expect(result.sourceStatistics.sampleCount).toBe(5);
 });
 
 it('requires authentication before calculations and refuses invalid or empty baselines', async () => {

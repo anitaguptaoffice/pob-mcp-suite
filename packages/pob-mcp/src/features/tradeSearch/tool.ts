@@ -1,4 +1,5 @@
 import { TradeQueryBuilder } from '../../domain/trade/queryBuilder.js';
+import { classifyBuyoutEvidence, emptyBuyoutEvidenceCounts } from '../../domain/trade/buyoutEvidence.js';
 import { auditStatSourceCoverage } from '../../domain/trade/sourceAudit.js';
 import type { OfficialTradeSource } from '../../ports/officialTrade.js';
 import type { FeatureTool } from '../../server/featureRegistry.js';
@@ -83,18 +84,23 @@ export async function searchOfficialTrade(source: OfficialTradeSource, args: Rec
     const byId = new Map(fetched.map(listing => [listing.id, listing]));
     const ordered = selectedIds.flatMap(id => { const listing = byId.get(id); return listing ? [listing] : []; });
     const statistics = collectSourceStatistics(ordered, (query.query.stats ?? []).flatMap(group => group.filters.map(filter => filter.id)));
-    const listings = ordered.map(({ id, item, listing }) => ({ id, item, listing: { price: listing?.price, indexed: listing?.indexed, account: listing?.account ? { name: listing.account.name } : undefined } }));
+    const priceEvidenceCounts = emptyBuyoutEvidenceCounts();
+    const listings = ordered.map(entry => {
+      const { id, item, listing } = entry, priceEvidence = classifyBuyoutEvidence(entry, league);
+      priceEvidenceCounts[priceEvidence]++;
+      return { id, item, priceEvidence, listing: { price: listing?.price, indexed: listing?.indexed, account: listing?.account ? { name: listing.account.name } : undefined } };
+    });
     const warnings = [...sourceWarnings,
       ...(sourceAudit === 'skipped_named_item' ? ['Stat source coverage was not audited for the named item; verify applicable sources separately.'] : []),
       ...(search.inexact ? ['The official search reports inexact results; not every condition is guaranteed to match.'] : []),
       ...((query.query.stats ?? []).some(group => group.type === 'count' && group.value?.min === 0) ? ['A count group explicitly permits zero matches, so its filters are not required to be present.'] : []),
       ...(trade.missingIds.length ? ['Some requested listings were unavailable at fetch time; results are partial.'] : []),
-      'Results are asking prices, not completed sales; listing availability can change.',
+      'Price evidence only describes fetched items and does not establish search status or instant-buyout eligibility; results are asking prices, not completed sales, and availability can change.',
       'Source counts match official hashes to query IDs and do not verify values. Missing hashes and pseudo stats cannot establish source absence.',
     ];
     return { source: 'official-trade' as const, league, query, searchId: search.id, listingScope: status === 'securable' && sale === 'priced' ? 'instant_buyout' as const : 'other' as const,
       searchUrl: `https://www.pathofexile.com/trade/search/${encodeURIComponent(league)}/${encodeURIComponent(search.id)}`, totalMatches: search.total, inexact: search.inexact === true,
-      requestedCount: selectedIds.length, fetchedCount: listings.length, missingListingIds: trade.missingIds, listings, sourceStatistics: statistics, sourceAudit, sourceWarnings,
+      requestedCount: selectedIds.length, fetchedCount: listings.length, missingListingIds: trade.missingIds, listings, priceEvidenceCounts, sourceStatistics: statistics, sourceAudit, sourceWarnings,
       sourceTimes: trade.sourceTimes, sourceFailures: trade.sourceFailures, warnings };
 }
 

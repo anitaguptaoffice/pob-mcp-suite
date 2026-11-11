@@ -7,6 +7,23 @@ const time = '2026-01-01T00:00:00.000Z';
 const stats = { result: [{ entries: [{ id: 'explicit.life', text: '+# Life', type: 'explicit' }, { id: 'fractured.life', text: '+# Life', type: 'fractured' }] }] };
 
 describe('new official trade search', () => {
+  it('reports price evidence without filtering explicitly requested non-securable searches', async () => {
+    const source = {
+      search: async (league: string, query: TradeQuery) => ({ source: 'official-trade', fetchedAt: time, request: { league, query }, data: { id: 'q', total: 2, result: ['buyout', 'negotiable'] } }),
+      fetchListings: async (ids: string[], queryId: string) => ({ source: 'official-trade', fetchedAt: time, request: { ids, queryId }, data: { missingIds: [], listings: [
+        { id: 'buyout', item: { verified: true, league: 'Standard' }, listing: { price: { type: '~b/o', amount: 5, currency: 'chaos' } } },
+        { id: 'negotiable', item: { verified: true, league: 'Standard' }, listing: { price: { type: '~price', amount: 5, currency: 'chaos' } } },
+      ] } }),
+    } as unknown as OfficialTradeSource;
+    const result = JSON.parse((await createTradeSearchTool(source).invoke({ league: 'Standard', status: 'online', limit: 2 })).content[0].text);
+    expect(result.listings.map((listing: any) => [listing.id, listing.priceEvidence])).toEqual([
+      ['buyout', 'explicit_buyout'], ['negotiable', 'unconfirmed_buyout'],
+    ]);
+    expect(result.priceEvidenceCounts).toMatchObject({ explicit_buyout: 1, unconfirmed_buyout: 1 });
+    expect(result.query.query.status.option).toBe('online');
+    expect(result.warnings.join(' ')).toContain('does not establish search status');
+  });
+
   it('preserves filter groups, listing order, partial failures and source coverage without forwarding whisper tokens', async () => {
     let captured: TradeQuery | undefined;
     const source = {

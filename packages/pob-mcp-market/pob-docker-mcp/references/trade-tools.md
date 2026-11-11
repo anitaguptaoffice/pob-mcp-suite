@@ -27,6 +27,8 @@ an explicit snapshot ID; if a needed capability is unavailable, report that limi
    `status: securable` and `sale_type: priced`; it does not accept `online_only`.
    Check the actual returned query, `listingScope`, source times, missing IDs,
    source audit and `inexact`. A different requested status must remain explicit.
+   `priceEvidence` and `priceEvidenceCounts` classify fetched listing data only;
+   even an explicit buyout does not independently establish the search status.
    For each modifier source, `sourceStatistics.sourceCoverage` separates
    inspectable, missing and malformed hash arrays within the fetched sample.
    `completeWithinSample` says only that every fetched listing had a usable
@@ -55,7 +57,8 @@ an explicit snapshot ID; if a needed capability is unavailable, report that limi
    `preview_trade_listings` with the snapshot ID, exact league and slot, the
    original `searchId` and up to five IDs from that search. For a pasted item use
    `foundation_preview_item`. Review each result, original currency, fetch time
-   and `parseDiagnostics`; unsupported modifiers, item legality, sockets,
+   and `parseDiagnostics`; `priceEvidence` describes only the fetched item and
+   does not prove its search status or eligibility for instant buyout. Unsupported modifiers, item legality, sockets,
    requirements and current listing availability need separate checks.
 
 `search_resistance_listings` bounds each candidate by the supplied per-item
@@ -80,8 +83,12 @@ active item set and optional reference prices, not a complete shopping plan.
    explicit higher-is-better metrics. Check `weightBaselines`: PoB may combine
    player and minion output for unprefixed damage metrics, and its FullDPS
    fallback can differ by candidate. `search_snapshot_weighted_trade` requires
-   authenticated Trade access and uses `securable` plus `priced`. Weighted
-   results are candidates; use PoB previews to verify actual replacement gains.
+   authenticated Trade access and uses `securable` plus `priced`. A requested
+   price cap must be preserved by PoB's query; returned candidates must also
+   have a confirmed buyout, verified item, matching league and requested
+   currency/cap. Review `priceEvidenceCounts` and `excludedListings`; source
+   statistics cover all fetched entries. Weighted results are candidates; use
+   PoB previews to verify actual replacement gains.
    `screen_snapshot_budget_candidates` combines explicit per-slot Trade searches
    with PoB previews under one chaos budget. It enforces `securable` and `priced`
    and previews only confirmed buyouts for verified items in the requested league;

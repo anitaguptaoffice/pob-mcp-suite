@@ -1,7 +1,6 @@
 import type { BuildFoundation } from '../../foundation/buildFoundation.js';
 import type { OfficialTradeSource } from '../../ports/officialTrade.js';
 import type { FeatureTool } from '../../server/featureRegistry.js';
-import type { ItemListing } from '../../types/tradeTypes.js';
 import { tradeClipboardText } from '../../domain/trade/clipboard.js';
 import { createSnapshotBuildComparisonTool } from '../buildComparison/tool.js';
 import { searchOfficialTrade } from '../tradeSearch/tool.js';
@@ -61,7 +60,7 @@ export function createBudgetBundleTool(foundation: Pick<BuildFoundation, 'readSn
           const listingEvidence = classifyBuyoutEvidence(listing, league);
           if (listingEvidence !== 'explicit_buyout' || !price || price.currency !== 'chaos' || price.amount > cap) { evidence.candidateFailures.push({ itemId: listing.id, error: `Listing has no confirmed explicit chaos buyout within the per-item cap (${listingEvidence})` }); continue; }
           try {
-            const itemText = tradeClipboardText(listing as ItemListing, league);
+            const itemText = tradeClipboardText(listing, league);
             const preview = await foundation.previewItem(base.snapshot_id, entry.slot, itemText);
             found = { slot: entry.slot, itemId: listing.id, price: price.amount, itemText, preview, search: evidence }; break;
           } catch (failure) { evidence.candidateFailures.push({ itemId: listing.id, error: failure instanceof Error ? failure.message : String(failure) }); }

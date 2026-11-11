@@ -1,7 +1,6 @@
 import type { BuildFoundation } from '../../foundation/buildFoundation.js';
 import type { OfficialTradeSource } from '../../ports/officialTrade.js';
 import type { FeatureTool } from '../../server/featureRegistry.js';
-import type { ItemListing } from '../../types/tradeTypes.js';
 import { tradeClipboardText } from '../../domain/trade/clipboard.js';
 import { searchOfficialTrade, tradeSearchSchema } from '../tradeSearch/tool.js';
 import { classifyBuyoutEvidence } from '../../domain/trade/buyoutEvidence.js';
@@ -51,7 +50,7 @@ export function createBudgetCandidatesTool(foundation: Pick<BuildFoundation, 're
           try {
             if (!priceMatches) throw new Error('Listing price is missing, outside the chaos budget or in another currency');
             if (listingEvidence !== 'explicit_buyout') throw new Error(`Listing is not a confirmed buyout in the requested league: ${listingEvidence}`);
-            const itemText = tradeClipboardText(listing as ItemListing, league);
+            const itemText = tradeClipboardText(listing, league);
             const preview = await foundation.previewItem(args.snapshot_id, entry.slot, itemText);
             candidates.push({ itemId: listing.id, price, priceEvidence: evidence, listingEvidence, listingVerified: listing.item.verified === true, status: 'previewed', preview });
           } catch (error) { candidates.push({ itemId: listing.id, price: price ?? null, priceEvidence: evidence, listingEvidence, listingVerified: typeof listing.item?.verified === 'boolean' ? listing.item.verified : null, status: 'unavailable', error: error instanceof Error ? error.message : String(error) }); }

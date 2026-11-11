@@ -54,6 +54,8 @@ try {
   assert.equal(search.sourceTimes.stats, stats.fetchedAt);
   assert.ok(search.fetchedCount > 0 && search.fetchedCount <= 3);
   assert.equal(search.sourceStatistics.sampleCount, search.fetchedCount);
+  assert.equal(Object.values(search.priceEvidenceCounts).reduce((sum, count) => sum + count, 0), search.fetchedCount);
+  for (const listing of search.listings) assert.ok(Object.hasOwn(search.priceEvidenceCounts, listing.priceEvidence));
   for (const source of ['explicit', 'implicit', 'fractured', 'crafted', 'enchant']) {
     const actual = search.listings.map(listing => listing.item?.extended?.hashes?.[source]);
     const available = actual.filter(entries => Array.isArray(entries) && entries.every(entry => Array.isArray(entry) && typeof entry[0] === 'string' && !!entry[0].trim())).length;

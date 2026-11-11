@@ -45,6 +45,8 @@ try {
   assert.ok(success, JSON.stringify(report.results));
   assert.equal(success.preview.snapshotId, parent.id); assert.match(success.clipboardText, /Rarity:/);
   assert.ok(Number.isFinite(success.preview.baseline.Life)); assert.ok(Number.isFinite(success.preview.candidateStats.Life));
+  const evidence = !success.price ? 'invalid_price' : success.price.type !== '~b/o' ? 'unconfirmed_buyout' : success.listingVerified !== true ? 'unverified_item' : 'explicit_buyout';
+  assert.equal(success.priceEvidence, evidence);
   assert.equal((await call('foundation_export_build', { snapshot_id: parent.id })).xml, xml);
   mcp.child.stdin.end(); assert.equal((await exited)[0], 0);
   console.log('official trade snapshot preview live integration passed');
