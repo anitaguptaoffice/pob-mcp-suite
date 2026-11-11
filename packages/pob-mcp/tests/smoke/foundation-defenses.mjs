@@ -18,9 +18,14 @@ try {
     const path = await client.queryTreePaths({ targetNodeId: ci.id });
     assert.equal(path.node.status, 'reachable'); await client.updateTreeDelta({ addNodes: path.node.pathNodes });
   }
+  for (const index of [1, 2, 3, 5]) await client.setFlaskActive(index, false);
   const xml = await client.exportBuildXml();
   const native = await client.getStats([...defenseFields]);
   assert.equal(native.Life, 1); assert.ok(native.EnergyShield > 0);
+  assert.equal(native.BleedAvoidChance, 100);
+  await client.setFlaskActive(4, false);
+  const nativeWithoutFlask = await client.getStats([...defenseFields]);
+  assert.ok(nativeWithoutFlask.BleedAvoidChance < native.BleedAvoidChance);
   await client.stop();
   const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
   child = mcp.child; child.stderr.on('data', () => {}); const exited = once(child, 'exit');
@@ -33,6 +38,10 @@ try {
     if (typeof native[field] === 'number' && Number.isFinite(native[field])) { assert.equal(metric.status, 'available', field); assert.equal(metric.value, native[field], field); }
     else { assert.equal(metric.status, 'unknown', field); assert.equal(metric.value, null, field); }
   }
+  const inactive = await call('foundation_derive_flask_active', { snapshot_id: parent.id, flask_index: 4, active: false, trial: true });
+  const withoutFlask = await call('inspect_snapshot_defenses', { snapshot_id: inactive.id });
+  assert.equal(withoutFlask.groups.ailmentAvoidance.BleedAvoidChance.value, nativeWithoutFlask.BleedAvoidChance);
+  assert.equal((await call('inspect_snapshot_defenses', { snapshot_id: parent.id })).groups.ailmentAvoidance.BleedAvoidChance.value, native.BleedAvoidChance);
   assert.equal((await call('foundation_export_build', { snapshot_id: parent.id })).xml, xml);
   child.stdin.end(); assert.equal((await exited)[0], 0); console.log('foundation defenses passed');
 } finally { if (child && child.exitCode === null && child.signalCode === null) child.kill('SIGTERM'); await client.stop(); await rm(dir, { recursive: true, force: true }); }

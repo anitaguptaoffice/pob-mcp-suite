@@ -5,6 +5,7 @@ export const defenseGroups = {
   pools: ['Life', 'LifeUnreserved', 'EnergyShield', 'Ward', 'Mana', 'ManaUnreserved', 'TotalEHP'],
   resistances: ['FireResist', 'ColdResist', 'LightningResist', 'ChaosResist', 'MissingFireResist', 'MissingColdResist', 'MissingLightningResist', 'FireResistOverCap', 'ColdResistOverCap', 'LightningResistOverCap', 'ChaosResistOverCap'],
   avoidance: ['Evasion', 'EvasionChance', 'BlockChance', 'SpellBlockChance', 'AttackDodgeChance', 'SpellDodgeChance', 'SpellSuppressionChance', 'EffectiveSpellSuppressionChance'],
+  ailmentAvoidance: ['BleedAvoidChance', 'PoisonAvoidChance', 'FreezeAvoidChance', 'ChillAvoidChance', 'ShockAvoidChance', 'IgniteAvoidChance', 'CurseAvoidChance'],
   mitigation: ['Armour', 'PhysicalDamageReduction', 'PhysicalMaximumHitTaken', 'FireMaximumHitTaken', 'ColdMaximumHitTaken', 'LightningMaximumHitTaken', 'ChaosMaximumHitTaken'],
   recovery: ['LifeRegen', 'LifeRegenRecovery', 'LifeLeechGainRate', 'EnergyShieldRegen', 'EnergyShieldRegenRecovery', 'EnergyShieldLeechGainRate', 'EnergyShieldRecharge', 'ManaRegen', 'ManaRegenRecovery', 'ManaLeechGainRate'],
 } as const;
@@ -19,6 +20,6 @@ export function createSnapshotDefensesTool(foundation: Pick<BuildFoundation, 'ev
     const result = await foundation.evaluate(args.snapshot_id, [...defenseFields]);
     const groups = Object.fromEntries(Object.entries(defenseGroups).map(([name, fields]) => [name, Object.fromEntries(fields.map(field => [field, result.metrics[field] ?? { status: 'unknown', value: null, reason: 'PoB did not provide this metric' }]))]));
     return { content: [{ type: 'text', text: JSON.stringify({ snapshotId: result.snapshotId, identity: result.identity, context: result.context, groups,
-      warnings: [...result.warnings, 'Defensive metrics depend on the saved PoB enemy and character configuration; EHP is not a guarantee of survival.', 'Maximum hit, avoidance, mitigation and recovery measure different situations and must not be added together.', 'Missing metrics are unknown, not zero; this report does not assign a defensive score or prove in-game uptime.'] }) }] };
+      warnings: [...result.warnings, 'Defensive metrics depend on the saved PoB enemy and character configuration; EHP is not a guarantee of survival.', 'Maximum hit, avoidance, mitigation and recovery measure different situations and must not be added together.', 'Ailment avoidance is calculated under saved PoB conditions, including active flasks; 100% is not proof of permanent immunity, removal of an existing ailment, or corrupted blood protection.', 'Missing metrics are unknown, not zero; this report does not assign a defensive score or prove in-game uptime.'] }) }] };
   } };
 }
