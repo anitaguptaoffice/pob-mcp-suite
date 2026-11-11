@@ -1304,14 +1304,20 @@ export class BuildFoundation {
     return { ...context, notes: result };
   }
 
-  async deriveNotes(id: string, notes: string, trial = false): Promise<SnapshotRecord> {
-    if (typeof notes !== 'string' || Buffer.byteLength(notes, 'utf8') > 512 * 1024 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\ufffe\uffff]|[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/u.test(notes)) throw new Error('Notes must be valid XML text of at most 512 KiB');
+  async deriveNotes(id: string, notes: string, trial = false, mode: 'replace' | 'append' = 'replace'): Promise<SnapshotRecord> {
+    const validNotes = (value: unknown): value is string => typeof value === 'string' && Buffer.byteLength(value, 'utf8') <= 512 * 1024 && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\ufffe\uffff]|[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/u.test(value);
+    if (!validNotes(notes) || !['replace', 'append'].includes(mode)) throw new Error('Notes must be valid XML text of at most 512 KiB and mode must be replace or append');
+    let expected: string | undefined;
     const verify = async (engine: BuildEngine) => {
-      if (await engine.getBuildNotes() !== notes) throw new Error('PoB did not preserve the requested notes');
+      if (expected === undefined || await engine.getBuildNotes() !== expected) throw new Error('PoB did not preserve the requested notes');
     };
     return this.derive(id, 'derived:notes', async engine => {
       const before = await observe(engine);
-      await engine.setBuildNotes(notes);
+      const previous = await engine.getBuildNotes();
+      if (typeof previous !== 'string') throw new Error('PoB returned invalid notes');
+      expected = mode === 'append' ? previous + (notes && previous ? '\n\n---\n\n' : '') + notes : notes;
+      if (!validNotes(expected)) throw new Error('Combined notes must be valid XML text of at most 512 KiB');
+      await engine.setBuildNotes(expected);
       await verify(engine);
       if (!isDeepStrictEqual(before, await observe(engine))) throw new Error('Notes change modified unrelated build state');
     }, trial, verify);

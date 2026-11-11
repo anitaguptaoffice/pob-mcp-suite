@@ -164,7 +164,9 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   For a controlled change, derive a child from one parent and compare those IDs.
 - Read notes using `foundation_read_notes` with `snapshot_id`. To replace them,
   call `foundation_derive_notes` with that ID and the complete new `notes` text;
-  use an empty string to clear them. The returned child ID is the edited build;
+  use an empty string to clear them. Set `mode: append` to append nonempty
+  text, separating it from existing nonempty notes with `\n\n---\n\n`.
+  Empty append text leaves existing notes unchanged. The returned child ID is the edited build;
   neither the parent nor an existing file is changed. Read the child notes back.
   If a local file should be updated, explicitly call `foundation_save_file` for
   the child, specifying `build_name` and `overwrite: true` only when replacing

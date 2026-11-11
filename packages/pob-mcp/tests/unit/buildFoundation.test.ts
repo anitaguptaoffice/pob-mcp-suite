@@ -248,6 +248,22 @@ describe('BuildFoundation isolation', () => {
       expect(await readdir(dir)).toEqual([`${parent.id}.json`]);
     } finally { await rm(dir, { recursive: true, force: true }); }
   });
+  it('rejects appended notes exceeding the combined limit before changing the engine', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'pob-notes-limit-'));
+    try {
+      const store = new SnapshotStore(dir);
+      const parent = await store.create({ xml: '<build/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
+      const setBuildNotes = jest.fn();
+      const engine = { identity: { engineVersion: null, dataVersion: null, adapterVersion: null }, loadBuildXml: async () => {},
+        getBuildNotes: async () => 'x'.repeat(512 * 1024 - 2), setBuildNotes,
+        getBuildInfo: async () => ({}), getTree: async () => ({}), getItems: async () => [], getSkills: async () => ({}),
+        getConfig: async () => ({}), getStats: async () => ({}), close: async () => {},
+      } as unknown as BuildEngine;
+      await expect(new BuildFoundation(store, async () => engine).deriveNotes(parent.id, 'x', false, 'append')).rejects.toThrow('Combined notes');
+      expect(setBuildNotes).not.toHaveBeenCalled();
+      expect(await readdir(dir)).toEqual([`${parent.id}.json`]);
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
   it('rejects a read-only operation that changes the observed build', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'pob-read-only-'));
     try {
