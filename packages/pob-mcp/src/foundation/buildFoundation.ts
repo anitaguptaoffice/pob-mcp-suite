@@ -723,7 +723,9 @@ export class BuildFoundation {
     let itemCatalog: Awaited<ReturnType<BuildFoundation['readItemSetCatalog']>>;
     let specsAfter: Awaited<ReturnType<BuildFoundation['inspectSpecs']>>;
     let setsAfter: Awaited<ReturnType<BuildFoundation['inspectItemSets']>>;
+    let inventoryAfter: Awaited<ReturnType<BuildFoundation['readItemInventory']>>;
     return this.derive(id, source, async engine => {
+      const inventoryBefore = await this.readItemInventory(engine);
       specCatalog = await this.readSpecCatalog(engine); itemCatalog = await this.readItemSetCatalog(engine);
       const specsBefore = await this.inspectSpecs(engine, specCatalog, specCatalog.activeSpec);
       const setsBefore = await this.inspectItemSets(engine, itemCatalog, itemCatalog.activeItemSetId);
@@ -736,11 +738,14 @@ export class BuildFoundation {
         if (!Array.isArray(before) || before.filter(item => item.slot === slot).length !== 1) throw new Error('Requested item slot is unavailable');
         const added = await engine.addItem(itemText, slot);
         const after = normalizeObservation({ items: await engine.getItems() }).items;
-        if (!Array.isArray(after) || added.slot !== slot || !Number.isSafeInteger(added.id) || added.id < 1 || after.filter(item => item.slot === slot && item.id === added.id).length !== 1) throw new Error('PoB did not equip the item in the requested slot');
+        if (!Array.isArray(after) || added.slot !== slot || !Number.isSafeInteger(added.id) || added.id < 1 || inventoryBefore.some(item => item.id === added.id) || [...changedSlots.values()].includes(added.id) || after.filter(item => item.slot === slot && item.id === added.id).length !== 1) throw new Error('PoB did not equip a new item in the requested slot');
         changedSlots.set(slot, added.id);
         if (!isDeepStrictEqual(before.filter(item => item.slot !== slot), after.filter(item => item.slot !== slot))) throw new Error('Equipping the item changed other slots');
         if (socket && !isDeepStrictEqual(beforeTree, normalizeObservation({ tree: await engine.getTree() }).tree)) throw new Error('Equipping the jewel changed the passive tree');
       }
+      inventoryAfter = await this.readItemInventory(engine);
+      const addedIds = new Set(changedSlots.values());
+      if (inventoryAfter.filter(item => addedIds.has(item.id)).length !== addedIds.size || !isDeepStrictEqual(canonicalInventory(inventoryBefore), canonicalInventory(inventoryAfter.filter(item => !addedIds.has(item.id))))) throw new Error('Equipping changed unrelated inventory items');
       if (!isDeepStrictEqual(await this.readSpecCatalog(engine), specCatalog) || !isDeepStrictEqual(await this.readItemSetCatalog(engine), itemCatalog)) throw new Error('Equipping changed a spec or item-set catalog');
       specsAfter = await this.inspectSpecs(engine, specCatalog, specCatalog.activeSpec);
       setsAfter = await this.inspectItemSets(engine, itemCatalog, itemCatalog.activeItemSetId);
@@ -754,6 +759,7 @@ export class BuildFoundation {
       const canonicalSets = (sets: typeof setsBefore) => sets.map(set => ({ ...set, items: set.id === itemCatalog.activeItemSetId ? otherSlots(set.items) : set.items }));
       if (!isDeepStrictEqual(canonicalSets(setsBefore), canonicalSets(setsAfter))) throw new Error('Equipping changed an inactive equipment set');
     }, trial, async engine => {
+      if (!isDeepStrictEqual(canonicalInventory(await this.readItemInventory(engine)), canonicalInventory(inventoryAfter))) throw new Error('Equipped inventory did not survive serialization');
       if (!isDeepStrictEqual(await this.readSpecCatalog(engine), specCatalog) || !isDeepStrictEqual(await this.readItemSetCatalog(engine), itemCatalog) || !isDeepStrictEqual(await this.inspectSpecs(engine, specCatalog, specCatalog.activeSpec), specsAfter) || !isDeepStrictEqual(await this.inspectItemSets(engine, itemCatalog, itemCatalog.activeItemSetId), setsAfter)) throw new Error('Equipped item sets or passive specs did not survive serialization');
     });
   }

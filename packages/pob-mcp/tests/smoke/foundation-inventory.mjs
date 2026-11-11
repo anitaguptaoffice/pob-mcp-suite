@@ -38,12 +38,17 @@ try {
   const equipped = await foundation.deriveItem(parent.id, 'Ring 1', ring, true);
   const equippedId = (await foundation.inspect(equipped.id, ['items'])).data.items.find(item => item.slot === 'Ring 1').id;
   assert.ok(equippedId > 0 && equippedId !== 5);
+  const equippedInventory = await foundation.itemInventory(equipped.id, 100);
+  assert.equal(equippedInventory.total, before.total + 1);
+  assert.deepEqual(equippedInventory.items.filter(item => item.id !== equippedId), before.items);
+  assert.match(equippedInventory.items.find(item => item.id === equippedId).raw, /\+30 to maximum Life/);
   const equippedAlternateSet = await foundation.deriveItemSet(equipped.id, 7, true);
   assert.equal((await foundation.inspect(equippedAlternateSet.id, ['items'])).data.items.find(item => item.slot === 'Ring 1').id, 0);
   const equippedAlternateSpec = await foundation.deriveSpec(equipped.id, 2, true);
   assert.equal((await foundation.inspect(equippedAlternateSpec.id, ['items'])).data.items.find(item => item.slot === 'Ring 1').id, equippedId);
   const equippedReload = await foundation.importBuild(await foundation.exportBuild(equipped.id), 'equipped-reload');
   assert.equal((await foundation.inspect(equippedReload.id, ['items'])).data.items.find(item => item.slot === 'Ring 1').id, equippedId);
+  assert.deepEqual((await foundation.itemInventory(equippedReload.id, 100)).items, equippedInventory.items);
   const derived = await foundation.deriveInventoryItem(parent.id, ring, true);
   const after = await foundation.itemInventory(derived.id, 100);
   assert.equal(after.total, before.total + 1);
