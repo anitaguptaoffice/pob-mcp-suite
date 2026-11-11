@@ -2,7 +2,7 @@ import { createSnapshotSummaryTool } from '../../src/features/buildSummary/tool.
 import type { BuildEngine, BuildFoundation } from '../../src/foundation/buildFoundation.js';
 const id = 'a'.repeat(64);
 function setup(overrides: Record<string, unknown> = {}) {
-  const engine = { getBuildInfo: jest.fn().mockResolvedValue({ level: 90 }), getStats: jest.fn().mockResolvedValue({ Life: 0, MinionCombinedDPS: 150 }), getSkills: jest.fn().mockResolvedValue({ mainSocketGroup: 2, groups: [{ index: 2, enabled: true }] }), getTree: jest.fn().mockResolvedValue({ treeVersion: '3_29', nodes: [42], masteryEffects: {} }), getItems: jest.fn().mockResolvedValue([{ slot: 'Amulet', id: 1, shown: true, raw: 'item text' }, { slot: 'Ring 1', id: 0, shown: true }]), getConfig: jest.fn().mockResolvedValue({ enemyIsBoss: 'Pinnacle' }), queryTreePaths: jest.fn().mockResolvedValue({ mode: 'allocated', treeVersion: '3_29', nodes: [{ id: 42, name: 'Keystone', nameKnown: true, type: 'keystone', allocated: true, stats: [] }], missingIds: [] }), ...overrides };
+  const engine = { getBuildInfo: jest.fn().mockResolvedValue({ level: 90 }), getStats: jest.fn().mockResolvedValue({ Life: 0, MinionCombinedDPS: 150 }), getSkills: jest.fn().mockResolvedValue({ mainSocketGroup: 2, groups: [{ index: 2, enabled: true }] }), getTree: jest.fn().mockResolvedValue({ treeVersion: '3_29', nodes: [42], masteryEffects: {} }), getItems: jest.fn().mockResolvedValue([{ slot: 'Amulet', id: 1, shown: true, raw: 'item text' }, { slot: 'Ring 1', id: 0, shown: true }]), listSpecs: jest.fn().mockResolvedValue({ activeSpec: 1, specs: [{ index: 1, title: 'Main', active: true, nodeCount: 1, treeVersion: '3_29' }, { index: 2, title: 'Other', active: false, nodeCount: 2, treeVersion: '3_29' }] }), listItemSets: jest.fn().mockResolvedValue({ activeItemSetId: 7, itemSets: [{ id: 1, title: 'Other', active: false, useSecondWeaponSet: false }, { id: 7, title: 'Main', active: true, useSecondWeaponSet: true }] }), getConfig: jest.fn().mockResolvedValue({ enemyIsBoss: 'Pinnacle' }), queryTreePaths: jest.fn().mockResolvedValue({ mode: 'allocated', treeVersion: '3_29', nodes: [{ id: 42, name: 'Keystone', nameKnown: true, type: 'keystone', allocated: true, stats: [] }], missingIds: [] }), ...overrides };
   const runReadOnlySnapshot = jest.fn(async (_id: string, fn: (value: BuildEngine) => Promise<unknown>) => ({ snapshotId: id, identity: { engineVersion: '1' }, warnings: [], result: await fn(engine as unknown as BuildEngine) }));
   return { engine, runReadOnlySnapshot, tool: createSnapshotSummaryTool({ runReadOnlySnapshot } as unknown as Pick<BuildFoundation, 'runReadOnlySnapshot'>) };
 }
@@ -11,10 +11,16 @@ it('keeps selected skill and minion metrics, node identity, real zeroes and opti
   const result = JSON.parse((await test.tool.invoke(args)).content[0].text);
   expect(result.status).toBe('complete'); expect(result.metrics.Life.value).toBe(0); expect(result.metrics.MinionCombinedDPS.value).toBe(150);
   expect(result.sections.skills.value.mainSocketGroup).toBe(2); expect(result.sections.allocatedNodeDetails.value.nodes[0]).toMatchObject({ id: 42, type: 'keystone' });
+  expect(result.sections.specs.value.activeSpec).toBe(1); expect(result.sections.itemSets.value.activeItemSetId).toBe(7);
   expect(result.sections.items.value).toEqual([{ slot: 'Amulet', id: 1, shown: true }]);
   expect(test.engine.queryTreePaths).toHaveBeenCalledWith({ allocatedOnly: true });
   const expanded = JSON.parse((await test.tool.invoke({ ...args, include_item_text: true })).content[0].text);
   expect(expanded.sections.items.value[0].raw).toBe('item text');
+});
+it('marks contradictory active set or tree catalogs unavailable', async () => {
+  const test = setup({ listSpecs: jest.fn().mockResolvedValue({ activeSpec: 1, specs: [{ index: 1, title: 'Main', active: true, nodeCount: 2, treeVersion: '3_29' }] }), listItemSets: jest.fn().mockResolvedValue({ activeItemSetId: 7, itemSets: [{ id: 1, title: 'Wrong', active: true, useSecondWeaponSet: false }] }) });
+  const result = JSON.parse((await test.tool.invoke({ snapshot_id: id, fields: ['Life'] })).content[0].text);
+  expect(result.status).toBe('partial'); expect(result.unavailableSections).toEqual(expect.arrayContaining(['specs', 'itemSets']));
 });
 it('reports missing metrics and failed sections without inventing zeroes', async () => {
   const test = setup({ getItems: jest.fn().mockRejectedValue(new Error('item read failed')) });

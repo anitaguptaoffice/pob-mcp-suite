@@ -22,6 +22,19 @@ export function createSnapshotSummaryTool(foundation: Pick<BuildFoundation, 'run
       const skills = await read(() => engine.getSkills(), value => object(value) && Array.isArray(value.groups));
       const tree = await read(() => engine.getTree(), value => object(value) && typeof value.treeVersion === 'string' && Array.isArray(value.nodes) && value.nodes.every((node: unknown) => typeof node === 'number' && Number.isSafeInteger(node) && node > 0) && new Set(value.nodes).size === value.nodes.length);
       const items = await read(() => engine.getItems(), value => Array.isArray(value) && value.every(item => object(item) && typeof item.slot === 'string' && Number.isSafeInteger(item.id) && item.id >= 0));
+      const specs = await read(() => engine.listSpecs(), value => {
+        if (!object(value) || !Number.isSafeInteger(value.activeSpec) || value.activeSpec < 1 || !Array.isArray(value.specs) || !value.specs.length || value.specs.length > 100 || value.specs.some((spec: unknown, i: number) => !object(spec) || spec.index !== i + 1 || typeof spec.title !== 'string' || typeof spec.active !== 'boolean' || !Number.isSafeInteger(spec.nodeCount) || spec.nodeCount < 0) || value.specs.filter((spec: Record<string, any>) => spec.active).length !== 1) return false;
+        const active = value.specs[value.activeSpec - 1];
+        if (!active?.active) return false;
+        if (tree.status !== 'available') return true;
+        const selected = tree.value;
+        return object(selected) && active.treeVersion === selected.treeVersion && active.nodeCount === selected.nodes.length;
+      });
+      const itemSets = await read(() => engine.listItemSets(), value => {
+        if (!object(value) || !Number.isSafeInteger(value.activeItemSetId) || value.activeItemSetId < 1 || !Array.isArray(value.itemSets) || !value.itemSets.length || value.itemSets.length > 100 || value.itemSets.some((set: unknown) => !object(set) || !Number.isSafeInteger(set.id) || set.id < 1 || typeof set.title !== 'string' || typeof set.active !== 'boolean' || typeof set.useSecondWeaponSet !== 'boolean') || new Set(value.itemSets.map((set: Record<string, any>) => set.id)).size !== value.itemSets.length) return false;
+        const active = value.itemSets.filter((set: Record<string, any>) => set.active);
+        return active.length === 1 && active[0].id === value.activeItemSetId;
+      });
       const config = await read(() => engine.getConfig(), value => object(value) || Array.isArray(value) && value.length === 0);
       const nodeDetails = await read(() => engine.queryTreePaths({ allocatedOnly: true }), value => {
         if (!object(value) || value.mode !== 'allocated' || typeof value.treeVersion !== 'string' || !Array.isArray(value.nodes) || !Array.isArray(value.missingIds) || value.nodes.some((node: unknown) => !object(node) || !Number.isSafeInteger(node.id) || node.id < 1 || node.allocated !== true || typeof node.name !== 'string' || !node.name || typeof node.nameKnown !== 'boolean' || typeof node.type !== 'string' || !Array.isArray(node.stats) || node.stats.some((stat: unknown) => typeof stat !== 'string')) || value.missingIds.some((id: unknown) => typeof id !== 'number' || !Number.isSafeInteger(id) || id < 1)) return false;
@@ -31,7 +44,7 @@ export function createSnapshotSummaryTool(foundation: Pick<BuildFoundation, 'run
         const observedTree = tree.value;
         return object(observedTree) && value.treeVersion === observedTree.treeVersion && ids.length === observedTree.nodes.length && ids.every(id => observedTree.nodes.includes(id));
       });
-      return { build, stats, skills, tree, items, config, nodeDetails };
+      return { build, stats, skills, tree, items, specs, itemSets, config, nodeDetails };
     });
     const sections = { ...result };
     let metrics: Record<string, unknown> | null = null;
@@ -43,6 +56,6 @@ export function createSnapshotSummaryTool(foundation: Pick<BuildFoundation, 'run
     const missingMetrics = metrics ? Object.entries(metrics).filter(([, value]) => (value as { status: string }).status !== 'available').map(([name]) => name) : fields;
     const unresolvedNodes = result.nodeDetails.status === 'available' && object(result.nodeDetails.value) ? [...result.nodeDetails.value.missingIds, ...result.nodeDetails.value.nodes.filter((node: { nameKnown: boolean }) => !node.nameKnown).map((node: { id: number }) => node.id)] : null;
     const unavailable = Object.entries(sections).filter(([, value]) => value.status !== 'available').map(([name]) => name === 'nodeDetails' ? 'allocatedNodeDetails' : name);
-    return { content: [{ type: 'text', text: JSON.stringify({ ...context, status: unavailable.length || missingMetrics.length || unresolvedNodes === null || unresolvedNodes.length ? 'partial' : 'complete', sections: { build: sections.build, skills: sections.skills, tree: sections.tree, allocatedNodeDetails: sections.nodeDetails, items: sections.items, config: sections.config }, metrics, missingMetrics, unavailableSections: unavailable, unresolvedNodeIds: unresolvedNodes, includeItemText: args.include_item_text === true, warnings: [...context.warnings, 'These are PoB observations in the saved skill and configuration, not validation of game legality or actual combat performance.', 'Player, minion and full DPS may overlap; do not add them blindly. Missing metrics and sections are unknown.', 'Items include all occupied slots, including hidden or inactive slots; item text is omitted unless explicitly requested.', ...(result.tree.status !== 'available' ? ['Allocated node details could not be cross-checked against the tree section.'] : []), ...(Array.isArray(unresolvedNodes) && unresolvedNodes.length ? ['Some allocated node IDs or names were not resolved by PoB.'] : [])] }) }] };
+    return { content: [{ type: 'text', text: JSON.stringify({ ...context, status: unavailable.length || missingMetrics.length || unresolvedNodes === null || unresolvedNodes.length ? 'partial' : 'complete', sections: { build: sections.build, skills: sections.skills, tree: sections.tree, specs: sections.specs, itemSets: sections.itemSets, allocatedNodeDetails: sections.nodeDetails, items: sections.items, config: sections.config }, metrics, missingMetrics, unavailableSections: unavailable, unresolvedNodeIds: unresolvedNodes, includeItemText: args.include_item_text === true, warnings: [...context.warnings, 'These are PoB observations in the saved skill and configuration, not validation of game legality or actual combat performance.', 'Player, minion and full DPS may overlap; do not add them blindly. Missing metrics and sections are unknown.', 'Items include all occupied slots, including hidden or inactive slots; item text is omitted unless explicitly requested.', ...(result.tree.status !== 'available' ? ['Allocated node details and active spec could not be cross-checked against the tree section.'] : []), ...(Array.isArray(unresolvedNodes) && unresolvedNodes.length ? ['Some allocated node IDs or names were not resolved by PoB.'] : [])] }) }] };
   } };
 }

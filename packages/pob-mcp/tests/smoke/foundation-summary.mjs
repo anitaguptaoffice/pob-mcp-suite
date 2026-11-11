@@ -10,7 +10,13 @@ const dir = await mkdtemp(join(tmpdir(), 'pob-summary-'));
 const client = new PoBLuaApiClient({ cwd: smokePoBSrc(), cmd: process.env.POB_CMD, args: [resolve('lua/vanilla_stdio_bridge.lua')], env: { POB_API_STDIO: '0' }, timeoutMs: 60000 });
 let child;
 try {
-  await client.start(); await client.loadBuildXml(await readFile(gearedBuildXml, 'utf8'));
+  const fixture = await readFile(gearedBuildXml, 'utf8');
+  const firstSet = fixture.match(/<ItemSet\b[^>]*\bid="1"[^>]*>[\s\S]*?<\/ItemSet>/)?.[0];
+  assert.ok(firstSet);
+  const secondSet = firstSet.replace('id="1"', 'id="7" title="Alternative"').replace('<Slot name="Ring 1" itemId="5"/>', '<Slot name="Ring 1" itemId="0"/>');
+  assert.ok(secondSet.includes('name="Ring 1" itemId="0"'));
+  await client.start(); await client.loadBuildXml(fixture.replace(firstSet, `${firstSet}\n${secondSet}`));
+  await client.createSpec({ title: 'Alternative', copyFrom: 1, activate: false });
   const group = await client.createSocketGroup({ label: 'poison-minion', slot: 'Helmet' });
   await client.addGem({ groupIndex: group.index, gemName: 'Summon Raging Spirit', level: 20 });
   await client.setMainSelection({ mainSocketGroup: group.index });
@@ -18,6 +24,8 @@ try {
   const native = await client.getStats(['Life', 'MinionCombinedDPS', 'MinionTotalDPS']);
   assert.ok(native.MinionCombinedDPS > native.MinionTotalDPS && native.MinionTotalDPS > 0);
   const nativeTree = await client.getTree();
+  const nativeSpecs = await client.listSpecs(), nativeItemSets = await client.listItemSets();
+  assert.equal(nativeSpecs.specs.length, 2); assert.equal(nativeItemSets.itemSets.length, 2);
   const { xml } = await client.unchangedItemsSnapshot(); await client.stop();
   const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
   child = mcp.child; child.stderr.on('data', () => {}); const exited = once(child, 'exit');
@@ -29,6 +37,8 @@ try {
   for (const field of ['Life', 'MinionCombinedDPS', 'MinionTotalDPS']) assert.ok(Math.abs(summary.metrics[field].value - native[field]) < 0.01);
   assert.equal(summary.sections.skills.value.mainSocketGroup, group.index);
   assert.equal(summary.sections.tree.value.treeVersion, nativeTree.treeVersion);
+  assert.deepEqual(summary.sections.specs.value, nativeSpecs);
+  assert.deepEqual(summary.sections.itemSets.value, nativeItemSets);
   assert.deepEqual(summary.sections.tree.value.nodes, nativeTree.nodes);
   assert.equal(summary.sections.allocatedNodeDetails.status, 'available', JSON.stringify(summary.sections.allocatedNodeDetails));
   const detail = summary.sections.allocatedNodeDetails.value;

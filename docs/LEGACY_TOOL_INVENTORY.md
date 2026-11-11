@@ -37,7 +37,7 @@ Generated from registered schema groups in the current build. Most entries are p
 - `inspect_item_affix_weight` — target: crafting and item data; replacement: `inspect_pob_item_affix_weight` uses a shared-limiter disposable engine without a snapshot; status: partially migrated (legacy callers remain); skill references: no exact name found in packaged skill Markdown.
 - `compare_equipment_candidate` — target: analysis and optimization; replacement: `foundation_preview_item`; status: snapshot preview live-tested, legacy callers require migration; skill references: no exact name found in packaged skill Markdown.
 - `lua_get_capabilities` — target: engine lifecycle and introspection; replacement: `inspect_pob_engine`; status: partially migrated (legacy callers remain); skill references: no exact name found in packaged skill Markdown.
-- `lua_get_build_snapshot` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `lua_get_build_snapshot` — target: build lifecycle / snapshot; replacement: `summarize_snapshot_build`; status: selected skill, gear, tree, configuration, catalogs and metrics implemented; legacy callers remain; skill references: no exact name found in packaged skill Markdown.
 - `lua_start` — target: engine lifecycle and introspection; replacement: internal disposable engine executor; status: partially migrated (legacy callers remain); skill references: no exact name found in packaged skill Markdown.
 - `lua_stop` — target: engine lifecycle and introspection; replacement: executor cleanup and service shutdown; status: partially migrated (legacy callers remain); skill references: no exact name found in packaged skill Markdown.
 - `lua_new_build` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: no exact name found in packaged skill Markdown.
@@ -106,7 +106,7 @@ Generated from registered schema groups in the current build. Most entries are p
 
 ## getToolSchemas
 
-- `analyze_build` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `analyze_build` — target: analysis and optimization; replacement: `summarize_snapshot_build` plus explicit issue and defense tools; status: overview implemented, full validation and legacy callers remain; skill references: no exact name found in packaged skill Markdown.
 - `compare_builds` — target: analysis and optimization; replacement: `compare_snapshot_builds` with explicit snapshot IDs and saved calculation contexts; status: partially migrated (snapshot skill workflow documented; legacy file-name callers remain); skill references: no exact name found in packaged skill Markdown.
 - `list_builds` — target: build lifecycle / snapshot; replacement: `list_local_build_files` plus `foundation_import_file`; status: partially migrated (legacy callers remain); skill references: no exact name found in packaged skill Markdown.
 - `get_build_stats` — target: calculation and configuration; replacement: snapshot evaluation or typed configuration change; status: not migrated; skill references: no exact name found in packaged skill Markdown.

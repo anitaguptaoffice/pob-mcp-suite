@@ -89,7 +89,8 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   to identify the active tree, equipment, selected skill and conditions.
 - For a broad single-build overview, use `summarize_snapshot_build`. It returns
   structured sections, selected skills, allocated node details and distinct
-  PoB metrics from one isolated observation. `status: partial`, missing metrics,
+  PoB metrics from one isolated observation. `specs` and `itemSets` identify
+  the active configurations and other available sets. `status: partial`, missing metrics,
   unresolved node IDs and section errors must remain visible. Occupied hidden
   or inactive slots are included; set `include_item_text: true` only when full
   equipment text is needed. Explain results to users in Simplified Chinese.
