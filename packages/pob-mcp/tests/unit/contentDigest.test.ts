@@ -17,4 +17,21 @@ describe('digestDirectory', () => {
       await expect(digestDirectory(dir)).rejects.toThrow('symbolic link');
     } finally { await rm(dir, { recursive: true, force: true }); }
   });
+
+  it('leaves engine-written caches out of identity while still tracking its inputs', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'pob-digest-'));
+    try {
+      await mkdir(path.join(dir, 'Data', 'TimelessJewelData'), { recursive: true });
+      await writeFile(path.join(dir, 'Data', 'TimelessJewelData', 'ElegantHubris.zip'), 'pinned');
+      const ignoreCache = (name: string): boolean => /^Data\/TimelessJewelData\/[^/]+\.bin$/.test(name);
+      const digest = (): Promise<string> => digestDirectory(dir, { ignore: ignoreCache });
+      const original = await digest();
+      // The engine writing its own cache must not look like a changed checkout…
+      await writeFile(path.join(dir, 'Data', 'TimelessJewelData', 'ElegantHubris.bin'), 'decompressed');
+      expect(await digest()).toBe(original);
+      // …while a change to the pinned input still does.
+      await writeFile(path.join(dir, 'Data', 'TimelessJewelData', 'ElegantHubris.zip'), 'updated');
+      expect(await digest()).not.toBe(original);
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
 });

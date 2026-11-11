@@ -13,6 +13,14 @@ export interface PoBEngineOptions {
   timeoutMs?: number;
 }
 
+/**
+ * PoB decompresses timeless-jewel data into Data/TimelessJewelData/*.bin inside
+ * its own src/ tree on first use. The .zip it derives from is digested, so the
+ * cache carries no identity of its own; skipping it keeps two engines starting
+ * at once from mistaking a peer's cache write for an engine swap.
+ */
+const generatedDataCache = /^Data\/TimelessJewelData\/[^/]+\.bin$/;
+
 /** Start a disposable bridge for one foundation operation. */
 export async function openPoBEngine(options: PoBEngineOptions): Promise<BuildEngine> {
   const layout = resolvePoBLayout(options.cwd || process.env.POB_PATH);
@@ -29,10 +37,11 @@ export async function openPoBEngine(options: PoBEngineOptions): Promise<BuildEng
   const adapterDir = path.dirname(options.adapterPath);
   const executable = await resolveExecutable(options.command || 'luajit', src);
   const executableBefore = executable ? await digestExecutable(executable) : null;
-  const [sourceDigest, adapterDigest, runtimeBefore] = await Promise.all([digestDirectory(src), digestDirectory(adapterDir), runtimeDigest()]);
+  const sourceIdentity = (): Promise<string> => digestDirectory(src, { ignore: (name) => generatedDataCache.test(name) });
+  const [sourceDigest, adapterDigest, runtimeBefore] = await Promise.all([sourceIdentity(), digestDirectory(adapterDir), runtimeDigest()]);
   const verifyIdentity = async () => {
     const [currentSource, currentAdapter, currentRuntime, currentExecutable] = await Promise.all([
-      digestDirectory(src), digestDirectory(adapterDir), runtimeDigest(), executable ? digestExecutable(executable) : Promise.resolve(null),
+      sourceIdentity(), digestDirectory(adapterDir), runtimeDigest(), executable ? digestExecutable(executable) : Promise.resolve(null),
     ]);
     if (sourceDigest !== currentSource || adapterDigest !== currentAdapter || runtimeBefore !== currentRuntime || executableBefore !== currentExecutable) {
       throw new Error('PoB source, adapter, runtime or executable changed during operation');

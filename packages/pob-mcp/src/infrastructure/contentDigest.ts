@@ -2,8 +2,17 @@ import { createHash } from 'node:crypto';
 import { createReadStream, promises as fs } from 'node:fs';
 import path from 'node:path';
 
+export interface DigestOptions {
+  /**
+   * Paths to leave out of the digest, given the root-relative path. Use this
+   * only for files the engine writes itself from digested inputs, such as
+   * caches; ignoring them keeps identity about what was actually supplied.
+   */
+  ignore?: (relativePath: string) => boolean;
+}
+
 /** Hash paths and bytes, not timestamps, with a stable traversal order. */
-export async function digestDirectory(root: string): Promise<string> {
+export async function digestDirectory(root: string, options: DigestOptions = {}): Promise<string> {
   const hash = createHash('sha256');
   async function visit(relative: string): Promise<void> {
     const directory = path.join(root, relative);
@@ -12,6 +21,7 @@ export async function digestDirectory(root: string): Promise<string> {
     for (const entry of entries) {
       const name = relative ? `${relative}/${entry.name}` : entry.name;
       const target = path.join(directory, entry.name);
+      if (options.ignore?.(name)) continue;
       if (entry.isSymbolicLink()) throw new Error(`Cannot fingerprint symbolic link: ${name}`);
       if (entry.isDirectory()) { await visit(name); continue; }
       if (!entry.isFile()) throw new Error(`Cannot fingerprint non-file: ${name}`);
