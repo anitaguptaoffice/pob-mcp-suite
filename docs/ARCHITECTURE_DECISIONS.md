@@ -264,11 +264,17 @@ acceptance for behavior outside the tested fixtures.
 
 `migration-registration.mjs` starts the new stdio surface with Trade enabled
 and checks every quoted replacement tool in the legacy inventory against actual
-MCP discovery. It covers 117 distinct replacement identifiers and explicitly
-tracks the three rows without a public replacement: internal engine startup and
-shutdown, and legacy tree-cache refresh. It runs as part of `npm run validate`.
-Discovery does not prove invocation, behavior, real-source accuracy or caller
-migration; `refresh_tree_data` has no equivalent remote-update operation.
+MCP discovery. It covers the quoted replacement identifiers and explicitly
+tracks the rows without a public replacement: internal engine startup and
+shutdown. It runs as part of `npm run validate`. Discovery does not prove
+invocation, behavior, real-source accuracy or caller migration.
+
+`inspect_upstream_tree_nodes` is a separate, explicit GitHub source for raw
+serialized nodes from a requested upstream tree version. It has a bounded cache,
+source hash, actual fetch time, and explicit refresh. It never executes or
+installs the remote Lua or changes the local PoB snapshot source. This is a
+partial replacement for legacy remote-tree lookup; the old parsed full-tree
+analysis and local PoB source updates are not implemented by this interface.
 
 An isolated OpenCode 2.2.6 configuration and temporary managed client service
 also connected to the current local Docker build through the packaged wrapper.

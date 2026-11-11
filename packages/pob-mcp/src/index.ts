@@ -100,6 +100,8 @@ import { createResistanceTradeTool, resistanceTradeSchema } from './features/res
 import { createClusterTradeTool, clusterTradeSchema } from './features/clusterTrade/tool.js';
 import { createTimelessSearchTool, timelessSearchSchema } from './features/timelessSearch/tool.js';
 import { createCachedStatsTool, cachedStatsSchema } from './features/cachedStats/tool.js';
+import { createUpstreamTreeTool } from './features/upstreamTree/tool.js';
+import { GitHubUpstreamTree } from './adapters/upstreamTree/github.js';
 
 // Import utilities
 import type { LegacyRuntime } from './server/legacyRuntime.js';
@@ -114,6 +116,7 @@ class PoBMCPServer {
   private foundation: BuildFoundation | null = null;
   private foundationFeatures: FeatureRegistry | null = null;
   private readonly modifierFeatures = new FeatureRegistry(createModifierDataTools(new PoBModifierData()));
+  private readonly upstreamTreeFeatures = new FeatureRegistry([createUpstreamTreeTool(new GitHubUpstreamTree())]);
   private buildFileCatalog!: FeatureRegistry;
   private localBuildWatcher!: LocalBuildFileWatcher;
   private localConfigPresets!: LocalConfigPresetStore;
@@ -181,6 +184,7 @@ class PoBMCPServer {
       jewelComparisonSchema(),
       ...jewelJobSchemas(),
       ...this.modifierFeatures.schemas(),
+      ...this.upstreamTreeFeatures.schemas(),
       ...this.buildFileCatalog.schemas(),
       ...this.configPresetCatalog.schemas(),
       ...configPresetSchemas().slice(2),
@@ -339,7 +343,7 @@ class PoBMCPServer {
     // List available tools
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       if (!this.legacy) {
-        const tools = [...(this.foundation ? [...foundationSchemas, ...featureRegistry.schemas(), ...(this.foundationFeatures?.schemas() ?? [])] : []), ...this.modifierFeatures.schemas(), ...this.buildFileCatalog.schemas(), ...this.configPresetCatalog.schemas(), ...(this.marketFeatures?.schemas() ?? [])];
+        const tools = [...(this.foundation ? [...foundationSchemas, ...featureRegistry.schemas(), ...(this.foundationFeatures?.schemas() ?? [])] : []), ...this.modifierFeatures.schemas(), ...this.upstreamTreeFeatures.schemas(), ...this.buildFileCatalog.schemas(), ...this.configPresetCatalog.schemas(), ...(this.marketFeatures?.schemas() ?? [])];
         assertUniqueToolSchemas(tools);
         return { tools: tools.map(({ truncatable: _truncatable, ...wire }) => wire) };
       }
@@ -347,6 +351,7 @@ class PoBMCPServer {
       featureRegistry.assertNoCollisions(tools);
       tools.push(...featureRegistry.schemas());
       tools.push(...this.modifierFeatures.schemas());
+      tools.push(...this.upstreamTreeFeatures.schemas());
       tools.push(...this.buildFileCatalog.schemas());
       tools.push(...this.configPresetCatalog.schemas());
       tools.push(...(this.marketFeatures?.schemas() ?? []));
@@ -365,6 +370,13 @@ class PoBMCPServer {
       try {
         const modifierFeature = this.modifierFeatures.get(name);
         if (modifierFeature) return await modifierFeature.invoke(args ?? {});
+        const upstreamTreeFeature = this.upstreamTreeFeatures.get(name);
+        if (upstreamTreeFeature) {
+          if (this.foundationClosing) throw new Error('Upstream tree source is unavailable during shutdown');
+          const pending = Promise.resolve().then(() => upstreamTreeFeature.invoke(args ?? {}));
+          this.foundationPending.add(pending);
+          try { return await pending; } finally { this.foundationPending.delete(pending); }
+        }
         const catalogFeature = this.buildFileCatalog.get(name) ?? this.configPresetCatalog.get(name);
         if (catalogFeature) {
           if (this.foundationClosing) throw new Error('Build catalog is unavailable during shutdown');

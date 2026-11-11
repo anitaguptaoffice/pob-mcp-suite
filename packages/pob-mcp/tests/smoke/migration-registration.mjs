@@ -34,7 +34,7 @@ try {
     if (!count) unmapped.push(row[1]);
   }
   assert.equal(parsedRows, [...inventory.matchAll(/^- `([^`]+)` — target:/gm)].length, 'every inventory row must use the documented replacement and status format');
-  assert.deepEqual(unmapped.sort(), ['lua_start', 'lua_stop', 'refresh_tree_data'], 'new unregistered replacement or intentional internal-only entry must be reviewed');
+  assert.deepEqual(unmapped.sort(), ['lua_start', 'lua_stop'], 'new unregistered replacement or intentional internal-only entry must be reviewed');
   assert.ok(replacements.size > 100, 'inventory extraction must cover the documented tool mappings');
   const missing = [...replacements].filter(([name]) => !names.includes(name)).map(([name, users]) => ({ name, legacyTools: users }));
   assert.deepEqual(missing, [], `documented replacements absent from the advertised MCP surface: ${JSON.stringify(missing)}`);

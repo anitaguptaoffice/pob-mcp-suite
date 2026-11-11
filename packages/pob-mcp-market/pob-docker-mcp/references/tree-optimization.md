@@ -64,3 +64,12 @@ an older snapshot can fail with an identity mismatch even if its tree version
 was unchanged. Export its XML and explicitly import it under the updated engine
 to create a new root snapshot; inspect the new tree and recalculated values.
 Do not claim an image or checkout is current without checking its provenance.
+
+For a separately identified upstream reference, `inspect_upstream_tree_nodes`
+fetches the requested PoB tree version from upstream GitHub and returns the raw
+serialized entries for up to 20 explicit node IDs. Check the source hash and
+fetch time; `refresh: true` requests a fresh copy. The moving upstream branch is
+not a pinned commit, and a node missing there is not proof that the node is
+missing in a local snapshot. This source never updates local PoB, alters a build,
+or substitutes for local allocation and calculation. It does not yet parse or
+compare an entire tree; unrecognized source layout is rejected.
