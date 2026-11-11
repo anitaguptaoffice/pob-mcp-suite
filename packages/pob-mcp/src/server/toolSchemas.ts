@@ -161,91 +161,6 @@ export function getToolSchemas(): ToolSchema[] {
         required: ["build_name", "notes"],
       },
     },
-    {
-      name: "classify_item_affixes",
-      description: "Classify supplied explicit modifier lines using PoB data, including hybrid affixes and ambiguous matches. Remaining slots are unknown unless rarity, complete explicit modifiers, and ordinary item capacity are confirmed and all lines are unambiguous. This does not validate the item or crafting legality.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          mod_lines: {
-            type: "array",
-            items: { type: "string" },
-            description: "The item's mod lines, one per entry, exactly as printed (e.g. '+42 to maximum Life'). PoB tags such as {crafted} are stripped automatically.",
-          },
-          rarity: { type: "string", enum: ["rare", "magic"], description: "Confirmed item rarity; required for slot counts." },
-          explicit_mods_complete: { type: "boolean", description: "Set true only after confirming all explicit modifier lines are supplied. Does not validate item state or special rules." },
-          ordinary_capacity_confirmed: { type: "boolean", description: "Set true only after confirming no special item rules change ordinary prefix or suffix capacity." },
-        },
-        required: ["mod_lines"],
-      },
-    },
-    {
-      name: "list_craftable_mods",
-      description: "List the crafting bench mods an item class can take at a given item level, from Path of Building's ModMaster table. Use it to answer 'what can I put in the open suffix', and to say what a higher item level would unlock. A craft occupies a slot of its own type, so check the type of the affix being replaced, not only the one being added. LIMITS: bench crafts only, no essences, fossils or veiled mods, and no metacrafting. It does not know what the item already has, so pair it with classify_item_affixes.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          item_class: {
-            type: "string",
-            description: "Item class as PoB names it: 'Body Armour', 'Helmet', 'Gloves', 'Boots', 'Shield', 'Ring', 'Amulet', 'Belt', 'Quiver', 'Wand', 'Bow', 'Staff', 'Sceptre', 'Dagger', 'Claw', 'One Handed Sword', and so on. A wrong value returns the full list of known classes.",
-          },
-          item_level: {
-            type: "number",
-            description: "The item's item level. Crafts requiring a higher level are reported separately rather than hidden.",
-          },
-          affix_type: {
-            type: "string",
-            enum: ["Prefix", "Suffix"],
-            description: "Restrict to the slot type you actually have open.",
-          },
-          search: {
-            type: "string",
-            description: "Optional wording, affix name, group or mod tag filter (e.g. 'Cold Resistance', 'life').",
-          },
-        },
-        required: ["item_class", "item_level"],
-      },
-    },
-    {
-      name: "find_affix_tiers",
-      description: "Look up PoB affix tier data and positive-weight tags. slot_tags is a broad any-tag filter, not proof an item can roll a mod. A caller-confirmed complete item_tags set can evaluate the first matching base spawn rule; this does not account for multipliers, crafting mechanics, item state or mod conflicts and is not a probability.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          search: {
-            type: "string",
-            description: "Stat wording, affix name, group or mod tag (e.g. 'Chaos Resistance', 'of Bameth', 'ChaosResistance').",
-          },
-          affix_type: {
-            type: "string",
-            enum: ["Prefix", "Suffix"],
-            description: "Restrict to prefixes or suffixes.",
-          },
-          slot_tags: {
-            type: "array",
-            items: { type: "string" },
-            description: "Broad filter: match any positive-weight tag; Elevated candidates may also match a zero-weight tag because PoB can override it for influence. This does not verify item eligibility.",
-          },
-          item_tags: { type: "array", items: { type: "string" }, description: "Complete independently verified item tag set including default; evaluates the first matching base spawn rule. Do not combine with slot_tags." },
-          item_tags_complete: { type: "boolean", description: "Must be true when supplying item_tags; incomplete tags can yield a wrong rule." },
-          max_item_level: {
-            type: "number",
-            description: "Drop tiers the item level cannot reach.",
-          },
-          include_unobtainable: {
-            type: "boolean",
-            description: "Include all zero-weight or non-matching base spawn rules; possible Elevated influence overrides remain candidates even when false. Zero base weight does not prove a modifier cannot be forced by a special mechanic. Default false.",
-            default: false,
-          },
-          max_results: {
-            type: "number",
-            description: "Maximum affix groups to return (default 10).",
-            default: 10,
-          },
-        },
-        required: ["search"],
-      },
-    },
   ];
 }
 
@@ -258,7 +173,7 @@ export function getLuaToolSchemas(): ToolSchema[] {
       name: "inspect_item_affix_weight",
       description: "Use PoB's GetModSpawnWeight on a caller-provided item and PoB explicit modifier ID. Returns its item-data spawn weight and item-level context, not crafting probability or proof of eligibility. Requires a loaded PoB engine.",
       inputSchema: { type: "object", properties: {
-        mod_id: { type: "string", description: "PoB explicit modifier ID, e.g. from find_affix_tiers." },
+        mod_id: { type: "string", description: "PoB explicit modifier ID, e.g. from query_modifier_tiers." },
         item_text: { type: "string", description: "Complete PoB-compatible item text, up to 10 KB." },
       }, required: ["mod_id", "item_text"] },
     },

@@ -120,7 +120,7 @@ PoB 原版引擎及其数据负责原版计算；仓库自己的适配层负责�
 | `find_timeless_jewel_seeds` | 搜索永恒珠宝种子 | 计算域独立功能；保留真实树版本和原版数据对照，不耦合一般技能分析 |
 | `search_trade_items`、`estimate_comparable_item` | 国际服挂牌搜索和相似物品统计 | 交易域；保留 `securable`、来源覆盖、样本及通货，核对 `pob-economy` |
 | `estimate_build_cost` | 基于 poe.ninja 的部分构筑参考价 | 估价域；保留未估价清单和获取时间，不能把参考小计当一口价总额 |
-| `find_affix_tiers`、`inspect_item_affix_weight`、`classify_item_affixes` | 查询词缀数据、PoB 权重和候选分类 | 物品数据与制作域；保留零权重、特殊规则和未知槽位的区别 |
+| `query_modifier_tiers`、`inspect_pob_item_affix_weight`、`classify_modifier_lines` | 查询词缀数据、PoB 权重和候选分类 | 物品数据与制作域；保留零权重、特殊规则和未知槽位的区别 |
 | `compare_craft_budget`、`simulate_simple_annul` | 数学预算模型和一次剥离结果 | 制作域；保持外部概率来源与物品状态假设，核对 `pob-crafting` |
 
 除两个制作工具的注册试点外，工具发现、路由与能力检查仍有旧代码；这说明架构切换尚未完成。后续要分别核对：工具是否被发现、能否直接调用、依赖关闭时是否拒绝调用、截断是否破坏原始数据，以及新旧客户端和 Skill 是否引用了变更后的名称。

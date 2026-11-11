@@ -349,9 +349,9 @@ PoB installation or checkout containing the relevant mod tables.
 
 | Tool | Description |
 |---|---|
-| `classify_item_affixes` | Match explicit lines to prefixes, suffixes, and hybrid affixes; report uncertainty for unmatched or ambiguous lines |
-| `list_craftable_mods` | List bench crafts for an item class and level; does not check an equipped item's existing conflicts |
-| `find_affix_tiers` | Look up affix ranges, minimum item levels, and base tags |
+| `classify_modifier_lines` | Match explicit lines to prefixes, suffixes, and hybrid affixes; report uncertainty for unmatched or ambiguous lines |
+| `query_bench_modifiers` | List bench crafts for an item class and level; does not check an equipped item's existing conflicts |
+| `query_modifier_tiers` | Look up affix ranges, minimum item levels, and base tags; a complete tag set evaluates the first matching spawn rule |
 
 ### Lua Bridge — Core (Require `POB_LUA_ENABLED=true`)
 

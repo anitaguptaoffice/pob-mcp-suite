@@ -89,7 +89,7 @@ try {
   assert.match(defense, /Spell Suppression: 50% \(below 100% chance cap\)/);
   console.log('ok: 50% suppression is reported as partial');
 
-  const affix = await call('classify_item_affixes', { mod_lines: ['+33% to Chaos Resistance'] });
+  const affix = await call('classify_modifier_lines', { mod_lines: ['+33% to Chaos Resistance'] });
   assert(affix.includes('of Bameth'));
   console.log('ok: affix lookup works with the engine installation, including legacy ModItem tables');
 

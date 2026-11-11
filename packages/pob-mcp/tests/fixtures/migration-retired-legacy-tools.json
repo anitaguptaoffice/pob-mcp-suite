@@ -33,5 +33,20 @@
     "replacement": "get_local_build_watch",
     "evidence": ["unit/localBuildWatcher.test.ts", "smoke/foundation-gating.mjs"],
     "note": "Legacy status report removed; the replacement reports process-local state, directory, cursor and error."
+  },
+  "classify_item_affixes": {
+    "replacement": "classify_modifier_lines",
+    "evidence": ["unit/modifierDataTools.test.ts", "unit/affixRealData.test.ts", "smoke/persistence.mjs"],
+    "note": "Legacy text route removed; the replacement keeps hybrid and unmatched-line regressions, withholds slot counts unless confirmed, and reports matched lines that exceed rarity capacity."
+  },
+  "list_craftable_mods": {
+    "replacement": "query_bench_modifiers",
+    "evidence": ["unit/modifierDataTools.test.ts", "unit/affixRealData.test.ts"],
+    "note": "Legacy route removed; the replacement separates within-level and level-locked bench crafts and paginates them."
+  },
+  "find_affix_tiers": {
+    "replacement": "query_modifier_tiers",
+    "evidence": ["unit/modifierDataTools.test.ts", "unit/affixRealData.test.ts"],
+    "note": "Legacy route removed; the replacement keeps zero-weight and Elevated candidates, complete-tag spawn rules, item-level filtering and the base-tag vocabulary."
   }
 }

@@ -5,9 +5,12 @@
  */
 
 import { describe, it, expect } from '@jest/globals';
-import { loadAllMods, loadExplicitMods, ModDataUnavailableError } from '../../src/services/modDataStore.js';
+import { loadAllMods, loadExplicitMods, loadMasterMods, ModDataUnavailableError } from '../../src/services/modDataStore.js';
 import { resolveAffixes } from '../../src/domain/modifiers/affixMatcher.js';
-import { findAffixTiers, findCraftableMods } from '../../src/services/affixQuery.js';
+import { findAffixTiers as queryTiers, findCraftableMods as queryBench } from '../../src/domain/modifiers/affixQuery.js';
+
+const findAffixTiers = (query: Parameters<typeof queryTiers>[0]) => queryTiers(query, loadExplicitMods());
+const findCraftableMods = (query: Parameters<typeof queryBench>[0]) => queryBench(query, loadMasterMods());
 
 const installed = ((): boolean => {
   try {

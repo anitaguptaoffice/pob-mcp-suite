@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { PoBLuaApiClient } from '../build/adapters/pob/bridge.js';
 import { parseModFile } from '../build/services/modDataStore.js';
-import { firstMatchingSpawnRule } from '../build/services/affixQuery.js';
+import { firstMatchingSpawnRule } from '../build/domain/modifiers/affixQuery.js';
 import { formatLoadStats } from '../build/handlers/luaHandlers.js';
 import { handleFindItemUpgrades } from '../build/handlers/itemShoppingHandler.js';
 
