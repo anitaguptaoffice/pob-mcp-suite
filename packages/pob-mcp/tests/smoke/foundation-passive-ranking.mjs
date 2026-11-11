@@ -31,7 +31,7 @@ try {
   const none = await call('submit_snapshot_passive_ranking', { snapshot_id: parent.id, metrics: ['Life'], max_distance: 8, limit: 2, filter: 'spell damage', excluded_node_ids: excluded });
   assert.equal(none.status, 'no_candidates'); assert.equal(none.excludedPaths, discovered.nodes.filter(node => !node.isBlighted && !node.ascendancyName).length);
   const protectedId = 2147483647;
-  const job = await call('submit_snapshot_passive_ranking', { snapshot_id: parent.id, metrics: ['Life', 'MinionCombinedDPS'], max_distance: 8, limit: 2, filter: 'spell damage', excluded_node_ids: [protectedId] });
+  const job = await call('submit_snapshot_passive_ranking', { snapshot_id: parent.id, metrics: ['Life', 'MinionCombinedDPS'], max_distance: 8, limit: 2, filter: 'spell damage', excluded_node_ids: [protectedId], min_life: 0, min_energy_shield: 0 });
   assert.ok(job.jobId && job.submitted > 0);
   const deadline = Date.now() + 240000; let report;
   do { report = await call('summarize_snapshot_passive_ranking', { job_id: job.jobId }); if (['completed', 'failed', 'cancelled', 'interrupted'].includes(report.jobStatus)) break; await new Promise(resolve => setTimeout(resolve, 500)); } while (Date.now() < deadline);
@@ -45,7 +45,16 @@ try {
   assert.equal(candidate.metrics.Life.delta, candidate.metrics.Life.candidate - report.baseline.metrics.Life.value);
   assert.equal(candidate.metrics.MinionCombinedDPS.candidate, evaluated.metrics.MinionCombinedDPS.value);
   assert.equal(candidate.metrics.MinionCombinedDPS.baseline, native.MinionCombinedDPS);
+  assert.equal(candidate.constraints.Life.actual, candidate.metrics.Life.candidate);
+  assert.equal(candidate.constraints.EnergyShield.met, true);
   assert.equal((await call('foundation_read_snapshot', { snapshot_id: candidate.snapshotId })).parentId, parent.id);
   assert.equal((await call('foundation_export_build', { snapshot_id: parent.id })).xml, xml);
+  const strict = await call('submit_snapshot_passive_ranking', { snapshot_id: parent.id, metrics: ['MinionCombinedDPS'], max_distance: 8, limit: 1, filter: 'spell damage', min_life: 1000000000 });
+  const strictDeadline = Date.now() + 240000;
+  let strictReport;
+  do { strictReport = await call('summarize_snapshot_passive_ranking', { job_id: strict.jobId }); if (['completed', 'failed', 'cancelled', 'interrupted'].includes(strictReport.jobStatus)) break; await new Promise(resolve => setTimeout(resolve, 500)); } while (Date.now() < strictDeadline);
+  assert.equal(strictReport.jobStatus, 'completed'); assert.equal(strictReport.status, 'complete');
+  assert.equal(strictReport.ranked.length, 0); assert.equal(strictReport.results[0].status, 'below_minimum');
+  assert.ok(strictReport.results[0].constraints.Life.actual < 1000000000);
   child.stdin.end(); assert.equal((await exited)[0], 0); console.log('foundation passive ranking passed');
 } finally { if (child && child.exitCode === null && child.signalCode === null) child.kill('SIGTERM'); await client.stop(); await rm(dir, { recursive: true, force: true }); }

@@ -34,6 +34,34 @@ describe('passive ranking', () => {
     expect(report.results[0]).toMatchObject({ status: 'unranked', metrics: null, score: null });
     expect(report.results[2]).toMatchObject({ status: 'failed', reason: 'engine failed' });
   });
+  it('ranks only candidates meeting calculated minimums and distinguishes unknown from zero', async () => {
+    const test = setup();
+    const good = result(120, 110), low = result(110, 90), unknown = result(115, 105);
+    for (const entry of [good, low, unknown]) {
+      (entry.baseline.metrics as any).EnergyShield = { status: 'available', value: 0 };
+      (entry.candidate.metrics as any).EnergyShield = { status: 'available', value: 0 };
+    }
+    (unknown.candidate.metrics as any).EnergyShield = { status: 'unavailable' };
+    const constrained = (id: number) => ({ ...input(id, [id]), minimums: { Life: 100, EnergyShield: 0 } });
+    test.get.mockResolvedValue({ id: 'job', status: 'completed', items: [
+      { status: 'completed', input: constrained(2), result: good },
+      { status: 'completed', input: constrained(3), result: low },
+      { status: 'completed', input: constrained(4), result: unknown },
+    ] });
+    const report = await decode(test.summary);
+    expect(report.status).toBe('partial'); expect(report.minimums).toEqual({ Life: 100, EnergyShield: 0 });
+    expect(report.ranked.map((entry: { nodeId: number }) => entry.nodeId)).toEqual([2]);
+    expect(report.results[0].constraints.EnergyShield).toEqual({ minimum: 0, actual: 0, met: true });
+    expect(report.results[1]).toMatchObject({ status: 'below_minimum', constraints: { Life: { actual: 90, met: false } } });
+    expect(report.results[2]).toMatchObject({ status: 'unavailable', constraints: { EnergyShield: { actual: null, met: null } } });
+  });
+  it('evaluates additional constraint metrics once alongside scoring metrics', async () => {
+    const evaluate = jest.fn().mockResolvedValue(observation(parent, 100));
+    const deriveTree = jest.fn().mockResolvedValue({ id: child });
+    await evaluatePassive({ evaluate, deriveTree } as unknown as Pick<BuildFoundation, 'evaluate' | 'deriveTree'>, { ...input(2, [2]), metrics: ['MinionCombinedDPS'], minimums: { Life: 1, EnergyShield: 0 } });
+    expect(evaluate).toHaveBeenNthCalledWith(1, parent, ['MinionCombinedDPS', 'Life', 'EnergyShield']);
+    expect(evaluate).toHaveBeenNthCalledWith(2, child, ['MinionCombinedDPS', 'Life', 'EnergyShield']);
+  });
   it('excludes ascendancy and anointment-only notables before submitting paths', async () => {
     const node = (id: number) => ({ id, name: `node ${id}`, type: 'notable', stats: [], allocated: false, isBlighted: false, status: 'reachable', pathNodes: [id], pointCost: 1 });
     const queryTreePaths = jest.fn().mockResolvedValue({ mode: 'nearby', treeVersion: '3_29', maxDistance: 3, total: 3, nodes: [node(1), { ...node(2), ascendancyName: 'Other Class' }, { ...node(3), isBlighted: true }] });
@@ -57,6 +85,8 @@ describe('passive ranking', () => {
     expect(none).toMatchObject({ status: 'no_candidates', jobId: null, excludedPaths: 3 });
     expect(submitPassives).toHaveBeenCalledTimes(1);
     await expect(submit.invoke({ snapshot_id: parent, metrics: ['Life'], excluded_node_ids: [1, 1] })).rejects.toThrow('Invalid passive ranking options');
+    await expect(submit.invoke({ snapshot_id: parent, metrics: ['Life'], min_life: -1 })).rejects.toThrow('Invalid passive minimum constraints');
+    await expect(submit.invoke({ snapshot_id: parent, metrics: ['Life'], min_energy_shield: Infinity })).rejects.toThrow('Invalid passive minimum constraints');
   });
   it('rejects persisted jobs whose paths conflict with their exclusions', async () => {
     const test = setup();

@@ -287,6 +287,9 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   path containing one of those IDs, including intermediate nodes; exclusions
   apply to new allocations, not nodes already allocated. Exclusions are applied
   after the discovery limit, and alternative paths are not sought.
+  Set `min_life` and/or `min_energy_shield` to require minimum PoB values on
+  each candidate, independent of scoring metrics. Candidates below a minimum
+  are reported separately and not ranked; unavailable values are unknown.
   Confirm metric meanings and baseline values
   for the build; player and minion damage are separate and must not be added.
 - Poll `summarize_snapshot_passive_ranking` with the returned `job_id`. The score
