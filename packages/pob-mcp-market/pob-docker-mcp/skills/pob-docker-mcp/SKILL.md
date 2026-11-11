@@ -1,13 +1,13 @@
 ---
 name: pob-docker-mcp
-description: Use when analyzing, comparing, editing, or optimizing Path of Building builds through the PoB Docker MCP server, including Claude CLI, Codex, and CodeBuddy workflows.
+description: Connect to or troubleshoot the local PoB MCP service, import/export builds, and perform direct PoB inspection or edits. Specialized build-review, gear-upgrade, economy and crafting skills cover recommendations and market workflows.
 ---
 
 # PoB Docker MCP
 
 Use this skill when the user wants Path of Building help and the `pob` MCP server is available or should be started through Docker.
 
-This skill is the Codex-facing operating guide for the plugin. The MCP tool schemas describe what each tool accepts; this skill explains which tools to trust for each job and what to verify before reporting results.
+This skill is the agent-facing operating guide for the plugin. The MCP tool schemas describe what each tool accepts; this skill explains which tools to trust for each job and what to verify before reporting results.
 
 ## Runtime
 
@@ -44,6 +44,8 @@ any price or uptime assumptions.
 
 For detailed tool selection, verification, and known edge cases, read the relevant reference:
 
+- For build diagnosis and prioritized improvements, use `../pob-build-review/SKILL.md`.
+- For equipment searches and measured upgrade comparisons, use `../pob-gear-upgrade/SKILL.md`.
 - `../../references/tool-workflows.md` for source-of-truth, build intake, mutation, and alternate tree rules.
 - `../../references/tree-optimization.md` for passive tree recommendations and reallocation.
 - `../../references/trade-tools.md` for trade searches, price checks, and gear upgrades.
@@ -61,13 +63,10 @@ For detailed tool selection, verification, and known edge cases, read the releva
 
 ## Guardrails
 
-- Do not claim a DPS or defensive number unless it came from a PoB calculation result or an explicitly provided build export.
+- Use current PoB calculation results for measured DPS and defense claims. Label values read from a supplied export as saved observations, with their calculation context and age unverified.
 - Before suggesting tree edits, check current tree version and allocated nodes. Use `foundation_inspect` with `tree` and derive an explicit child; see the snapshot workflow.
 - Before mutating a build, summarize the intended change; mutations create a child snapshot, so state which child you are reporting on.
 - Treat trade and poe.ninja data as live external data; if the MCP has trade disabled, state that price guidance is approximate.
-- Before building a non-unique item search, use `search_trade_stats` when advertised. Do not assume an `explicit.stat_*` filter also matches identically worded `Implicit`, `Fractured`, `Crafted`, or `Enchant` stats.
-- Prefer a suitable `Pseudo` total when one exists. Otherwise put compatible source variants for one semantic requirement in one `count`/`or` group, and keep separate mandatory requirements in separate groups. Do not mechanically add every same-text source to named unique searches.
-- Use `status=securable` when the user asks for instant-buyout or immediately purchasable listings.
 - If the Docker runtime is unavailable, ask the user to start Docker and rerun the MCP command.
 - For `*_alternate` tree versions, do not infer build legality from static passive point counts alone. Use PoB calculations or the official tree link as the source of truth.
 
@@ -83,9 +82,11 @@ For detailed tool selection, verification, and known edge cases, read the releva
 POB_DOCKER_IMAGE=ghcr.io/anitaguptaoffice/pob-mcp-suite:latest ./scripts/pob-mcp-docker.sh
 ```
 
-**PoB data version mismatch:** pull the latest image published by `pob-mcp-suite` after its vendored Path of Building tree is synced.
+**Engine identity changed during a calculation:** retry with a stable engine
+installation and inspect the reported runtime identities. Snapshot creation
+identity does not pin the engine used for fresh calculations.
 
-**Plugin docs vs skills:** Markdown under `references/` is supporting documentation. Codex only auto-triggers skills from `skills/*/SKILL.md`; references are read when the skill points to them or when the task requires them.
+**Plugin docs vs skills:** Markdown under `references/` is supporting documentation. Skill entry points live in `skills/*/SKILL.md`; references are read when the skill points to them or when the task requires them. Discovery depends on the client's installed skill/plugin configuration.
 
 ## Response Style
 

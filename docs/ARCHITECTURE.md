@@ -7,6 +7,9 @@ packages that describe usage; they never compute game values.
 ## Layers
 
 ```
+Agent skills (client-side workflow selection and reporting)
+   │  call advertised tools
+   ▼
 MCP transport (src/index.ts)
    │  ListTools / CallTool
    ▼
@@ -30,6 +33,20 @@ Feature modules (src/features/*)
 Dependencies point downward. Feature modules do not import the Lua bridge,
 the snapshot store internals or another feature's private files. Boundary tests
 enforce this for the engine, modifier and trade domains.
+
+## Agent workflows
+
+The packaged skills separate runtime/direct operations (`pob-docker-mcp`),
+whole-build diagnosis (`pob-build-review`), equipment upgrades
+(`pob-gear-upgrade`), price evidence (`pob-economy`) and crafting
+(`pob-crafting`). They share a recommendation evidence reference and access the
+service through advertised MCP contracts, never server-private imports.
+
+Skills choose goals, sequence calls and explain results. Features/domain rules
+own deterministic comparisons, constraints and arithmetic; foundation/adapters
+own engine isolation and source data. A new skill need not introduce a new
+endpoint. Add a feature when a repeatable deterministic operation needs one
+shared implementation, keeping source access behind the existing ports.
 
 ## Composition root
 
