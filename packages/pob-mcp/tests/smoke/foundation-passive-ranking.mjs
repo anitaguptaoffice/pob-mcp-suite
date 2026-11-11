@@ -13,6 +13,7 @@ let child;
 try {
   await client.start(); await client.newBuild({ className: 'Witch' });
   await client.setTree({ classId: 3, ascendClassId: 0, nodes: [], treeVersion: '3_29' }); await client.setLevel(90);
+  const emptyXml = await client.exportBuildXml();
   const group = await client.createSocketGroup({ label: 'poison-minion' });
   await client.addGem({ groupIndex: group.index, gemName: 'Summon Raging Spirit', level: 20 });
   await client.setMainSelection({ mainSocketGroup: group.index });
@@ -24,7 +25,15 @@ try {
   child = mcp.child; child.stderr.on('data', () => {}); const exited = once(child, 'exit');
   await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'passive-ranking-smoke', version: '1' } }); mcp.notify('notifications/initialized', {});
   const call = async (name, args) => { const response = await mcp.request('tools/call', { name, arguments: args }); assert.ok(!response.error && !response.result?.isError, JSON.stringify(response).slice(0, 1200)); return JSON.parse(response.result.content[0].text); };
+  const empty = await call('foundation_import_build', { xml: emptyXml, source: 'passive-empty-fixture' });
+  const emptySuggestions = await call('find_snapshot_passive_suggestions', { snapshot_id: empty.id, goal: 'life' });
+  assert.deepEqual(emptySuggestions.inferredArchetypes, []); assert.ok(emptySuggestions.candidates.length > 0);
   const parent = await call('foundation_import_build', { xml, source: 'passive-ranking-fixture' });
+  const suggestions = await call('find_snapshot_passive_suggestions', { snapshot_id: parent.id, goal: 'damage', limit: 30 });
+  assert.equal(suggestions.treeVersion, '3_29'); assert.ok(suggestions.inferredArchetypes.includes('minion'));
+  assert.ok(suggestions.candidates.length > 0); assert.equal(suggestions.searches[0].keyword, 'minion damage');
+  assert.ok(suggestions.candidates.every(({ node }) => !node.allocated && ['notable', 'keystone'].includes(node.type)));
+  assert.ok(suggestions.warnings.some(warning => warning.includes('not establish relevance, gain')));
   const discovered = await call('find_snapshot_nearby_nodes', { snapshot_id: parent.id, max_distance: 8, limit: 2, filter: 'spell damage' });
   assert.ok(discovered.nodes.length > 0);
   const excluded = [...new Set(discovered.nodes.flatMap(node => node.pathNodes))];

@@ -81,7 +81,7 @@ Generated from registered schema groups in the current build. Most entries are p
 ## getOptimizationToolSchemas
 
 - `analyze_defenses` — target: analysis and optimization; replacement: `inspect_snapshot_defenses` and `check_snapshot_issues`; status: partially migrated (legacy heuristic scoring and callers remain); skill references: no exact name found in packaged skill Markdown.
-- `suggest_optimal_nodes` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `suggest_optimal_nodes` — target: analysis and optimization; replacement: `find_snapshot_passive_suggestions` for bounded goal-keyword discovery, with separate path and metric evaluation; status: partially migrated (legacy callers remain; matches are unverified heuristics); skill references: no exact name found in packaged skill Markdown.
 - `optimize_tree` — target: analysis and optimization; replacement: bounded PoB path discovery and `submit_snapshot_passive_ranking` with explicit metrics, excluded nodes and candidate minimum Life/ES; status: partial, global optimization and legacy callers remain; skill references: no exact name found in packaged skill Markdown.
 - `analyze_items` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
 - `optimize_skill_links` — target: analysis and optimization; replacement: `inspect_snapshot_skill_groups` and explicit support comparisons; status: partially migrated (legacy callers remain; no global optimizer implied); skill references: no exact name found in packaged skill Markdown.

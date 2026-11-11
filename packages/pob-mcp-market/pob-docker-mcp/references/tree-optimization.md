@@ -12,6 +12,10 @@ capability is unavailable, report that limitation.
    `foundation_inspect`; note the active tree version and ascendancy.
 2. Use `foundation_search_tree` to find node IDs by name or text. Search is
    bounded and unordered; it does not establish reachability or damage gain.
+   For goal-based discovery, `find_snapshot_passive_suggestions` uses legacy
+   keyword and saved gem-name heuristics. Review its per-search truncation and
+   output truncation; disabled gems can influence the inferred archetype. Treat
+   the results as unverified candidates, then check paths and actual metrics.
 3. For a specific node, call `find_snapshot_tree_path` with `snapshot_id` and
    `target_node_id`. Check `status` and `node.status`: a missing, unreachable,
    already allocated, or reachable node has different meaning. Only a reachable
