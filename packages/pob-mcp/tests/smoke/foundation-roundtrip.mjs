@@ -2,7 +2,7 @@ import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { normalizeObservation } from '../../build/foundation/observation.js';
-import { PoBLuaApiClient } from '../../build/pobLuaBridge.js';
+import { PoBLuaApiClient } from '../../build/adapters/pob/bridge.js';
 import { gearedBuildXml, smokePoBSrc } from './pobSource.mjs';
 
 const client = new PoBLuaApiClient({ cwd: smokePoBSrc(), cmd: process.env.POB_CMD,

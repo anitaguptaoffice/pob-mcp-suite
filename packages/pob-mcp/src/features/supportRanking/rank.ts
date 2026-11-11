@@ -1,4 +1,4 @@
-import type { PoBLuaApiClient } from '../../pobLuaBridge.js';
+import type { PoBLuaApiClient } from '../../adapters/pob/bridge.js';
 import { readNamedBuild } from '../../utils/namedBuild.js';
 import { resolveBuildFile } from '../../utils/pathSanitizer.js';
 import { compareGemSetups } from '../gemComparison/compare.js';

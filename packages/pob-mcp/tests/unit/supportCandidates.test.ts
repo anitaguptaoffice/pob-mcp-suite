@@ -1,6 +1,6 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { listSupportCandidates } from '../../src/features/supportCandidates/tool.js';
-import type { PoBLuaApiClient } from '../../src/pobLuaBridge.js';
+import type { PoBLuaApiClient } from '../../src/adapters/pob/bridge.js';
 
 describe('PoB support candidates', () => {
   it('passes the selected group and filters through, and discloses incomplete checks', async () => {

@@ -3,7 +3,7 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import zlib from 'node:zlib';
-import { PoBLuaApiClient } from '../../build/pobLuaBridge.js';
+import { PoBLuaApiClient } from '../../build/adapters/pob/bridge.js';
 import { gearedBuildXml, smokePoBSrc } from './pobSource.mjs';
 
 const cwd = smokePoBSrc();

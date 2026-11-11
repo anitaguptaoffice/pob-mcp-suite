@@ -1,4 +1,4 @@
-import { toFiniteNumber, type ConfigValues, type PoBLuaApiClient } from "../pobLuaBridge.js";
+import { toFiniteNumber, type ConfigValues, type PoBLuaApiClient } from "../adapters/pob/bridge.js";
 import { noteIgnoredError } from '../utils/errorHandling.js';
 import fs from 'fs/promises';
 import path from 'path';

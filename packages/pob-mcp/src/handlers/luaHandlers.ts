@@ -1,5 +1,5 @@
-import type { AilmentReport, PoBLuaApiClient } from "../pobLuaBridge.js";
-import { toFiniteNumber } from "../pobLuaBridge.js";
+import type { AilmentReport, PoBLuaApiClient } from "../adapters/pob/bridge.js";
+import { toFiniteNumber } from "../adapters/pob/bridge.js";
 import { noteIgnoredError } from '../utils/errorHandling.js';
 import { handleGetBuildIssues } from "./buildGoalsHandlers.js";
 import fs from "fs/promises";

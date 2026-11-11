@@ -1,5 +1,5 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import type { PoBLuaApiClient } from '../../src/pobLuaBridge.js';
+import type { PoBLuaApiClient } from '../../src/adapters/pob/bridge.js';
 import { handleAddMultipleItems } from '../../src/handlers/itemSkillHandlers.js';
 
 describe('batch item addition', () => {

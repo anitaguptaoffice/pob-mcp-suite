@@ -1,5 +1,5 @@
-import type { PoBLuaApiClient } from "../pobLuaBridge.js";
-import { toFiniteNumber } from "../pobLuaBridge.js";
+import type { PoBLuaApiClient } from "../adapters/pob/bridge.js";
+import { toFiniteNumber } from "../adapters/pob/bridge.js";
 import { wrapHandler } from "../utils/errorHandling.js";
 
 interface BossReadinessContext {

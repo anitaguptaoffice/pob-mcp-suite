@@ -1,4 +1,4 @@
-import type { PoBLuaApiClient } from '../pobLuaBridge.js';
+import type { PoBLuaApiClient } from '../adapters/pob/bridge.js';
 import { BuildMismatchError, loadBuildIfDifferent, readNamedBuild } from './namedBuild.js';
 import { resolveBuildFile } from './pathSanitizer.js';
 import { noteIgnoredError } from './errorHandling.js';

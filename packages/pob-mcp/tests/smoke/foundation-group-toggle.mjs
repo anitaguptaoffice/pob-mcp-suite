@@ -3,10 +3,10 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { once } from 'node:events';
-import { PoBLuaApiClient } from '../../build/pobLuaBridge.js';
+import { PoBLuaApiClient } from '../../build/adapters/pob/bridge.js';
 import { BuildFoundation } from '../../build/foundation/buildFoundation.js';
 import { SnapshotStore } from '../../build/foundation/snapshotStore.js';
-import { openPoBEngine } from '../../build/foundation/pobEngineAdapter.js';
+import { openPoBEngine } from '../../build/adapters/pob/engine.js';
 import { smokePoBSrc } from './pobSource.mjs';
 import { startMcpServer } from './mcpClient.mjs';
 

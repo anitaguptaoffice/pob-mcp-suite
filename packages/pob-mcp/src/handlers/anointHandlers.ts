@@ -1,4 +1,4 @@
-import type { PoBLuaApiClient } from '../pobLuaBridge.js';
+import type { PoBLuaApiClient } from '../adapters/pob/bridge.js';
 import { wrapHandler } from '../utils/errorHandling.js';
 
 export async function handleFindBestAnointment(context: { getLuaClient: () => PoBLuaApiClient | null; ensureLuaClient: () => Promise<void> }, args: { slot: string; focus?: 'dps' | 'defence' | 'both'; max_results?: number }) {

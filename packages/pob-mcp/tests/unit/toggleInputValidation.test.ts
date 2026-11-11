@@ -1,5 +1,5 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import type { PoBLuaApiClient } from '../../src/pobLuaBridge.js';
+import type { PoBLuaApiClient } from '../../src/adapters/pob/bridge.js';
 import { handleSetGemEnabled, handleSetSocketGroupEnabled, handleToggleFlask } from '../../src/handlers/itemSkillHandlers.js';
 
 describe('toggle input validation', () => {

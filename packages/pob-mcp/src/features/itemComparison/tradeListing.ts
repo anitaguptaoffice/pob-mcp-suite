@@ -1,4 +1,4 @@
-import type { PoBLuaApiClient } from '../../pobLuaBridge.js';
+import type { PoBLuaApiClient } from '../../adapters/pob/bridge.js';
 import type { TradeApiClient } from '../../services/tradeClient.js';
 import { compareItem } from './tool.js';
 import { tradeClipboardText } from '../../domain/trade/clipboard.js';

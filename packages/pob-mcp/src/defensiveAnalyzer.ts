@@ -1,4 +1,4 @@
-import type { StatsExport } from "./pobLuaBridge.js";
+import type { StatsExport } from "./adapters/pob/bridge.js";
 
 /**
  * Defensive Analyzer for Path of Building builds

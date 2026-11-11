@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 import { handleLuaGetAilments } from '../../src/handlers/luaHandlers.js';
-import type { AilmentReport } from '../../src/pobLuaBridge.js';
+import type { AilmentReport } from '../../src/adapters/pob/bridge.js';
 
 type AilmentsContext = Parameters<typeof handleLuaGetAilments>[0];
 

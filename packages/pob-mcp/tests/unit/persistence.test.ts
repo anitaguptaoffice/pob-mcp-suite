@@ -5,7 +5,7 @@ import path from 'path';
 import { XMLParser } from 'fast-xml-parser';
 import { BuildService } from '../../src/services/buildService.js';
 import { BuildExportService } from '../../src/services/buildExportService.js';
-import { PoBLuaApiClient } from '../../src/pobLuaBridge.js';
+import { PoBLuaApiClient } from '../../src/adapters/pob/bridge.js';
 import { atomicWriteFile } from '../../src/utils/atomicWrite.js';
 import { handleRestoreSnapshot } from '../../src/handlers/exportHandlers.js';
 

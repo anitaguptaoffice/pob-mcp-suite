@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { once } from 'node:events';
-import { PoBLuaApiClient } from '../../build/pobLuaBridge.js';
+import { PoBLuaApiClient } from '../../build/adapters/pob/bridge.js';
 import { smokePoBSrc } from './pobSource.mjs';
 import { startMcpServer } from './mcpClient.mjs';
 const dir = await mkdtemp(join(tmpdir(), 'pob-item-data-'));

@@ -1,4 +1,4 @@
-import { toFiniteNumber, type PoBLuaApiClient } from "../pobLuaBridge.js";
+import { toFiniteNumber, type PoBLuaApiClient } from "../adapters/pob/bridge.js";
 import { noteIgnoredError } from '../utils/errorHandling.js';
 import type { BuildService } from "../services/buildService.js";
 import { activeItemSlotsOf, itemTextMapOf } from "../utils/pobXml.js";
@@ -7,7 +7,7 @@ import {
   formatItemAnalysis,
   inferBuildArchetype,
   type BuildStats,
-} from "../itemAnalyzer.js";
+} from "../domain/itemAnalysis.js";
 import {
   analyzeSkillSetup,
   formatSkillOptimization,

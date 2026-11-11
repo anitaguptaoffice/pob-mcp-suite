@@ -1,7 +1,7 @@
-import type { PoBLuaApiClient } from "../pobLuaBridge.js";
-import { toFiniteNumber } from "../pobLuaBridge.js";
+import type { PoBLuaApiClient } from "../adapters/pob/bridge.js";
+import { toFiniteNumber } from "../adapters/pob/bridge.js";
 import { noteIgnoredError } from '../utils/errorHandling.js';
-import { isEquippableGearSlot, isGearSlotVisible } from '../itemAnalyzer.js';
+import { isEquippableGearSlot, isGearSlotVisible } from '../domain/itemAnalysis.js';
 import type { BuildIssue } from "../types.js";
 import { wrapHandler } from "../utils/errorHandling.js";
 

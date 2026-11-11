@@ -23,7 +23,7 @@ interface TradeContext {
   ninjaClient?: PoeNinjaClient;
 }
 
-export async function handleFindWeightedTradeItems(context: TradeContext & { getLuaClient: () => import('../pobLuaBridge.js').PoBLuaApiClient | null; ensureLuaClient: () => Promise<void> }, args: { league: string; slot: string; options?: Record<string, unknown>; limit?: number }) {
+export async function handleFindWeightedTradeItems(context: TradeContext & { getLuaClient: () => import('../adapters/pob/bridge.js').PoBLuaApiClient | null; ensureLuaClient: () => Promise<void> }, args: { league: string; slot: string; options?: Record<string, unknown>; limit?: number }) {
   return wrapHandler('find weighted trade items', async () => {
     if (typeof args.league !== 'string' || !args.league.trim() || typeof args.slot !== 'string' || !args.slot.trim() ||
       (args.limit !== undefined && (!Number.isInteger(args.limit) || args.limit < 1 || args.limit > 10))) throw new Error('exact league, slot and limit between 1 and 10 are required');

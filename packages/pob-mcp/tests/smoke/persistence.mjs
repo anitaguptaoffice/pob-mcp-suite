@@ -8,7 +8,7 @@ import { execFileSync } from 'node:child_process';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { XMLParser } from 'fast-xml-parser';
-import { PoBLuaApiClient } from '../../build/pobLuaBridge.js';
+import { PoBLuaApiClient } from '../../build/adapters/pob/bridge.js';
 import { smokePoBSrc, gearedBuildXml } from './pobSource.mjs';
 
 const cwd = smokePoBSrc();

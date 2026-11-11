@@ -1,4 +1,4 @@
-import type { PoBLuaApiClient, StatsExport } from '../pobLuaBridge.js';
+import type { PoBLuaApiClient, StatsExport } from '../adapters/pob/bridge.js';
 import type { PoeNinjaClient } from '../services/poeNinjaClient.js';
 import { fetchBaseModData } from '../services/craftingDataService.js';
 import { wrapHandler, noteIgnoredError } from '../utils/errorHandling.js';

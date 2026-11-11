@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import type { PoBLuaApiClient } from '../../src/pobLuaBridge.js';
+import type { PoBLuaApiClient } from '../../src/adapters/pob/bridge.js';
 import { withBuildClient } from '../../src/utils/isolatedBuildClient.js';
 
 describe('isolated named build engine', () => {

@@ -11,7 +11,7 @@ import type { WatchService } from '../services/watchService.js';
 import type { ValidationService } from '../services/validationService.js';
 import type { BuildExportService } from '../services/buildExportService.js';
 import type { SkillGemService } from '../services/skillGemService.js';
-import type { PoBLuaApiClient } from '../pobLuaBridge.js';
+import type { PoBLuaApiClient } from '../adapters/pob/bridge.js';
 
 /**
  * Context for basic build and tree handlers

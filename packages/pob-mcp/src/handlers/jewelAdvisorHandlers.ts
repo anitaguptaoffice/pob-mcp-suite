@@ -1,4 +1,4 @@
-import type { PoBLuaApiClient, SocketGroupEntry } from "../pobLuaBridge.js";
+import type { PoBLuaApiClient, SocketGroupEntry } from "../adapters/pob/bridge.js";
 import { wrapHandler } from "../utils/errorHandling.js";
 
 interface JewelAdvisorContext {

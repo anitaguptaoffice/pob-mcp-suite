@@ -1,4 +1,4 @@
-import { toFiniteNumber, type PoBLuaApiClient, type SearchedNode } from "../pobLuaBridge.js";
+import { toFiniteNumber, type PoBLuaApiClient, type SearchedNode } from "../adapters/pob/bridge.js";
 import { noteIgnoredError } from '../utils/errorHandling.js';
 import type { BuildService } from "../services/buildService.js";
 import type { TreeService } from "../services/treeService.js";

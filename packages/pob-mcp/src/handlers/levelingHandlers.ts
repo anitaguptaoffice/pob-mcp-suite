@@ -6,7 +6,7 @@
  * falls back to user-provided args.
  */
 
-import type { PoBLuaApiClient } from "../pobLuaBridge.js";
+import type { PoBLuaApiClient } from "../adapters/pob/bridge.js";
 import { noteIgnoredError } from '../utils/errorHandling.js';
 import type { PoBBuild, PoBGem, PoBSkill } from "../types.js";
 import { wrapHandler } from "../utils/errorHandling.js";

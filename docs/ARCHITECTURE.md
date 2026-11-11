@@ -15,7 +15,7 @@ live PoB build safe for concurrent mutations.
 
 Current code is partly modular: `packages/pob-mcp/src/features/` contains
 focused features, while `server/toolRouter.ts`, `server/toolSchemas.ts`,
-`pobLuaBridge.ts`, and `lua/pob_ops.lua` remain shared integration points.
+`adapters/pob/bridge.ts`, and `lua/pob_ops.lua` remain shared integration points.
 The registry in `server/featureRegistry.ts` is the first incremental migration:
 two always-available crafting tools register their schema and handler together.
 Legacy and capability-gated tools retain their existing routes. This is not yet

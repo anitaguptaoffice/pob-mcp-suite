@@ -1,6 +1,6 @@
 import type { BuildService } from "../services/buildService.js";
 import type { SkillGemService } from "../services/skillGemService.js";
-import type { PoBLuaApiClient } from "../pobLuaBridge.js";
+import type { PoBLuaApiClient } from "../adapters/pob/bridge.js";
 import { wrapHandler } from "../utils/errorHandling.js";
 import { withBuildClient } from "../utils/isolatedBuildClient.js";
 import { compareGemSetups } from "../features/gemComparison/compare.js";

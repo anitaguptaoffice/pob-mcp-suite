@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { SnapshotStore } from '../../build/foundation/snapshotStore.js';
 import { BuildFoundation } from '../../build/foundation/buildFoundation.js';
-import { openPoBEngine } from '../../build/foundation/pobEngineAdapter.js';
+import { openPoBEngine } from '../../build/adapters/pob/engine.js';
 import { gearedBuildXml, smokePoBSrc } from './pobSource.mjs';
 const dir = await mkdtemp(join(tmpdir(), 'pob-foundation-'));
 const open = () => openPoBEngine({ cwd: smokePoBSrc(), command: process.env.POB_CMD,

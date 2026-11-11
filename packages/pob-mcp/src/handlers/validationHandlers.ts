@@ -1,7 +1,7 @@
 import type { BuildService } from "../services/buildService.js";
 import { noteIgnoredError } from '../utils/errorHandling.js';
 import type { ValidationService } from "../services/validationService.js";
-import type { PoBLuaApiClient, StatsExport } from "../pobLuaBridge.js";
+import type { PoBLuaApiClient, StatsExport } from "../adapters/pob/bridge.js";
 import { wrapHandler } from "../utils/errorHandling.js";
 import { resolveBuildFile } from "../utils/pathSanitizer.js";
 import { readNamedBuild } from "../utils/namedBuild.js";

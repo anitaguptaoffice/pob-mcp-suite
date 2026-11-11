@@ -1,4 +1,4 @@
-import type { PoBLuaApiClient } from '../../pobLuaBridge.js';
+import type { PoBLuaApiClient } from '../../adapters/pob/bridge.js';
 
 export async function inspectItemAffixWeight(client: Pick<PoBLuaApiClient, 'getItemAffixWeight'>, args: Record<string, unknown>) {
   if (typeof args.mod_id !== 'string' || !args.mod_id.trim() || args.mod_id.length > 200 ||

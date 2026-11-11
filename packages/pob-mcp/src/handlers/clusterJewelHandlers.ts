@@ -10,7 +10,7 @@ import { TradeQueryBuilder } from '../domain/trade/queryBuilder.js';
 import { StatMapper } from '../adapters/staticStats/catalog.js';
 import { PoeNinjaClient } from '../services/poeNinjaClient.js';
 import { ItemListing } from '../types/tradeTypes.js';
-import type { PoBLuaApiClient } from '../pobLuaBridge.js';
+import type { PoBLuaApiClient } from '../adapters/pob/bridge.js';
 import type { PoBItemEntry, PoBBuild } from '../types.js';
 
 interface ClusterJewelContext {

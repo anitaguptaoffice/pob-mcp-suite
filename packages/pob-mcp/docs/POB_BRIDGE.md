@@ -12,7 +12,7 @@ This document outlines how we will integrate the forked Path of Building (PoB) h
 - Goal: Use the forked PoB headless API to load builds, compute stats, and edit passive trees from MCP tools.
 - Fork location: `~/Projects/PathOfBuilding` (API server runs from `~/Projects/PathOfBuilding/src`).
 - Transport: stdio JSON lines (one line per request/response), long‑lived process. Optional TCP (embedded in GUI) on 127.0.0.1:POB_API_TCP_PORT.
-- Bridge: `src/adapters/pob/bridge.ts` spawns and talks to the PoB API; `src/pobLuaBridge.ts` is a temporary compatibility export.
+- Bridge: `src/adapters/pob/bridge.ts` spawns and talks to the PoB API.
 - Rollout: Feature‑flagged; graceful fallback to current XML‑only analysis if headless is unavailable.
 
 ## Architecture

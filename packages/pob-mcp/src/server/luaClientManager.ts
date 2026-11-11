@@ -4,7 +4,7 @@
  * Manages the lifecycle of the PoB Lua Bridge (stdio headless mode)
  */
 
-import { PoBLuaApiClient } from '../pobLuaBridge.js';
+import { PoBLuaApiClient } from '../adapters/pob/bridge.js';
 import { noteIgnoredError } from '../utils/errorHandling.js';
 import { BOOTSTRAP_BUILD_NAME } from './bootstrapBuild.js';
 import path from 'node:path';

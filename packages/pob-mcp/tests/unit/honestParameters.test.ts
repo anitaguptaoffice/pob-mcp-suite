@@ -1,8 +1,8 @@
 import { describe, it, expect, jest } from '@jest/globals';
 import { handleFindItemUpgrades } from '../../src/handlers/itemShoppingHandler.js';
 import { handleOptimizeTree } from '../../src/handlers/optimizationHandlers.js';
-import type { PoBLuaApiClient } from '../../src/pobLuaBridge.js';
-import type { StatsExport } from '../../src/pobLuaBridge.js';
+import type { PoBLuaApiClient } from '../../src/adapters/pob/bridge.js';
+import type { StatsExport } from '../../src/adapters/pob/bridge.js';
 
 type ShoppingContext = Parameters<typeof handleFindItemUpgrades>[0];
 type OptContext = Parameters<typeof handleOptimizeTree>[0];

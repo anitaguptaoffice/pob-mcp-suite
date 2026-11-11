@@ -10,7 +10,7 @@ const isAlive = jest.fn(() => true);
 const loadBuildXml = jest.fn(async () => ({}));
 let resolvers: Array<() => void> = [];
 
-jest.mock('../../src/pobLuaBridge.js', () => ({
+jest.mock('../../src/adapters/pob/bridge.js', () => ({
   PoBLuaApiClient: jest.fn().mockImplementation(() => {
     const inst = { start, stop, isAlive, loadBuildXml };
     instances.push(inst);
@@ -27,7 +27,7 @@ function resolveAllStops() {
 import { LuaClientManager } from '../../src/server/luaClientManager.js';
 
 function bridgeCtor(): jest.Mock {
-  const { PoBLuaApiClient } = jest.requireMock('../../src/pobLuaBridge.js') as { PoBLuaApiClient: jest.Mock };
+  const { PoBLuaApiClient } = jest.requireMock('../../src/adapters/pob/bridge.js') as { PoBLuaApiClient: jest.Mock };
   return PoBLuaApiClient;
 }
 

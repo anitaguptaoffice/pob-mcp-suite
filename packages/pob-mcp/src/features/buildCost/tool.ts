@@ -1,5 +1,5 @@
 import type { ToolSchema } from '../../server/toolSchema.js';
-import type { PoBLuaApiClient } from '../../pobLuaBridge.js';
+import type { PoBLuaApiClient } from '../../adapters/pob/bridge.js';
 import { estimateBuildCost, type PriceSource } from './estimate.js';
 
 export function buildCostSchemas(): ToolSchema[] {

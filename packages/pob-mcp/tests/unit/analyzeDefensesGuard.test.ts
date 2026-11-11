@@ -1,7 +1,7 @@
 import { describe, it, expect } from '@jest/globals';
 import { handleAnalyzeDefenses } from '../../src/handlers/optimizationHandlers.js';
 type OptContext = Parameters<typeof handleAnalyzeDefenses>[0];
-import type { StatsExport } from '../../src/pobLuaBridge.js';
+import type { StatsExport } from '../../src/adapters/pob/bridge.js';
 
 /** Measured against a real PoB engine. Chaos Inoculation sets Life to 1. */
 const CI_BUILD = {

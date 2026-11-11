@@ -2,7 +2,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { XMLParser } from 'fast-xml-parser';
-import { analyzeEquippedItems, formatItemAnalysis } from '../../src/itemAnalyzer.js';
+import { analyzeEquippedItems, formatItemAnalysis } from '../../src/domain/itemAnalysis.js';
 import { handleAnalyzeItems, handleCreateBudgetBuild, handleOptimizeSkillLinks } from '../../src/handlers/advancedOptimizationHandlers.js';
 import { handleGemUpgradePath } from '../../src/handlers/skillGemHandlers.js';
 

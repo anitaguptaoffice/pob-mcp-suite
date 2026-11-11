@@ -1,7 +1,7 @@
 /** Saved-build equipment inventory for the shopping workflow. */
 import type { PoBBuild } from '../types.js';
 import { activeItemSlotsOf, activeSpecTreeVersion, itemTextMapOf } from '../utils/pobXml.js';
-import { isEquippableGearSlot, isGearSlotVisible } from '../itemAnalyzer.js';
+import { isEquippableGearSlot, isGearSlotVisible } from '../domain/itemAnalysis.js';
 
 export type BudgetTier = 'budget' | 'medium' | 'endgame';
 export interface ShoppingListItem {

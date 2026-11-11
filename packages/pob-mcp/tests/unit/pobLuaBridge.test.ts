@@ -16,7 +16,7 @@ jest.mock('child_process', () => ({
 }));
 
 // Now import after mocking
-import { PoBLuaApiClient } from '../../src/pobLuaBridge.js';
+import { PoBLuaApiClient } from '../../src/adapters/pob/bridge.js';
 
 describe('PoBLuaApiClient', () => {
   let client: PoBLuaApiClient;

@@ -8,7 +8,7 @@ const stop = jest.fn(async () => {});
 const isAlive = jest.fn(() => true);
 const loadBuildXml = jest.fn(async () => ({}));
 
-jest.mock('../../src/pobLuaBridge.js', () => ({
+jest.mock('../../src/adapters/pob/bridge.js', () => ({
   PoBLuaApiClient: jest.fn().mockImplementation(() => ({ start, stop, isAlive, loadBuildXml })),
 }));
 
@@ -19,7 +19,7 @@ interface BridgeOptions {
 }
 
 function bridgeCtor(): jest.Mock {
-  const { PoBLuaApiClient } = jest.requireMock('../../src/pobLuaBridge.js') as {
+  const { PoBLuaApiClient } = jest.requireMock('../../src/adapters/pob/bridge.js') as {
     PoBLuaApiClient: jest.Mock;
   };
   return PoBLuaApiClient;

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { BuildFoundation } from '../../build/foundation/buildFoundation.js';
 import { SnapshotStore } from '../../build/foundation/snapshotStore.js';
-import { openPoBEngine } from '../../build/foundation/pobEngineAdapter.js';
+import { openPoBEngine } from '../../build/adapters/pob/engine.js';
 import { createBudgetBundleTool } from '../../build/features/budgetCandidates/bundle.js';
 import { gearedBuildXml, smokePoBSrc } from './pobSource.mjs';
 

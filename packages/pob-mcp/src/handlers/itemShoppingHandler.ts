@@ -1,4 +1,4 @@
-import { toFiniteNumber, type PoBLuaApiClient, type StatsExport } from '../pobLuaBridge.js';
+import { toFiniteNumber, type PoBLuaApiClient, type StatsExport } from '../adapters/pob/bridge.js';
 import { wrapHandler, noteIgnoredError } from '../utils/errorHandling.js';
 
 interface ItemShoppingContext { getLuaClient: () => PoBLuaApiClient | null }

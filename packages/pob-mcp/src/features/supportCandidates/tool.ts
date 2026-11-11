@@ -1,4 +1,4 @@
-import type { PoBLuaApiClient } from '../../pobLuaBridge.js';
+import type { PoBLuaApiClient } from '../../adapters/pob/bridge.js';
 import { withBuildClient } from '../../utils/isolatedBuildClient.js';
 
 interface Context {

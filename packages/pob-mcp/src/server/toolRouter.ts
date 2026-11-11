@@ -53,7 +53,7 @@ export interface ToolRouterDependencies {
   recommendationEngine: ItemRecommendationEngine | null;
   ninjaClient: PoeNinjaClient;
   buildCostPrices: PriceSource;
-  getLuaClient: () => import("../pobLuaBridge.js").PoBLuaApiClient | null;
+  getLuaClient: () => import("../adapters/pob/bridge.js").PoBLuaApiClient | null;
   ensureLuaClient: () => Promise<void>;
 }
 

@@ -88,6 +88,12 @@ The legacy route itself and other compatibility exports remain in place.
 The full test suite, foundation isolation smoke and live shared official Trade
 smoke exercise these changes; this does not establish complete caller migration.
 
+PoB bridge and engine clients, item heuristics, and their smoke tests now import
+their adapter or domain modules directly. Their three forwarding files are
+removed. A clean-directory compile and module-load check verifies the legacy
+runtime, engine adapter and item domain imports without the deleted files; real PoB bridge and build
+round-trip smoke tests exercise the adapter. Legacy routes still need migration.
+
 On 2026-11-11 a local, read-only Standard-league probe of the new adapter
 successfully fetched public skill-gem and currency snapshots. The legacy
 `/api/data/currencyoverview` spread endpoint returned HTTP 404 for the same

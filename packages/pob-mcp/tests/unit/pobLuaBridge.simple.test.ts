@@ -3,7 +3,7 @@
  * These tests focus on testing the client logic without complex mocking
  */
 
-import { PoBLuaApiClient } from '../../src/pobLuaBridge';
+import { PoBLuaApiClient } from '../../src/adapters/pob/bridge';
 
 describe('PoBLuaApiClient - Simple Tests', () => {
   describe('Initialization', () => {

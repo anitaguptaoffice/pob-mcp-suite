@@ -1,10 +1,10 @@
 import type { BuildService } from "../services/buildService.js";
 import { noteIgnoredError } from '../utils/errorHandling.js';
 import type { TreeService } from "../services/treeService.js";
-import type { SearchedNode } from "../pobLuaBridge.js";
-import { toFiniteNumber } from "../pobLuaBridge.js";
+import type { SearchedNode } from "../adapters/pob/bridge.js";
+import { toFiniteNumber } from "../adapters/pob/bridge.js";
 import type { TreeComparison } from "../types.js";
-import type { PoBLuaApiClient } from "../pobLuaBridge.js";
+import type { PoBLuaApiClient } from "../adapters/pob/bridge.js";
 import { handleGetBuildIssues } from "./buildGoalsHandlers.js";
 import { selectDamageMetric } from '../utils/damageMetric.js';
 

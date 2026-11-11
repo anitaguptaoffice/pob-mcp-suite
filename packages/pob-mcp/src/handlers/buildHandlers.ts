@@ -5,8 +5,8 @@ import fs from "fs/promises";
 import { wrapHandler } from "../utils/errorHandling.js";
 import { atomicWriteFile } from "../utils/atomicWrite.js";
 import { resolveBuildFile } from "../utils/pathSanitizer.js";
-import type { ItemSetEntry, PoBLuaApiClient, SpecEntry, StatsExport } from "../pobLuaBridge.js";
-import { toFiniteNumber } from "../pobLuaBridge.js";
+import type { ItemSetEntry, PoBLuaApiClient, SpecEntry, StatsExport } from "../adapters/pob/bridge.js";
+import { toFiniteNumber } from "../adapters/pob/bridge.js";
 export type { HandlerContext } from "../utils/contextBuilder.js";
 
 export async function handleListBuilds(context: HandlerContext) {

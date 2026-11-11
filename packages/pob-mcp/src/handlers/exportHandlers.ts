@@ -1,7 +1,7 @@
 import type { BuildService } from "../services/buildService.js";
 import { noteIgnoredError } from '../utils/errorHandling.js';
 import type { BuildExportService } from "../services/buildExportService.js";
-import { toFiniteNumber, type BuildInfo, type PoBLuaApiClient, type SkillsOutput, type StatsExport, type TreeState, type ConfigValues } from "../pobLuaBridge.js";
+import { toFiniteNumber, type BuildInfo, type PoBLuaApiClient, type SkillsOutput, type StatsExport, type TreeState, type ConfigValues } from "../adapters/pob/bridge.js";
 import type { ExportContext } from "../utils/contextBuilder.js";
 import { wrapHandler } from "../utils/errorHandling.js";
 

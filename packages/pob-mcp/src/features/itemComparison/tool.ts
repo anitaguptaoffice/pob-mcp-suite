@@ -1,4 +1,4 @@
-import type { PoBLuaApiClient } from '../../pobLuaBridge.js';
+import type { PoBLuaApiClient } from '../../adapters/pob/bridge.js';
 
 export async function compareItem(client: Pick<PoBLuaApiClient, 'compareItem'>, args: Record<string, unknown>) {
   if (typeof args.slot !== 'string' || !args.slot.trim() || typeof args.item_text !== 'string' || !args.item_text.trim() || Buffer.byteLength(args.item_text, 'utf8') > 10240) {

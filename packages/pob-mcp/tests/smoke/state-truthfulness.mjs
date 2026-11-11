@@ -3,7 +3,7 @@
 // Usage: node tests/smoke/state-truthfulness.mjs   (set POB_PATH only to force a checkout)
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { PoBLuaApiClient } from '../../build/pobLuaBridge.js';
+import { PoBLuaApiClient } from '../../build/adapters/pob/bridge.js';
 import { gearedBuildXml, smokePoBSrc } from './pobSource.mjs';
 
 const cwd = smokePoBSrc();

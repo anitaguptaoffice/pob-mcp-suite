@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 import { XMLParser } from 'fast-xml-parser';
-import { analyzeEquippedItems, isEquippableGearSlot } from '../../src/itemAnalyzer.js';
+import { analyzeEquippedItems, isEquippableGearSlot } from '../../src/domain/itemAnalysis.js';
 import { handleGetBuildIssues } from '../../src/handlers/buildGoalsHandlers.js';
 import { handleAnalyzeItems } from '../../src/handlers/advancedOptimizationHandlers.js';
 
