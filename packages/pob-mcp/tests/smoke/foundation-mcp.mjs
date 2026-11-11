@@ -110,6 +110,15 @@ try {
   assert.equal(configState.data.config.enemyIsBoss, 'Pinnacle');
   const parentState = await call('foundation_inspect', { snapshot_id: imported.id, sections: ['config'] });
   assert.deepEqual(parentState.data.config, baseline.context.config);
+  const charged = await call('foundation_derive_config', { snapshot_id: configVersion.id, config: { usePowerCharges: true } });
+  const chargedState = (await call('foundation_inspect', { snapshot_id: charged.id, sections: ['config'] })).data.config;
+  assert.equal(chargedState.usePowerCharges, true);
+  assert.equal(chargedState.enemyIsBoss, 'Pinnacle');
+  const chargedTrial = await call('foundation_evaluate', { snapshot_id: charged.id, fields: ['Life'], config: { useFrenzyCharges: true } });
+  assert.equal(chargedTrial.context.config.useFrenzyCharges, true);
+  assert.equal(chargedTrial.context.config.usePowerCharges, true);
+  assert.equal(chargedTrial.context.config.enemyIsBoss, 'Pinnacle');
+  assert.deepEqual((await call('foundation_inspect', { snapshot_id: charged.id, sections: ['config'] })).data.config, chargedState);
 
 
   const derived = await call('foundation_derive_level', { snapshot_id: imported.id, level: 50 });

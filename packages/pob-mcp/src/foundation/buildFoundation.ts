@@ -35,6 +35,10 @@ export function validateEvaluationOptions(options: EvaluationOptions): void {
 function hasLegacyGemQuality(xml: string): boolean {
   return xml.includes('qualityId') && new BuildXml(xml).hasNonDefaultGemQuality();
 }
+function unrelatedConfig(value: unknown, requested: Record<string, unknown>): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value) && value.length !== 0) throw new Error('PoB returned invalid config');
+  return Object.fromEntries(Object.entries(value).filter(([key]) => !Object.hasOwn(requested, key)));
+}
 function checkIdentity(snapshot: SnapshotRecord, engine: BuildEngine): string[] {
   const warnings: string[] = [];
   for (const key of ['engineVersion', 'adapterVersion', 'dataVersion', 'runtimeVersion', 'executableVersion'] as const) {
@@ -99,7 +103,9 @@ export class BuildFoundation {
       await engine.loadBuildXml(snapshot.xml);
       if (options.selection && Object.keys(options.selection).length) await engine.setMainSelection(options.selection);
       let appliedConfig: Record<string, unknown> | undefined;
+      let previousUnrelated: Record<string, unknown> | undefined;
       if (options.config && Object.keys(options.config).length) {
+        previousUnrelated = unrelatedConfig(await engine.getConfig(), options.config);
         const result = await engine.setConfig(options.config);
         if (Object.keys(result.rejected).length) throw new Error(`PoB rejected config: ${JSON.stringify(result.rejected)}`);
         appliedConfig = result.applied;
@@ -128,6 +134,7 @@ export class BuildFoundation {
           Object.keys(options.config).some(key => !Object.hasOwn(appliedConfig!, key) || !isDeepStrictEqual((context.config as Record<string, unknown>)[key], appliedConfig![key])))) {
         throw new Error('PoB did not confirm the requested config');
       }
+      if (options.config && previousUnrelated && !isDeepStrictEqual(previousUnrelated, unrelatedConfig(context.config, options.config))) throw new Error('Config change modified unrelated configuration values');
       await engine.verifyIdentity();
       return { snapshotId: id, stats, metrics, context, identity: engine.identity, warnings };
     });
@@ -1245,6 +1252,7 @@ export class BuildFoundation {
     validateEvaluationOptions({ config });
     if (!Object.keys(config).length) throw new Error('Config change cannot be empty');
     return this.derive(id, 'derived:config', async engine => {
+      const previousUnrelated = unrelatedConfig(await engine.getConfig(), config);
       const result = await engine.setConfig(config);
       if (Object.keys(result.rejected).length) throw new Error(`PoB rejected config: ${JSON.stringify(result.rejected)}`);
       const actual = await engine.getConfig();
@@ -1253,6 +1261,7 @@ export class BuildFoundation {
             !isDeepStrictEqual((actual as Record<string, unknown>)[key], result.applied![key]))) {
         throw new Error('PoB did not confirm the requested config');
       }
+      if (!isDeepStrictEqual(previousUnrelated, unrelatedConfig(actual, config))) throw new Error('Config change modified unrelated configuration values');
     }, trial);
   }
 
