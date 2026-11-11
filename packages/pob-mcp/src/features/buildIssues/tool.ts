@@ -84,6 +84,20 @@ export function analyzeBuildIssues(input: { stats: unknown; build: unknown; tree
     if (names.some(name => name.includes('brutality')) && names.some(name => /elemental|fire|cold|lightning|chaos|void manipulation/.test(name))) add('brutality_mixed_supports', 'warning', 'gems', 'Brutality prevents elemental and chaos damage; review the actual supported skill and conversion.', { groupIndex: group.index, supports: names }, true);
     if (names.some(name => name.includes('elemental damage with attacks')) && names.some(name => name.includes('melee physical'))) add('mixed_damage_supports', 'info', 'gems', 'The supports scale different damage types; review the skill damage breakdown.', { groupIndex: group.index, supports: names }, true);
   }
+  // PoB observes application for a group's selected skill. A missing flag is
+  // not proof that a support is inactive, and inactive groups are not checked.
+  const mainIndex = skills?.mainSocketGroup;
+  const mainGroups = Array.isArray(groups) ? groups.filter(group => record(group)?.index === mainIndex) : [];
+  const main = mainGroups.length === 1 ? record(mainGroups[0]) : undefined;
+  const mainGems = Array.isArray(main?.gems) ? main.gems.map(record) : undefined;
+  checks.selectedSkillSupports = 'unknown';
+  if (Number.isSafeInteger(mainIndex) && (mainIndex as number) > 0 && main?.enabled === true && main.slotEnabled === true && mainGems && mainGems.every(gem => gem && typeof gem.enabled === 'boolean')) {
+    const uncertain = mainGems.some(gem => gem!.enabled === true && (gem!.supportClassificationKnown !== true || (gem!.isSupport === true && typeof gem!.appliedToSelectedSkill !== 'boolean') || typeof gem!.isSupport !== 'boolean'));
+    checks.selectedSkillSupports = uncertain ? 'unknown' : 'checked';
+    for (const gem of mainGems) if (gem!.enabled === true && gem!.supportClassificationKnown === true && gem!.isSupport === true && gem!.appliedToSelectedSkill === false) {
+      add('support_not_applied_to_selected_skill', 'info', 'gems', 'PoB does not apply this enabled support to the selected skill. Check the selected skill and support compatibility.', { groupIndex: mainIndex, gemIndex: gem!.index ?? null, gemName: typeof gem!.name === 'string' ? gem!.name : null });
+    }
+  }
   return { issues, checks, stats };
 }
 

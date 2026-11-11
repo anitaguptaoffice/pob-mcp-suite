@@ -22,7 +22,14 @@ try {
   const source = native.groups.find(group => group.index === main.index);
   assert.equal(source.gems[0].supportClassificationKnown, true); assert.equal(source.gems[1].supportClassificationKnown, true);
   assert.equal(source.gems[1].isSupport, true); assert.equal(source.gems[1].appliedToSelectedSkill, true);
-  const { xml } = await client.unchangedItemsSnapshot(); await client.stop();
+  const { xml } = await client.unchangedItemsSnapshot();
+  await client.setSocketGroupEnabled({ groupIndex: other.index, enabled: true });
+  await client.addGem({ groupIndex: other.index, gemName: 'Melee Physical Damage Support', level: 20 });
+  await client.setMainSelection({ mainSocketGroup: other.index });
+  const incompatible = (await client.getSkills()).groups.find(group => group.index === other.index).gems[1];
+  assert.equal(incompatible.supportClassificationKnown, true);
+  assert.equal(incompatible.appliedToSelectedSkill, false);
+  const { xml: incompatibleXml } = await client.unchangedItemsSnapshot(); await client.stop();
   const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
   child = mcp.child; child.stderr.on('data', () => {}); const exited = once(child, 'exit');
   await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'skill-inspection-smoke', version: '1' } }); mcp.notify('notifications/initialized', {});
@@ -33,6 +40,12 @@ try {
   assert.equal(report.groups[0].gems[0].kind, 'active'); assert.equal(report.groups[0].gems[1].kind, 'support');
   assert.equal(report.groups[0].gems[1].appliedToSelectedSkill, true);
   assert.equal(report.groups[0].gems[1].level, 19); assert.equal(report.groups[0].gems[1].quality, 12);
+  const validScan = await call('check_snapshot_issues', { snapshot_id: parent.id });
+  assert.ok(!validScan.issues.some(issue => issue.code === 'support_not_applied_to_selected_skill' && issue.evidence.gemName === 'Minion Damage Support'));
+  const incompatibleParent = await call('foundation_import_build', { xml: incompatibleXml, source: 'incompatible-support-fixture' });
+  const incompatibleScan = await call('check_snapshot_issues', { snapshot_id: incompatibleParent.id });
+  assert.equal(incompatibleScan.checks.selectedSkillSupports, 'checked');
+  assert.ok(incompatibleScan.issues.some(issue => issue.code === 'support_not_applied_to_selected_skill' && issue.evidence.groupIndex === other.index && issue.evidence.gemIndex === incompatible.index));
   const all = await call('inspect_snapshot_skill_groups', { snapshot_id: parent.id, all_groups: true });
   assert.equal(all.groups.find(group => group.index === other.index).enabled, false);
   const placeholder = native.groups.flatMap(group => group.gems.filter(gem => !gem.name && gem.supportClassificationKnown === false).map(gem => ({ groupIndex: group.index, gemIndex: gem.index })))[0];

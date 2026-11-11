@@ -78,6 +78,23 @@ describe('snapshot issue scan', () => {
     expect(codes(result)).not.toContain('empty_jewel_sockets');
     expect(analyzeBuildIssues({ ...fixture, items: [{ slot: 'Weapon 1', id: 0, shown: false }] }).checks.items).toBe('checked');
   });
+  it('checks enabled supports on the selected active group without guessing unknown application', () => {
+    const active = { index: 1, name: 'Fireball', enabled: true, supportClassificationKnown: true, isSupport: false };
+    const support = { index: 2, name: 'Melee Physical Damage Support', enabled: true, supportClassificationKnown: true, isSupport: true, appliedToSelectedSkill: false };
+    const scan = (gems: object[], group: object = {}) => analyzeBuildIssues({ ...fixture, skills: { mainSocketGroup: 1, groups: [{ index: 1, enabled: true, slotEnabled: true, gems, ...group }] } });
+    const result = scan([active, support]);
+    expect(result.checks.selectedSkillSupports).toBe('checked');
+    expect(result.issues.find(issue => issue.code === 'support_not_applied_to_selected_skill')).toMatchObject({ severity: 'info', evidence: { groupIndex: 1, gemIndex: 2, gemName: support.name } });
+    for (const gem of [{ ...support, appliedToSelectedSkill: null }, { ...support, supportClassificationKnown: false }]) {
+      expect(scan([active, gem]).checks.selectedSkillSupports).toBe('unknown');
+      expect(codes(scan([active, gem]))).not.toContain('support_not_applied_to_selected_skill');
+    }
+    expect(codes(scan([active, { ...support, enabled: false }]))).not.toContain('support_not_applied_to_selected_skill');
+    expect(scan([active, { enabled: false }]).checks.selectedSkillSupports).toBe('checked');
+    expect(scan([active, { enabled: true }]).checks.selectedSkillSupports).toBe('unknown');
+    expect(scan([active, support], { slotEnabled: false }).checks.selectedSkillSupports).toBe('unknown');
+    expect(codes(scan([active, support], { slotEnabled: false }))).not.toContain('support_not_applied_to_selected_skill');
+  });
   it('scans one explicit snapshot and retains its calculation context', async () => {
     const engine = { getStats: async () => ({ Life: 400, EnergyShield: 200 }), getBuildInfo: async () => ({ level: 90 }), getTree: async () => ({ treeVersion: '3_29' }), getItems: async () => [], getSkills: async () => ({ groups: [] }), getConfig: async () => ({ enemyIsBoss: 'Pinnacle' }) } as unknown as BuildEngine;
     const runReadOnlySnapshot = jest.fn(async (id: string, fn: (engine: BuildEngine) => Promise<unknown>) => ({ snapshotId: id, identity: {}, warnings: [], result: await fn(engine) }));

@@ -124,6 +124,11 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   Recovery figures alone do not prove a skill is sustainable, and an unknown
   observation is not a pass. Full immunity and build validation remain outside
   this partial scan.
+- The scan also reports enabled supports that PoB confirms do not apply to the
+  selected skill in the active main group. An unknown application or inactive
+  group is not reported as a confirmed failure. Application alone does not
+  establish damage gain, socket legality or availability; compare explicit
+  candidates using an appropriate player or minion damage metric.
 - Use `inspect_snapshot_ailments` to inspect player non-damaging ailment effects
   under the saved skill and enemy configuration. `appliedEffect` is what PoB
   credits; `calculatedEffect` is a separate estimate, not an uptime guarantee.
