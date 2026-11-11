@@ -15,7 +15,7 @@ try {
   const fixture = await readFile(gearedBuildXml, 'utf8');
   const first = fixture.match(/<ItemSet\b[^>]*\bid="1"[^>]*>[\s\S]*?<\/ItemSet>/)?.[0];
   assert.ok(first);
-  const second = first.replace('id="1"', 'id="7" title="Alternative"').replace('useSecondWeaponSet="false"', 'useSecondWeaponSet="true"').replace('<Slot name="Ring 1" itemId="5"/>', '<Slot name="Ring 1" itemId="0"/>');
+  const second = first.replace('id="1"', 'id="7" title="Alternative"').replace('useSecondWeaponSet="false"', 'useSecondWeaponSet="true"').replace('<Slot name="Ring 1" itemId="5"/>', '<Slot name="Ring 1" itemId="0"/>').replace('<Slot name="Weapon 1" itemId="3"/>', '<Slot name="Weapon 1" itemId="0"/>');
   assert.notEqual(first, second); assert.ok(second.includes('name="Ring 1" itemId="0"'));
   const xml = fixture.replace(first, `${first}\n${second}`);
   const foundation = new BuildFoundation(new SnapshotStore(dir), () => openPoBEngine(options));
@@ -28,6 +28,8 @@ try {
   assert.equal((await foundation.itemSets(child.id)).activeItemSetId, 7);
   const target = await foundation.inspect(child.id, ['items']);
   assert.equal(target.data.items.find(item => item.slot === 'Ring 1').id, 0);
+  assert.equal(target.data.items.find(item => item.slot === 'Weapon 1').id, 0);
+  assert.equal(target.data.items.find(item => item.slot === 'Weapon 1').shown, false);
   const alternative = await foundation.evaluate(child.id, ['Life']);
   assert.ok(base.stats.Life > alternative.stats.Life);
   assert.equal((await foundation.itemSets(parent.id)).activeItemSetId, 1);
@@ -53,6 +55,11 @@ try {
     assert.equal(equipment.slots.find(slot => slot.slot === 'Ring 1').state, 'empty');
     assert.equal(equipment.reference, null);
     assert.ok(equipment.slots.every(slot => slot.purchaseStatus === 'not_checked'));
+    const issuesCall = await mcp.request('tools/call', { name: 'check_snapshot_issues', arguments: { snapshot_id: child.id } });
+    assert.ok(!issuesCall.error && !issuesCall.result?.isError, JSON.stringify(issuesCall));
+    const issues = JSON.parse(issuesCall.result.content[0].text);
+    assert.ok(issues.issues.some(issue => issue.code === 'empty_gear_slot' && issue.evidence.slot === 'Ring 1'));
+    assert.ok(!issues.issues.some(issue => issue.code === 'empty_gear_slot' && issue.evidence.slot === 'Weapon 1'));
     const analysisCall = await mcp.request('tools/call', { name: 'analyze_snapshot_equipment', arguments: { snapshot_id: child.id, include_item_text: true } });
     assert.ok(!analysisCall.error && !analysisCall.result?.isError, JSON.stringify(analysisCall));
     const analysis = JSON.parse(analysisCall.result.content[0].text);

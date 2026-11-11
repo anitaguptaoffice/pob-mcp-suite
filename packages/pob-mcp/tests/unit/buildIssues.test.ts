@@ -63,6 +63,21 @@ describe('snapshot issue scan', () => {
     expect(codes(result)).toContain('suppression_below_100');
     expect(codes(result)).toContain('chaos_resist_negative');
   });
+  it('reports only confirmed visible empty slots while retaining partial unknowns', () => {
+    const result = analyzeBuildIssues({ ...fixture, items: [
+      { slot: 'Weapon 1', id: 0, shown: false },
+      { slot: 'Helmet', id: 0, shown: true },
+      { slot: 'Body Armour', id: 0 },
+      { slot: 'Flask 1', id: 0 },
+      { slot: 'Jewel 1', id: 0 },
+      { slot: 'Ring 1', id: -1, shown: true },
+    ] });
+    expect(result.checks.items).toBe('unknown');
+    expect(result.issues.filter(issue => issue.code === 'empty_gear_slot').map(issue => issue.evidence.slot)).toEqual(['Helmet']);
+    expect(codes(result)).not.toContain('empty_flask_slots');
+    expect(codes(result)).not.toContain('empty_jewel_sockets');
+    expect(analyzeBuildIssues({ ...fixture, items: [{ slot: 'Weapon 1', id: 0, shown: false }] }).checks.items).toBe('checked');
+  });
   it('scans one explicit snapshot and retains its calculation context', async () => {
     const engine = { getStats: async () => ({ Life: 400, EnergyShield: 200 }), getBuildInfo: async () => ({ level: 90 }), getTree: async () => ({ treeVersion: '3_29' }), getItems: async () => [], getSkills: async () => ({ groups: [] }), getConfig: async () => ({ enemyIsBoss: 'Pinnacle' }) } as unknown as BuildEngine;
     const runReadOnlySnapshot = jest.fn(async (id: string, fn: (engine: BuildEngine) => Promise<unknown>) => ({ snapshotId: id, identity: {}, warnings: [], result: await fn(engine) }));

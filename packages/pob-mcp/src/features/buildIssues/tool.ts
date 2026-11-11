@@ -1,7 +1,7 @@
 import type { BuildFoundation } from '../../foundation/buildFoundation.js';
 import type { FeatureTool } from '../../server/featureRegistry.js';
 import { toFiniteNumber } from '../../utils/numbers.js';
-import { isEquippableGearSlot, isGearSlotVisible } from '../../domain/itemAnalysis.js';
+import { isEquippableGearSlot } from '../../domain/itemAnalysis.js';
 
 export const issueFields = ['Life', 'LifeUnreserved', 'EnergyShield', 'Mana', 'ManaUnreserved', 'ManaRegen', 'ManaRegenRecovery', 'ManaCost', 'ManaCostPayablePool', 'ManaPerSecondCost', 'HitChance', 'Accuracy', 'FireResist', 'ColdResist', 'LightningResist', 'ChaosResist', 'MissingFireResist', 'MissingColdResist', 'MissingLightningResist', 'FireResistOverCap', 'ColdResistOverCap', 'LightningResistOverCap', 'SpellSuppressionChance', 'EffectiveSpellSuppressionChance', 'TotalDPS', 'CombinedDPS', 'FullDPS', 'MinionTotalDPS', 'MinionCombinedDPS', 'TotalEHP'];
 type Issue = { code: string; severity: 'error' | 'warning' | 'info'; category: string; message: string; evidence: Record<string, unknown>; heuristic?: boolean };
@@ -63,13 +63,14 @@ export function analyzeBuildIssues(input: { stats: unknown; build: unknown; tree
     if (unspent >= 5) add('estimated_unspent_passives', unspent >= 15 ? 'error' : 'warning', 'defence', 'Estimated unspent passive points; quest rewards and special tree mechanics may differ.', { estimatedUnspent: unspent, allocated, estimatedAvailable: expected, level, treeVersion }, true);
   }
   const items = Array.isArray(input.items) ? input.items.map(record) : undefined;
-  checks.items = !items || items.some(item => !item || typeof item.slot !== 'string' || typeof item.id !== 'number') ? 'unknown' : 'checked';
-  if (checks.items === 'checked' && items) {
-    const rows = items as Row[];
-    const emptyJewels = rows.filter(it => /jewel/i.test(it.slot as string) && it.shown !== false && it.id === 0).map(it => it.slot);
+  const validItem = (item: Row | undefined): item is Row => !!item && typeof item.slot === 'string' && typeof item.id === 'number' && Number.isSafeInteger(item.id) && item.id >= 0;
+  checks.items = !items || items.some(item => !validItem(item) || (item.id === 0 && typeof item.shown !== 'boolean')) ? 'unknown' : 'checked';
+  if (items) {
+    const rows = items.filter(validItem);
+    const emptyJewels = rows.filter(it => /jewel/i.test(it.slot as string) && it.shown === true && it.id === 0).map(it => it.slot);
     if (emptyJewels.length) add('empty_jewel_sockets', 'warning', 'items', 'Visible jewel sockets are empty.', { slots: emptyJewels });
-    for (const it of rows) if (it.id === 0 && isEquippableGearSlot(it.slot as string) && isGearSlotVisible(it.slot as string, { shown: typeof it.shown === 'boolean' ? it.shown : undefined }) && !/flask/i.test(it.slot as string)) add('empty_gear_slot', 'warning', 'items', 'A visible equipment slot is empty.', { slot: it.slot });
-    const emptyFlasks = rows.filter(it => /flask/i.test(it.slot as string) && it.shown !== false && it.id === 0).map(it => it.slot);
+    for (const it of rows) if (it.id === 0 && it.shown === true && isEquippableGearSlot(it.slot as string) && !/flask/i.test(it.slot as string)) add('empty_gear_slot', 'warning', 'items', 'A visible equipment slot is empty.', { slot: it.slot });
+    const emptyFlasks = rows.filter(it => /flask/i.test(it.slot as string) && it.shown === true && it.id === 0).map(it => it.slot);
     if (emptyFlasks.length) add('empty_flask_slots', emptyFlasks.length >= 3 ? 'error' : 'warning', 'items', 'Visible flask slots are empty.', { slots: emptyFlasks });
   }
   const groups = skills?.groups;
