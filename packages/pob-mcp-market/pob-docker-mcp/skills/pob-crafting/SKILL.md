@@ -7,6 +7,13 @@ description: Use for Path of Exile 1 item crafting, crafting steps, success prob
 
 Use Simplified Chinese and verified Chinese game terms. The user plays the international realm. Verify the item, game version, base, level, existing modifiers, available slots, and currency mechanic before suggesting a step. Explain uncertainty and possible loss of modifiers.
 
+Inspect advertised schemas first. During migration a legacy-only service may
+instead expose `suggest_crafting`, `classify_item_affixes`, `list_craftable_mods`
+and `find_affix_tiers`; they provide context or data, not verified crafting
+steps, item legality or probabilities. `suggest_crafting` can use a mutable
+loaded build, so do not assume a build is loaded or claim snapshot isolation.
+Remove this mapping when the old runtime is retired.
+
 When advertised, `prepare_crafting_context` gathers an explicitly supplied base
 or an active equipped item from a snapshot. It does not validate the target's
 item level, modifiers, special state, eligibility or crafting steps. Optional

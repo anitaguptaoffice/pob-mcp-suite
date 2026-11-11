@@ -7,10 +7,27 @@ description: Use for Path of Exile 1 international-league build budgets, item ap
 
 Use Simplified Chinese for user-facing answers and verified Simplified Chinese game terminology. Keep official item names or IDs when necessary for searches. The user plays the international realm.
 
-Inspect the advertised tools and schemas. This skill uses the immutable snapshot
-and independent market interfaces; if a needed capability is unavailable, report
-that limitation instead of assuming an implicitly loaded build or falling back
-to a mutable session.
+Inspect the advertised tools and schemas. Prefer the immutable snapshot and
+independent market interfaces below. During migration, a deployed legacy server
+may advertise only the older names: use the temporary mapping in the next
+paragraph for capabilities it actually exposes, and do not assume a build is
+loaded. Remove this mapping when the old runtime is retired.
+
+On a legacy-only server, `get_currency_rates` supplies a poe.ninja reference;
+`estimate_build_cost` requires an explicitly loaded build and reports reference
+costs; `search_stats`, `search_trade_items`, and `get_item_price` are the older
+trade interfaces. Inspect their advertised schemas and actual output before use.
+For search, explicitly request the exact league and `securable` status; check
+each listing for an explicit buyout, verification and matching league before
+using it as an instant-buyout price. A price summary that does not expose enough
+evidence is an unverified reference, not a confirmed purchasable price. Legacy
+output may contain presentation instructions and timestamps that are not
+documented as source fetch times; interpret the data and preserve uncertainty.
+Legacy session operations can change the loaded build; tell the user which build is
+being loaded and do not imply snapshot isolation. Report missing capabilities
+instead of calling a tool that is not advertised.
+
+For a snapshot-capable server:
 
 1. Confirm the exact league. Do not assume Standard when the league is unknown. Import the build to an immutable snapshot and use its ID for build-specific tools.
 2. Use `estimate_snapshot_cost` for public poe.ninja reference prices when available. Report the league, actual source fetch times, partial failures, per-item assumptions, subtotal, and every unpriced or ambiguous item. The subtotal is not a complete build cost or a guaranteed market floor.

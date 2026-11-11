@@ -277,6 +277,17 @@ once as the host's numeric UID/GID. This covers the Dockerfile's dependency
 installation and production pruning, but does not validate a published image or
 the user's installed client configuration; those remain release-gate work.
 
+An installed-client audit on 2026-11-11 found that the local `pob` mcporter
+entry uses a standalone Docker wrapper with the deployed image and legacy
+surface, while the installed `pob-economy` and `pob-crafting` skills are symlinks
+into this development checkout. The installed economy skill had therefore
+assumed snapshot-only tools unavailable from that service. The two skills now
+document a temporary, advertised-tool-only legacy mapping; this mapping must be
+removed after the final runtime cutover. A read-only installed `mcporter` call
+to `get_currency_rates` for Standard succeeded. This proves that one current
+client route, not interactive skill selection, all clients, trading correctness,
+or the future installed snapshot configuration.
+
 The first delivery is foundation plus the vertical slice. Only after it passes
 can feature teams migrate independently. Shared contracts, adapter and final
 integration have one owner. Local stdio remains the only transport.
