@@ -37,8 +37,9 @@ try {
   assert.ok(Number.isFinite(Date.parse(raw.fetchedAt)));
   assert.deepEqual(raw.results.map(result => result.itemId), ids);
   assert.ok(raw.results.some(result => result.status === 'ok' && result.leagueStatus === 'match'));
-  const report = await call('preview_trade_listings', { snapshot_id: parent.id, league: 'Standard', slot: 'Ring 1', search_id: searchId, item_ids: ids });
+  const report = await call('preview_trade_listings', { snapshot_id: parent.id, league: 'Standard', slot: 'Ring 1', search_id: searchId, item_ids: ids.map(id => id.toUpperCase()) });
   assert.equal(report.snapshotId, parent.id); assert.equal(report.requestedCount, ids.length); assert.ok(Number.isFinite(Date.parse(report.fetchedAt)));
+  assert.deepEqual(report.results.map(result => result.itemId), ids);
   const success = report.results.find(result => result.status === 'ok');
   assert.ok(success, JSON.stringify(report.results));
   assert.equal(success.preview.snapshotId, parent.id); assert.match(success.clipboardText, /Rarity:/);

@@ -34,4 +34,14 @@ describe('snapshot trade listing previews', () => {
     await expect(tool.invoke(params)).rejects.toThrow('snapshot unavailable');
     expect(fetchListings).not.toHaveBeenCalled();
   });
+  it('normalizes hexadecimal listing IDs before fetch and preserves the canonical result IDs', async () => {
+    const fetchListings = jest.fn(async (requested: string[], queryId?: string) => ({ source: 'official-trade' as const, fetchedAt: '2026-01-01T00:00:00.000Z', request: { ids: requested, queryId: queryId ?? null }, data: { listings: [listing(ids[0])], missingIds: [] } }));
+    const previewItem = jest.fn(async () => ({ snapshotId }));
+    const tool = createTradePreviewTool({ previewItem, readSnapshot: async () => ({ id: snapshotId }) } as unknown as Pick<BuildFoundation, 'previewItem' | 'readSnapshot'>, { fetchListings } as unknown as OfficialTradeSource);
+    const result = JSON.parse((await tool.invoke({ ...params, item_ids: [ids[0].toUpperCase()] })).content[0].text);
+    expect(fetchListings).toHaveBeenCalledWith([ids[0]], 'query');
+    expect(result.results[0]).toMatchObject({ itemId: ids[0], status: 'ok' });
+    await expect(tool.invoke({ ...params, item_ids: [ids[0], ids[0].toUpperCase()] })).rejects.toThrow('distinct');
+    expect(fetchListings).toHaveBeenCalledTimes(1);
+  });
 });

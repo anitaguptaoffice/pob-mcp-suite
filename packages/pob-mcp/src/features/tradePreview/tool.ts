@@ -15,7 +15,7 @@ export function createTradePreviewTool(foundation: Pick<BuildFoundation, 'previe
         typeof args.snapshot_id !== 'string' || !/^[a-f0-9]{64}$/.test(args.snapshot_id) || typeof args.league !== 'string' || !args.league.trim() || args.league.length > 100 ||
         typeof args.slot !== 'string' || !args.slot.trim() || args.slot.length > 100 || typeof args.search_id !== 'string' || !/^[A-Za-z0-9_+/=-]{1,2048}$/.test(args.search_id) ||
         !Array.isArray(args.item_ids) || args.item_ids.length < 1 || args.item_ids.length > 5 || args.item_ids.some(id => typeof id !== 'string' || !/^[0-9a-f]{64}$/i.test(id)) || new Set(args.item_ids.map(id => id.toLowerCase())).size !== args.item_ids.length) throw new Error('Valid snapshot, exact league, slot, search ID and 1–5 distinct listing IDs are required');
-    const league = args.league.trim(), slot = args.slot.trim(), searchId = args.search_id, ids = args.item_ids as string[], snapshotId = args.snapshot_id;
+    const league = args.league.trim(), slot = args.slot.trim(), searchId = args.search_id, ids = (args.item_ids as string[]).map(id => id.toLowerCase()), snapshotId = args.snapshot_id;
     const snapshot = await foundation.readSnapshot(snapshotId);
     if (!snapshot || snapshot.id !== snapshotId) throw new Error('Snapshot identity mismatch');
     const fetched = await fetchVerifiedListingBatch(trade, ids, searchId);
