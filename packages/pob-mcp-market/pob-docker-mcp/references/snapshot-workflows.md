@@ -297,7 +297,10 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   explicit one-based `group_index`, or every group with `all_groups: true`.
   Disabled groups and gems remain visible. Unknown gem classification and
   support-application state must not be interpreted as confirmed compatibility.
-  Level and quality alone do not establish corruption state, benefit or price.
+  Each group's `assessment` summarizes observed enabled gems, multiple active
+  gems and support application; unknown inputs stay unknown. Gem counts do not
+  prove sockets are connected, and item-granted skills may exist without active
+  gems. Level and quality alone do not establish corruption state, benefit or price.
 - To compare explicit level or quality changes, call
   `compare_snapshot_gem_upgrades` with the saved main `group_index` and up to
   three candidates containing `gem_index` and `level` and/or `quality`. Each

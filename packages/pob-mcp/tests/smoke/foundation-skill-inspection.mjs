@@ -39,6 +39,8 @@ try {
   assert.equal(report.mainGroupIndex, main.index); assert.equal(report.groups.length, 1);
   assert.equal(report.groups[0].gems[0].kind, 'active'); assert.equal(report.groups[0].gems[1].kind, 'support');
   assert.equal(report.groups[0].gems[1].appliedToSelectedSkill, true);
+  assert.equal(report.groups[0].assessment.state, 'active');
+  assert.ok(!report.groups[0].assessment.issues.includes('support_not_applied'));
   assert.equal(report.groups[0].gems[1].level, 19); assert.equal(report.groups[0].gems[1].quality, 12);
   const validScan = await call('check_snapshot_issues', { snapshot_id: parent.id });
   assert.ok(!validScan.issues.some(issue => issue.code === 'support_not_applied_to_selected_skill' && issue.evidence.gemName === 'Minion Damage Support'));
@@ -46,6 +48,9 @@ try {
   const incompatibleScan = await call('check_snapshot_issues', { snapshot_id: incompatibleParent.id });
   assert.equal(incompatibleScan.checks.selectedSkillSupports, 'checked');
   assert.ok(incompatibleScan.issues.some(issue => issue.code === 'support_not_applied_to_selected_skill' && issue.evidence.groupIndex === other.index && issue.evidence.gemIndex === incompatible.index));
+  const incompatibleReport = await call('inspect_snapshot_skill_groups', { snapshot_id: incompatibleParent.id });
+  assert.ok(incompatibleReport.groups[0].assessment.issues.includes('support_not_applied'));
+  assert.ok(incompatibleReport.groups[0].assessment.notAppliedSupportIndices.includes(incompatible.index));
   const all = await call('inspect_snapshot_skill_groups', { snapshot_id: parent.id, all_groups: true });
   assert.equal(all.groups.find(group => group.index === other.index).enabled, false);
   const placeholder = native.groups.flatMap(group => group.gems.filter(gem => !gem.name && gem.supportClassificationKnown === false).map(gem => ({ groupIndex: group.index, gemIndex: gem.index })))[0];
