@@ -16,8 +16,8 @@ Generated from registered schema groups in the current build. Most entries are p
 
 ## getConfigToolSchemas
 
-- `get_config` — target: calculation and configuration; replacement: snapshot evaluation or typed configuration change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
-- `set_config` — target: calculation and configuration; replacement: snapshot evaluation or typed configuration change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `get_config` — target: calculation and configuration; replacement: `foundation_inspect` with `config`; status: partial (legacy callers and full contract acceptance remain); skill references: no exact name found in packaged skill Markdown.
+- `set_config` — target: calculation and configuration; replacement: `foundation_derive_config` or temporary `foundation_evaluate` config; status: partial (legacy callers and full contract acceptance remain); skill references: no exact name found in packaged skill Markdown.
 - `set_enemy_stats` — target: calculation and configuration; replacement: `derive_snapshot_enemy_config` with verified inputs and optional separate damage comparison; status: partially migrated (legacy callers remain); skill references: no exact name found in packaged skill Markdown.
 - `save_config_preset` — target: calculation and configuration; replacement: `save_snapshot_config_preset` in a versioned store; status: partially migrated (legacy callers remain); skill references: no exact name found in packaged skill Markdown.
 - `load_config_preset` — target: calculation and configuration; replacement: `apply_snapshot_config_preset` creating a verified child; status: partially migrated (legacy callers remain); skill references: no exact name found in packaged skill Markdown.
@@ -25,11 +25,11 @@ Generated from registered schema groups in the current build. Most entries are p
 
 ## getExportToolSchemas
 
-- `export_build` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `export_build` — target: build lifecycle / snapshot; replacement: `foundation_import_file`, optional `foundation_derive_notes`, and `foundation_save_file`; status: partial (Linux-only directory creation, old default path and legacy callers remain); skill references: no exact name found in packaged skill Markdown.
 - `save_tree` — target: tree and versioned data; replacement: `foundation_replace_tree` or `transplant_snapshot_tree`, then explicit fingerprint-checked `restore_snapshot_file`; status: partial, node overrides and legacy callers remain; skill references: no exact name found in packaged skill Markdown.
-- `snapshot_build` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: no exact name found in packaged skill Markdown.
-- `list_snapshots` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: no exact name found in packaged skill Markdown.
-- `restore_snapshot` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `snapshot_build` — target: build lifecycle / snapshot; replacement: `save_snapshot_history` and `import_legacy_build_history`; status: partial (legacy callers remain); skill references: no exact name found in packaged skill Markdown.
+- `list_snapshots` — target: build lifecycle / snapshot; replacement: `list_snapshot_history`, `list_legacy_build_history`, and `foundation_list_snapshots`; status: partial (legacy callers remain; incomplete historical data is explicit); skill references: no exact name found in packaged skill Markdown.
+- `restore_snapshot` — target: build lifecycle / snapshot; replacement: `inspect_local_build_file` and `restore_snapshot_file`; status: partial (backup and race limitations, legacy callers remain); skill references: no exact name found in packaged skill Markdown.
 - `export_build_summary` — target: analysis and optimization; replacement: `summarize_snapshot_build` with explicit metrics and optional item text; status: partially migrated (legacy callers remain); skill references: no exact name found in packaged skill Markdown.
 
 ## getLuaToolSchemas
@@ -40,10 +40,10 @@ Generated from registered schema groups in the current build. Most entries are p
 - `lua_get_build_snapshot` — target: build lifecycle / snapshot; replacement: `summarize_snapshot_build`; status: selected skill, gear, tree, configuration, catalogs and metrics implemented; legacy callers remain; skill references: no exact name found in packaged skill Markdown.
 - `lua_start` — target: engine lifecycle and introspection; replacement: internal disposable engine executor; status: partially migrated (legacy callers remain); skill references: no exact name found in packaged skill Markdown.
 - `lua_stop` — target: engine lifecycle and introspection; replacement: executor cleanup and service shutdown; status: partially migrated (legacy callers remain); skill references: no exact name found in packaged skill Markdown.
-- `lua_new_build` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: no exact name found in packaged skill Markdown.
-- `lua_save_build` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: no exact name found in packaged skill Markdown.
-- `lua_load_build` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: no exact name found in packaged skill Markdown.
-- `lua_import_code` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `lua_new_build` — target: build lifecycle / snapshot; replacement: `foundation_create_build`; status: partial (legacy callers remain); skill references: no exact name found in packaged skill Markdown.
+- `lua_save_build` — target: build lifecycle / snapshot; replacement: `foundation_save_file`; status: partial (different overwrite contract; legacy callers and acceptance remain); skill references: no exact name found in packaged skill Markdown.
+- `lua_load_build` — target: build lifecycle / snapshot; replacement: `foundation_import_file` or `foundation_import_build` plus explicit inspection; status: partial (legacy callers and acceptance remain); skill references: no exact name found in packaged skill Markdown.
+- `lua_import_code` — target: build lifecycle / snapshot; replacement: `foundation_import_code` plus explicit inspection; status: partial (legacy callers and tree-only code behavior remain unverified); skill references: no exact name found in packaged skill Markdown.
 - `list_specs` — target: tree and versioned data; replacement: `foundation_specs`; status: snapshot spec catalog implemented, legacy callers require migration; skill references: no exact name found in packaged skill Markdown.
 - `select_spec` — target: tree and versioned data; replacement: `foundation_derive_spec`; status: selection and all-spec reload checks implemented, legacy callers require migration; skill references: no exact name found in packaged skill Markdown.
 - `create_spec` — target: tree and versioned data; replacement: `foundation_create_spec`; status: snapshot creation and copy implemented, legacy callers require migration; skill references: no exact name found in packaged skill Markdown.
@@ -51,19 +51,19 @@ Generated from registered schema groups in the current build. Most entries are p
 - `rename_spec` — target: tree and versioned data; replacement: `foundation_rename_spec`; status: snapshot rename implemented, legacy callers require migration; skill references: no exact name found in packaged skill Markdown.
 - `list_item_sets` — target: equipment and gems; replacement: `foundation_item_sets`; status: snapshot catalog implemented, legacy callers require migration; skill references: no exact name found in packaged skill Markdown.
 - `select_item_set` — target: equipment and gems; replacement: `foundation_derive_item_set`; status: selection with all-set reload verification implemented, legacy callers require migration; skill references: no exact name found in packaged skill Markdown.
-- `set_character_level` — target: calculation and configuration; replacement: snapshot evaluation or typed configuration change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `set_character_level` — target: calculation and configuration; replacement: `foundation_derive_level`; status: partial (automatic-level behavior and legacy callers remain); skill references: no exact name found in packaged skill Markdown.
 - `lua_get_ailments` — target: calculation and configuration; replacement: `inspect_snapshot_ailments`; status: partially migrated (legacy callers remain; estimates are withheld when calculation and main selections differ); skill references: no exact name found in packaged skill Markdown.
-- `lua_get_stats` — target: calculation and configuration; replacement: snapshot evaluation or typed configuration change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
-- `lua_get_tree` — target: tree and versioned data; replacement: versioned tree query or typed tree/spec change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
-- `lua_set_tree` — target: tree and versioned data; replacement: versioned tree query or typed tree/spec change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `lua_get_stats` — target: calculation and configuration; replacement: `evaluate_snapshot_stat_category` or explicit `foundation_evaluate` fields; status: partial (bounded categories and legacy callers remain); skill references: no exact name found in packaged skill Markdown.
+- `lua_get_tree` — target: tree and versioned data; replacement: `foundation_inspect` with `tree`; status: partial (legacy callers and tool-specific acceptance remain); skill references: no exact name found in packaged skill Markdown.
+- `lua_set_tree` — target: tree and versioned data; replacement: `foundation_replace_tree`; status: partial (target node overrides, legality and legacy callers remain); skill references: no exact name found in packaged skill Markdown.
 - `update_tree_delta` — target: tree and versioned data; replacement: `foundation_derive_tree`, `foundation_derive_tree_paths`, and `foundation_trial_tree_removal`; status: explicit changes, bounded path additions and native dependent-removal trials implemented; legacy callers remain; skill references: no exact name found in packaged skill Markdown.
-- `lua_get_build_info` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: no exact name found in packaged skill Markdown.
-- `lua_reload_build` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: no exact name found in packaged skill Markdown.
-- `search_tree_nodes` — target: tree and versioned data; replacement: versioned tree query or typed tree/spec change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `lua_get_build_info` — target: build lifecycle / snapshot; replacement: `foundation_inspect` with `build`; status: partial (legacy callers and tool-specific acceptance remain); skill references: no exact name found in packaged skill Markdown.
+- `lua_reload_build` — target: build lifecycle / snapshot; replacement: a new `foundation_import_file` snapshot; status: partial (legacy callers and tool-specific acceptance remain); skill references: no exact name found in packaged skill Markdown.
+- `search_tree_nodes` — target: tree and versioned data; replacement: `foundation_search_tree`; status: partial (bounded results, legacy callers and tool-specific acceptance remain); skill references: no exact name found in packaged skill Markdown.
 - `add_item` — target: equipment and gems; replacement: `foundation_derive_item`, `foundation_derive_auto_item`, or `foundation_derive_inventory_item` plus `foundation_item_inventory`; status: explicit, auto-slot and unequipped paths implemented; full combinations and legacy callers remain; skill references: no exact name found in packaged skill Markdown.
-- `get_equipped_items` — target: equipment and gems; replacement: snapshot equipment/gem query or typed isolated change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `get_equipped_items` — target: equipment and gems; replacement: `foundation_inspect` with `items` or `list_snapshot_equipment`; status: partial (legacy callers and tool-specific acceptance remain); skill references: no exact name found in packaged skill Markdown.
 - `toggle_flask` — target: equipment and gems; replacement: `foundation_derive_flask_active`; status: snapshot activation and immediate calculation fix implemented, legacy callers require migration; skill references: no exact name found in packaged skill Markdown.
-- `get_skill_setup` — target: equipment and gems; replacement: snapshot equipment/gem query or typed isolated change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `get_skill_setup` — target: equipment and gems; replacement: `inspect_snapshot_skill_groups` or `foundation_inspect` with `skills`; status: partial (legacy callers and tool-specific acceptance remain); skill references: no exact name found in packaged skill Markdown.
 - `set_main_skill` — target: equipment and gems; replacement: `foundation_derive_selection`; status: persistent selection implemented, legacy callers require migration; skill references: no exact name found in packaged skill Markdown.
 - `create_socket_group` — target: equipment and gems; replacement: `foundation_derive_skill_group`; status: group creation implemented, legacy callers require migration; skill references: no exact name found in packaged skill Markdown.
 - `add_gem` — target: equipment and gems; replacement: `foundation_derive_gem_list`; status: single gem insertion implemented, legacy callers require migration; skill references: no exact name found in packaged skill Markdown.
@@ -74,18 +74,18 @@ Generated from registered schema groups in the current build. Most entries are p
 - `toggle_socket_group` — target: equipment and gems; replacement: `foundation_derive_skill_group_enabled`; status: explicit enable/disable implemented, legacy callers require migration; skill references: no exact name found in packaged skill Markdown.
 - `toggle_gem` — target: equipment and gems; replacement: `foundation_derive_gem`; status: explicit enabled state implemented, legacy callers require migration; skill references: no exact name found in packaged skill Markdown.
 - `setup_skill_with_gems` — target: equipment and gems; replacement: `foundation_derive_skill_group`; status: atomic creation implemented, legacy callers require migration; skill references: no exact name found in packaged skill Markdown.
-- `add_multiple_items` — target: equipment and gems; replacement: snapshot equipment/gem query or typed isolated change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
-- `plan_leveling` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
-- `find_item_upgrades` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `add_multiple_items` — target: equipment and gems; replacement: `foundation_derive_items`; status: partial (cross-product of item sets and specs, legality and legacy callers remain); skill references: no exact name found in packaged skill Markdown.
+- `plan_leveling` — target: analysis and optimization; replacement: `prepare_snapshot_leveling`; status: partial (unversioned starter examples, route and legacy callers remain); skill references: no exact name found in packaged skill Markdown.
+- `find_item_upgrades` — target: market and workflows; replacement: `analyze_snapshot_equipment` plus explicit `foundation_preview_item` candidates; status: partial (automatic upgrade selection, prices and legacy callers remain); skill references: no exact name found in packaged skill Markdown.
 
 ## getOptimizationToolSchemas
 
 - `analyze_defenses` — target: analysis and optimization; replacement: `inspect_snapshot_defenses` and `check_snapshot_issues`; status: partially migrated (legacy heuristic scoring and callers remain); skill references: no exact name found in packaged skill Markdown.
 - `suggest_optimal_nodes` — target: analysis and optimization; replacement: `find_snapshot_passive_suggestions` for bounded goal-keyword discovery, with separate path and metric evaluation; status: partially migrated (legacy callers remain; matches are unverified heuristics); skill references: no exact name found in packaged skill Markdown.
 - `optimize_tree` — target: analysis and optimization; replacement: bounded PoB path discovery and `submit_snapshot_passive_ranking` with explicit metrics, excluded nodes and candidate minimum Life/ES; status: partial, global optimization and legacy callers remain; skill references: no exact name found in packaged skill Markdown.
-- `analyze_items` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `analyze_items` — target: analysis and optimization; replacement: `analyze_snapshot_equipment`; status: partial (unverified heuristic and legacy callers remain); skill references: no exact name found in packaged skill Markdown.
 - `optimize_skill_links` — target: analysis and optimization; replacement: `inspect_snapshot_skill_groups` and explicit support comparisons; status: partially migrated (legacy callers remain; no global optimizer implied); skill references: no exact name found in packaged skill Markdown.
-- `create_budget_build` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `create_budget_build` — target: analysis and optimization; replacement: `screen_snapshot_budget_candidates` or `assemble_snapshot_budget_bundle`; status: partial (bounded candidates, full build costs and legacy callers remain); skill references: no exact name found in packaged skill Markdown.
 
 ## getPoeNinjaToolSchemas
 
@@ -109,7 +109,7 @@ Generated from registered schema groups in the current build. Most entries are p
 - `analyze_build` — target: analysis and optimization; replacement: `summarize_snapshot_build` plus explicit issue and defense tools; status: overview implemented, full validation and legacy callers remain; skill references: no exact name found in packaged skill Markdown.
 - `compare_builds` — target: analysis and optimization; replacement: `compare_snapshot_builds` with explicit snapshot IDs and saved calculation contexts; status: partially migrated (snapshot skill workflow documented; legacy file-name callers remain); skill references: no exact name found in packaged skill Markdown.
 - `list_builds` — target: build lifecycle / snapshot; replacement: `list_local_build_files` plus `foundation_import_file`; status: partially migrated (legacy callers remain); skill references: no exact name found in packaged skill Markdown.
-- `get_build_stats` — target: calculation and configuration; replacement: snapshot evaluation or typed configuration change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `get_build_stats` — target: calculation and configuration; replacement: `foundation_import_file` plus `foundation_evaluate`; status: partial (legacy callers and tool-specific acceptance remain); skill references: no exact name found in packaged skill Markdown.
 - `start_watching` — target: file observation; replacement: `start_local_build_watch`; status: partially migrated (legacy callers remain); skill references: no exact name found in packaged skill Markdown.
 - `stop_watching` — target: file observation; replacement: `stop_local_build_watch`; status: partially migrated (legacy callers remain); skill references: no exact name found in packaged skill Markdown.
 - `get_recent_changes` — target: file observation; replacement: `list_local_build_changes`; status: partially migrated (legacy callers remain); skill references: no exact name found in packaged skill Markdown.
@@ -128,7 +128,7 @@ Generated from registered schema groups in the current build. Most entries are p
 
 - `compare_trade_listings_in_pob` — target: market and workflows; replacement: `preview_trade_listings`; status: bounded batch preview implemented, legacy callers require migration; skill references: no exact name found in packaged skill Markdown.
 - `compare_trade_listing_in_pob` — target: market and workflows; replacement: `preview_trade_listings`; status: snapshot and official source preview live-tested, legacy callers require migration; skill references: no exact name found in packaged skill Markdown.
-- `find_weighted_trade_items` — target: market and workflows; replacement: market data service or cross-domain workflow; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `find_weighted_trade_items` — target: market and workflows; replacement: `generate_snapshot_weighted_trade` or `search_snapshot_weighted_trade`; status: partial (authenticated live weighted search and legacy callers remain unverified); skill references: no exact name found in packaged skill Markdown.
 - `search_trade_items` — target: market and workflows; replacement: `search_official_trade`; status: new source tool live-tested, legacy aliases and callers require migration; skill references: no exact name found in packaged skill Markdown.
 - `get_item_price` — target: market and workflows; replacement: `sample_trade_item_price`; status: new source workflow implemented; legacy callers require migration; skill references: no exact name found in packaged skill Markdown.
 - `get_leagues` — target: market and workflows; replacement: `list_trade_leagues`; status: new source tool live-tested, caller migration and legacy removal pending; skill references: no exact name found in packaged skill Markdown.
@@ -140,7 +140,7 @@ Generated from registered schema groups in the current build. Most entries are p
 
 ## getValidationToolSchemas
 
-- `validate_build` — target: analysis and optimization; replacement: analysis workflow using snapshot and explicit metrics; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `validate_build` — target: analysis and optimization; replacement: `check_snapshot_issues` plus `inspect_snapshot_defenses`; status: partial (damage scaling, complete validation and legacy callers remain); skill references: no exact name found in packaged skill Markdown.
 
 ## buildCostSchemas
 
