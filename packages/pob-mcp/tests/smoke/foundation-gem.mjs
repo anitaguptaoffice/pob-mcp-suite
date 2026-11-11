@@ -29,7 +29,13 @@ try {
   const legacyXml = xml.replace('<Gem ', '<Gem qualityId="Anomalous" ');
   assert.notEqual(legacyXml, xml);
   const legacyParent = await foundation.importBuild(legacyXml, 'legacy-quality-fixture');
-  assert.equal((await foundation.inspect(legacyParent.id, ['skills'])).data.skills.groups[0].gems[0].qualityId, 'Default');
+  const legacyInspection = await foundation.inspect(legacyParent.id, ['skills']);
+  assert.equal(legacyInspection.data.skills.groups[0].gems[0].qualityId, 'Default');
+  assert.ok(legacyInspection.warnings.some(warning => warning.includes('non-default gem qualityId')));
+  assert.equal(await foundation.exportBuild(legacyParent.id), legacyXml);
+  const beforeGuard = (await foundation.listSnapshots()).snapshots.length;
+  await assert.rejects(foundation.deriveLevel(legacyParent.id, 70), /non-default gem qualityId/);
+  assert.equal((await foundation.listSnapshots()).snapshots.length, beforeGuard);
   assert.equal(await foundation.exportBuild(legacyParent.id), legacyXml);
   const defaultQuality = await foundation.deriveGem(parent.id, 1, 1, { qualityId: 'Default', quality: 12 });
   const defaultGem = (await foundation.inspect(defaultQuality.id, ['skills'])).data.skills.groups[0].gems[0];
@@ -107,6 +113,9 @@ try {
   try {
     await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'gem-smoke', version: '1' } });
     mcp.notify('notifications/initialized', {});
+    const guarded = await mcp.request('tools/call', { name: 'foundation_derive_level', arguments: { snapshot_id: legacyParent.id, level: 70 } });
+    assert.equal(guarded.result.isError, true);
+    assert.match(guarded.result.content[0].text, /non-default gem qualityId/);
     const response = await mcp.request('tools/call', { name: 'foundation_derive_gem', arguments: { snapshot_id: parent.id, group_index: 1, gem_index: 2, changes: { level: 15, quality: 12, enabled: false }, trial: true } });
     assert.ok(!response.error && !response.result?.isError, JSON.stringify(response));
     const trial = JSON.parse(response.result.content[0].text);

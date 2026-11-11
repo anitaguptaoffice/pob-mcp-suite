@@ -94,6 +94,15 @@ export class BuildXml {
       });
   }
 
+  /** Detect historical gem quality types that the current engine may discard. */
+  hasNonDefaultGemQuality(): boolean {
+    const walk = (nodes: Element[]): boolean => nodes.some(node => {
+      if (node.Gem !== undefined && Object.hasOwn(ATTRS(node[':@']), '@_qualityId') && ATTRS(node[':@'])['@_qualityId'] !== 'Default') return true;
+      return Object.entries(node).some(([tag, children]) => tag !== ':@' && Array.isArray(children) && walk(children as Element[]));
+    });
+    return this.root.filter(node => node.Skills !== undefined).some(node => walk(BuildXml.children(node, 'Skills') ?? []));
+  }
+
   toString(): string {
     return new XMLBuilder({ ...options, format: false }).build(this.document);
   }

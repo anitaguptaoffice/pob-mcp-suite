@@ -6,6 +6,7 @@ import { MAX_BUILD_BYTES, decodeShareCode } from './shareCode.js';
 import { toFiniteNumber, type PoBLuaApiClient } from '../pobLuaBridge.js';
 import type { EnemyLevelSetting } from '../ports/configPresets.js';
 import { validEnemyLevelSetting } from '../domain/configPreset.js';
+import { BuildXml } from '../utils/buildXml.js';
 
 /** The adapter owns a disposable PoB instance; it must never share live state. */
 export interface BuildEngine {
@@ -90,6 +91,9 @@ export function validateEvaluationOptions(options: EvaluationOptions): void {
     }
   }
 }
+function hasLegacyGemQuality(xml: string): boolean {
+  return xml.includes('qualityId') && new BuildXml(xml).hasNonDefaultGemQuality();
+}
 function checkIdentity(snapshot: SnapshotRecord, engine: BuildEngine): string[] {
   const warnings: string[] = [];
   for (const key of ['engineVersion', 'adapterVersion', 'dataVersion', 'runtimeVersion', 'executableVersion'] as const) {
@@ -99,6 +103,7 @@ function checkIdentity(snapshot: SnapshotRecord, engine: BuildEngine): string[] 
     if (!expected || !actual) warnings.push(`${key} is unknown; compatibility cannot be established`);
   }
   warnings.push('Fingerprints do not cover external dependencies, wrapper interpreters or transient changes between checks');
+  if (hasLegacyGemQuality(snapshot.xml)) warnings.push('Source XML contains non-default gem qualityId fields; PoB may ignore them, so skill observations and calculations may not represent the original build.');
   return warnings;
 }
 async function observe(engine: BuildEngine) {
@@ -327,6 +332,7 @@ export class BuildFoundation {
   private async derive(id: string, source: string, apply: (engine: BuildEngine) => Promise<void>, trial: boolean, verifyReload?: (engine: BuildEngine) => Promise<void>): Promise<SnapshotRecord> {
     if (typeof trial !== 'boolean') throw new Error('Invalid trial flag');
     const parent = await this.store.read(id);
+    if (hasLegacyGemQuality(parent.xml)) throw new Error('Cannot derive snapshot: source XML contains a non-default gem qualityId that PoB may discard. Original snapshot remains unchanged.');
     return this.limiter.withEngine(async engine => {
       checkIdentity(parent, engine);
       await engine.loadBuildXml(parent.xml);
