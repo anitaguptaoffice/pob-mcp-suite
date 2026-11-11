@@ -62,7 +62,7 @@ Use an MCP server entry equivalent to:
 | `POB_DOCKER_IMAGE` | `ghcr.io/anitaguptaoffice/pob-mcp-suite:latest` | Docker image tag to run |
 | `POB_BUILDS_DIR` | `~/Documents/Path of Building/Builds` | Host builds directory mounted to `/builds` |
 | `POB_FOUNDATION_ENABLED` | unset | Set to `true` to enable snapshot mode in an image that supports it |
-| `POB_LEGACY_ENABLED` | unset | Set to `true` only for legacy compatibility; independent Trade tools are disabled while legacy mode is enabled |
+| `POB_LEGACY_ENABLED` | unset | Set to `true` only for legacy compatibility; in foundation mode old and new Trade tools share the official adapter and rate limit |
 | `POB_DOCKER_USER` | unset | Optional Docker `--user` value, such as `1000:1000`, for host-owned build and snapshot files |
 | `POE_TRADE_ENABLED` | `false` in the wrapper, `true` in the bundled Codex plugin | Enable live trade API tools |
 

@@ -1,4 +1,5 @@
 import Bottleneck from 'bottleneck';
+import type { OfficialTradeSource } from '../ports/officialTrade.js';
 import {
   TradeQuery,
   SearchResult,
@@ -24,7 +25,7 @@ class FinalApiError extends Error {}
  */
 export class TradeApiClient {
   private readonly baseUrl = 'https://www.pathofexile.com/api/trade';
-  private readonly limiter: Bottleneck;
+  private readonly limiter!: Bottleneck;
   // Bounded LRU: entries are TTL-expiring listings/results, but TTL expiry
   // only happens on read — a client that searches many distinct queries
   // would otherwise accumulate cache entries for its whole lifetime.
@@ -38,17 +39,22 @@ export class TradeApiClient {
   // in effect (a duplicate search costs one query, listings are read-only).
   private readonly retryMaxAttempts: number;
   private readonly retryBaseDelayMs: number;
+  private readonly source?: OfficialTradeSource;
 
   constructor(options?: {
     requestsPerSecond?: number;
     cacheTTL?: number;
     maxRetries?: number;
     retryBaseDelayMs?: number;
+    source?: OfficialTradeSource;
   }) {
+    this.source = options?.source;
     const requestsPerSecond = options?.requestsPerSecond || 4;
     this.defaultCacheTTL = (options?.cacheTTL || 300) * 1000; // Convert to ms
     this.retryMaxAttempts = 1 + Math.max(0, options?.maxRetries ?? 2);
     this.retryBaseDelayMs = options?.retryBaseDelayMs ?? 500;
+
+    if (this.source) return;
 
     // Create rate limiter using token bucket algorithm
     this.limiter = new Bottleneck({
@@ -77,6 +83,7 @@ export class TradeApiClient {
    * Search for items matching the given query
    */
   async searchItems(league: string, query: TradeQuery): Promise<SearchResult> {
+    if (this.source) return (await this.source.search(league, query)).data;
     const cacheKey = `search:${league}:${JSON.stringify(query)}`;
     const cached = this.getFromCache<SearchResult>(cacheKey);
     if (cached) {
@@ -110,6 +117,8 @@ export class TradeApiClient {
       return all;
     }
 
+    if (this.source) return (await this.source.fetchListings([...new Set(itemIds)], queryId)).data.listings.map(normalizeItemListing);
+
     // The fetch endpoint is query-dependent; do not reuse a response from
     // a different search context just because the item IDs coincide.
     const cacheKey = `fetch:${JSON.stringify([itemIds, queryId ?? null])}`;
@@ -137,6 +146,7 @@ export class TradeApiClient {
    * This data changes infrequently, so we cache it for 1 hour
    */
   async getStats(): Promise<StatData> {
+    if (this.source) return (await this.source.stats()).data;
     const cacheKey = 'stats:all';
     const cached = this.getFromCache<StatData>(cacheKey, 3600000);
     if (cached) return cached;
@@ -146,6 +156,7 @@ export class TradeApiClient {
   }
 
   async getLeagues(): Promise<LeagueData> {
+    if (this.source) return (await this.source.leagues()).data;
     const cacheKey = 'leagues:all';
     const cached = this.getFromCache<LeagueData>(cacheKey, 3600000); // 1 hour
     if (cached) {

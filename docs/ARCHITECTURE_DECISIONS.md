@@ -83,11 +83,17 @@ On 2026-11-11 the opt-in `test:smoke:source-comparable` validated official
 international league and stat metadata, a `securable` and `priced` search,
 listing fetch, general and comparable searches, per-source statistics and
 separate original retrieval times.
-These new trade tools are advertised only when `POE_TRADE_ENABLED=true` and the
-legacy router is disabled. While the legacy mutable Trade client is enabled in
-compatibility mode, the new trade tools are hidden to avoid two uncoordinated
-per-process rate limiters; the old trade surface remains available. Replacing
-that temporary gating and retiring the legacy client are migration work.
+With `POE_TRADE_ENABLED=true` and foundation mode, both old and new trade tools
+share one official adapter, request queue, cache and 429 cooldown. The legacy
+client retains its result shape and listing normalization, while the adapter
+validates responses and does not automatically retry 429. Its TTLs supersede
+the legacy `POE_CACHE_TTL` setting in this transitional mode. Legacy-only mode
+continues to use the old client; retiring that client and its routes is still
+migration work. `sharedTradeSource.test.ts` covers coalescing, normalization and
+cooldown in both directions; `shared-trade-live.mjs` checks a real anonymous
+international `securable` and `priced` search and listing fetch, and invokes
+both old and new MCP search tools in compatibility mode. This does not verify
+every legacy query or authenticated endpoint.
 
 ## Contracts
 

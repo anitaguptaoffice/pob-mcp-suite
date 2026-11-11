@@ -144,6 +144,7 @@ class PoBMCPServer {
   private exportService: BuildExportService;
   private skillGemService: SkillGemService;
   private tradeClient: TradeApiClient | null = null;
+  private officialTrade: OfficialTradeAdapter | null = null;
   private statMapper: StatMapper | null = null;
   private recommendationEngine: ItemRecommendationEngine | null = null;
   private ninjaClient: PoeNinjaClient;
@@ -268,6 +269,13 @@ class PoBMCPServer {
     this.ninjaClient = new PoeNinjaClient();
     console.error('[poe.ninja API] Client initialized');
 
+    // In foundation mode both surfaces share the same source, queue and cache.
+    // The original legacy-only mode keeps its existing client unchanged.
+    if (process.env.POE_TRADE_ENABLED === 'true' && (process.env.POB_FOUNDATION_ENABLED === 'true' || !this.legacyEnabled())) {
+      const rate = Number(process.env.POE_RATE_LIMIT_PER_SECOND ?? 4);
+      const minTimeMs = Number.isFinite(rate) && rate > 0 ? Math.ceil(1000 / Math.min(rate, 4)) : 250;
+      this.officialTrade = new OfficialTradeAdapter({ minTimeMs, session: () => process.env.POE_SESSION_ID || undefined });
+    }
     // The legacy client is unnecessary when only the source adapter is exposed.
     const tradeEnabled = process.env.POE_TRADE_ENABLED === 'true' && this.legacyEnabled();
     if (tradeEnabled) {
@@ -276,6 +284,7 @@ class PoBMCPServer {
       this.tradeClient = new TradeApiClient({
         requestsPerSecond,
         cacheTTL,
+        ...(this.officialTrade ? { source: this.officialTrade } : {}),
       });
       this.statMapper = new StatMapper();
       this.recommendationEngine = new ItemRecommendationEngine(this.tradeClient);
@@ -578,11 +587,7 @@ class PoBMCPServer {
   private async initialize() {
     const economy = new PoeNinjaAdapter();
     const market = [...createCurrencyReferenceTools(economy), createCurrencySpreadTool(economy), createStaticStatMappingTool(new StaticStatCatalog())];
-    // Do not create a second Trade rate limiter while the legacy client is enabled.
-    const tradeEnabled = process.env.POE_TRADE_ENABLED === 'true' && !this.legacyEnabled();
-    const rate = Number(process.env.POE_RATE_LIMIT_PER_SECOND ?? 4);
-    const minTimeMs = Number.isFinite(rate) && rate > 0 ? Math.ceil(1000 / Math.min(rate, 4)) : 250;
-    const trade = tradeEnabled ? new OfficialTradeAdapter({ minTimeMs, session: () => process.env.POE_SESSION_ID || undefined }) : null;
+    const trade = this.officialTrade;
     if (trade) market.push(createSourceComparableTool(trade), createTradeSearchTool(trade), createTradeItemPriceTool(trade), createTradeListingComparisonTool(trade), createResistanceTradeTool(trade), createClusterTradeTool(trade), ...createTradeMetadataTools(trade));
     this.marketFeatures = new FeatureRegistry(market);
     if (process.env.POB_FOUNDATION_ENABLED === 'true') {

@@ -244,14 +244,9 @@ try {
   assert.equal(combined.result.tools.filter(t => t.name === 'search_snapshot_timeless_seeds').length, 1);
   assert.equal(combined.result.tools.filter(t => t.name === 'find_timeless_jewel_seeds').length, 1);
   assert.ok(combined.result.tools.some(t => t.name === 'estimate_comparable_item'));
-  assert.ok(!combined.result.tools.some(t => t.name === 'estimate_trade_comparable'));
-  assert.ok(!combined.result.tools.some(t => t.name === 'search_trade_stats'));
-  assert.ok(!combined.result.tools.some(t => t.name === 'search_official_trade'));
-  assert.ok(!combined.result.tools.some(t => t.name === 'sample_trade_item_price'));
-  assert.ok(!combined.result.tools.some(t => t.name === 'preview_trade_listings'));
-  assert.ok(!combined.result.tools.some(t => t.name === 'compare_official_trade_listings'));
-  assert.ok(!combined.result.tools.some(t => t.name === 'search_resistance_listings'));
-  assert.ok(!combined.result.tools.some(t => t.name === 'search_cluster_listings'));
+  for (const name of ['estimate_trade_comparable', 'search_trade_stats', 'search_official_trade', 'sample_trade_item_price', 'preview_trade_listings', 'compare_official_trade_listings', 'search_resistance_listings', 'search_cluster_listings']) {
+    assert.equal(combined.result.tools.filter(t => t.name === name).length, 1, name);
+  }
   assert.equal(combined.result.tools.filter(t => t.name === 'compare_craft_budget').length, 1);
   assert.equal(combined.result.tools.filter(t => t.name === 'simulate_simple_annul').length, 1);
   assert.equal(combined.result.tools.filter(t => t.name === 'estimate_snapshot_cost').length, 1);

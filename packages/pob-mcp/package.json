@@ -24,6 +24,7 @@
     "test:smoke:trade": "node tests/smoke/trade-mcp.mjs",
     "test:smoke:snapshot-cost": "node tests/smoke/snapshot-cost-live.mjs",
     "test:smoke:source-comparable": "node tests/smoke/source-comparable-live.mjs",
+    "test:smoke:shared-trade": "node tests/smoke/shared-trade-live.mjs",
     "test:smoke:currency-reference": "node tests/smoke/currency-reference-live.mjs",
     "test:smoke:trade-preview": "node tests/smoke/trade-preview-live.mjs",
     "test:smoke:cluster-trade": "node tests/smoke/cluster-trade-live.mjs",
