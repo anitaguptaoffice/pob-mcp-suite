@@ -5,11 +5,26 @@ const metrics = (values: Record<string, number>) => Object.fromEntries(Object.en
 
 describe('snapshot boss reference', () => {
   it('selects poison-inclusive minion damage and treats one life and missing values as unknown', () => {
-    const result = summarizeReadiness('shaper', metrics({ Life: 1, EnergyShield: 9000, MinionTotalDPS: 100, MinionCombinedDPS: 250 }));
+    const result = summarizeReadiness('shaper', metrics({ Life: 1, EnergyShield: 9000, CombinedDPS: 0, TotalDPS: 0, MinionTotalDPS: 100, MinionCombinedDPS: 250 }));
     expect(result.selectedDamageMetric).toBe('MinionCombinedDPS');
     expect(result.checks.find(check => check.metric === 'MinionCombinedDPS')).toMatchObject({ value: 250, status: 'below_reference' });
     expect(result.checks.find(check => check.metric === 'Life')?.status).toBe('unknown');
     expect(result.checks.find(check => check.metric === 'FireResist')?.status).toBe('unknown');
+  });
+  it('does not infer the missing damage category is zero or silently fall back to hit-only damage', () => {
+    const missingMinion = summarizeReadiness('shaper', metrics({ CombinedDPS: 100, TotalDPS: 90 }));
+    expect(missingMinion.damagePresence).toEqual({ player: 'present', minion: 'unknown' });
+    expect(missingMinion.selectedDamageMetric).toBeNull();
+    expect(missingMinion.checks.find(check => check.metric === 'damage')).toMatchObject({ status: 'unknown', reason: expect.stringContaining('unconfirmed') });
+    const missingPlayer = summarizeReadiness('shaper', metrics({ MinionCombinedDPS: 200, MinionTotalDPS: 100 }));
+    expect(missingPlayer.damagePresence).toEqual({ player: 'unknown', minion: 'present' });
+    expect(missingPlayer.selectedDamageMetric).toBeNull();
+    const hitOnly = summarizeReadiness('shaper', metrics({ TotalDPS: 100, MinionCombinedDPS: 0, MinionTotalDPS: 0 }));
+    expect(hitOnly.selectedDamageMetric).toBeNull();
+    expect(summarizeReadiness('shaper', metrics({ TotalDPS: 100, MinionCombinedDPS: 0, MinionTotalDPS: 0 }), 'TotalDPS').checks.find(check => check.metric === 'TotalDPS')?.value).toBe(100);
+    const invalid = summarizeReadiness('shaper', metrics({ CombinedDPS: 100, TotalDPS: -1, MinionCombinedDPS: 0, MinionTotalDPS: 0 }));
+    expect(invalid.damagePresence.player).toBe('unknown'); expect(invalid.selectedDamageMetric).toBeNull();
+    expect(summarizeReadiness('shaper', metrics({ TotalDPS: -1 }), 'TotalDPS').checks.find(check => check.metric === 'TotalDPS')?.status).toBe('unknown');
   });
   it('does not silently choose between player and minion damage or add them together', () => {
     const values = metrics({ CombinedDPS: 5, TotalDPS: 4, MinionCombinedDPS: 20, MinionTotalDPS: 10, FullDPS: 50 });

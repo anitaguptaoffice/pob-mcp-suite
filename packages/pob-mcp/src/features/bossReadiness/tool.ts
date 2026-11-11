@@ -23,20 +23,29 @@ export function summarizeReadiness(boss: keyof typeof thresholds, metrics: Recor
     const metric = metrics[key];
     return metric?.status === 'available' && typeof metric.value === 'number' && Number.isFinite(metric.value) ? metric.value : undefined;
   };
-  const player = ['CombinedDPS', 'TotalDPS'].some(key => (value(key) ?? 0) > 0);
-  const minion = ['MinionCombinedDPS', 'MinionTotalDPS'].some(key => (value(key) ?? 0) > 0);
-  const selected = damageMetric ?? (player === minion ? undefined : player ? ((value('CombinedDPS') ?? 0) > 0 ? 'CombinedDPS' : 'TotalDPS') : ((value('MinionCombinedDPS') ?? 0) > 0 ? 'MinionCombinedDPS' : 'MinionTotalDPS'));
+  const damageValue = (key: string) => { const observed = value(key); return observed !== undefined && observed >= 0 ? observed : undefined; };
+  const presence = (keys: string[]): 'present' | 'absent' | 'unknown' => {
+    if (keys.some(key => { const observed = value(key); return observed !== undefined && observed < 0; })) return 'unknown';
+    const values = keys.map(damageValue);
+    if (values.some(entry => entry !== undefined && entry > 0)) return 'present';
+    return values.every(entry => entry === 0) ? 'absent' : 'unknown';
+  };
+  const player = presence(['CombinedDPS', 'TotalDPS']);
+  const minion = presence(['MinionCombinedDPS', 'MinionTotalDPS']);
+  const implicit = player === 'present' && minion === 'absent' && (damageValue('CombinedDPS') ?? 0) > 0 ? 'CombinedDPS'
+    : minion === 'present' && player === 'absent' && (damageValue('MinionCombinedDPS') ?? 0) > 0 ? 'MinionCombinedDPS' : undefined;
+  const selected = damageMetric ?? implicit;
   const life = value('Life');
   const make = (metric: string, current: number | undefined, minimum: number, reason?: string) => ({ metric, value: current ?? null, referenceMinimum: minimum, status: reason || current === undefined ? 'unknown' : current >= minimum ? 'above_reference' : 'below_reference', ...(reason ? { reason } : current === undefined ? { reason: 'PoB did not provide a numeric value' } : {}) });
   const lifeReason = life === 1 ? 'Life threshold is not applicable to a one-life build' : undefined;
-  const damageReason = !selected ? player && minion ? 'Player and minion damage are both present; select the relevant metric explicitly' : 'No unambiguous damage metric is available; select one explicitly' : undefined;
-  const checks = [make('Life', life, reference.life, lifeReason), make('TotalEHP', value('TotalEHP'), reference.ehp), make(selected ?? 'damage', selected ? value(selected) : undefined, reference.damage, damageReason),
+  const damageReason = !selected ? player === 'present' && minion === 'present' ? 'Player and minion damage are both present; select the relevant metric explicitly' : 'Damage presence or combined damage is unconfirmed; select the relevant metric explicitly' : undefined;
+  const checks = [make('Life', life, reference.life, lifeReason), make('TotalEHP', value('TotalEHP'), reference.ehp), make(selected ?? 'damage', selected ? damageValue(selected) : undefined, reference.damage, damageReason),
     ...['FireResist', 'ColdResist', 'LightningResist'].map(key => make(key, value(key), 75)), make('ChaosResist', value('ChaosResist'), 0)];
-  return { reference, selectedDamageMetric: selected ?? null, availableDamage: Object.fromEntries(damageFields.map(key => [key, value(key) ?? null])), checks };
+  return { reference, selectedDamageMetric: selected ?? null, damagePresence: { player, minion }, availableDamage: Object.fromEntries(damageFields.map(key => [key, damageValue(key) ?? null])), checks };
 }
 
 export function bossReadinessSchema(): FeatureTool['schema'] {
-  return { name: 'assess_snapshot_boss_reference', description: 'Compare snapshot stats with legacy rough boss reference thresholds; this does not prove readiness. Select damage metric when player and minion outputs coexist. Encounter mode temporarily applies PoB boss configuration.', inputSchema: { type: 'object', additionalProperties: false, properties: {
+  return { name: 'assess_snapshot_boss_reference', description: 'Compare snapshot stats with rough boss reference thresholds; this does not prove readiness. Select a damage metric when player/minion presence or combined damage is uncertain. Encounter mode temporarily applies PoB boss configuration.', inputSchema: { type: 'object', additionalProperties: false, properties: {
     snapshot_id: { type: 'string' }, boss: { type: 'string', enum: bossIds }, damage_metric: { type: 'string', enum: damageFields }, enemy_mode: { type: 'string', enum: ['saved', 'encounter'] },
   }, required: ['snapshot_id', 'boss'] } };
 }
@@ -49,6 +58,6 @@ export function createBossReadinessTool(foundation: Pick<BuildFoundation, 'evalu
     const config = evaluation.context.config && typeof evaluation.context.config === 'object' && !Array.isArray(evaluation.context.config) ? evaluation.context.config as Record<string, unknown> : {};
     const configuredEnemy = typeof config.enemyIsBoss === 'string' ? config.enemyIsBoss : null;
     return { content: [{ type: 'text', text: JSON.stringify({ snapshotId: evaluation.snapshotId, identity: evaluation.identity, ...summary, metrics: evaluation.metrics, enemyConfiguration: { source: enemyMode, expected: thresholds[boss].enemyMode, actual: configuredEnemy, matches: configuredEnemy === null ? null : configuredEnemy === thresholds[boss].enemyMode }, context: evaluation.context,
-      warnings: [...evaluation.warnings, 'These unverified legacy thresholds are rough references, not proof of boss readiness or an official game requirement.', 'EHP depends on the configured enemy and damage mix; maximum hit, recovery, mechanics, skill uptime, encounter phase and player execution are not evaluated.', 'Damage metrics are not additive by default. TotalDPS and MinionTotalDPS can omit damage over time; verify skill selection, stacking and poison assumptions.', 'Uber Elder is the named standard encounter, distinct from an Uber pinnacle difficulty. Resistance thresholds are reference values, not the build-specific maximum.'] }) }] };
+      warnings: [...evaluation.warnings, 'These unverified legacy thresholds are rough references, not proof of boss readiness or an official game requirement.', 'EHP depends on the configured enemy and damage mix; maximum hit, recovery, mechanics, skill uptime, encounter phase and player execution are not evaluated.', 'Damage metrics are not additive by default. Missing player or minion values are not zero; explicit hit-only metrics can omit damage over time. Verify skill selection, stacking and poison assumptions.', 'Uber Elder is the named standard encounter, distinct from an Uber pinnacle difficulty. Resistance thresholds are reference values, not the build-specific maximum.'] }) }] };
   } };
 }

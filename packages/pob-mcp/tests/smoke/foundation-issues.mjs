@@ -58,6 +58,13 @@ try {
   assert.equal(reference.reference.difficulty, 'uber');
   assert.equal(reference.selectedDamageMetric, 'MinionCombinedDPS');
   assert.equal(reference.metrics.MinionCombinedDPS.value, expectedUber.MinionCombinedDPS);
+  const automatic = await call('assess_snapshot_boss_reference', { snapshot_id: parent.id, boss: 'uber_exarch', enemy_mode: 'encounter' });
+  assert.equal(automatic.metrics.MinionCombinedDPS.value, expectedUber.MinionCombinedDPS);
+  assert.equal(automatic.damagePresence.minion, 'present');
+  if (automatic.damagePresence.player !== 'absent') {
+    assert.equal(automatic.selectedDamageMetric, null);
+    assert.equal(automatic.checks.find(check => check.metric === 'damage').status, 'unknown');
+  } else assert.equal(automatic.selectedDamageMetric, 'MinionCombinedDPS');
   const savedAfter = await call('foundation_evaluate', { snapshot_id: parent.id, fields: ['MinionCombinedDPS'] });
   assert.equal(savedAfter.stats.MinionCombinedDPS, expected.MinionCombinedDPS);
   assert.equal((await call('foundation_export_build', { snapshot_id: parent.id })).xml, xml);
