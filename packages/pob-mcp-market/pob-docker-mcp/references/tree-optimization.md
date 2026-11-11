@@ -44,3 +44,11 @@ is absent from the advertised tools, explain that limitation.
 For `_alternate` tree versions, use PoB's tree and ascendancy observations;
 static passive-point counts and ordinary ascendancy ID mappings can be wrong.
 Do not infer that an allocation is legal solely from a static point estimate.
+
+Snapshot tree queries run a new PoB engine against the local image or checkout;
+they do not fetch current tree data from the internet. The source fingerprint
+covers all PoB source files, not just one tree version. After a source update,
+an older snapshot can fail with an identity mismatch even if its tree version
+was unchanged. Export its XML and explicitly import it under the updated engine
+to create a new root snapshot; inspect the new tree and recalculated values.
+Do not claim an image or checkout is current without checking its provenance.
