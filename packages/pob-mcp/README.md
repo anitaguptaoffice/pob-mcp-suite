@@ -15,7 +15,10 @@ configuration and development.
   registry and every registration is checked for a unique name at startup.
 - **Immutable snapshots.** Builds are content-addressed JSON records. Every
   mutation creates a verified child snapshot; nothing edits a parent in place.
-  Trial snapshots expire after seven days unless retained.
+  Trial snapshots expire after seven days unless retained. Stored identity is
+  creation provenance, not an engine pin: existing XML can be recalculated with
+  the current engine. Results report the actual runtime; comparisons recalculate
+  both sides and reject mixed runtime identities. No upgrade API is needed.
 - **Isolated engine processes.** Calculations run in a separate headless PoB
   process started from an unmodified engine checkout. A failing or hanging
   evaluation cannot corrupt the snapshot store.
@@ -23,7 +26,8 @@ configuration and development.
   and warnings. Missing values stay `unknown` instead of becoming zero, and
   reference prices are labelled as reference data, never executable profit.
 - **Durable jobs.** Long rankings (gem setups, masteries, passives, jewels)
-  run as resumable local jobs and report partial failures.
+  retain local inputs and partial results. Restart marks unfinished work as
+  interrupted; it does not silently resume it with a changed engine.
 
 The engine is driven through `lua/vanilla_stdio_bridge.lua`. PoB source is not
 patched; `#@` directive lines are stripped when the adapter loads the vendor
@@ -32,6 +36,10 @@ files.
 ## Requirements
 
 - Node.js 20 or later
+- Native build tools for `fs-ext` (Python, make and a C++ compiler); the Docker
+  image supplies these. Snapshot storage requires a local filesystem with OS
+  file-lock support. Linux is exercised in CI; macOS/Windows hosts are not
+  covered by that platform check.
 - A LuaJIT interpreter able to parse your PoB revision (`POB_CMD`)
 - A Path of Building `src/` checkout, or the vendored engine at
   `vendor/PathOfBuilding/src` when running from a full checkout of this
@@ -129,6 +137,12 @@ dependencies.
   using them.
 - Snapshots are shared by every tool: each calculation loads the snapshot named
   in the request, so results always describe one recorded build state.
+- A persistent `.writer.guard` inode excludes concurrent writers. The kernel
+  releases the lock on process exit, including crashes; new-protocol stale
+  markers are recovered after ownership checks. Never delete the guard file.
+  Unrecognized `.writer.lock` markers are not reclaimed automatically: stop
+  all writers sharing the directory and verify they have stopped before removing
+  only that marker. A PID from a container is not host-process evidence.
 
 ## Tool reference
 

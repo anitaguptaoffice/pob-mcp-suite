@@ -4,7 +4,14 @@ Use the same Docker stdio command for Claude CLI, Codex, CodeBuddy and OpenCode.
 
 Replace `/ABS/PATH/TO/pob-docker-mcp` with the installed plugin path. The
 published `latest` image must contain the current snapshot service; pin
-`POB_DOCKER_IMAGE` to a specific tag when you need a reproducible build.
+`POB_DOCKER_IMAGE` to an `@sha256:...` digest when you need a reproducible build.
+Registry tags are refreshed at startup; if the registry is unreachable, the
+wrapper reports the failure and uses an existing local image if available.
+Locally built tags are not refreshed automatically.
+Namespaced tags (including `owner/image:tag` on Docker Hub) are registry tags;
+use an unnamespaced local tag such as `pob-mcp-suite:local` for development.
+Cached-image update checks allow 10 seconds; initial downloads allow 300 seconds.
+For a slow first download, pull the image before connecting the MCP client.
 
 ## Claude CLI / Claude Desktop style
 
@@ -85,6 +92,8 @@ stdio server, use `mcporter call --tool NAME` rather than a qualified
 | `POB_DOCKER_IMAGE` | `ghcr.io/anitaguptaoffice/pob-mcp-suite:latest` | Docker image tag to run |
 | `POB_BUILDS_DIR` | `~/Documents/Path of Building/Builds` | Host builds directory mounted to `/builds` |
 | `POB_DOCKER_USER` | unset | Optional Docker `--user` value, such as `1000:1000`, for host-owned build and snapshot files |
+| `POB_IMAGE_UPDATE_TIMEOUT_SECONDS` | `10` | Cached-image registry update budget (1–3600 seconds); failure uses the cached image with a warning |
+| `POB_IMAGE_PULL_TIMEOUT_SECONDS` | `300` | Initial download budget (1–3600 seconds); failure without a local image stops startup |
 | `POE_TRADE_ENABLED` | `false` in the wrapper, `true` in the bundled Codex plugin | Enable official Trade tools |
 | `POE_SESSION_ID` | unset | `POESESSID` cookie for authenticated Trade queries |
 

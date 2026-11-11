@@ -5,6 +5,45 @@ const query: TradeQuery = { query: { status: { option: 'securable' }, filters: {
 const ok = (value: unknown) => new Response(JSON.stringify(value), { status: 200 });
 
 describe('official Trade source adapter', () => {
+  it('backs off exponentially between transient server failures', async () => {
+    const original = globalThis.setTimeout;
+    const delays: number[] = [];
+    const timer = jest.spyOn(globalThis, 'setTimeout').mockImplementation((callback, delay, ...args) => {
+      delays.push(Number(delay)); return original(callback, 0, ...args);
+    });
+    try {
+      const fetcher = jest.fn().mockResolvedValueOnce(new Response('', { status: 503 }))
+        .mockResolvedValueOnce(new Response('', { status: 502 })).mockResolvedValueOnce(ok({ result: [] }));
+      await new OfficialTradeAdapter({ fetcher, minTimeMs: 0, maxRetries: 2, retryDelayMs: 40 }).stats();
+      expect(fetcher).toHaveBeenCalledTimes(3);
+      expect(delays.filter(delay => delay >= 40)).toEqual([40, 80]);
+    } finally { timer.mockRestore(); }
+  });
+  it('coalesces identical requests while serializing distinct requests through the shared adapter', async () => {
+    let active = 0, maximum = 0;
+    const fetcher = jest.fn(async (url: string) => {
+      active++; maximum = Math.max(maximum, active);
+      await new Promise(resolve => setTimeout(resolve, 5)); active--;
+      return url.includes('/search/') ? ok({ id: 'search', total: 0, result: [] }) : ok({ result: [] });
+    });
+    const source = new OfficialTradeAdapter({ fetcher: fetcher as typeof fetch, minTimeMs: 0 });
+    const [left, right] = await Promise.all([source.search('Standard', query), source.search('Standard', query), source.stats(), source.leagues()]);
+    expect(fetcher).toHaveBeenCalledTimes(3); expect(maximum).toBe(1);
+    expect(left).toEqual(right);
+    left.data.result.push('local'); expect(right.data.result).toEqual([]);
+  });
+  it('retries network failures, stops at the retry bound and never retries client errors', async () => {
+    const fetcher = jest.fn().mockRejectedValueOnce(new Error('connection reset')).mockResolvedValueOnce(ok({ result: [] }));
+    const source = new OfficialTradeAdapter({ fetcher, minTimeMs: 0, retryDelayMs: 0, maxRetries: 1 });
+    expect((await source.stats()).data.result).toEqual([]);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    const unavailable = jest.fn(async () => { throw new Error('offline'); });
+    await expect(new OfficialTradeAdapter({ fetcher: unavailable, minTimeMs: 0, retryDelayMs: 0, maxRetries: 1 }).stats()).rejects.toMatchObject({ code: 'network' });
+    expect(unavailable).toHaveBeenCalledTimes(2);
+    const invalid = jest.fn(async () => new Response('', { status: 400 }));
+    await expect(new OfficialTradeAdapter({ fetcher: invalid, minTimeMs: 0, maxRetries: 2 }).stats()).rejects.toMatchObject({ httpStatus: 400 });
+    expect(invalid).toHaveBeenCalledTimes(1);
+  });
   it('preserves the exact query, credential separation and original fetch time', async () => {
     let now = Date.parse('2026-01-01T00:00:00.000Z');
     let session: string | undefined = 'session-one';

@@ -24,6 +24,7 @@
     "test:smoke:cluster-trade": "node tests/smoke/cluster-trade-live.mjs",
     "test:smoke:upstream-tree": "node tests/smoke/upstream-tree-live.mjs",
     "test:smoke:truthfulness": "node tests/smoke/state-truthfulness.mjs",
+    "test:smoke:core": "node scripts/smoke-suite.mjs core",
     "test:smoke:foundation": "node scripts/smoke-suite.mjs foundation",
     "test:smoke:requirements": "node tests/smoke/foundation-requirements.mjs"
   },
@@ -31,7 +32,8 @@
     "@modelcontextprotocol/sdk": "^1.32.2",
     "bottleneck": "^2.19.5",
     "chokidar": "^4.0.3",
-    "fast-xml-parser": "^5.12.0"
+    "fast-xml-parser": "^5.12.0",
+    "fs-ext": "^2.1.1"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
@@ -42,5 +44,8 @@
   },
   "overrides": {
     "@hono/node-server": "^2.0.11"
+  },
+  "allowScripts": {
+    "fs-ext@2.1.1": true
   }
 }

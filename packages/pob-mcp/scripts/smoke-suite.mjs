@@ -12,8 +12,12 @@ import path from 'node:path';
 import process from 'node:process';
 
 const suites = {
+  core: [
+    'store-lock', 'foundation-core', 'foundation-core-tree',
+    'foundation-timeless',
+  ],
   foundation: [
-    'foundation-requirements', 'foundation-retention', 'foundation-roundtrip',
+    'store-lock', 'foundation-core', 'foundation-core-tree', 'foundation-requirements', 'foundation-retention', 'foundation-roundtrip',
     'foundation-tree-code', 'foundation-official-tree', 'foundation',
     'foundation-selection', 'foundation-gem', 'foundation-group-toggle',
     'foundation-flask', 'foundation-item-sets', 'foundation-inventory',

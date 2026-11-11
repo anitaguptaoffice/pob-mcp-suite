@@ -17,6 +17,10 @@ try {
   const code = url.split('/').at(-1);
   await client.start(); await client.loadBuildXml(xml);
   const before = await client.getTree();
+  // This historical fixture contains obsolete cluster allocations. Keep the
+  // original as a fidelity rejection case, and use PoB's explicitly saved
+  // tree for the independent share-code format boundary assertions below.
+  const supportedXml = (await client.unchangedItemsSnapshot()).xml;
   for (const input of [url, code]) await assert.rejects(client.importCode(input), /decode import code/);
   assert.deepEqual(await client.getTree(), before);
   await client.stop();
@@ -30,14 +34,17 @@ try {
     assert.ok(!response.error && !response.result?.isError, JSON.stringify(response));
     return JSON.parse(response.result.content[0].text);
   };
-  const parent = await call('foundation_import_build', { xml, source: 'tree-code-fixture' });
+  const incompatible = await mcp.request('tools/call', { name: 'foundation_import_build', arguments: { xml, source: 'historical-cluster' } });
+  assert.ok(incompatible.result?.isError && incompatible.result.content[0].text.includes('dropped'), JSON.stringify(incompatible));
+  assert.equal((await call('foundation_list_snapshots', {})).snapshots.length, 0);
+  const parent = await call('foundation_import_build', { xml: supportedXml, source: 'tree-code-fixture' });
   const initial = await call('foundation_list_snapshots', {});
   for (const input of [url, code]) {
     const result = await mcp.request('tools/call', { name: 'foundation_import_code', arguments: { code: input } });
     assert.ok(result.error || result.result?.isError, JSON.stringify(result));
   }
   assert.deepEqual(await call('foundation_list_snapshots', {}), initial);
-  assert.equal((await call('foundation_export_build', { snapshot_id: parent.id })).xml, xml);
+  assert.equal((await call('foundation_export_build', { snapshot_id: parent.id })).xml, supportedXml);
   child.stdin.end(); assert.equal((await exited)[0], 0);
   console.log('official passive tree code boundary passed');
 } finally {

@@ -7,7 +7,7 @@ export const DEFAULT_TRIAL_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 /**
  * Plan collection only; the caller must hold exclusive ownership and verify
  * every input record and retained marker before making any filesystem changes.
- * Records without trial metadata are durable for backwards compatibility.
+ * Records without trial metadata are durable.
  */
 export function planSnapshotCollection(nodes: readonly RetentionNode[], retained: ReadonlySet<string>, protectedIds: ReadonlySet<string>, now: number): string[] {
   if (!Number.isFinite(now)) throw new Error('Invalid retention clock');

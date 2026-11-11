@@ -34,7 +34,11 @@ try {
     await assert.rejects(active.verifyIdentity(), /changed during operation/);
   } finally { await active.close(); }
 
-  await assert.rejects(foundation.searchTree(old.id, 'Source Refresh Test'), /dataVersion mismatch/);
+  const recalculated = await foundation.searchTree(old.id, 'Source Refresh Test', { includeAllocated: true });
+  assert.ok(recalculated.nodes.some(node => node.name === 'Source Refresh Test'));
+  assert.notEqual(recalculated.identity.dataVersion, old.dataVersion);
+  assert.ok(recalculated.warnings.some(warning => warning.includes('Snapshot creation dataVersion differs')));
+  assert.deepEqual(await foundation.readSnapshot(old.id), (({ xml, ...metadata }) => metadata)(old));
   assert.equal(await foundation.exportBuild(old.id), xml);
   const updated = await foundation.importBuild(xml, 'tree-source-after');
   assert.notEqual(updated.dataVersion, old.dataVersion);

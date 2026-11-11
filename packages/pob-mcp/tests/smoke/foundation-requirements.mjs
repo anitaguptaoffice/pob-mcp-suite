@@ -42,6 +42,7 @@ try {
     protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'requirements', version: '1' },
   });
   assert.ok(initialized.result);
+  assert.equal(initialized.result.capabilities.resources, undefined, 'server must not advertise an unsupported resources capability');
   server.notify('notifications/initialized', {});
   const tools = await server.request('tools/list', {});
   assert.ok(tools.result.tools.some(tool => tool.name === 'foundation_import_build'));

@@ -49,8 +49,8 @@ function checkIdentity(snapshot: SnapshotRecord, engine: BuildEngine): string[] 
   for (const key of ['engineVersion', 'adapterVersion', 'dataVersion', 'runtimeVersion', 'executableVersion'] as const) {
     const expected = snapshot[key];
     const actual = engine.identity[key];
-    if (expected && actual && expected !== actual) throw new Error(`Snapshot ${key} mismatch`);
-    if (!expected || !actual) warnings.push(`${key} is unknown; compatibility cannot be established`);
+    if (expected && actual && expected !== actual) warnings.push(`Snapshot creation ${key} differs; using the current engine to load and calculate the original XML`);
+    if (!actual) warnings.push(`${key} is unknown; compatibility cannot be established`);
   }
   warnings.push('Fingerprints do not cover external dependencies, wrapper interpreters or transient changes between checks');
   if (hasNonDefaultGemQuality(snapshot.xml)) warnings.push('Source XML contains non-default gem qualityId fields; PoB may ignore them, so skill observations and calculations may not represent the original build.');
@@ -306,8 +306,7 @@ export class BuildFoundation {
         if (!isDeepStrictEqual(afterReload, afterVerification)) throw new Error('Reload verification changed the derived build state');
       }
       await engine.verifyIdentity();
-      return await this.store.create({ xml, source, parentId: id,
-        engineVersion: parent.engineVersion, dataVersion: parent.dataVersion, adapterVersion: parent.adapterVersion, runtimeVersion: parent.runtimeVersion, executableVersion: parent.executableVersion }, trial);
+      return await this.store.create({ xml, source, parentId: id, ...engine.identity }, trial);
     });
   }
 

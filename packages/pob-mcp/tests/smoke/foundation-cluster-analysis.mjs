@@ -10,13 +10,17 @@ const dir = await mkdtemp(join(tmpdir(), 'pob-cluster-analysis-'));
 const client = new PoBLuaApiClient({ cwd: smokePoBSrc(), cmd: process.env.POB_CMD, args: [resolve('lua/vanilla_stdio_bridge.lua')], env: { POB_API_STDIO: '0' }, timeoutMs: 60000 });
 let child;
 try {
-  const xml = await readFile(resolve('tests/fixtures/cluster-toxic-rain.xml'), 'utf8');
-  await client.start(); await client.loadBuildXml(xml);
+  const originalXml = await readFile(resolve('tests/fixtures/cluster-toxic-rain.xml'), 'utf8');
+  await client.start(); await client.loadBuildXml(originalXml);
   const native = await client.getClusterJewels();
-  const taggedXml = xml.replace('1 Added Passive Skill is Wicked Pall', '1 Added Passive Skill is Unwaveringly Evil');
-  assert.notEqual(taggedXml, xml);
-  await client.loadBuildXml(taggedXml);
+  // Explicitly accept PoB's current tree for this legacy fixture. The original
+  // obsolete allocations remain covered by foundation-tree-code's rejection.
+  const xml = (await client.unchangedItemsSnapshot()).xml;
+  const taggedSource = xml.replace('1 Added Passive Skill is Wicked Pall', '1 Added Passive Skill is Unwaveringly Evil');
+  assert.notEqual(taggedSource, xml);
+  await client.loadBuildXml(taggedSource);
   const taggedNative = await client.getClusterJewels();
+  const taggedXml = (await client.unchangedItemsSnapshot()).xml;
   assert.match(JSON.stringify(taggedNative), /Unwaveringly Evil/);
   await client.loadBuildXml(await readFile(resolve('example-build.xml'), 'utf8'));
   assert.deepEqual((await client.getClusterJewels()).jewels, []);

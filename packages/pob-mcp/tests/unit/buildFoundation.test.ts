@@ -705,7 +705,7 @@ describe('BuildFoundation isolation', () => {
       expect(await readdir(dir)).toEqual([`${parent.id}.json`]);
     } finally { await rm(dir, { recursive: true, force: true }); }
   });
-  it('refuses known version mismatches and reports unknown identities', async () => {
+  it('recalculates old revisions with the current engine and reports actual runtime gaps', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'pob-foundation-'));
     try {
       const store = new SnapshotStore(dir);
@@ -730,16 +730,16 @@ describe('BuildFoundation isolation', () => {
         getConfig: async () => ({ enemyIsBoss: 'Pinnacle' }), getStats: async () => ({ Life: 5, Zero: 0, Invalid: false }), close: async () => {},
       };
       const foundation = new BuildFoundation(store, async () => engine);
-      await expect(foundation.evaluate(parent.id, ['Life'])).rejects.toThrow('engineVersion mismatch');
-      expect(loaded).toBe(false);
+      const updated = await foundation.evaluate(parent.id, ['Life']);
+      expect(updated.identity.engineVersion).toBe('2');
+      expect(updated.warnings).toContain('Snapshot creation engineVersion differs; using the current engine to load and calculate the original XML');
+      expect(loaded).toBe(true);
       engine.identity.engineVersion = '1';
       engine.identity.runtimeVersion = 'runtime-b';
-      await expect(foundation.evaluate(parent.id, ['Life'])).rejects.toThrow('runtimeVersion mismatch');
-      expect(loaded).toBe(false);
+      expect((await foundation.evaluate(parent.id, ['Life'])).identity.runtimeVersion).toBe('runtime-b');
       engine.identity.runtimeVersion = 'runtime-a';
       engine.identity.executableVersion = 'exe-b';
-      await expect(foundation.evaluate(parent.id, ['Life'])).rejects.toThrow('executableVersion mismatch');
-      expect(loaded).toBe(false);
+      expect((await foundation.evaluate(parent.id, ['Life'])).identity.executableVersion).toBe('exe-b');
       engine.identity.engineVersion = null;
       engine.identity.executableVersion = 'exe-a';
       const result = await foundation.evaluate(parent.id, ['Life', 'Zero', 'Missing', 'Invalid']);
@@ -747,6 +747,29 @@ describe('BuildFoundation isolation', () => {
       expect(result.stats).toEqual({ Life: 5, Zero: 0, Invalid: false });
       expect(result.metrics).toEqual({ Life: { status: 'available', value: 5 }, Zero: { status: 'available', value: 0 }, Missing: { status: 'unknown', value: null, reason: expect.any(String) }, Invalid: { status: 'unknown', value: null, reason: expect.any(String) } });
       expect(result.context.config).toEqual({ enemyIsBoss: 'Pinnacle' });
+      expect(await store.read(parent.id)).toEqual(parent);
+      expect(await readdir(dir)).toEqual([`${parent.id}.json`]);
+      engine.identity = { engineVersion: '2', adapterVersion: 'b', dataVersion: 'new', runtimeVersion: 'runtime-b', executableVersion: 'exe-b' };
+      expect((await foundation.evaluate(parent.id, ['Life'])).warnings.some(warning => warning.includes('is unknown'))).toBe(false);
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
+  it('records the actual editing engine on a child while preserving old parent bytes and provenance', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'pob-edit-provenance-'));
+    try {
+      const store = new SnapshotStore(dir);
+      const parent = await store.create({ xml: '<original/>', source: 'fixture', parentId: null, engineVersion: 'old', dataVersion: 'old', adapterVersion: 'old' });
+      let level = 20;
+      const engine = { identity: { engineVersion: 'current', dataVersion: 'current', adapterVersion: 'current' },
+        loadBuildXml: async (xml: string) => { level = xml === '<original/>' ? 20 : 50; }, setLevel: async (value: number) => { level = value; },
+        getBuildInfo: async () => ({ level }), getTree: async () => ({}), getItems: async () => [], getSkills: async () => ({}),
+        getConfig: async () => ({}), getStats: async () => ({ Life: level }), captureSnapshot: async () => ({ xml: '<edited/>' }),
+        verifyIdentity: async () => {}, close: async () => {},
+      } as unknown as BuildEngine;
+      const foundation = new BuildFoundation(store, async () => engine);
+      const child = await foundation.deriveLevel(parent.id, 50);
+      expect(child).toMatchObject({ parentId: parent.id, xml: '<edited/>', ...engine.identity });
+      expect(await store.read(parent.id)).toEqual(parent);
+      expect((await foundation.evaluate(child.id, ['Life'])).metrics.Life).toEqual({ status: 'available', value: 50 });
     } finally { await rm(dir, { recursive: true, force: true }); }
   });
   it('applies calculation options in a disposable engine and rejects partial config', async () => {

@@ -13,6 +13,7 @@ on:
       - "!packages/pob-mcp/**/*.md"
       - "vendor/PathOfBuilding/**"
       - "scripts/collect-metadata.py"
+      - "packages/pob-mcp-market/scripts/smoke-store-lock.mjs"
       - ".github/workflows/docker.yml"
   pull_request:
     paths:
@@ -22,6 +23,7 @@ on:
       - "!packages/pob-mcp/**/*.md"
       - "vendor/PathOfBuilding/**"
       - "scripts/collect-metadata.py"
+      - "packages/pob-mcp-market/scripts/smoke-store-lock.mjs"
       - ".github/workflows/docker.yml"
   workflow_dispatch:
     inputs:
@@ -41,7 +43,7 @@ jobs:
   build-test-image:
     runs-on: ubuntu-latest
     concurrency:
-      group: docker-${{ github.event.pull_request.number || github.run_id }}
+      group: docker-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v7
@@ -83,11 +85,21 @@ jobs:
             "${IMAGE_NAME}:ci" run test:smoke
           docker run --rm --entrypoint npm -e POB_REPO_ROOT=/opt/pob-mcp \
             -v "${PWD}/packages/pob-mcp/tests:/opt/pob-mcp/tests:ro" \
-            -v "${PWD}/packages/pob-mcp/example-build.xml:/opt/pob-mcp/example-build.xml:ro" \
-            "${IMAGE_NAME}:ci" run test:smoke:offline
-          docker run --rm --entrypoint npm -e POB_REPO_ROOT=/opt/pob-mcp \
-            -v "${PWD}/packages/pob-mcp/tests:/opt/pob-mcp/tests:ro" \
             "${IMAGE_NAME}:ci" run test:smoke:requirements
+
+      - name: Verify core snapshot flows
+        timeout-minutes: 20
+        run: |
+          docker run --rm --entrypoint npm -e POB_REPO_ROOT=/opt/pob-mcp -e SMOKE_CONCURRENCY=4 \
+            -v "${PWD}/packages/pob-mcp/tests:/opt/pob-mcp/tests:ro" \
+            -v "${PWD}/packages/pob-mcp/example-build.xml:/opt/pob-mcp/example-build.xml:ro" \
+            "${IMAGE_NAME}:ci" run test:smoke:core
+
+      - name: Verify cross-container store recovery
+        timeout-minutes: 2
+        env:
+          POB_DOCKER_IMAGE: ${{ env.IMAGE_NAME }}:ci
+        run: node packages/pob-mcp-market/scripts/smoke-store-lock.mjs
 
       - name: Verify foundation snapshot flows
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_smoke }}
@@ -138,7 +150,7 @@ jobs:
       - name: Update bundled marketplace versions
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         env:
-          IMAGE: ${{ env.IMAGE_NAME }}:pob-${{ steps.meta.outputs.short_sha }}
+          IMAGE: ${{ env.IMAGE_NAME }}@${{ steps.publish.outputs.digest }}
           IMAGE_DIGEST: ${{ steps.publish.outputs.digest }}
           POB_MCP_REF: ${{ steps.meta.outputs.suite_sha }}
           POB_TAG: ${{ steps.meta.outputs.pob_tag }}
