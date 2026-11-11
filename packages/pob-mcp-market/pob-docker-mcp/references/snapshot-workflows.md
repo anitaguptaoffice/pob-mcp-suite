@@ -303,6 +303,15 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   Verify point availability, legality and build mechanics before applying a path.
   Results are seven-day trial snapshots; retain or save a chosen child explicitly.
 
+## Search timeless jewel seeds
+
+- `search_snapshot_timeless_seeds` uses a snapshot, socket node ID and PoB
+  effect IDs to search Elegant Hubris seeds. Hits include allocated and
+  unallocated nodes. `required_source_node_ids` is an any-of filter: at least
+  one listed original notable must receive a requested seed-dependent effect.
+  The fixed Caspiro keystone requires a separate seed-dependent hit as well.
+  Confirm allocation, item availability and cost independently.
+
 ## Transplant a passive tree
 
 - Call `transplant_snapshot_tree` with explicit `source_snapshot_id` and
