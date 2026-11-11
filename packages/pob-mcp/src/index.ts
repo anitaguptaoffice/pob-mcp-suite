@@ -75,6 +75,8 @@ import { EngineLimiter } from './foundation/engineLimiter.js';
 import { PoBEngineStatusAdapter } from './adapters/pobEngineStatus/source.js';
 import { engineStatusSchema, createEngineStatusTool } from './features/engineStatus/tool.js';
 import { clusterAnalysisSchema, createClusterAnalysisTool } from './features/clusterAnalysis/tool.js';
+import { officialTreeSchema, createOfficialTreeTool } from './features/officialTree/tool.js';
+import { decodeOfficialTreeCode } from './adapters/pob/officialTreeCode.js';
 import { createClusterFileTool } from './features/clusterAnalysis/fileTool.js';
 import { readLocalBuild } from './foundation/localBuildFile.js';
 import { PoBWatchersEyeSource } from './adapters/watchersEye/pobSource.js';
@@ -171,6 +173,7 @@ class PoBMCPServer {
       itemAffixWeightSchema(),
       engineStatusSchema(),
       clusterAnalysisSchema(),
+      officialTreeSchema(),
       watchersEyeSchema(),
       jewelComparisonSchema(),
       ...jewelJobSchemas(),
@@ -478,6 +481,7 @@ class PoBMCPServer {
       migrated.push(createItemAffixWeightTool(new PoBItemDataAdapter(engineLimiter)));
       migrated.push(createEngineStatusTool(new PoBEngineStatusAdapter(engineLimiter)));
       migrated.push(createClusterAnalysisTool(foundation));
+      migrated.push(createOfficialTreeTool(foundation, decodeOfficialTreeCode));
       migrated.push(createWatchersEyeTool(foundation, new PoBWatchersEyeSource()));
       migrated.push(createJewelComparisonTool(foundation));
       migrated.push(...createJewelJobTools(foundation, this.foundationJobs));

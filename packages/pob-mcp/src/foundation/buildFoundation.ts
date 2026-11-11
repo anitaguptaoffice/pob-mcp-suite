@@ -977,6 +977,24 @@ export class BuildFoundation {
     });
   }
 
+  /** Resolve PoB's implicit class and ascendancy starts in a disposable engine. */
+  async resolveTreeStartingNodes(id: string, target: { classId: number; ascendClassId: number; secondaryAscendClassId: number; treeVersion: string }) {
+    if (!target || [target.classId, target.ascendClassId, target.secondaryAscendClassId].some(value => !Number.isSafeInteger(value) || value < 0 || value > 255) || typeof target.treeVersion !== 'string' || !/^\d+_\d+[A-Za-z0-9_]*$/.test(target.treeVersion) || target.treeVersion.length > 60) throw new Error('Invalid tree starting-node request');
+    const snapshot = await this.store.read(id);
+    return this.limiter.withEngine(async engine => {
+      const warnings = checkIdentity(snapshot, engine);
+      await engine.loadBuildXml(snapshot.xml);
+      if (!engine.getTreeOverrides) throw new Error('PoB adapter lacks node override inspection');
+      const overrides = await engine.getTreeOverrides();
+      if (!Array.isArray(overrides) || overrides.length) throw new Error('Tree import requires a target with no node overrides');
+      await engine.setTree({ ...target, nodes: [], masteryEffects: {} });
+      const tree = await engine.getTree() as { classId?: unknown; ascendClassId?: unknown; secondaryAscendClassId?: unknown; treeVersion?: unknown; nodes?: unknown };
+      if (!tree || tree.classId !== target.classId || tree.ascendClassId !== target.ascendClassId || tree.secondaryAscendClassId !== target.secondaryAscendClassId || tree.treeVersion !== target.treeVersion || !Array.isArray(tree.nodes) || !tree.nodes.length || tree.nodes.some(node => !Number.isSafeInteger(node) || node < 1) || new Set(tree.nodes).size !== tree.nodes.length) throw new Error('PoB did not confirm the requested class and starting tree');
+      await engine.verifyIdentity();
+      return { snapshotId: id, identity: engine.identity, warnings, nodes: tree.nodes as number[] };
+    });
+  }
+
   async deriveTreeReplacement(id: string, target: { classId: number; ascendClassId: number; secondaryAscendClassId: number; nodes: number[]; masteryEffects: Record<string, number>; treeVersion: string }, trial = false, overridePolicy: 'reject' | 'preserve' = 'reject'): Promise<SnapshotRecord> {
     if (!['reject', 'preserve'].includes(overridePolicy)) throw new Error('Invalid node override policy');
     if (!target || typeof target !== 'object' || Array.isArray(target) || Object.keys(target).some(key => !['classId', 'ascendClassId', 'secondaryAscendClassId', 'nodes', 'masteryEffects', 'treeVersion'].includes(key)) ||

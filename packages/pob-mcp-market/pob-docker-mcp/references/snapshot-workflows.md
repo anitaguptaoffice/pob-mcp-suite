@@ -86,6 +86,15 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   build. Official passive-tree URLs and their uncompressed codes are not PoB
   build codes and are not supported by this import. A share URL is not itself a
   share code: obtain its code or XML separately. Save the returned snapshot ID.
+- To apply an official passive-tree URL or its raw code, use
+  `derive_snapshot_official_tree` with an explicit existing `snapshot_id` and
+  `tree_version`. The URL does not encode the PoB tree version; confirm it
+  from the source before calling. PoB verifies all encoded nodes and masteries
+  in an isolated child, and the default is a seven-day trial. Existing node
+  overrides cause rejection. Official tree codes omit jewel assignments,
+  overrides, equipment and skills; the target keeps its own other data. Cluster
+  nodes may fail without matching socketed jewels. No point or game legality is
+  established. This is separate from compressed PoB build-code import.
 - Call `foundation_inspect` with that `snapshot_id` and the needed `sections`
   from `build`, `tree`, `items`, `skills`, and `config`. Use its real PoB state
   to identify the active tree, equipment, selected skill and conditions.

@@ -16,6 +16,22 @@ function addSingleCatalog(engine: BuildEngine) {
 }
 
 describe('BuildFoundation isolation', () => {
+  it('resolves starting nodes only in a disposable engine and rejects overrides or mismatched trees', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'pob-tree-starts-'));
+    try {
+      const store = new SnapshotStore(dir);
+      const parent = await store.create({ xml: '<build/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
+      let overrides: unknown[] = [], version = '3_29', closed = 0;
+      const engine = { identity: { engineVersion: null, dataVersion: null, adapterVersion: null }, loadBuildXml: async () => {}, getTreeOverrides: async () => overrides, setTree: async () => {},
+        getTree: async () => ({ classId: 3, ascendClassId: 0, secondaryAscendClassId: 0, treeVersion: version, nodes: [1] }), verifyIdentity: async () => {}, close: async () => { closed++; } } as unknown as BuildEngine;
+      const foundation = new BuildFoundation(store, async () => engine);
+      const target = { classId: 3, ascendClassId: 0, secondaryAscendClassId: 0, treeVersion: '3_29' };
+      expect((await foundation.resolveTreeStartingNodes(parent.id, target)).nodes).toEqual([1]);
+      overrides = [{ nodeId: 1 }]; await expect(foundation.resolveTreeStartingNodes(parent.id, target)).rejects.toThrow('node overrides');
+      overrides = []; version = '3_28'; await expect(foundation.resolveTreeStartingNodes(parent.id, target)).rejects.toThrow('starting tree');
+      expect(closed).toBe(3); expect(await readdir(dir)).toEqual([`${parent.id}.json`]); expect((await store.read(parent.id)).xml).toBe('<build/>');
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
   it('refuses a tree removal if PoB removes more than its declared dependencies', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'pob-removal-mismatch-'));
     try {
