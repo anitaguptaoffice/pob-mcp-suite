@@ -53,6 +53,7 @@ import { createStaticStatMappingTool, staticStatMappingSchema } from './features
 import { createWeightedTradeTools, weightedTradeSchemas } from './features/weightedTrade/tool.js';
 import { createStatCategoriesTool, statCategoriesSchema } from './features/statCategories/tool.js';
 import { createEquipmentAnalysisTool, equipmentAnalysisSchema } from './features/equipmentAnalysis/tool.js';
+import { createLevelingTool, levelingSchema } from './features/leveling/tool.js';
 import { StatMapper as StaticStatCatalog } from './adapters/staticStats/catalog.js';
 import { createTradeSearchTool, tradeSearchSchema } from './features/tradeSearch/tool.js';
 import { createTradeItemPriceTool, tradeItemPriceSchema } from './features/tradePrice/tool.js';
@@ -165,6 +166,7 @@ class PoBMCPServer {
       ...weightedTradeSchemas(),
       statCategoriesSchema(),
       equipmentAnalysisSchema(),
+      levelingSchema(),
       tradeSearchSchema(),
       tradeItemPriceSchema(),
       snapshotTreeComparisonSchema(),
@@ -612,6 +614,7 @@ class PoBMCPServer {
       migrated.push(...createWeightedTradeTools(foundation, trade ?? undefined, () => Boolean(process.env.POE_SESSION_ID)));
       migrated.push(createStatCategoriesTool(foundation));
       migrated.push(createEquipmentAnalysisTool(foundation));
+      migrated.push(createLevelingTool(foundation));
       if (trade) migrated.push(createTradePreviewTool(foundation, trade));
       this.foundationFeatures = new FeatureRegistry(migrated);
     }

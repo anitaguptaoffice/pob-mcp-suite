@@ -17,6 +17,7 @@ try {
   await client.setMainSelection({ mainSocketGroup: group.index });
   assert.ok((await client.setConfig({ customMods: 'Minions have 100% chance to Poison on Hit' })).applied.customMods);
   const stats = await client.getStats(['MinionTotalDPS', 'MinionCombinedDPS', 'Life', 'CombinedDPS', 'FullDPS', 'ChaosResist']);
+  const nativeSkills = await client.getSkills(), nativeTree = await client.getTree();
   assert.ok(stats.MinionCombinedDPS > stats.MinionTotalDPS && stats.MinionTotalDPS > 0);
   const nativeOptions = stat => ({ statWeights: [{ label: stat, stat, weightMult: 1 }], includeCorrupted: true, includeMirrored: false, includeEldritch: false, includeScourge: false, maxPrice: 30, maxPriceType: 'chaos' });
   const nativePoison = await client.generateWeightedTradeQueryV2('Amulet', nativeOptions('MinionCombinedDPS'));
@@ -27,6 +28,13 @@ try {
   await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'weighted-trade-smoke', version: '1' } }); mcp.notify('notifications/initialized', {});
   const call = async (name, args) => { const response = await mcp.request('tools/call', { name, arguments: args }); assert.ok(!response.error && !response.result?.isError, JSON.stringify(response).slice(0, 1600)); return JSON.parse(response.result.content[0].text); };
   const parent = await call('foundation_import_build', { xml, source: 'poison-weighted-fixture' });
+  const leveling = await call('prepare_snapshot_leveling', { snapshot_id: parent.id });
+  const selectedGroup = nativeSkills.groups.find(entry => entry.index === nativeSkills.mainSocketGroup);
+  assert.equal(leveling.build.className, nativeTree.className); assert.equal(leveling.build.ascendancy, nativeTree.ascendClassName ?? null);
+  assert.equal(leveling.selectedSkill.groupIndex, group.index);
+  assert.equal(leveling.selectedSkill.name, selectedGroup.skills[(selectedGroup.mainActiveSkill ?? 1) - 1]);
+  assert.ok(leveling.selectedSkill.gems.some(gem => gem.name === 'Summon Raging Spirit' && gem.kind === 'active'));
+  assert.equal(leveling.legacyReference.status, 'unverified');
   const category = await call('evaluate_snapshot_stat_category', { snapshot_id: parent.id, category: 'all' });
   for (const name of ['Life', 'CombinedDPS', 'FullDPS', 'MinionCombinedDPS', 'ChaosResist']) {
     if (typeof stats[name] === 'number' && Number.isFinite(stats[name])) {

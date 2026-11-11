@@ -45,6 +45,11 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   unsupported slots are excluded. Active swap weapons remain identified by
   their actual slot name. Use `foundation_preview_item` for a specific replacement
   and independent Trade tools for current securable priced listings.
+- For leveling context, `prepare_snapshot_leveling` reads the selected PoB skill,
+  class and ascendancy from the snapshot. Its legacy campaign and starter-skill
+  examples are unversioned and unverified, not an actual passive route or proof
+  of gem availability, quest rewards, recipe validity or lab timing. Confirm
+  current game information and the user's progress before giving directions.
 - Use `foundation_replace_tree` only with a complete explicit target tree,
   including the exact version, class, ascendancy, allocated node IDs and mastery
   selections. The new child is checked against the requested tree and inactive
