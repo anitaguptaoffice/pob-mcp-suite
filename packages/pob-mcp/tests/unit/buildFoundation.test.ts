@@ -13,11 +13,33 @@ describe('BuildFoundation isolation', () => {
         const parent = await store.create({ xml: '<build/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
         let added = false;
         const engine = { identity: { engineVersion: null, dataVersion: null, adapterVersion: null }, loadBuildXml: async () => {},
-          getItemInventory: async () => [{ id: 1, raw: 'original' }], getTree: async () => ({}), getSkills: async () => ({}), getConfig: async () => ({}),
+          getItemInventory: async () => [{ id: 1, raw: 'original' }], getTree: async () => ({ nodes: [1] }), getSkills: async () => ({}), getConfig: async () => ({}),
+          listSpecs: async () => ({ activeSpec: 1, specs: [{ index: 1, title: 'Default', active: true, nodeCount: 1 }] }), selectSpec: async () => {},
+          listItemSets: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: 'Default', active: true, useSecondWeaponSet: false }] }), selectItemSet: async () => {},
           getItems: async () => [{ slot: 'Ring 1', id: added && selectedSlot ? 2 : 1 }],
           addItem: async () => { added = true; return { id: 2, slot: selectedSlot }; }, close: async () => {},
         } as unknown as BuildEngine;
         await expect(new BuildFoundation(store, async () => engine).deriveAutoItem(parent.id, 'item')).rejects.toThrow(selectedSlot ? 'beyond the selected empty slot' : 'did not auto-equip');
+        expect(await readdir(dir)).toEqual([`${parent.id}.json`]);
+      } finally { await rm(dir, { recursive: true, force: true }); }
+    }
+  });
+  it('rejects auto-equipping that changes an inactive equipment set or passive spec', async () => {
+    for (const failure of ['set', 'spec', 'spec_slot'] as const) {
+      const dir = await mkdtemp(path.join(tmpdir(), 'pob-auto-other-set-'));
+      try {
+        const store = new SnapshotStore(dir);
+        const parent = await store.create({ xml: '<build/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
+        let added = false, currentSet = 1, currentSpec = 1;
+        const engine = { identity: { engineVersion: null, dataVersion: null, adapterVersion: null }, loadBuildXml: async () => {},
+          getItemInventory: async () => added ? [{ id: 2, raw: 'new' }] : [],
+          listSpecs: async () => ({ activeSpec: currentSpec, specs: [1, 2].map(index => ({ index, title: `Spec ${index}`, active: index === currentSpec, nodeCount: 1 })) }), selectSpec: async (index: number) => { currentSpec = index; },
+          listItemSets: async () => ({ activeItemSetId: currentSet, itemSets: [1, 2].map(id => ({ id, title: `Set ${id}`, active: id === currentSet, useSecondWeaponSet: false })) }), selectItemSet: async (id: number) => { currentSet = id; },
+          getTree: async () => ({ nodes: currentSpec === 2 && failure === 'spec' && added ? [2] : [1] }),
+          getItems: async () => [{ slot: 'Ring 1', id: added && currentSpec === 2 && failure === 'spec_slot' ? 99 : added && (currentSet === 1 || failure === 'set') ? 2 : 0 }],
+          getSkills: async () => ({}), getConfig: async () => ({}), addItem: async () => { added = true; return { id: 2, slot: 'Ring 1' }; }, close: async () => {},
+        } as unknown as BuildEngine;
+        await expect(new BuildFoundation(store, async () => engine).deriveAutoItem(parent.id, 'item')).rejects.toThrow(failure === 'set' ? 'inactive equipment set' : failure === 'spec_slot' ? 'selected slot unexpectedly' : 'passive spec');
         expect(await readdir(dir)).toEqual([`${parent.id}.json`]);
       } finally { await rm(dir, { recursive: true, force: true }); }
     }

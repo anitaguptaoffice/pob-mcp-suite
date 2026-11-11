@@ -673,10 +673,18 @@ export class BuildFoundation {
     if (typeof itemText !== 'string' || !itemText.trim() || Buffer.byteLength(itemText, 'utf8') > 10240) throw new Error('Invalid item text');
     let slot = '', itemId = 0;
     let expectedInventory: Array<{ id: number; raw: string }> = [];
+    let specCatalog: Awaited<ReturnType<BuildFoundation['readSpecCatalog']>>;
+    let itemCatalog: Awaited<ReturnType<BuildFoundation['readItemSetCatalog']>>;
+    let specsBefore: Awaited<ReturnType<BuildFoundation['inspectSpecs']>>;
+    let setsBefore: Awaited<ReturnType<BuildFoundation['inspectItemSets']>>;
+    let specsAfter: typeof specsBefore, setsAfter: typeof setsBefore;
     const snapshot = await this.derive(id, 'derived:auto-item', async engine => {
       const inventory = await this.readItemInventory(engine);
       const before = normalizeObservation({ tree: await engine.getTree(), items: await engine.getItems(), skills: await engine.getSkills(), config: await engine.getConfig() });
       if (!Array.isArray(before.items)) throw new Error('PoB returned invalid equipment');
+      specCatalog = await this.readSpecCatalog(engine); itemCatalog = await this.readItemSetCatalog(engine);
+      specsBefore = await this.inspectSpecs(engine, specCatalog, specCatalog.activeSpec);
+      setsBefore = await this.inspectItemSets(engine, itemCatalog, itemCatalog.activeItemSetId);
       const added = await engine.addItem(itemText);
       if (!Number.isSafeInteger(added.id) || added.id < 1 || typeof added.slot !== 'string' || !added.slot.trim() || inventory.some(item => item.id === added.id)) throw new Error('PoB did not auto-equip the item into an empty slot');
       slot = added.slot; itemId = added.id;
@@ -685,8 +693,22 @@ export class BuildFoundation {
       for (const section of ['tree', 'skills', 'config'] as const) if (!isDeepStrictEqual(before[section], after[section])) throw new Error(`Auto-equipping changed unrelated ${section}`);
       expectedInventory = await this.readItemInventory(engine);
       if (expectedInventory.filter(item => item.id === itemId).length !== 1 || !isDeepStrictEqual(inventory, expectedInventory.filter(item => item.id !== itemId))) throw new Error('PoB changed unrelated inventory items');
+      if (!isDeepStrictEqual(await this.readSpecCatalog(engine), specCatalog) || !isDeepStrictEqual(await this.readItemSetCatalog(engine), itemCatalog)) throw new Error('Auto-equipping changed a spec or item-set catalog');
+      specsAfter = await this.inspectSpecs(engine, specCatalog, specCatalog.activeSpec);
+      setsAfter = await this.inspectItemSets(engine, itemCatalog, itemCatalog.activeItemSetId);
+      const withoutSlot = (items: unknown) => Array.isArray(items) ? items.filter(item => item.slot !== slot) : items;
+      const canonicalSpecs = (specs: typeof specsBefore) => specs.map(spec => ({ ...spec, items: withoutSlot(spec.items) }));
+      const canonicalSets = (sets: typeof setsBefore) => sets.map(set => ({ ...set, items: set.id === itemCatalog.activeItemSetId ? withoutSlot(set.items) : set.items }));
+      if (!isDeepStrictEqual(canonicalSpecs(specsBefore), canonicalSpecs(specsAfter))) throw new Error('Auto-equipping changed an unrelated passive spec or its equipment');
+      for (let i = 0; i < specsBefore.length; i++) {
+        const oldSlots = (specsBefore[i].items as Array<{ slot: string; id: number }>).filter(item => item.slot === slot);
+        const newSlots = (specsAfter[i].items as Array<{ slot: string; id: number }>).filter(item => item.slot === slot);
+        if (oldSlots.length > 1 || newSlots.length > 1 || oldSlots.length !== newSlots.length || (oldSlots.length === 1 && !isDeepStrictEqual(oldSlots[0], newSlots[0]) && !(oldSlots[0].id === 0 && newSlots[0].id === itemId))) throw new Error('Auto-equipping changed the selected slot unexpectedly in another passive spec');
+      }
+      if (!isDeepStrictEqual(canonicalSets(setsBefore), canonicalSets(setsAfter))) throw new Error('Auto-equipping changed an inactive equipment set');
     }, trial, async engine => {
       if (!isDeepStrictEqual(expectedInventory, await this.readItemInventory(engine))) throw new Error('Auto-equipped inventory did not survive serialization');
+      if (!isDeepStrictEqual(await this.readSpecCatalog(engine), specCatalog) || !isDeepStrictEqual(await this.readItemSetCatalog(engine), itemCatalog) || !isDeepStrictEqual(await this.inspectSpecs(engine, specCatalog, specCatalog.activeSpec), specsAfter) || !isDeepStrictEqual(await this.inspectItemSets(engine, itemCatalog, itemCatalog.activeItemSetId), setsAfter)) throw new Error('Auto-equipped item sets or passive specs did not survive serialization');
     });
     return { snapshot, slot, itemId };
   }

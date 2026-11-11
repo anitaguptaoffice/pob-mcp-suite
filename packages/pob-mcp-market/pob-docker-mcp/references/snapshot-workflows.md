@@ -41,8 +41,9 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   Slot acceptance does not prove item legality or market availability.
 - Use `foundation_derive_auto_item` only when PoB should choose an empty
   compatible slot. It returns the selected slot and child snapshot; it fails
-  without publishing if no slot is selected. The check covers active equipment,
-  not every inactive set, and does not establish in-game item legality.
+  without publishing if no slot is selected. Each equipment set is checked with
+  the active tree and each tree with the active set, not every combination. The
+  check does not establish in-game item legality.
 - Use `foundation_derive_inventory_item` to save a candidate without equipping
   it, then `foundation_item_inventory` to list items by ID; continue with
   `nextAfterItemId` when present. The child is checked after reload and does not

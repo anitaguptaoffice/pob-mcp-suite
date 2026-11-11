@@ -46,6 +46,13 @@ try {
   assert.equal((await foundation.inspect(alternateSet.id, ['items'])).data.items.find(item => item.slot === 'Ring 1').id, 0);
   const alternateSpec = await foundation.deriveSpec(derived.id, 2, true);
   assert.equal((await foundation.specs(alternateSpec.id)).activeSpec, 2);
+  const emptyAlternate = await foundation.deriveItemSet(parent.id, 7, true);
+  const auto = await foundation.deriveAutoItem(emptyAlternate.id, ring, true);
+  assert.equal(auto.slot, 'Ring 1');
+  const restoredSet = await foundation.deriveItemSet(auto.snapshot.id, 1, true);
+  assert.equal((await foundation.inspect(restoredSet.id, ['items'])).data.items.find(item => item.slot === 'Ring 1').id, 5);
+  const copiedSpec = await foundation.deriveSpec(auto.snapshot.id, 2, true);
+  assert.equal((await foundation.specs(copiedSpec.id)).activeSpec, 2);
   assert.equal(await foundation.exportBuild(parent.id), xml);
   const imported = await foundation.importBuild(await foundation.exportBuild(derived.id), 'inventory-reload');
   assert.deepEqual((await foundation.itemInventory(imported.id, 100)).items, after.items);
