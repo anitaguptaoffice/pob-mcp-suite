@@ -9,6 +9,7 @@ interface StatFilter {
   value?: {
     min?: number;
     max?: number;
+    weight?: number;
   };
   disabled?: boolean;
 }

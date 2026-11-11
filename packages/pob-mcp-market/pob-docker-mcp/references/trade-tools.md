@@ -32,6 +32,13 @@ an explicit snapshot ID; if a needed capability is unavailable, report that limi
    `completeWithinSample` says only that every fetched listing had a usable
    array for that source; it does not cover unfetched results or establish that
    a zero count means the source cannot occur.
+   For a `weight` group, provide a finite `weight` on every stat filter; per-stat
+   `min` and `max` are not weights and are rejected in that group. The group's
+   own `min`/`max` constrain the weighted total. Weights can be negative. A
+   `count` group with minimum zero does not require any listed modifier. Source
+   audit advice for `not` groups concerns exclusions, not alternative matches.
+   Official Trade may reject weighted queries as too complex without login;
+   an anonymous rejection does not establish whether an authenticated query works.
 4. Use `estimate_trade_comparable` for a confirmed rare base and stat groups,
    or `sample_trade_item_price` for a confirmed item name. Both sample at most
    ten asking prices, preserve currencies separately, and default to the

@@ -11,7 +11,7 @@ const rarityValues = ['normal', 'magic', 'rare', 'unique', 'any'] as const;
 const saleValues = ['priced', 'unpriced', 'any'] as const;
 
 export function tradeSearchSchema(): FeatureTool['schema'] {
-  const statFilter = { type: 'object', additionalProperties: false, properties: { stat_id: { type: 'string' }, min: { type: 'number' }, max: { type: 'number' } }, required: ['stat_id'] };
+  const statFilter = { type: 'object', additionalProperties: false, properties: { stat_id: { type: 'string' }, min: { type: 'number' }, max: { type: 'number' }, weight: { type: 'number', description: 'Required in weight groups; not allowed in other groups.' } }, required: ['stat_id'] };
   return { name: 'search_official_trade', description: 'Search official international PoE 1 listings. Defaults to securable priced listings and reports exact query, source times, missing results and stat-source coverage.', inputSchema: { type: 'object', additionalProperties: false, properties: {
     league: { type: 'string' }, item_name: { type: 'string' }, item_type: { type: 'string' }, item_rarity: { type: 'string', enum: [...rarityValues] },
     min_price: { type: 'number', minimum: 0 }, max_price: { type: 'number', minimum: 0 }, price_currency: { type: 'string' },
@@ -24,7 +24,7 @@ export function tradeSearchSchema(): FeatureTool['schema'] {
   }, required: ['league'] } };
 }
 
-type Filter = { stat_id: string; min?: number; max?: number };
+type Filter = { stat_id: string; min?: number; max?: number; weight?: number };
 type Group = { type: 'and' | 'or' | 'not' | 'count' | 'weight'; filters: Filter[]; min?: number; max?: number };
 
 /** Application workflow returns structured data independently of MCP. */
@@ -45,13 +45,14 @@ export async function searchOfficialTrade(source: OfficialTradeSource, args: Rec
     for (const key of ['min_price', 'max_price']) if (args[key] !== undefined && (typeof args[key] !== 'number' || !Number.isFinite(args[key]) || (args[key] as number) < 0)) throw new Error(`Invalid ${key}`);
     if (typeof args.min_price === 'number' && typeof args.max_price === 'number' && args.min_price > args.max_price) throw new Error('Invalid price range');
     if (sale === 'unpriced' && (status === 'securable' || args.min_price !== undefined || args.max_price !== undefined || args.price_currency !== undefined)) throw new Error('Unpriced listings cannot use securable status or a price filter');
-    const validFilter = (filter: Filter) => !!filter && typeof filter === 'object' && !Array.isArray(filter) && Object.keys(filter).every(key => ['stat_id', 'min', 'max'].includes(key)) &&
+    const validFilter = (filter: Filter, weighted = false) => !!filter && typeof filter === 'object' && !Array.isArray(filter) && Object.keys(filter).every(key => ['stat_id', 'min', 'max', 'weight'].includes(key)) &&
       typeof filter.stat_id === 'string' && !!filter.stat_id.trim() && filter.stat_id === filter.stat_id.trim() && filter.stat_id.length <= 200 &&
       [filter.min, filter.max].every(value => value === undefined || (typeof value === 'number' && Number.isFinite(value))) &&
+      (weighted ? typeof filter.weight === 'number' && Number.isFinite(filter.weight) && filter.min === undefined && filter.max === undefined : filter.weight === undefined) &&
       (filter.min === undefined || filter.max === undefined || filter.min <= filter.max);
-    if (args.mods !== undefined && (!Array.isArray(args.mods) || args.mods.length > 20 || args.mods.some(filter => !validFilter(filter)))) throw new Error('Invalid mods');
+    if (args.mods !== undefined && (!Array.isArray(args.mods) || args.mods.length > 20 || args.mods.some(filter => !validFilter(filter, false)))) throw new Error('Invalid mods');
     if (args.stat_groups !== undefined && (!Array.isArray(args.stat_groups) || args.stat_groups.length > 10 || args.stat_groups.some((group: Group) => !group || typeof group !== 'object' || Array.isArray(group) || Object.keys(group).some(key => !['type', 'filters', 'min', 'max'].includes(key)) || !['and', 'or', 'not', 'count', 'weight'].includes(group.type) ||
-        !Array.isArray(group.filters) || !group.filters.length || group.filters.length > 20 || group.filters.some(filter => !validFilter(filter)) ||
+        !Array.isArray(group.filters) || !group.filters.length || group.filters.length > 20 || group.filters.some(filter => !validFilter(filter, group.type === 'weight')) ||
         [group.min, group.max].some(value => value !== undefined && (typeof value !== 'number' || !Number.isFinite(value))) ||
         (group.min !== undefined && group.max !== undefined && group.min > group.max) ||
         (group.type === 'count' && ([group.min, group.max].some(value => value !== undefined && (!Number.isInteger(value) || value < 0)) || (group.min !== undefined && group.min > group.filters.length)))))) throw new Error('Invalid stat_groups');
@@ -66,7 +67,7 @@ export async function searchOfficialTrade(source: OfficialTradeSource, args: Rec
     if (args.min_price !== undefined || args.max_price !== undefined || args.price_currency !== undefined) builder.withPriceRange(args.min_price as number | undefined, args.max_price as number | undefined, (args.price_currency as string | undefined)?.trim() ?? 'chaos');
     if (Array.isArray(args.mods) && args.mods.length) builder.withStats((args.mods as Filter[]).map(filter => ({ id: filter.stat_id, min: filter.min, max: filter.max })));
     if (Array.isArray(args.stat_groups) && args.stat_groups.length) builder.withStatGroups((args.stat_groups as Group[]).map(group => ({ type: group.type,
-      filters: group.filters.map(filter => ({ id: filter.stat_id, value: { min: filter.min, max: filter.max } })),
+      filters: group.filters.map(filter => ({ id: filter.stat_id, value: group.type === 'weight' ? { weight: filter.weight } : { min: filter.min, max: filter.max } })),
       ...(group.min !== undefined || group.max !== undefined ? { value: { min: group.min, max: group.max } } : {}),
     } as StatFilterGroup)));
     builder.withSort('price', sort === 'price_desc' ? 'desc' : 'asc');
@@ -86,6 +87,7 @@ export async function searchOfficialTrade(source: OfficialTradeSource, args: Rec
     const warnings = [...sourceWarnings,
       ...(sourceAudit === 'skipped_named_item' ? ['Stat source coverage was not audited for the named item; verify applicable sources separately.'] : []),
       ...(search.inexact ? ['The official search reports inexact results; not every condition is guaranteed to match.'] : []),
+      ...((query.query.stats ?? []).some(group => group.type === 'count' && group.value?.min === 0) ? ['A count group explicitly permits zero matches, so its filters are not required to be present.'] : []),
       ...(trade.missingIds.length ? ['Some requested listings were unavailable at fetch time; results are partial.'] : []),
       'Results are asking prices, not completed sales; listing availability can change.',
       'Source counts match official hashes to query IDs and do not verify values. Missing hashes and pseudo stats cannot establish source absence.',

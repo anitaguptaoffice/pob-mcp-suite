@@ -23,4 +23,12 @@ describe('trade stat source audit', () => {
     ] }]);
     expect(warnings).toEqual([]);
   });
+  it('distinguishes excluded and weighted sources from required alternatives', async () => {
+    const excluded = (await auditStatSourceCoverage(client, [{ type: 'not', filters: [{ id: 'explicit.life' }] }])).join(' ');
+    expect(excluded).toContain('excludes selected sources only');
+    expect(excluded).not.toContain('count/or');
+    const weighted = (await auditStatSourceCoverage(client, [{ type: 'weight', filters: [{ id: 'explicit.life', value: { weight: 1 } }] }])).join(' ');
+    expect(weighted).toContain('weights selected sources only');
+    expect(weighted).not.toContain('count/or');
+  });
 });

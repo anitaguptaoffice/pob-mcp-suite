@@ -60,8 +60,30 @@ describe('new official trade search', () => {
       { league: 'Standard', stat_groups: [{ type: 'count', min: 2, filters: [{ stat_id: 'x' }] }] },
       { league: 'Standard', mods: [{ stat_id: 'x', option: 'ignored' }] },
       { league: 'Standard', stat_groups: [{ type: 'and', filters: [{ stat_id: 'x' }], disabled: true }] },
+      { league: 'Standard', stat_groups: [{ type: 'weight', min: 10, filters: [{ stat_id: 'x', min: 1 }] }] },
+      { league: 'Standard', stat_groups: [{ type: 'weight', min: 10, filters: [{ stat_id: 'x' }] }] },
+      { league: 'Standard', stat_groups: [{ type: 'and', filters: [{ stat_id: 'x', weight: 1 }] }] },
+      { league: 'Standard', mods: [{ stat_id: 'x', weight: 1 }] },
     ]) await expect(tool.invoke(args)).rejects.toThrow();
     expect(source.search).not.toHaveBeenCalled();
+  });
+
+  it('sends explicit weighted-group weights and discloses optional count filters', async () => {
+    let captured: TradeQuery | undefined;
+    const source = {
+      stats: async () => ({ source: 'official-trade', fetchedAt: time, request: { kind: 'stats' }, data: stats }),
+      search: async (league: string, query: TradeQuery) => { captured = query; return { source: 'official-trade', fetchedAt: time, request: { league, query: JSON.parse(JSON.stringify(query)) }, data: { id: 'q', total: 0, result: [] } }; },
+    } as unknown as OfficialTradeSource;
+    const result = JSON.parse((await createTradeSearchTool(source).invoke({ league: 'Standard', stat_groups: [
+      { type: 'weight', min: 50, filters: [{ stat_id: 'explicit.life', weight: 1.5 }, { stat_id: 'fractured.life', weight: -0.5 }] },
+      { type: 'count', min: 0, filters: [{ stat_id: 'explicit.life', min: 40 }] },
+    ] })).content[0].text);
+    expect(captured?.query.stats?.[0]).toEqual({ type: 'weight', value: { min: 50, max: undefined }, filters: [
+      { id: 'explicit.life', value: { weight: 1.5 } }, { id: 'fractured.life', value: { weight: -0.5 } },
+    ] });
+    expect(result.warnings.join(' ')).toContain('permits zero matches');
+    expect(result.query.query.status.option).toBe('securable');
+    expect(result.query.query.filters.trade_filters.filters.sale_type.option).toBe('priced');
   });
 
   it('distinguishes unavailable stat data from a completed audit', async () => {

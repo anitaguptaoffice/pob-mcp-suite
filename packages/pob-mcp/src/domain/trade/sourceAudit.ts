@@ -51,7 +51,9 @@ export async function auditStatSourceCoverage(
 
         if (missingSources.length > 0) {
           const uniqueSources = [...new Set(missingSources)].sort();
-          warnings.add(`"${text}" covers selected sources only; official data also lists ${uniqueSources.join(', ')}. After checking applicability, consider adding alternative sources to a count/or group for this requirement.`);
+          if (group.type === 'not') warnings.add(`"${text}" excludes selected sources only; official data also lists ${uniqueSources.join(', ')}. Check applicability before deciding which sources to exclude.`);
+          else if (group.type === 'weight') warnings.add(`"${text}" weights selected sources only; official data also lists ${uniqueSources.join(', ')}. Check applicability and weights before adding sources to this weighted group.`);
+          else warnings.add(`"${text}" covers selected sources only; official data also lists ${uniqueSources.join(', ')}. After checking applicability, consider adding alternative sources to a count/or group for this requirement.`);
         }
       }
     }
