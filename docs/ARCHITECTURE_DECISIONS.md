@@ -244,9 +244,12 @@ acceptance for behavior outside the tested fixtures.
 
 An isolated OpenCode 2.2.6 configuration and temporary managed client service
 also connected to the current local Docker build through the packaged wrapper.
-`smoke-opencode-wrapper.mjs` reproduces the connection check and stops its
-temporary service. This checks client discovery and connection, not an agent
-model's tool invocation, interactive skill routing or installed user settings.
+`smoke-opencode-wrapper.mjs` uses a deterministic local model stub to drive
+OpenCode through `foundation_import_file` and `foundation_evaluate`, verifies
+the returned snapshot ID and Life, and stops its temporary services. The tested
+3.13 fixture returned Life 6728. This checks client tool invocation and result
+handling, not real-model tool selection, interactive skill routing or installed
+user settings.
 
 The expanded wrapper smoke also passed with an image built locally from the
 repository's Dockerfile and this branch, once as the image's default user and

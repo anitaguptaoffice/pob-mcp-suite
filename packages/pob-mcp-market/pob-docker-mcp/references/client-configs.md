@@ -69,9 +69,9 @@ opencode mcp list
 OpenCode 2 stores these entries under `mcp.servers`; see its
 [MCP configuration documentation](https://opencode.ai/docs/mcp-servers).
 The repository's `packages/pob-mcp-market/scripts/smoke-opencode-wrapper.mjs`
-checks connection with a local image and temporary configuration. A connected
-status does not itself verify model-driven tool calls or the user's installed
-configuration.
+tests an import and Life calculation with a local image, temporary client
+configuration and a deterministic model stub. It does not validate real-model
+tool selection or the user's installed configuration.
 
 ## Environment Variables
 
