@@ -719,7 +719,15 @@ export class BuildFoundation {
 
   private async deriveItemChanges(id: string, items: Array<{ slot: string; itemText: string }>, trial: boolean, source: string): Promise<SnapshotRecord> {
     if (!Array.isArray(items) || items.length < 1 || items.length > 10 || items.some(item => !item || typeof item !== 'object' || Array.isArray(item) || Object.keys(item).some(key => !['slot', 'itemText'].includes(key)) || typeof item.slot !== 'string' || !item.slot.trim() || item.slot !== item.slot.trim() || item.slot.length > 100 || typeof item.itemText !== 'string' || !item.itemText.trim() || Buffer.byteLength(item.itemText, 'utf8') > 10240) || new Set(items.map(item => item.slot)).size !== items.length) throw new Error('Invalid items or duplicate slots');
+    let specCatalog: Awaited<ReturnType<BuildFoundation['readSpecCatalog']>>;
+    let itemCatalog: Awaited<ReturnType<BuildFoundation['readItemSetCatalog']>>;
+    let specsAfter: Awaited<ReturnType<BuildFoundation['inspectSpecs']>>;
+    let setsAfter: Awaited<ReturnType<BuildFoundation['inspectItemSets']>>;
     return this.derive(id, source, async engine => {
+      specCatalog = await this.readSpecCatalog(engine); itemCatalog = await this.readItemSetCatalog(engine);
+      const specsBefore = await this.inspectSpecs(engine, specCatalog, specCatalog.activeSpec);
+      const setsBefore = await this.inspectItemSets(engine, itemCatalog, itemCatalog.activeItemSetId);
+      const changedSlots = new Map<string, number>();
       for (const { slot, itemText } of items) {
         const socket = /^Jewel (\d+)$/.exec(slot);
         const beforeTree = socket ? normalizeObservation({ tree: await engine.getTree() }).tree as { nodes?: unknown } | undefined : undefined;
@@ -729,10 +737,25 @@ export class BuildFoundation {
         const added = await engine.addItem(itemText, slot);
         const after = normalizeObservation({ items: await engine.getItems() }).items;
         if (!Array.isArray(after) || added.slot !== slot || !Number.isSafeInteger(added.id) || added.id < 1 || after.filter(item => item.slot === slot && item.id === added.id).length !== 1) throw new Error('PoB did not equip the item in the requested slot');
+        changedSlots.set(slot, added.id);
         if (!isDeepStrictEqual(before.filter(item => item.slot !== slot), after.filter(item => item.slot !== slot))) throw new Error('Equipping the item changed other slots');
         if (socket && !isDeepStrictEqual(beforeTree, normalizeObservation({ tree: await engine.getTree() }).tree)) throw new Error('Equipping the jewel changed the passive tree');
       }
-    }, trial);
+      if (!isDeepStrictEqual(await this.readSpecCatalog(engine), specCatalog) || !isDeepStrictEqual(await this.readItemSetCatalog(engine), itemCatalog)) throw new Error('Equipping changed a spec or item-set catalog');
+      specsAfter = await this.inspectSpecs(engine, specCatalog, specCatalog.activeSpec);
+      setsAfter = await this.inspectItemSets(engine, itemCatalog, itemCatalog.activeItemSetId);
+      const otherSlots = (rows: unknown) => Array.isArray(rows) ? rows.filter(row => !changedSlots.has(row.slot)) : rows;
+      if (!isDeepStrictEqual(specsBefore.map(spec => ({ ...spec, items: otherSlots(spec.items) })), specsAfter.map(spec => ({ ...spec, items: otherSlots(spec.items) })))) throw new Error('Equipping changed an unrelated passive spec or its equipment');
+      for (let i = 0; i < specsBefore.length; i++) for (const [slot, itemId] of changedSlots) {
+        const before = (specsBefore[i].items as Array<{ slot: string; id: number }>).filter(row => row.slot === slot);
+        const after = (specsAfter[i].items as Array<{ slot: string; id: number }>).filter(row => row.slot === slot);
+        if (before.length > 1 || after.length > 1 || before.length !== after.length || (before.length === 1 && !isDeepStrictEqual(before[0], after[0]) && after[0].id !== itemId)) throw new Error('Equipping changed a requested slot unexpectedly in another passive spec');
+      }
+      const canonicalSets = (sets: typeof setsBefore) => sets.map(set => ({ ...set, items: set.id === itemCatalog.activeItemSetId ? otherSlots(set.items) : set.items }));
+      if (!isDeepStrictEqual(canonicalSets(setsBefore), canonicalSets(setsAfter))) throw new Error('Equipping changed an inactive equipment set');
+    }, trial, async engine => {
+      if (!isDeepStrictEqual(await this.readSpecCatalog(engine), specCatalog) || !isDeepStrictEqual(await this.readItemSetCatalog(engine), itemCatalog) || !isDeepStrictEqual(await this.inspectSpecs(engine, specCatalog, specCatalog.activeSpec), specsAfter) || !isDeepStrictEqual(await this.inspectItemSets(engine, itemCatalog, itemCatalog.activeItemSetId), setsAfter)) throw new Error('Equipped item sets or passive specs did not survive serialization');
+    });
   }
 
   async deriveFlaskActive(id: string, flaskIndex: number, active: boolean, trial = false): Promise<SnapshotRecord> {

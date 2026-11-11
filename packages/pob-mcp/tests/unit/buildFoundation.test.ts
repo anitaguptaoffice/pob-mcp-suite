@@ -4,6 +4,16 @@ import path from 'node:path';
 import { BuildFoundation, type BuildEngine } from '../../src/foundation/buildFoundation.js';
 import { SnapshotStore } from '../../src/foundation/snapshotStore.js';
 
+function addSingleCatalog(engine: BuildEngine) {
+  Object.assign(engine, {
+    listSpecs: async () => ({ activeSpec: 1, specs: [{ index: 1, title: 'Default', active: true, nodeCount: 1 }] }),
+    selectSpec: async () => {},
+    listItemSets: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: 'Default', active: true, useSecondWeaponSet: false }] }),
+    selectItemSet: async () => {},
+  });
+  if (!engine.getTree) engine.getTree = async () => ({ nodes: [1] });
+}
+
 describe('BuildFoundation isolation', () => {
   it('refuses a tree removal if PoB removes more than its declared dependencies', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'pob-removal-mismatch-'));
@@ -176,12 +186,37 @@ describe('BuildFoundation isolation', () => {
         getItems: async () => [{ slot: 'Ring 1', id: equipped ? 1 : 0 }, { slot: 'Helmet', id: 0 }],
         addItem: async (_text: string, slot: string) => { if (slot === 'Helmet') throw new Error('incompatible'); equipped = true; return { id: 1, slot }; }, close: async () => {},
       } as unknown as BuildEngine;
+      addSingleCatalog(engine);
       const foundation = new BuildFoundation(store, async () => engine);
       await expect(foundation.deriveItems(parent.id, [{ slot: 'Ring 1', itemText: 'item' }, { slot: 'Helmet', itemText: 'item' }])).rejects.toThrow('incompatible');
       await expect(foundation.deriveItems(parent.id, [{ slot: 'Ring 1', itemText: 'item' }, { slot: 'Ring 1', itemText: 'item' }])).rejects.toThrow('duplicate slots');
       expect((await store.read(parent.id)).xml).toBe('<build/>');
       expect(await readdir(dir)).toEqual([`${parent.id}.json`]);
     } finally { await rm(dir, { recursive: true, force: true }); }
+  });
+  it('rejects explicit equips that corrupt inactive item sets or passive specs, including after reload', async () => {
+    for (const failure of ['inactive', 'spec', 'slot', 'reload'] as const) {
+      const dir = await mkdtemp(path.join(tmpdir(), 'pob-equip-inactive-'));
+      try {
+        const store = new SnapshotStore(dir);
+        const parent = await store.create({ xml: '<build/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
+        let currentSpec = 1, currentSet = 1, added = false, loads = 0;
+        const engine = { identity: { engineVersion: null, dataVersion: null, adapterVersion: null },
+          loadBuildXml: async () => { loads++; },
+          listSpecs: async () => ({ activeSpec: currentSpec, specs: [1, 2].map(index => ({ index, title: `Spec ${index}`, active: index === currentSpec, nodeCount: 1 })) }), selectSpec: async (index: number) => { currentSpec = index; },
+          listItemSets: async () => ({ activeItemSetId: currentSet, itemSets: [1, 2].map(id => ({ id, title: `Set ${id}`, active: id === currentSet, useSecondWeaponSet: false })) }), selectItemSet: async (id: number) => { currentSet = id; },
+          getTree: async () => ({ nodes: [currentSpec === 2 && added && failure === 'spec' ? 2 : 1] }),
+          getItems: async () => [{ slot: 'Ring 1', id: currentSet === 2 ? ((added && failure === 'inactive') || (loads > 1 && failure === 'reload') ? 8 : 7) : added ? (currentSpec === 2 && failure === 'slot' ? 99 : 3) : 1 }],
+          addItem: async () => { added = true; return { id: 3, slot: 'Ring 1' }; },
+          getBuildInfo: async () => ({}), getSkills: async () => ({}), getConfig: async () => ({}), getStats: async () => ({}),
+          captureSnapshot: async () => ({ xml: '<changed/>' }), verifyIdentity: async () => {}, close: async () => {},
+        } as unknown as BuildEngine;
+        const foundation = new BuildFoundation(store, async () => engine);
+        await expect(foundation.deriveItem(parent.id, 'Ring 1', 'item')).rejects.toThrow(failure === 'inactive' ? 'inactive equipment set' : failure === 'spec' ? 'passive spec' : failure === 'slot' ? 'requested slot unexpectedly' : 'survive serialization');
+        expect(await readdir(dir)).toEqual([`${parent.id}.json`]);
+        expect((await store.read(parent.id)).xml).toBe('<build/>');
+      } finally { await rm(dir, { recursive: true, force: true }); }
+    }
   });
   it('does not publish a newly created build when PoB changes its tree on reload', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'pob-new-build-'));
@@ -562,6 +597,7 @@ describe('BuildFoundation isolation', () => {
         },
         close: async () => {},
       } as unknown as BuildEngine;
+      addSingleCatalog(engine);
       const foundation = new BuildFoundation(store, async () => engine);
       await expect(foundation.deriveItem(parent.id, 'Ring 1', 'item')).rejects.toThrow('requested slot');
       wrongSlot = false;
@@ -578,6 +614,7 @@ describe('BuildFoundation isolation', () => {
       const addItem = jest.fn(async () => { changed = true; items = [{ slot: 'Jewel 10', id: 2 }]; return { id: 2, slot: 'Jewel 10' }; });
       const engine = { identity: { engineVersion: null, dataVersion: null, adapterVersion: null }, verifyIdentity: async () => {}, loadBuildXml: async () => {},
         getTree: async () => ({ nodes: allocated ? changed ? [10, 11] : [10] : [] }), getItems: async () => items, addItem, close: async () => {} } as unknown as BuildEngine;
+      addSingleCatalog(engine);
       const foundation = new BuildFoundation(store, async () => engine);
       await expect(foundation.deriveItem(parent.id, 'Jewel 10', 'item')).rejects.toThrow('not allocated');
       expect(addItem).not.toHaveBeenCalled(); allocated = true;
