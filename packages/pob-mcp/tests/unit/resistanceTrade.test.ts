@@ -15,7 +15,7 @@ describe('resistance listing workflow', () => {
       stats: async () => ({ source: 'official-trade', fetchedAt: at, request: { kind: 'stats' }, data: stats }),
       search: async (league: string, value: TradeQuery) => { query = value; return { source: 'official-trade', fetchedAt: at, request: { league, query: JSON.parse(JSON.stringify(value)) }, data: { id: 'q', result: ['a', 'b', 'missing'], total: 10, inexact: true } }; },
       fetchListings: async (ids: string[], queryId: string) => ({ source: 'official-trade', fetchedAt: at, request: { ids, queryId }, data: { missingIds: ['missing'], listings: [
-        { id: 'a', item: {}, listing: { price: { amount: 10, currency: 'chaos' } } }, { id: 'b', item: {}, listing: { price: { amount: 1, currency: 'divine' } } },
+        { id: 'a', item: { league: 'Standard', verified: true }, listing: { price: { type: '~b/o', amount: 10, currency: 'chaos' } } }, { id: 'b', item: { league: 'Standard', verified: true }, listing: { price: { type: '~b/o', amount: 1, currency: 'divine' } } },
       ] } }),
     } as unknown as OfficialTradeSource;
     const result = JSON.parse((await createResistanceTradeTool(source).invoke({ league: 'Standard', resistance_minimums: { fire: 40, chaos: 10 }, max_price_per_item: 50, total_budget: 20, slots: ['Ring 1'], per_slot_limit: 3 })).content[0].text);
@@ -23,6 +23,8 @@ describe('resistance listing workflow', () => {
     expect(result).toMatchObject({ listingScope: 'instant_buyout', effectivePerItemCap: 20, currency: 'chaos' });
     expect(result.searches[0]).toMatchObject({ status: 'ok', inexact: true, missingListingIds: ['missing'], excludedPriceCount: 1, sourceTimes: { stats: at, search: at, listings: at } });
     expect(result.searches[0].listings.map((entry: { id: string }) => entry.id)).toEqual(['a']);
+    expect(result.searches[0].priceEvidenceCounts.explicit_buyout).toBe(2);
+    expect(result.searches[0].excludedBudgetCount).toBe(1);
     expect(result.warnings.join(' ')).toContain('combined affordability');
   });
   it('stops after rate limiting and reports unattempted slots', async () => {
@@ -31,6 +33,21 @@ describe('resistance listing workflow', () => {
     const result = JSON.parse((await createResistanceTradeTool(source).invoke({ league: 'Standard', slots: ['Ring 1', 'Boots'] })).content[0].text);
     expect(result.searches).toEqual([{ slot: 'Ring 1', status: 'error', error: 'cooldown', code: 'rate-limit', httpStatus: 429, retryAfterMs: 3000 }, { slot: 'Boots', status: 'not_attempted', error: 'Official Trade rate limit stopped this workflow' }]);
     expect(search).toHaveBeenCalledTimes(1);
+  });
+  it('returns only confirmed buyouts and keeps excluded evidence separate from source statistics', async () => {
+    const listings = [
+      { id: 'a', item: { verified: true, league: 'Standard' }, listing: { price: { type: '~b/o', amount: 5, currency: 'chaos' } } },
+      { id: 'b', item: { verified: true, league: 'Standard' }, listing: { price: { type: '~price', amount: 1, currency: 'chaos' } } },
+      { id: 'c', item: { verified: false, league: 'Standard' }, listing: { price: { type: '~b/o', amount: 2, currency: 'chaos' } } },
+      { id: 'd', item: { verified: true, league: 'Other' }, listing: { price: { type: '~b/o', amount: 3, currency: 'chaos' } } },
+      { id: 'e', item: { verified: true, league: 'Standard' }, listing: {} },
+    ];
+    const source = { search: async (league: string, query: TradeQuery) => ({ source: 'official-trade', fetchedAt: at, request: { league, query: JSON.parse(JSON.stringify(query)) }, data: { id: 'q', result: listings.map(item => item.id), total: listings.length } }),
+      fetchListings: async (ids: string[], queryId: string) => ({ source: 'official-trade', fetchedAt: at, request: { ids, queryId }, data: { listings, missingIds: [] } }) } as unknown as OfficialTradeSource;
+    const result = JSON.parse((await createResistanceTradeTool(source).invoke({ league: 'Standard', slots: ['Ring 1'], per_slot_limit: 5 })).content[0].text);
+    expect(result.searches[0].listings.map((item: { id: string }) => item.id)).toEqual(['a']);
+    expect(result.searches[0].priceEvidenceCounts).toEqual({ explicit_buyout: 1, invalid_price: 1, unconfirmed_buyout: 1, unverified_item: 1, league_unconfirmed: 1 });
+    expect(result.searches[0].sourceStatistics.sampleCount).toBe(5);
   });
   it('does not query zero budget and rejects unsupported inputs before network', async () => {
     const search = jest.fn(); const source = { search } as unknown as OfficialTradeSource;

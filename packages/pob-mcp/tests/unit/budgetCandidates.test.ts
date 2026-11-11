@@ -32,7 +32,8 @@ it('does not convert foreign currencies or label negotiated prices as buyouts', 
   expect(foreign.previewItem).not.toHaveBeenCalled();
   const negotiated = fixture({ type: '~price', amount: 1, currency: 'chaos' });
   const next = JSON.parse((await negotiated.tool.invoke(args)).content[0].text);
-  expect(next.searches[0].candidates[0].priceEvidence).toBe('price_type_unconfirmed');
+  expect(next.searches[0].candidates[0]).toMatchObject({ priceEvidence: 'price_type_unconfirmed', listingEvidence: 'unconfirmed_buyout', status: 'unavailable' });
+  expect(negotiated.previewItem).not.toHaveBeenCalled();
 });
 
 it('preserves both direct modifiers and grouped modifier conditions in the market query', async () => {
@@ -46,6 +47,16 @@ it('preserves both direct modifiers and grouped modifier conditions in the marke
     { type: 'and', filters: [{ id: 'explicit.stat_1', value: { min: 50 } }] },
     { type: 'or', filters: [{ id: 'explicit.stat_2', value: { min: 20 } }, { id: 'fractured.stat_2', value: { min: 20 } }] },
   ]);
+});
+
+it('does not preview unverified or wrong-league items despite a fixed price', async () => {
+  for (const [verified, league, expected, reported] of [[false, 'Standard', 'unverified_item', false], [undefined, 'Standard', 'unverified_item', null], [true, 'Other', 'league_unconfirmed', true]] as const) {
+    const f = fixture();
+    f.fetchListings.mockImplementationOnce(async (ids, queryId) => ({ source: 'official-trade', fetchedAt: time, request: { ids, queryId }, data: { listings: [{ id: itemId, item: { id: itemId, league, identified: true, verified: verified as boolean, typeLine: 'Gold Ring', name: 'Example', extended: { text: Buffer.from(itemText).toString('base64') } }, listing: { price: { type: '~b/o', amount: 5, currency: 'chaos' } } }], missingIds: [] } }));
+    const result = JSON.parse((await f.tool.invoke(args)).content[0].text);
+    expect(result.searches[0].candidates[0]).toMatchObject({ status: 'unavailable', listingEvidence: expected, listingVerified: reported });
+    expect(f.previewItem).not.toHaveBeenCalled();
+  }
 });
 
 it('stops further searches after a rate limit and validates all input first', async () => {

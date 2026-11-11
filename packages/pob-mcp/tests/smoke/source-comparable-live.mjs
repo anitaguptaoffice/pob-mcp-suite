@@ -86,6 +86,8 @@ try {
   assert.equal(resistanceSearch.query.query.filters.trade_filters.filters.sale_type.option, 'priced');
   assert.equal(resistanceSearch.query.query.filters.trade_filters.filters.price.max, 30);
   assert.ok(resistanceSearch.listings.every(item => item.listing.price.currency === 'chaos' && item.listing.price.amount <= 30));
+  assert.ok(resistanceSearch.listings.every(item => item.listing.price.type === '~b/o' && item.item.verified === true && item.item.league === 'Standard'));
+  assert.equal(Object.values(resistanceSearch.priceEvidenceCounts).reduce((sum, count) => sum + count, 0), resistanceSearch.fetchedCount);
   assert.ok(resistanceSearch.query.query.stats.flatMap(group => group.filters).some(filter => filter.id === 'pseudo.pseudo_total_fire_resistance' && filter.value.min === 20));
   mcp.child.stdin.end(); assert.equal((await exited)[0], 0);
   console.log('source-backed comparable live integration passed');

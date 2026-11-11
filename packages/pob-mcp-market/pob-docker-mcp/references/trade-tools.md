@@ -62,6 +62,9 @@ an explicit snapshot ID; if a needed capability is unavailable, report that limi
 budget; it does not prove a set of purchases fits a combined budget or report
 net resistances after replacement. `search_cluster_listings` locally checks at
 most 30 fetched results; an empty filtered sample is not an empty market.
+Both return only explicit buyouts with verified items in the requested league;
+check `priceEvidenceCounts` and `excludedBudgetCount`. Their source statistics
+cover all fetched listings, including candidates excluded from the result.
 `list_snapshot_equipment` requires a snapshot and exact league; it reports the
 active item set and optional reference prices, not a complete shopping plan.
 
@@ -81,7 +84,8 @@ active item set and optional reference prices, not a complete shopping plan.
    results are candidates; use PoB previews to verify actual replacement gains.
    `screen_snapshot_budget_candidates` combines explicit per-slot Trade searches
    with PoB previews under one chaos budget. It enforces `securable` and `priced`
-   and distinguishes explicit buyout prices from unconfirmed price types. Each
+   and previews only confirmed buyouts for verified items in the requested league;
+   unconfirmed candidates retain their exclusion evidence. Each
    candidate is previewed independently against the original snapshot: do not
    sum their gains or claim combined affordability, a full build price, legality
    or availability from this report. Inspect source timestamps and partial errors.

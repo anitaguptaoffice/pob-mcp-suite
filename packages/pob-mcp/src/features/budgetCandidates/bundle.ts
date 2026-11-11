@@ -6,6 +6,7 @@ import { tradeClipboardText } from '../../domain/trade/clipboard.js';
 import { createSnapshotBuildComparisonTool } from '../buildComparison/tool.js';
 import { searchOfficialTrade } from '../tradeSearch/tool.js';
 import { budgetCandidatesSchema, validateBudgetCandidates } from './tool.js';
+import { classifyBuyoutEvidence } from '../../domain/trade/buyoutEvidence.js';
 
 // Compare decimal representations without floating-point addition rounding a
 // combination just above or below its budget. JSON numbers arrive as doubles;
@@ -57,8 +58,8 @@ export function createBudgetBundleTool(foundation: Pick<BuildFoundation, 'readSn
         for (const listing of report.listings) {
           const price = listing.listing.price;
           if (selected.some(item => item.itemId.toLowerCase() === listing.id.toLowerCase())) { evidence.candidateFailures.push({ itemId: listing.id, error: 'Listing was already selected for another slot' }); continue; }
-          if (listing.item.verified !== true) { evidence.candidateFailures.push({ itemId: listing.id, error: 'Listing is not confirmed verified' }); continue; }
-          if (!price || price.type !== '~b/o' || price.currency !== 'chaos' || typeof price.amount !== 'number' || !Number.isFinite(price.amount) || price.amount <= 0 || price.amount > cap) { evidence.candidateFailures.push({ itemId: listing.id, error: 'Listing has no explicit chaos buyout within the per-item cap' }); continue; }
+          const listingEvidence = classifyBuyoutEvidence(listing, league);
+          if (listingEvidence !== 'explicit_buyout' || !price || price.currency !== 'chaos' || price.amount > cap) { evidence.candidateFailures.push({ itemId: listing.id, error: `Listing has no confirmed explicit chaos buyout within the per-item cap (${listingEvidence})` }); continue; }
           try {
             const itemText = tradeClipboardText(listing as ItemListing, league);
             const preview = await foundation.previewItem(base.snapshot_id, entry.slot, itemText);

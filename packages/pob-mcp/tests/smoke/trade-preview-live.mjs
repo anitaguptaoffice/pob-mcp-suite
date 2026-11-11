@@ -20,6 +20,7 @@ try {
   assert.equal(screened.query.query.status.option, 'securable'); assert.equal(screened.query.query.filters.trade_filters.filters.sale_type.option, 'priced');
   assert.equal(screened.query.query.filters.trade_filters.filters.price.max, 100);
   assert.ok(screened.candidates.some(candidate => candidate.status === 'previewed' && candidate.priceEvidence === 'explicit_buyout' && candidate.preview.snapshotId === parent.id), JSON.stringify(screened));
+  assert.ok(screened.candidates.filter(candidate => candidate.status === 'previewed').every(candidate => candidate.listingEvidence === 'explicit_buyout' && candidate.listingVerified === true));
   const bundle = await call('assemble_snapshot_budget_bundle', { snapshot_id: parent.id, league: 'Standard', budget_chaos: 100, fields: ['Life'], searches: [{ slot: 'Ring 1', item_type: 'Gold Ring', item_rarity: 'rare', limit: 2 }, { slot: 'Ring 2', item_type: 'Gold Ring', item_rarity: 'rare', limit: 2 }] });
   assert.equal(bundle.status, 'compared', JSON.stringify({ status: bundle.status, reason: bundle.reason, error: bundle.error, trial: bundle.trial, searches: bundle.searches }));
   assert.equal(bundle.selected.length, 2); assert.notEqual(bundle.selected[0].itemId, bundle.selected[1].itemId);

@@ -24,6 +24,8 @@ try {
   assert.ok(report.fetches.every(fetch => fetch.fetchedAt && Number.isFinite(Date.parse(fetch.fetchedAt))));
   assert.ok(report.listings.every(listing => listing.item.typeLine === 'Large Cluster Jewel'));
   assert.ok(report.listings.every(listing => listing.listing.price.currency === 'chaos' && listing.listing.price.amount <= 1000));
+  assert.ok(report.listings.every(listing => listing.listing.price.type === '~b/o' && listing.item.verified === true && listing.item.league === 'Standard'));
+  assert.equal(Object.values(report.priceEvidenceCounts).reduce((sum, count) => sum + count, 0), report.fetchedCount);
   mcp.child.stdin.end(); assert.equal((await exited)[0], 0);
   console.log('cluster trade live integration passed');
 } finally {

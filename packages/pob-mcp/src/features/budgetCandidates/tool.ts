@@ -4,6 +4,7 @@ import type { FeatureTool } from '../../server/featureRegistry.js';
 import type { ItemListing } from '../../types/tradeTypes.js';
 import { tradeClipboardText } from '../../domain/trade/clipboard.js';
 import { searchOfficialTrade, tradeSearchSchema } from '../tradeSearch/tool.js';
+import { classifyBuyoutEvidence } from '../../domain/trade/buyoutEvidence.js';
 
 export function budgetCandidatesSchema(): FeatureTool['schema'] {
   const tradeProperties = tradeSearchSchema().inputSchema.properties!;
@@ -45,13 +46,15 @@ export function createBudgetCandidatesTool(foundation: Pick<BuildFoundation, 're
         for (const listing of report.listings) {
           const price = listing.listing.price;
           const priceMatches = !!price && typeof price.amount === 'number' && Number.isFinite(price.amount) && price.amount > 0 && price.amount <= cap && price.currency === 'chaos';
-          const evidence = priceMatches && price?.type === '~b/o' ? 'explicit_buyout' : priceMatches ? 'price_type_unconfirmed' : 'outside_budget_or_unknown';
+          const listingEvidence = classifyBuyoutEvidence(listing, league);
+          const evidence = !priceMatches ? 'outside_budget_or_unknown' : listingEvidence === 'unconfirmed_buyout' ? 'price_type_unconfirmed' : listingEvidence;
           try {
             if (!priceMatches) throw new Error('Listing price is missing, outside the chaos budget or in another currency');
+            if (listingEvidence !== 'explicit_buyout') throw new Error(`Listing is not a confirmed buyout in the requested league: ${listingEvidence}`);
             const itemText = tradeClipboardText(listing as ItemListing, league);
             const preview = await foundation.previewItem(args.snapshot_id, entry.slot, itemText);
-            candidates.push({ itemId: listing.id, price, priceEvidence: evidence, listingVerified: listing.item.verified === true, status: 'previewed', preview });
-          } catch (error) { candidates.push({ itemId: listing.id, price: price ?? null, priceEvidence: evidence, status: 'unavailable', error: error instanceof Error ? error.message : String(error) }); }
+            candidates.push({ itemId: listing.id, price, priceEvidence: evidence, listingEvidence, listingVerified: listing.item.verified === true, status: 'previewed', preview });
+          } catch (error) { candidates.push({ itemId: listing.id, price: price ?? null, priceEvidence: evidence, listingEvidence, listingVerified: typeof listing.item?.verified === 'boolean' ? listing.item.verified : null, status: 'unavailable', error: error instanceof Error ? error.message : String(error) }); }
         }
         searches.push({ slot: entry.slot, status: 'searched', maxPriceChaos: cap, query: report.query, searchId: report.searchId, searchUrl: report.searchUrl, totalMatches: report.totalMatches, inexact: report.inexact, missingListingIds: report.missingListingIds, sourceTimes: report.sourceTimes, sourceFailures: report.sourceFailures, sourceAudit: report.sourceAudit, sourceWarnings: report.sourceWarnings, sourceStatistics: report.sourceStatistics, candidates });
       } catch (error) {
@@ -61,6 +64,6 @@ export function createBudgetCandidatesTool(foundation: Pick<BuildFoundation, 're
       }
     }
     return { content: [{ type: 'text', text: JSON.stringify({ snapshotId: args.snapshot_id, league, budget: { amount: args.budget_chaos, currency: 'chaos' }, source: 'official-trade', listingScope: 'instant_buyout_search', complete: false, combinedCost: null, searches,
-      warnings: ['Each slot is searched separately with securable and priced filters; only an explicit buyout price type establishes the listing price type. Availability can change.', 'Candidates are independently previewed against the same original snapshot; interactions between multiple replacements, combined affordability, gem costs and a complete budget are not calculated.', 'A price-type-unconfirmed listing, inexact search, missing listing, unsupported modifier or preview error requires further verification.', 'Trade prices are asking prices, not completed sales; crafting costs, item legality, sockets and user-specific constraints remain unverified.'] }) }] };
+      warnings: ['Each slot is searched separately with securable and priced filters; only explicit buyouts for verified items in the requested league are previewed. Availability can change.', 'Candidates are independently previewed against the same original snapshot; interactions between multiple replacements, combined affordability, gem costs and a complete budget are not calculated.', 'A price-type-unconfirmed listing, inexact search, missing listing, unsupported modifier or preview error requires further verification.', 'Trade prices are asking prices, not completed sales; crafting costs, item legality, sockets and user-specific constraints remain unverified.'] }) }] };
   } };
 }

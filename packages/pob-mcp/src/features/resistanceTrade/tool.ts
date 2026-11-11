@@ -1,6 +1,7 @@
 import type { OfficialTradeSource } from '../../ports/officialTrade.js';
 import type { FeatureTool } from '../../server/featureRegistry.js';
 import { searchOfficialTrade } from '../tradeSearch/tool.js';
+import { classifyBuyoutEvidence, emptyBuyoutEvidenceCounts } from '../../domain/trade/buyoutEvidence.js';
 
 const slots: Record<string, string> = { 'Ring 1': 'Ring', 'Ring 2': 'Ring', Amulet: 'Amulet', Belt: 'Belt', Gloves: 'Gloves', Boots: 'Boots', Helmet: 'Helmet', 'Body Armour': 'Body Armour' };
 const resistances = { fire: 'pseudo.pseudo_total_fire_resistance', cold: 'pseudo.pseudo_total_cold_resistance', lightning: 'pseudo.pseudo_total_lightning_resistance', chaos: 'pseudo.pseudo_total_chaos_resistance' } as const;
@@ -28,9 +29,17 @@ export function createResistanceTradeTool(source: OfficialTradeSource): FeatureT
       if (rateLimited) { searches.push({ slot, status: 'not_attempted', error: 'Official Trade rate limit stopped this workflow' }); continue; }
       try {
         const report = await searchOfficialTrade(source, { league, item_type: slots[slot], mods, max_price: cap, price_currency: unit, status: 'securable', sale_type: 'priced', sort: 'price_asc', limit });
-        const listings = report.listings.filter(entry => { const price = entry.listing.price; return price && typeof price.amount === 'number' && Number.isFinite(price.amount) && price.amount > 0 && price.amount <= cap && price.currency === unit; });
+        const priceEvidenceCounts = emptyBuyoutEvidenceCounts();
+        let excludedBudgetCount = 0;
+        const listings = report.listings.filter(entry => {
+          const evidence = classifyBuyoutEvidence(entry, league); priceEvidenceCounts[evidence]++;
+          if (evidence !== 'explicit_buyout') return false;
+          const price = entry.listing.price!;
+          if (price.amount > cap || price.currency !== unit) { excludedBudgetCount++; return false; }
+          return true;
+        });
         searches.push({ slot, status: 'ok', query: report.query, searchUrl: report.searchUrl, totalMatches: report.totalMatches, inexact: report.inexact, requestedCount: report.requestedCount, fetchedCount: report.fetchedCount,
-          excludedPriceCount: report.listings.length - listings.length, missingListingIds: report.missingListingIds, sourceAudit: report.sourceAudit, sourceStatistics: report.sourceStatistics, sourceTimes: report.sourceTimes, sourceFailures: report.sourceFailures, warnings: report.warnings, listings });
+          excludedPriceCount: report.listings.length - listings.length, excludedBudgetCount, priceEvidenceCounts, missingListingIds: report.missingListingIds, sourceAudit: report.sourceAudit, sourceStatistics: report.sourceStatistics, sourceTimes: report.sourceTimes, sourceFailures: report.sourceFailures, warnings: report.warnings, listings });
       } catch (error) {
         const failure = error as { message?: string; code?: string; httpStatus?: number; retryAfterMs?: number };
         rateLimited = failure?.code === 'rate-limit' || failure?.httpStatus === 429;
@@ -40,6 +49,7 @@ export function createResistanceTradeTool(source: OfficialTradeSource): FeatureT
     return { content: [{ type: 'text', text: JSON.stringify({ source: 'official-trade', league, listingScope: 'instant_buyout', resistanceMinimums: targets, maxPricePerItem: maxPrice, totalBudget: budget, effectivePerItemCap: cap, currency: unit, perSlotLimit: limit, requestedSlots: requested, searches,
       warnings: ['Each listing is an independent candidate. The total budget only caps each item; combined affordability and net resistance after replacing current gear are not calculated.',
         'Pseudo resistance filters are source-defined and may include conditional effects; inspect the item and calculate the replacement in PoB.',
+        'Only explicit buyouts with verified items in the requested league and currency are returned; evidence counts and source statistics cover all fetched listings, not just returned candidates. Evidence categories are mutually exclusive first-failure categories.',
         'Listings are sampled and can become unavailable. Inexact searches and missing listings are disclosed per slot.',
         ...(mods.length ? [] : ['No positive resistance target was supplied; searches are not resistance-filtered.']),
         ...(cap === 0 ? ['Zero total budget; no positive-price listings were queried.'] : [])] }) }] };

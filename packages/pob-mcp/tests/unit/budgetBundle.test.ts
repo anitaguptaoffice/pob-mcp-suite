@@ -48,6 +48,16 @@ it('does not treat negotiated or inexact listings as a verified bundle', async (
   const uncertain = await result(inexact); expect(uncertain.status).toBe('incomplete'); expect(uncertain.reason).toContain('inexact'); expect(inexact.previewItem).not.toHaveBeenCalled();
 });
 
+it('does not select a fixed-price item with an unverified or mismatched league', async () => {
+  for (const [verified, league, reason] of [[false, 'Standard', 'unverified_item'], [true, 'Other', 'league_unconfirmed']] as const) {
+    const f = fixture();
+    f.fetchListings.mockImplementationOnce(async (requestIds, queryId) => ({ source: 'official-trade', fetchedAt: time, request: { ids: requestIds, queryId }, data: { listings: [{ id: ids[0], item: { id: ids[0], league, identified: true, verified, typeLine: 'Gold Ring', name: 'Example', extended: { text: Buffer.from(text).toString('base64') } }, listing: { price: { type: '~b/o', amount: 0.1, currency: 'chaos' } } }], missingIds: [] } }));
+    const out = await result(f);
+    expect(out.status).toBe('incomplete'); expect(out.searches[0].candidateFailures[0].error).toContain(reason);
+    expect(f.previewItem).not.toHaveBeenCalled(); expect(f.deriveItems).not.toHaveBeenCalled();
+  }
+});
+
 it('retains preview failures and never silently publishes an incomplete trial', async () => {
   const f = fixture(); f.previewItem.mockRejectedValueOnce(new Error('PoB cannot parse candidate'));
   const out = await result(f);

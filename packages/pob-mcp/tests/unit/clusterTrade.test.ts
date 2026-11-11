@@ -5,7 +5,7 @@ import type { TradeQuery } from '../../src/types/tradeTypes.js';
 
 const at = '2026-01-01T00:00:00.000Z';
 const ids = Array.from({ length: 23 }, (_, i) => `id${i}`);
-const listing = (id: string, notable: string, currency = 'chaos') => ({ id, item: { league: 'Standard', typeLine: 'Large Cluster Jewel', enchantMods: ['Adds 8 Passive Skills', 'Added Small Passive Skills grant: 10% increased Fire Damage'], explicitMods: [`1 Added Passive Skill is ${notable}`] }, listing: { price: { amount: 5, currency }, whisper_token: 'secret' } });
+const listing = (id: string, notable: string, currency = 'chaos') => ({ id, item: { league: 'Standard', verified: true, typeLine: 'Large Cluster Jewel', enchantMods: ['Adds 8 Passive Skills', 'Added Small Passive Skills grant: 10% increased Fire Damage'], explicitMods: [`1 Added Passive Skill is ${notable}`] }, listing: { price: { type: '~b/o', amount: 5, currency }, whisper_token: 'secret' } });
 
 describe('cluster trade workflow', () => {
   it('matches legacy search filters, checks exact notables and reports bounded, partial sample provenance', async () => {
@@ -20,6 +20,7 @@ describe('cluster trade workflow', () => {
     const expected = JSON.parse(JSON.stringify(previous)); expected.query.filters.trade_filters.filters.sale_type = { option: 'priced' };
     expect(actual).toEqual(expected);
     expect(result).toMatchObject({ listingScope: 'instant_buyout', requestedCount: 15, fetchedCount: 3, matchedCount: 1, returnedCount: 1, inexact: true, excludedPriceCount: 1 });
+    expect(result.priceEvidenceCounts.explicit_buyout).toBe(3); expect(result.excludedBudgetCount).toBe(1);
     expect(result.fetches.map((entry: { ids: string[] }) => entry.ids.length)).toEqual([10, 5]);
     expect(result.fetches.every((entry: { fetchedAt: string }) => entry.fetchedAt === at)).toBe(true);
     expect(result.listings.map((entry: { id: string }) => entry.id)).toEqual(['id0']);
@@ -31,6 +32,17 @@ describe('cluster trade workflow', () => {
     const result = JSON.parse((await createClusterTradeTool(source).invoke({ league: 'Standard', jewel_size: 'large', limit: 10 })).content[0].text);
     expect(fetchListings).toHaveBeenCalledTimes(1); expect(result.notAttemptedIds).toEqual(ids.slice(10));
     expect(result.fetches[0]).toMatchObject({ error: 'cooldown', code: 'rate-limit', httpStatus: 429 }); expect(result.missingListingIds).toEqual([]);
+  });
+  it('excludes unconfirmed buyouts, unverified items and wrong leagues from cluster candidates', async () => {
+    const good = listing('id0', 'X'), negotiated = listing('id1', 'X'), unverified = listing('id2', 'X'), wrongLeague = listing('id3', 'X');
+    negotiated.listing.price.type = '~price'; unverified.item.verified = false; wrongLeague.item.league = 'Other';
+    const listings = [good, negotiated, unverified, wrongLeague];
+    const source = { search: async (league: string, query: TradeQuery) => ({ source: 'official-trade', fetchedAt: at, request: { league, query: JSON.parse(JSON.stringify(query)) }, data: { id: 'q', total: 4, result: listings.map(item => item.id) } }),
+      fetchListings: async (requested: string[], queryId: string) => ({ source: 'official-trade', fetchedAt: at, request: { ids: requested, queryId }, data: { listings, missingIds: [] } }) } as unknown as OfficialTradeSource;
+    const result = JSON.parse((await createClusterTradeTool(source).invoke({ league: 'Standard', jewel_size: 'large', limit: 2 })).content[0].text);
+    expect(result.listings.map((item: { id: string }) => item.id)).toEqual(['id0']);
+    expect(result.priceEvidenceCounts).toEqual({ explicit_buyout: 1, invalid_price: 0, unconfirmed_buyout: 1, unverified_item: 1, league_unconfirmed: 1 });
+    expect(result.sourceStatistics.sampleCount).toBe(4);
   });
   it('rejects bad options without contacting the source', async () => {
     const search = jest.fn(); const tool = createClusterTradeTool({ search } as unknown as OfficialTradeSource);

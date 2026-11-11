@@ -5,6 +5,7 @@ import { TrackedTrade } from '../tradeCommon/trackedTrade.js';
 import type { OfficialTradeSource } from '../../ports/officialTrade.js';
 import type { FeatureTool } from '../../server/featureRegistry.js';
 import type { ItemListing } from '../../types/tradeTypes.js';
+import { classifyBuyoutEvidence, emptyBuyoutEvidenceCounts } from '../../domain/trade/buyoutEvidence.js';
 
 const passiveIds = ['enchant.stat_3086156145', 'explicit.stat_3086156145'];
 function modLines(value: unknown): string[] | null {
@@ -58,13 +59,15 @@ export function createClusterTradeTool(source: OfficialTradeSource): FeatureTool
     }
     const byId = new Map(listings.map(listing => [listing.id, listing]));
     const ordered = selected.flatMap(id => byId.has(id) ? [byId.get(id)!] : []);
-    let unknownMods = 0, excludedPrice = 0;
+    let unknownMods = 0, excludedPrice = 0, excludedBudget = 0;
+    const priceEvidenceCounts = emptyBuyoutEvidenceCounts();
     const matched = ordered.filter(entry => {
       const item = entry.item, price = entry.listing?.price;
-      if (!item || item.typeLine !== baseType || (typeof item.league === 'string' && item.league !== league)) return false;
-      if (!price || typeof price.amount !== 'number' || !Number.isFinite(price.amount) || price.amount <= 0 || typeof price.currency !== 'string' || !price.currency.trim() ||
-          ((args.max_price !== undefined || args.price_currency !== undefined) && price.currency !== unit) ||
-          (args.max_price !== undefined && price.amount > (args.max_price as number))) { excludedPrice++; return false; }
+      const evidence = classifyBuyoutEvidence(entry, league); priceEvidenceCounts[evidence]++;
+      if (evidence !== 'explicit_buyout') { excludedPrice++; return false; }
+      if (!item || item.typeLine !== baseType) return false;
+      if (!price || ((args.max_price !== undefined || args.price_currency !== undefined) && price.currency !== unit) ||
+          (args.max_price !== undefined && price.amount > (args.max_price as number))) { excludedPrice++; excludedBudget++; return false; }
       const enchantLines = [modLines(item.enchantMods), modLines(item.implicitMods)];
       const notableLines = [modLines(item.explicitMods), modLines(item.fracturedMods), modLines(item.craftedMods)];
       if ((args.enchant !== undefined && (enchantLines.some(lines => lines === null) || (item.enchantMods === undefined && item.implicitMods === undefined))) ||
@@ -76,8 +79,8 @@ export function createClusterTradeTool(source: OfficialTradeSource): FeatureTool
     const safe = matched.slice(0, limit).map(({ id, item, listing }) => ({ id, item, listing: { price: listing?.price, indexed: listing?.indexed, account: listing?.account ? { name: listing.account.name } : undefined } }));
     return { content: [{ type: 'text', text: JSON.stringify({ source: 'official-trade', league, baseType, listingScope: 'instant_buyout', query, searchUrl: `https://www.pathofexile.com/trade/search/${encodeURIComponent(league)}/${encodeURIComponent(search.id)}`,
       totalMatches: search.total, inexact: search.inexact === true, requestedCount: selected.length, fetchedCount: ordered.length, matchedCount: matched.length, returnedCount: safe.length, missingListingIds: missing, notAttemptedIds: notAttempted,
-      localFilters: { enchant: args.enchant ?? null, notables }, unknownModCount: unknownMods, excludedPriceCount: excludedPrice, sourceAudit, sourceWarnings, sourceTimes: { stats: trade.sourceTimes.stats, search: trade.sourceTimes.search }, fetches, sourceFailures: trade.sourceFailures,
+      localFilters: { enchant: args.enchant ?? null, notables }, unknownModCount: unknownMods, excludedPriceCount: excludedPrice, excludedBudgetCount: excludedBudget, priceEvidenceCounts, sourceAudit, sourceWarnings, sourceTimes: { stats: trade.sourceTimes.stats, search: trade.sourceTimes.search }, fetches, sourceFailures: trade.sourceFailures,
       sourceStatistics: collectSourceStatistics(ordered, args.passive_count === undefined ? [] : passiveIds), listings: safe,
-      warnings: ['Enchant text and exact notable names are checked locally; the trade link represents only the broader query.', 'At most 30 search results are sampled; no match does not prove the market has none.', 'Source hashes do not prove modifier values or item legality; inexact search results require verification.', 'Listings and prices can become stale; only securable, priced searches are requested.'] }) }] };
+      warnings: ['Enchant text and exact notable names are checked locally; the trade link represents only the broader query.', 'At most 30 search results are sampled; no match does not prove the market has none.', 'Source hashes do not prove modifier values or item legality; inexact search results require verification.', 'Only explicit buyouts with verified items in the requested league are returned. Evidence counts and source statistics cover all fetched listings, not just returned candidates. Evidence categories are mutually exclusive first-failure categories.', 'Listings and prices can become stale; only securable, priced searches are requested.'] }) }] };
   } };
 }
