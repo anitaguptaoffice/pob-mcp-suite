@@ -291,8 +291,11 @@ function M.export_stats(fields)
     end
   end
   result._meta = result._meta or {}
+  if build and build.spec and build.spec.treeVersion then
+    result._meta.treeVersion = tostring(build.spec.treeVersion)
+  end
   if build and build.targetVersion then
-    result._meta.treeVersion = tostring(build.targetVersion)
+    result._meta.targetVersion = tostring(build.targetVersion)
   end
   if build and build.characterLevel then
     result._meta.level = tonumber(build.characterLevel)

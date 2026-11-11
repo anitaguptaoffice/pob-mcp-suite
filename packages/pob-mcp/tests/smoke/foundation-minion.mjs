@@ -29,12 +29,18 @@ try {
   const config = await client.setConfig({ customMods: 'Minions have 100% chance to Poison on Hit' });
   assert.ok(config.applied.customMods);
   const expected = await client.getStats(fields);
+  const tree = await client.getTree();
+  assert.equal(tree.treeVersion, '3_13');
+  assert.equal(expected._meta.treeVersion, tree.treeVersion);
+  assert.notEqual(expected._meta.targetVersion, tree.treeVersion, 'fixture must distinguish build target version from passive tree version');
   assert.ok(expected.MinionCombinedDPS > expected.MinionTotalDPS && expected.MinionTotalDPS > 0);
   const { xml } = await client.unchangedItemsSnapshot();
   await client.stop();
   const foundation = new BuildFoundation(new SnapshotStore(dir), () => openPoBEngine(options));
   const parent = await foundation.importBuild(xml, 'poison-minion-fixture');
   const actual = await foundation.evaluate(parent.id, fields);
+  assert.equal(actual.stats._meta.treeVersion, tree.treeVersion);
+  assert.equal(actual.stats._meta.targetVersion, expected._meta.targetVersion);
   for (const key of fields) assert.ok(Math.abs(actual.stats[key] - expected[key]) < 0.01, `${key}: ${actual.stats[key]} vs ${expected[key]}`);
   assert.ok(actual.metrics.MinionCombinedDPS.value > actual.metrics.MinionTotalDPS.value);
   assert.equal(actual.context.skills.mainSocketGroup, group.index);

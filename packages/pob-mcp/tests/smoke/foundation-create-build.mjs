@@ -25,6 +25,8 @@ try {
   const special = await call('foundation_create_build', { class_name: 'Marauder', ascendancy: 'Ancestral Commander', tree_version: '3_28_alternate' });
   const specialTree = (await call('foundation_inspect', { snapshot_id: special.id, sections: ['tree'] })).data.tree;
   assert.equal(specialTree.className, 'Marauder'); assert.equal(specialTree.ascendClassName, 'Ancestral Commander'); assert.equal(specialTree.treeVersion, '3_28_alternate');
+  const specialStats = await call('foundation_evaluate', { snapshot_id: special.id, fields: ['Life'] });
+  assert.equal(specialStats.stats._meta.treeVersion, specialTree.treeVersion);
   const specialXml = (await call('foundation_export_build', { snapshot_id: special.id })).xml;
   const specialReloaded = await call('foundation_import_build', { xml: specialXml, source: 'special-create-roundtrip' });
   assert.deepEqual((await call('foundation_inspect', { snapshot_id: specialReloaded.id, sections: ['tree'] })).data.tree, specialTree);
