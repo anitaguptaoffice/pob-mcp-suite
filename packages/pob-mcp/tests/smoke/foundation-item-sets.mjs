@@ -60,6 +60,9 @@ try {
     const issues = JSON.parse(issuesCall.result.content[0].text);
     assert.ok(issues.issues.some(issue => issue.code === 'empty_gear_slot' && issue.evidence.slot === 'Ring 1'));
     assert.ok(!issues.issues.some(issue => issue.code === 'empty_gear_slot' && issue.evidence.slot === 'Weapon 1'));
+    const swap = equipment.slots.find(slot => slot.slot === 'Weapon 1 Swap');
+    assert.equal(swap.state, 'empty'); assert.equal(swap.inUse, true);
+    assert.ok(issues.issues.some(issue => issue.code === 'empty_gear_slot' && issue.evidence.slot === 'Weapon 1 Swap'));
     const analysisCall = await mcp.request('tools/call', { name: 'analyze_snapshot_equipment', arguments: { snapshot_id: child.id, include_item_text: true } });
     assert.ok(!analysisCall.error && !analysisCall.result?.isError, JSON.stringify(analysisCall));
     const analysis = JSON.parse(analysisCall.result.content[0].text);

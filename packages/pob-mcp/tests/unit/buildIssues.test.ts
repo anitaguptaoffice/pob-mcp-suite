@@ -78,6 +78,16 @@ describe('snapshot issue scan', () => {
     expect(codes(result)).not.toContain('empty_jewel_sockets');
     expect(analyzeBuildIssues({ ...fixture, items: [{ slot: 'Weapon 1', id: 0, shown: false }] }).checks.items).toBe('checked');
   });
+  it('uses the active item set for both normal and swap weapon slots', () => {
+    const items = [{ slot: 'Weapon 1', id: 0, shown: true }, { slot: 'Weapon 1 Swap', id: 0, shown: true }];
+    const sets = (swap: boolean) => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: 'Default', active: true, useSecondWeaponSet: swap }] });
+    const scan = (itemSets?: unknown) => analyzeBuildIssues({ ...fixture, items, itemSets });
+    const emptySlots = (itemSets?: unknown) => scan(itemSets).issues.filter(issue => issue.code === 'empty_gear_slot').map(issue => issue.evidence.slot);
+    expect(emptySlots(sets(false))).toEqual(['Weapon 1']);
+    expect(emptySlots(sets(true))).toEqual(['Weapon 1 Swap']);
+    expect(emptySlots()).toEqual([]);
+    expect(scan().checks.items).toBe('unknown');
+  });
   it('checks enabled supports on the selected active group without guessing unknown application', () => {
     const active = { index: 1, name: 'Fireball', enabled: true, supportClassificationKnown: true, isSupport: false };
     const support = { index: 2, name: 'Melee Physical Damage Support', enabled: true, supportClassificationKnown: true, isSupport: true, appliedToSelectedSkill: false };
@@ -96,12 +106,13 @@ describe('snapshot issue scan', () => {
     expect(codes(scan([active, support], { slotEnabled: false }))).not.toContain('support_not_applied_to_selected_skill');
   });
   it('scans one explicit snapshot and retains its calculation context', async () => {
-    const engine = { getStats: async () => ({ Life: 400, EnergyShield: 200 }), getBuildInfo: async () => ({ level: 90 }), getTree: async () => ({ treeVersion: '3_29' }), getItems: async () => [], getSkills: async () => ({ groups: [] }), getConfig: async () => ({ enemyIsBoss: 'Pinnacle' }) } as unknown as BuildEngine;
+    const engine = { getStats: async () => ({ Life: 400, EnergyShield: 200 }), getBuildInfo: async () => ({ level: 90 }), getTree: async () => ({ treeVersion: '3_29' }), getItems: async () => [], listItemSets: async () => ({ activeItemSetId: 1, itemSets: [{ id: 1, title: 'Default', active: true, useSecondWeaponSet: false }] }), getSkills: async () => ({ groups: [] }), getConfig: async () => ({ enemyIsBoss: 'Pinnacle' }) } as unknown as BuildEngine;
     const runReadOnlySnapshot = jest.fn(async (id: string, fn: (engine: BuildEngine) => Promise<unknown>) => ({ snapshotId: id, identity: {}, warnings: [], result: await fn(engine) }));
     const tool = createBuildIssuesTool({ runReadOnlySnapshot } as unknown as Pick<BuildFoundation, 'runReadOnlySnapshot'>);
     const id = 'a'.repeat(64);
     const result = JSON.parse((await tool.invoke({ snapshot_id: id })).content[0].text);
     expect(result.context.config.enemyIsBoss).toBe('Pinnacle'); expect(result.context.treeVersion).toBe('3_29');
+    expect(result.context.itemSets.activeItemSetId).toBe(1);
     expect(result.issues.map((issue: { code: string }) => issue.code)).toContain('low_health_pool');
     await expect(tool.invoke({ snapshot_id: 'invalid' })).rejects.toThrow();
     expect(runReadOnlySnapshot).toHaveBeenCalledTimes(1);

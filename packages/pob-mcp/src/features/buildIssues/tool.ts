@@ -2,6 +2,7 @@ import type { BuildFoundation } from '../../foundation/buildFoundation.js';
 import type { FeatureTool } from '../../server/featureRegistry.js';
 import { toFiniteNumber } from '../../utils/numbers.js';
 import { isEquippableGearSlot } from '../../domain/itemAnalysis.js';
+import { normalizeEquipment } from '../../domain/equipment.js';
 
 export const issueFields = ['Life', 'LifeUnreserved', 'EnergyShield', 'Mana', 'ManaUnreserved', 'ManaRegen', 'ManaRegenRecovery', 'ManaCost', 'ManaCostPayablePool', 'ManaPerSecondCost', 'HitChance', 'Accuracy', 'FireResist', 'ColdResist', 'LightningResist', 'ChaosResist', 'MissingFireResist', 'MissingColdResist', 'MissingLightningResist', 'FireResistOverCap', 'ColdResistOverCap', 'LightningResistOverCap', 'SpellSuppressionChance', 'EffectiveSpellSuppressionChance', 'TotalDPS', 'CombinedDPS', 'FullDPS', 'MinionTotalDPS', 'MinionCombinedDPS', 'TotalEHP'];
 type Issue = { code: string; severity: 'error' | 'warning' | 'info'; category: string; message: string; evidence: Record<string, unknown>; heuristic?: boolean };
@@ -9,7 +10,7 @@ type Row = Record<string, unknown>;
 const record = (value: unknown): Row | undefined => value && typeof value === 'object' && !Array.isArray(value) ? value as Row : undefined;
 
 /** Evaluate declared checks only; absent inputs never become zero. */
-export function analyzeBuildIssues(input: { stats: unknown; build: unknown; tree: unknown; items: unknown; skills: unknown }) {
+export function analyzeBuildIssues(input: { stats: unknown; build: unknown; tree: unknown; items: unknown; itemSets?: unknown; skills: unknown }) {
   const stats = record(input.stats) ?? {}, build = record(input.build), tree = record(input.tree), skills = record(input.skills);
   const number = (key: string) => {
     const value = stats[key];
@@ -64,13 +65,21 @@ export function analyzeBuildIssues(input: { stats: unknown; build: unknown; tree
   }
   const items = Array.isArray(input.items) ? input.items.map(record) : undefined;
   const validItem = (item: Row | undefined): item is Row => !!item && typeof item.slot === 'string' && typeof item.id === 'number' && Number.isSafeInteger(item.id) && item.id >= 0;
-  checks.items = !items || items.some(item => !validItem(item) || (item.id === 0 && typeof item.shown !== 'boolean')) ? 'unknown' : 'checked';
+  const inUse = (item: Row): boolean | null => {
+    if (item.shown === false) return false;
+    if (typeof item.shown !== 'boolean') return null;
+    if (!/^Weapon [12](?: ?Swap)?(?: Abyssal Socket \d+)?$/i.test(item.slot as string)) return true;
+    try {
+      return normalizeEquipment(input.itemSets as Parameters<typeof normalizeEquipment>[0], [item as Parameters<typeof normalizeEquipment>[1][number]]).slots[0].inUse;
+    } catch { return null; }
+  };
+  checks.items = !items || items.some(item => !validItem(item) || (item.id === 0 && inUse(item) === null)) ? 'unknown' : 'checked';
   if (items) {
     const rows = items.filter(validItem);
-    const emptyJewels = rows.filter(it => /jewel/i.test(it.slot as string) && it.shown === true && it.id === 0).map(it => it.slot);
+    const emptyJewels = rows.filter(it => /jewel/i.test(it.slot as string) && inUse(it) === true && it.id === 0).map(it => it.slot);
     if (emptyJewels.length) add('empty_jewel_sockets', 'warning', 'items', 'Visible jewel sockets are empty.', { slots: emptyJewels });
-    for (const it of rows) if (it.id === 0 && it.shown === true && isEquippableGearSlot(it.slot as string) && !/flask/i.test(it.slot as string)) add('empty_gear_slot', 'warning', 'items', 'A visible equipment slot is empty.', { slot: it.slot });
-    const emptyFlasks = rows.filter(it => /flask/i.test(it.slot as string) && it.shown === true && it.id === 0).map(it => it.slot);
+    for (const it of rows) if (it.id === 0 && inUse(it) === true && (isEquippableGearSlot(it.slot as string) || /^Weapon [12] Swap$/i.test(it.slot as string)) && !/flask/i.test(it.slot as string)) add('empty_gear_slot', 'warning', 'items', 'A visible active equipment slot is empty.', { slot: it.slot });
+    const emptyFlasks = rows.filter(it => /flask/i.test(it.slot as string) && inUse(it) === true && it.id === 0).map(it => it.slot);
     if (emptyFlasks.length) add('empty_flask_slots', emptyFlasks.length >= 3 ? 'error' : 'warning', 'items', 'Visible flask slots are empty.', { slots: emptyFlasks });
   }
   const groups = skills?.groups;
@@ -107,7 +116,7 @@ export function buildIssuesSchema(): FeatureTool['schema'] {
 export function createBuildIssuesTool(foundation: Pick<BuildFoundation, 'runReadOnlySnapshot'>): FeatureTool {
   return { schema: buildIssuesSchema(), invoke: async args => {
     if (Object.keys(args).some(key => key !== 'snapshot_id') || typeof args.snapshot_id !== 'string' || !/^[a-f0-9]{64}$/.test(args.snapshot_id)) throw new Error('Invalid snapshot issue scan options');
-    const { result, ...context } = await foundation.runReadOnlySnapshot(args.snapshot_id, async engine => ({ stats: await engine.getStats(issueFields), build: await engine.getBuildInfo(), tree: await engine.getTree(), items: await engine.getItems(), skills: await engine.getSkills(), config: await engine.getConfig() }));
-    return { content: [{ type: 'text', text: JSON.stringify({ ...context, ...analyzeBuildIssues(result), context: { build: result.build, treeVersion: record(result.tree)?.treeVersion ?? null, skills: result.skills, config: result.config }, warnings: [...context.warnings, 'This is a partial heuristic scan, not validation of item legality, damage assumptions, game mechanics or readiness. Unknown checks are not passes.', 'Thresholds and estimated quest points depend on progression and build mechanics; interpret them in context.', 'Player hit chance is not minion hit chance. Mana cost describes PoB’s currently calculated skill, which may differ from the main skill; it does not establish trigger behavior, all skill costs or sustained casting.'] }) }] };
+    const { result, ...context } = await foundation.runReadOnlySnapshot(args.snapshot_id, async engine => ({ stats: await engine.getStats(issueFields), build: await engine.getBuildInfo(), tree: await engine.getTree(), items: await engine.getItems(), itemSets: await engine.listItemSets(), skills: await engine.getSkills(), config: await engine.getConfig() }));
+    return { content: [{ type: 'text', text: JSON.stringify({ ...context, ...analyzeBuildIssues(result), context: { build: result.build, treeVersion: record(result.tree)?.treeVersion ?? null, itemSets: result.itemSets, skills: result.skills, config: result.config }, warnings: [...context.warnings, 'This is a partial heuristic scan, not validation of item legality, damage assumptions, game mechanics or readiness. Unknown checks are not passes.', 'Thresholds and estimated quest points depend on progression and build mechanics; interpret them in context.', 'Player hit chance is not minion hit chance. Mana cost describes PoB’s currently calculated skill, which may differ from the main skill; it does not establish trigger behavior, all skill costs or sustained casting.'] }) }] };
   } };
 }
