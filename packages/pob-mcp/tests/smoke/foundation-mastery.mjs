@@ -48,6 +48,9 @@ try {
   assert.equal(await foundation.exportBuild(autoLevel.id), autoLevelXml);
   const allocated = await foundation.deriveTree(unallocated.id, mastery.pathNodes, [], { 4139: 47642 });
   const allocatedTree = await foundation.inspect(allocated.id, ['tree']);
+  await assert.rejects(foundation.deriveTreePaths(unallocated.id, [4139]), /requires an effect/);
+  const byPath = await foundation.deriveTreePaths(unallocated.id, [4139], { 4139: 47642 }, true);
+  assert.deepEqual((await foundation.inspect(byPath.snapshot.id, ['tree'])).data.tree, allocatedTree.data.tree);
   assert.ok(mastery.pathNodes.every(node => allocatedTree.data.tree.nodes.includes(node)));
   assert.equal(allocatedTree.data.tree.masteryEffects['4139'], 47642);
   assert.equal((await foundation.inspect(unallocated.id, ['tree'])).data.tree.masteryEffects['4139'], undefined);

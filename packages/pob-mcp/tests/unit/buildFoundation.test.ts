@@ -5,6 +5,46 @@ import { BuildFoundation, type BuildEngine } from '../../src/foundation/buildFou
 import { SnapshotStore } from '../../src/foundation/snapshotStore.js';
 
 describe('BuildFoundation isolation', () => {
+  it('does not publish a partially allocated tree when a later automatic path fails', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'pob-path-atomic-'));
+    try {
+      const store = new SnapshotStore(dir);
+      const parent = await store.create({ xml: '<build/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
+      let nodes = [1];
+      const tree = () => ({ nodes: [...nodes], treeVersion: '3_29', classId: 3, ascendClassId: 0, secondaryAscendClassId: 0, masteryEffects: {} });
+      const engine = { identity: { engineVersion: null, dataVersion: null, adapterVersion: null }, loadBuildXml: async () => {},
+        listSpecs: async () => ({ activeSpec: 1, specs: [{ index: 1, title: 'Default', active: true, nodeCount: 1 }] }), selectSpec: async () => {},
+        getTree: async () => tree(), getItems: async () => [],
+        queryTreePaths: async ({ targetNodeId }: { targetNodeId: number }) => targetNodeId === 2
+          ? { treeVersion: '3_29', mode: 'target', targetNodeId, status: 'found', node: { id: 2, type: 'normal', status: 'reachable', allocated: false, isBlighted: false, pathNodes: [2], pointCost: 1 } }
+          : { treeVersion: '3_29', mode: 'target', targetNodeId, status: 'not_found' },
+        updateTreeDelta: async () => { nodes = [1, 2]; return { tree: tree(), droppedNodes: [] }; }, close: async () => {},
+      } as unknown as BuildEngine;
+      const foundation = new BuildFoundation(store, async () => engine);
+      await expect(foundation.deriveTreePaths(parent.id, [2, 3])).rejects.toThrow('did not find target node 3');
+      expect(nodes).toEqual([1, 2]);
+      expect(await readdir(dir)).toEqual([`${parent.id}.json`]);
+      expect((await store.read(parent.id)).xml).toBe('<build/>');
+      await expect(foundation.deriveTreePaths(parent.id, [2, 2])).rejects.toThrow('Invalid tree path');
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
+  it('rejects automatic paths that alter an inactive passive spec', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'pob-path-inactive-'));
+    try {
+      const store = new SnapshotStore(dir);
+      const parent = await store.create({ xml: '<build/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
+      let currentSpec = 1, added = false;
+      const tree = () => ({ nodes: currentSpec === 1 && added ? [1, 2] : currentSpec === 2 && added ? [4] : [1], treeVersion: '3_29', classId: 3, ascendClassId: 0, secondaryAscendClassId: 0, masteryEffects: {} });
+      const engine = { identity: { engineVersion: null, dataVersion: null, adapterVersion: null }, loadBuildXml: async () => {},
+        listSpecs: async () => ({ activeSpec: currentSpec, specs: [1, 2].map(index => ({ index, title: `Spec ${index}`, active: index === currentSpec, nodeCount: index === 1 && added ? 2 : 1 })) }),
+        selectSpec: async (index: number) => { currentSpec = index; }, getTree: async () => tree(), getItems: async () => [],
+        queryTreePaths: async () => ({ treeVersion: '3_29', mode: 'target', targetNodeId: 2, status: 'found', node: { id: 2, type: 'normal', status: 'reachable', allocated: false, isBlighted: false, pathNodes: [2], pointCost: 1 } }),
+        updateTreeDelta: async () => { added = true; return { tree: tree(), droppedNodes: [] }; }, refreshTreeProgress: async () => {}, close: async () => {},
+      } as unknown as BuildEngine;
+      await expect(new BuildFoundation(store, async () => engine).deriveTreePaths(parent.id, [2])).rejects.toThrow('inactive passive spec');
+      expect(await readdir(dir)).toEqual([`${parent.id}.json`]);
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
   it('rejects auto-equipping when PoB selects no slot or replaces occupied equipment', async () => {
     for (const selectedSlot of [undefined, 'Ring 1']) {
       const dir = await mkdtemp(path.join(tmpdir(), 'pob-auto-item-reject-'));

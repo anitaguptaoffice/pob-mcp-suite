@@ -9,6 +9,7 @@ import { inspectLocalFile, restoreLocalFile } from './restoreLocalFile.js';
 
 /** Experimental surface; enabled only by explicit configuration. */
 export const foundationSchemas: ToolSchema[] = [
+  { name: 'foundation_derive_tree_paths', description: 'Allocate 1–5 target nodes in order using PoB native paths in one verified child. Mastery targets require an explicit effect. Point availability and in-game legality are not established.', inputSchema: { type: 'object', additionalProperties: false, properties: { snapshot_id: { type: 'string' }, targets: { type: 'array', minItems: 1, maxItems: 5, uniqueItems: true, items: { type: 'integer', minimum: 1, maximum: 2147483647 } }, mastery_effects: { type: 'object', additionalProperties: { type: 'integer', minimum: 1 } }, trial: { type: 'boolean' } }, required: ['snapshot_id', 'targets'] } },
   { name: 'foundation_derive_auto_item', description: 'Ask PoB to auto-equip an item in an empty compatible slot and return the selected slot and a verified child. Other sets and specs are checked against the active counterpart, not every combination; game legality is unverified.', inputSchema: { type: 'object', additionalProperties: false, properties: { snapshot_id: { type: 'string' }, item_text: { type: 'string' }, trial: { type: 'boolean' } }, required: ['snapshot_id', 'item_text'] } },
   { name: 'foundation_item_inventory', description: 'List PoB item inventory for a snapshot, including unequipped items, with ID pagination.', inputSchema: { type: 'object', additionalProperties: false, properties: { snapshot_id: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 100 }, after_item_id: { type: 'integer', minimum: 0 } }, required: ['snapshot_id'] } },
   { name: 'foundation_derive_inventory_item', description: 'Add an item without auto-equipping and create a verified child. Checks each equipment set in the active tree and each tree in the active equipment set, not every combination; game legality is unverified.', inputSchema: { type: 'object', additionalProperties: false, properties: { snapshot_id: { type: 'string' }, item_text: { type: 'string' }, trial: { type: 'boolean' } }, required: ['snapshot_id', 'item_text'] } },
@@ -231,6 +232,11 @@ export async function invokeFoundation(foundation: BuildFoundation, name: string
     case 'foundation_mastery_node_options': return foundation.masteryNodeOptions(stringArg('snapshot_id'), args.node_id as number);
     case 'foundation_mastery_options': return foundation.masteryOptions(stringArg('snapshot_id'));
     case 'foundation_derive_masteries': return snapshotMetadata(await foundation.deriveMasteries(stringArg('snapshot_id'), args.effects as Record<string, number>, trialArg()));
+    case 'foundation_derive_tree_paths': {
+      if (Object.keys(args).some(key => !['snapshot_id', 'targets', 'mastery_effects', 'trial'].includes(key))) throw new Error('Invalid tree path options');
+      const result = await foundation.deriveTreePaths(stringArg('snapshot_id'), args.targets as number[], (args.mastery_effects ?? {}) as Record<string, number>, trialArg());
+      return { ...snapshotMetadata(result.snapshot), paths: result.paths };
+    }
     case 'foundation_derive_tree': return snapshotMetadata(await foundation.deriveTree(stringArg('snapshot_id'), (args.add_nodes ?? []) as number[], (args.remove_nodes ?? []) as number[], (args.mastery_effects ?? {}) as Record<string, number>, trialArg()));
     case 'foundation_derive_config': return snapshotMetadata(await foundation.deriveConfig(stringArg('snapshot_id'), args.config as Record<string, string | number | boolean>, trialArg()));
     case 'foundation_derive_item': return snapshotMetadata(await foundation.deriveItem(stringArg('snapshot_id'), stringArg('slot'), stringArg('item_text'), trialArg()));

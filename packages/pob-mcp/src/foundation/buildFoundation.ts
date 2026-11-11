@@ -1036,6 +1036,58 @@ export class BuildFoundation {
     });
   }
 
+  async deriveTreePaths(id: string, targets: number[], masteryEffects: Record<string, number> = {}, trial = false): Promise<{ snapshot: SnapshotRecord; paths: Array<{ targetNodeId: number; status: string; pathNodes: number[] }> }> {
+    if (!Array.isArray(targets) || targets.length < 1 || targets.length > 5 || targets.some(node => !Number.isSafeInteger(node) || node < 1 || node > 2147483647) || new Set(targets).size !== targets.length || !masteryEffects || typeof masteryEffects !== 'object' || Array.isArray(masteryEffects) || Object.entries(masteryEffects).some(([node, effect]) => !/^[1-9][0-9]*$/.test(node) || !targets.includes(Number(node)) || !Number.isSafeInteger(effect) || effect < 1)) throw new Error('Invalid tree path targets or mastery effects');
+    const paths: Array<{ targetNodeId: number; status: string; pathNodes: number[] }> = [];
+    let inactiveSpecs: Awaited<ReturnType<BuildFoundation['inspectSpecs']>> = [];
+    let specCatalog: Awaited<ReturnType<BuildFoundation['readSpecCatalog']>>;
+    let updatedCatalog: typeof specCatalog;
+    const treeState = async (engine: BuildEngine) => {
+      const tree = await engine.getTree() as { nodes?: unknown; treeVersion?: unknown; classId?: unknown; ascendClassId?: unknown; secondaryAscendClassId?: unknown; masteryEffects?: unknown };
+      if (!tree || !Array.isArray(tree.nodes) || tree.nodes.some(node => !Number.isSafeInteger(node) || node < 1) || new Set(tree.nodes).size !== tree.nodes.length || typeof tree.treeVersion !== 'string' || !tree.treeVersion) throw new Error('PoB returned invalid tree state');
+      const value = tree.masteryEffects;
+      if (!value || typeof value !== 'object' || (Array.isArray(value) && value.length > 0)) throw new Error('PoB returned an invalid mastery map');
+      return { ...tree, nodes: tree.nodes as number[], masteryEffects: Array.isArray(value) ? {} : { ...value } as Record<string, number> };
+    };
+    const snapshot = await this.derive(id, 'derived:tree-paths', async engine => {
+      specCatalog = await this.readSpecCatalog(engine);
+      inactiveSpecs = (await this.inspectSpecs(engine, specCatalog, specCatalog.activeSpec)).filter(spec => spec.index !== specCatalog.activeSpec);
+      let current = await treeState(engine), totalAdded = 0;
+      for (const target of targets) {
+        const result = await engine.queryTreePaths({ targetNodeId: target }) as { treeVersion?: unknown; mode?: unknown; targetNodeId?: unknown; status?: unknown; node?: { id?: unknown; status?: unknown; allocated?: unknown; pointCost?: unknown; pathNodes?: unknown; type?: unknown; isBlighted?: unknown } };
+        if (!result || result.mode !== 'target' || result.treeVersion !== current.treeVersion || result.targetNodeId !== target || result.status !== 'found' || !result.node || result.node.id !== target) throw new Error(`PoB did not find target node ${target} on the current tree`);
+        const node = result.node;
+        if (node.status === 'allocated' && node.allocated === true && node.pointCost === 0 && Array.isArray(node.pathNodes) && node.pathNodes.length === 0) {
+          if (masteryEffects[String(target)] !== undefined) throw new Error(`Cannot set an effect on an already allocated target: ${target}`);
+          paths.push({ targetNodeId: target, status: 'already_allocated', pathNodes: [] }); continue;
+        }
+        const path = node.pathNodes;
+        if (node.status !== 'reachable' || node.allocated !== false || node.isBlighted !== false || !Array.isArray(path) || path.length === 0 || path.length > 200 || path.some(n => !Number.isSafeInteger(n) || n < 1 || n > 2147483647 || current.nodes.includes(n)) || new Set(path).size !== path.length || path[path.length - 1] !== target || node.pointCost !== path.length) throw new Error(`Target node ${target} has no valid allocatable path`);
+        totalAdded += path.length; if (totalAdded > 200) throw new Error('Combined tree path exceeds 200 nodes');
+        const effect = masteryEffects[String(target)];
+        if (node.type === 'mastery') {
+          if (effect === undefined) throw new Error(`Mastery target ${target} requires an effect`);
+          const options = await engine.getMasteryNodeOptions(target);
+          if (!options || options.nodeId !== target || options.allocated || !Array.isArray(options.availableEffects) || !options.availableEffects.some(entry => entry.effectId === effect)) throw new Error(`Invalid new mastery effect: ${target}=${effect}`);
+        } else if (effect !== undefined) throw new Error(`Effect provided for non-mastery target: ${target}`);
+        const applied = await engine.updateTreeDelta({ addNodes: path, removeNodes: [], ...(effect === undefined ? {} : { masteryEffects: { [String(target)]: effect } }) });
+        const after = await treeState(engine), expectedNodes = new Set([...current.nodes, ...path]);
+        const expectedMasteries = { ...current.masteryEffects, ...(effect === undefined ? {} : { [String(target)]: effect }) };
+        if ((applied.droppedNodes?.length ?? 0) > 0 || after.nodes.length !== expectedNodes.size || after.nodes.some(n => !expectedNodes.has(n)) || after.treeVersion !== current.treeVersion || after.classId !== current.classId || after.ascendClassId !== current.ascendClassId || after.secondaryAscendClassId !== current.secondaryAscendClassId || !isDeepStrictEqual(after.masteryEffects, expectedMasteries)) throw new Error(`PoB did not apply exactly the path to ${target}`);
+        paths.push({ targetNodeId: target, status: 'allocated', pathNodes: path }); current = after;
+      }
+      if (!totalAdded) throw new Error('All target nodes are already allocated');
+      await engine.refreshTreeProgress();
+      if (!isDeepStrictEqual(await treeState(engine), current)) throw new Error('Tree progress refresh changed the allocated paths');
+      updatedCatalog = await this.readSpecCatalog(engine);
+      const withoutActiveCount = (catalog: typeof specCatalog) => ({ ...catalog, specs: catalog.specs.map(spec => spec.active ? { ...spec, nodeCount: undefined } : spec) });
+      if (updatedCatalog.specs[updatedCatalog.activeSpec - 1].nodeCount !== current.nodes.length || !isDeepStrictEqual(withoutActiveCount(updatedCatalog), withoutActiveCount(specCatalog)) || !isDeepStrictEqual((await this.inspectSpecs(engine, updatedCatalog, updatedCatalog.activeSpec)).filter(spec => spec.index !== updatedCatalog.activeSpec), inactiveSpecs)) throw new Error('Allocating paths changed the active node count, passive spec catalog or an inactive passive spec');
+    }, trial, async engine => {
+      if (!isDeepStrictEqual(await this.readSpecCatalog(engine), updatedCatalog) || !isDeepStrictEqual((await this.inspectSpecs(engine, updatedCatalog, updatedCatalog.activeSpec)).filter(spec => spec.index !== updatedCatalog.activeSpec), inactiveSpecs)) throw new Error('Inactive passive specs did not survive path serialization');
+    });
+    return { snapshot, paths };
+  }
+
   async deriveTree(id: string, addNodes: number[], removeNodes: number[], masteryEffects: Record<string, number> = {}, trial = false): Promise<SnapshotRecord> {
     if (!Array.isArray(addNodes) || !Array.isArray(removeNodes) || addNodes.length + removeNodes.length < 1 ||
         addNodes.length + removeNodes.length > 200 || [...addNodes, ...removeNodes].some(node => !Number.isSafeInteger(node) || node < 1) ||
