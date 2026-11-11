@@ -53,6 +53,10 @@ try {
   assert.deepEqual((await foundation.inspect(byPath.snapshot.id, ['tree'])).data.tree, allocatedTree.data.tree);
   assert.ok(mastery.pathNodes.every(node => allocatedTree.data.tree.nodes.includes(node)));
   assert.equal(allocatedTree.data.tree.masteryEffects['4139'], 47642);
+  const masteryRemoval = await foundation.trialTreeRemoval(allocated.id, 4139);
+  assert.ok(masteryRemoval.removed.some(node => node.id === 4139));
+  assert.equal((await foundation.inspect(masteryRemoval.snapshot.id, ['tree'])).data.tree.masteryEffects['4139'], undefined);
+  assert.equal((await foundation.inspect(allocated.id, ['tree'])).data.tree.masteryEffects['4139'], 47642);
   assert.equal((await foundation.inspect(unallocated.id, ['tree'])).data.tree.masteryEffects['4139'], undefined);
   const completeTree = allocatedTree.data.tree;
   const target = { classId: completeTree.classId, ascendClassId: completeTree.ascendClassId, secondaryAscendClassId: completeTree.secondaryAscendClassId, treeVersion: completeTree.treeVersion, nodes: completeTree.nodes, masteryEffects: completeTree.masteryEffects };

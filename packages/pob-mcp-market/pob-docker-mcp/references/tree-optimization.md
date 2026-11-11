@@ -36,7 +36,11 @@ capability is unavailable, report that limitation.
    For up to five explicit targets, `foundation_derive_tree_paths` recalculates
    PoB's path after each allocation and publishes one child only if all targets
    succeed. Mastery targets require the matching `mastery_effects` entry. It
-   does not perform automatic removals or establish available points or legality.
+   does not remove nodes or establish available points or legality.
+   For removal, `foundation_trial_tree_removal` returns a seven-day trial and
+   every node PoB removed as dependent on the requested node. Review the full
+   list and compare resulting stats before retaining or saving that child. A
+   missing name remains unknown; point refunds and game legality are not proven.
 6. Retain a chosen trial using `foundation_retain_snapshot` or save it with
    `foundation_save_file` only when the user wants the result kept. Seven-day
    trials can expire; neither deriving nor retaining edits an existing file.

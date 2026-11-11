@@ -32,6 +32,7 @@ export interface BuildEngine {
   getTree(): Promise<unknown>;
   refreshTreeProgress(): Promise<void>;
   updateTreeDelta(params: { addNodes: number[]; removeNodes: number[]; masteryEffects?: Record<string, number> }): Promise<{ tree: unknown; droppedNodes?: number[] }>;
+  deallocateTreeNode?(nodeId: number): Promise<{ tree: unknown; expectedRemoved: number[] }>;
   setTree(params: { classId: number; ascendClassId: number; secondaryAscendClassId: number; nodes: number[]; masteryEffects: Record<string, number>; treeVersion: string }, preserveOverrides?: boolean): Promise<unknown>;
   getTreeOverrides?(): Promise<unknown>;
   generateWeightedTradeQuery?(slot: string, options: Record<string, unknown>): Promise<{ query: unknown; warning?: string; weightBaselines: unknown }>;
@@ -1034,6 +1035,47 @@ export class BuildFoundation {
       if (!isDeepStrictEqual(catalog, expectedCatalog) || !isDeepStrictEqual(await this.inspectSpecs(engine, catalog, catalog.activeSpec), expectedSpecs)) throw new Error('Replaced tree or inactive specs did not survive serialization');
       if (overridePolicy === 'preserve' && !isDeepStrictEqual(expectedOverrides, await engine.getTreeOverrides!())) throw new Error('Node overrides did not survive serialization');
     });
+  }
+
+  async trialTreeRemoval(id: string, nodeId: number): Promise<{ snapshot: SnapshotRecord; removed: Array<{ id: number; name: string | null }> }> {
+    if (!Number.isSafeInteger(nodeId) || nodeId < 1 || nodeId > 2147483647) throw new Error('Invalid removal node ID');
+    let removed: Array<{ id: number; name: string | null }> = [];
+    let inactiveSpecs: Awaited<ReturnType<BuildFoundation['inspectSpecs']>> = [];
+    let updatedCatalog: Awaited<ReturnType<BuildFoundation['readSpecCatalog']>>;
+    type Tree = { nodes?: number[]; treeVersion?: string; classId?: number; ascendClassId?: number; secondaryAscendClassId?: number; masteryEffects?: unknown };
+    const validateTree = (value: unknown): Tree & { nodes: number[]; mastery: Record<string, unknown> } => {
+      const tree = value as Tree;
+      if (!tree || typeof tree !== 'object' || Array.isArray(tree) || typeof tree.treeVersion !== 'string' || !tree.treeVersion || !Array.isArray(tree.nodes) || tree.nodes.some(n => !Number.isSafeInteger(n) || n < 1) || new Set(tree.nodes).size !== tree.nodes.length) throw new Error('PoB returned invalid tree state');
+      const mastery = tree.masteryEffects;
+      if (!mastery || typeof mastery !== 'object' || (Array.isArray(mastery) && mastery.length > 0)) throw new Error('PoB returned an invalid mastery map');
+      return { ...tree, nodes: tree.nodes, mastery: Array.isArray(mastery) ? {} : { ...mastery } };
+    };
+    const snapshot = await this.derive(id, 'trial:tree-removal', async engine => {
+      if (!engine.deallocateTreeNode) throw new Error('PoB adapter lacks native tree deallocation');
+      const catalog = await this.readSpecCatalog(engine);
+      inactiveSpecs = (await this.inspectSpecs(engine, catalog, catalog.activeSpec)).filter(spec => spec.index !== catalog.activeSpec);
+      const before = validateTree(await engine.getTree());
+      if (!before.nodes.includes(nodeId)) throw new Error('Requested node is not allocated');
+      const labels = await engine.queryTreePaths({ allocatedOnly: true }) as { mode?: unknown; treeVersion?: unknown; nodes?: Array<{ id?: unknown; name?: unknown; nameKnown?: unknown }> };
+      if (!labels || labels.mode !== 'allocated' || labels.treeVersion !== before.treeVersion || !Array.isArray(labels.nodes) || labels.nodes.some(n => !n || !Number.isSafeInteger(n.id) || typeof n.name !== 'string' || typeof n.nameKnown !== 'boolean') || new Set(labels.nodes.map(n => n.id)).size !== labels.nodes.length || labels.nodes.some(n => !before.nodes.includes(n.id as number))) throw new Error('PoB returned invalid allocated node details');
+      const result = await engine.deallocateTreeNode(nodeId);
+      const after = validateTree(await engine.getTree());
+      const beforeSet = new Set(before.nodes), afterSet = new Set(after.nodes);
+      const actual = before.nodes.filter(node => !afterSet.has(node)).sort((a, b) => a - b);
+      if (!Array.isArray(result.expectedRemoved) || result.expectedRemoved.some(n => !Number.isSafeInteger(n) || n < 1) || !isDeepStrictEqual([...result.expectedRemoved].sort((a, b) => a - b), actual) || !actual.includes(nodeId) || after.nodes.some(node => !beforeSet.has(node)) || before.treeVersion !== after.treeVersion || before.classId !== after.classId || before.ascendClassId !== after.ascendClassId || before.secondaryAscendClassId !== after.secondaryAscendClassId) throw new Error('PoB deallocation did not match its declared dependencies');
+      const expectedMasteries = { ...before.mastery };
+      for (const node of actual) delete expectedMasteries[String(node)];
+      if (!isDeepStrictEqual(expectedMasteries, after.mastery)) throw new Error('PoB deallocation changed unrelated mastery selections');
+      removed = actual.map(id => { const entry = labels.nodes!.find(node => node.id === id); return { id, name: entry?.nameKnown === true ? entry.name as string : null }; });
+      await engine.refreshTreeProgress();
+      if (!isDeepStrictEqual(validateTree(await engine.getTree()), after)) throw new Error('Tree progress refresh changed the removal result');
+      updatedCatalog = await this.readSpecCatalog(engine);
+      const withoutActiveCount = (value: typeof catalog) => ({ ...value, specs: value.specs.map(spec => spec.active ? { ...spec, nodeCount: undefined } : spec) });
+      if (updatedCatalog.specs[updatedCatalog.activeSpec - 1].nodeCount !== after.nodes.length || !isDeepStrictEqual(withoutActiveCount(updatedCatalog), withoutActiveCount(catalog)) || !isDeepStrictEqual((await this.inspectSpecs(engine, updatedCatalog, updatedCatalog.activeSpec)).filter(spec => spec.index !== updatedCatalog.activeSpec), inactiveSpecs)) throw new Error('Tree removal changed a passive spec catalog or an inactive passive spec');
+    }, true, async engine => {
+      if (!isDeepStrictEqual(await this.readSpecCatalog(engine), updatedCatalog) || !isDeepStrictEqual((await this.inspectSpecs(engine, updatedCatalog, updatedCatalog.activeSpec)).filter(spec => spec.index !== updatedCatalog.activeSpec), inactiveSpecs)) throw new Error('Inactive passive specs did not survive tree removal serialization');
+    });
+    return { snapshot, removed };
   }
 
   async deriveTreePaths(id: string, targets: number[], masteryEffects: Record<string, number> = {}, trial = false): Promise<{ snapshot: SnapshotRecord; paths: Array<{ targetNodeId: number; status: string; pathNodes: number[] }> }> {

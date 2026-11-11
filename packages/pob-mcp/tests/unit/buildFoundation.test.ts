@@ -5,6 +5,23 @@ import { BuildFoundation, type BuildEngine } from '../../src/foundation/buildFou
 import { SnapshotStore } from '../../src/foundation/snapshotStore.js';
 
 describe('BuildFoundation isolation', () => {
+  it('refuses a tree removal if PoB removes more than its declared dependencies', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'pob-removal-mismatch-'));
+    try {
+      const store = new SnapshotStore(dir);
+      const parent = await store.create({ xml: '<build/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
+      let nodes = [1, 2, 3];
+      const engine = { identity: { engineVersion: null, dataVersion: null, adapterVersion: null }, loadBuildXml: async () => {},
+        listSpecs: async () => ({ activeSpec: 1, specs: [{ index: 1, title: 'Default', active: true, nodeCount: nodes.length }] }), selectSpec: async () => {},
+        getTree: async () => ({ nodes: [...nodes], treeVersion: '3_29', classId: 3, ascendClassId: 0, secondaryAscendClassId: 0, masteryEffects: {} }), getItems: async () => [],
+        queryTreePaths: async () => ({ mode: 'allocated', treeVersion: '3_29', nodes: nodes.map(id => ({ id, name: `Node ${id}`, nameKnown: true })) }),
+        deallocateTreeNode: async () => { nodes = [1]; return { tree: {}, expectedRemoved: [2] }; }, close: async () => {},
+      } as unknown as BuildEngine;
+      await expect(new BuildFoundation(store, async () => engine).trialTreeRemoval(parent.id, 2)).rejects.toThrow('declared dependencies');
+      expect(await readdir(dir)).toEqual([`${parent.id}.json`]);
+      expect((await store.read(parent.id)).xml).toBe('<build/>');
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
   it('does not publish a partially allocated tree when a later automatic path fails', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'pob-path-atomic-'));
     try {

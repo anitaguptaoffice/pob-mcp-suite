@@ -933,6 +933,12 @@ async setTree(params: {
     };
   }
 
+  async deallocateTreeNode(nodeId: number): Promise<{ tree: TreeState; expectedRemoved: number[] }> {
+    const res = await this.send({ action: 'deallocate_tree_node', params: { nodeId } });
+    if (!res.ok) throw new Error(res.error || 'deallocate_tree_node failed');
+    return res.result as { tree: TreeState; expectedRemoved: number[] };
+  }
+
   async calcWith(params: { addNodes?: Array<number | string>; removeNodes?: Array<number | string>; masteryEffects?: Record<string | number, number>; useFullDPS?: boolean }): Promise<CalcOutput> {
     const res = await this.send({ action: "calc_with", params });
     if (!res.ok) throw new Error(res.error || "calc_with failed");

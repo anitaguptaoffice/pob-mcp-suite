@@ -316,6 +316,7 @@ handlers.update_tree_delta = function(params)
   if not result then return { ok = false, error = err } end
   return { ok = true, tree = result.tree, droppedNodes = result.droppedNodes }
 end
+handlers.deallocate_tree_node = op(BuildOps.deallocate_tree_node, 'result')
 
 handlers.set_config = function(params)
   local result, err = BuildOps.set_config(params or {})

@@ -499,6 +499,29 @@ function M.refresh_tree_progress()
   return true
 end
 
+function M.deallocate_tree_node(params)
+  if not build or not build.spec or not build.spec.nodes then return nil, 'build/spec not initialized' end
+  local id = type(params) == 'table' and params.nodeId
+  if type(id) ~= 'number' or id ~= math.floor(id) or id < 1 or id > 2147483647 then return nil, 'invalid node ID' end
+  local spec, node = build.spec, build.spec.nodes[id]
+  if not node or not spec.allocNodes[id] then return nil, 'node is not allocated' end
+  if node.type == 'ClassStart' or node.type == 'AscendClassStart' or node.classStartIndex then return nil, 'cannot remove a starting node' end
+  if type(node.depends) ~= 'table' then return nil, 'node dependencies unavailable' end
+  local expected, seen = {}, {}
+  for _, dependent in ipairs(node.depends) do
+    if not dependent or type(dependent.id) ~= 'number' or not spec.allocNodes[dependent.id] or seen[dependent.id] then return nil, 'invalid node dependencies' end
+    if dependent.type == 'ClassStart' or dependent.type == 'AscendClassStart' or dependent.classStartIndex then return nil, 'node dependencies include a starting node' end
+    seen[dependent.id] = true; expected[#expected + 1] = dependent.id
+  end
+  if not seen[id] then return nil, 'node dependency set omits target' end
+  table.sort(expected)
+  spec:DeallocNode(node)
+  M.get_main_output()
+  local after, err = M.get_tree()
+  if not after then return nil, err end
+  return { tree = after, expectedRemoved = expected }
+end
+
 function M.update_tree_delta(params)
   if not build or not build.spec then return nil, 'build/spec not initialized' end
   local current, err = M.get_tree()

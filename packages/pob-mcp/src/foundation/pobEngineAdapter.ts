@@ -45,10 +45,12 @@ export async function openPoBEngine(options: PoBEngineOptions): Promise<BuildEng
   let preservingTreeAvailable = false;
   let weightedBaselinesAvailable = false;
   let itemInventoryAvailable = false;
+  let deallocationAvailable = false;
   try {
     await client.start();
     const capabilities = await client.getCapabilities();
     itemInventoryAvailable = capabilities.actions?.includes('get_item_inventory') === true;
+    deallocationAvailable = capabilities.actions?.includes('deallocate_tree_node') === true;
     guardedTreeAvailable = capabilities.actions?.includes('set_tree_guarded') === true;
     preservingTreeAvailable = capabilities.actions?.includes('set_tree_preserve_overrides') === true && capabilities.actions?.includes('get_tree_overrides') === true;
     weightedBaselinesAvailable = capabilities.actions?.includes('generate_weighted_trade_query_v2') === true;
@@ -79,7 +81,7 @@ export async function openPoBEngine(options: PoBEngineOptions): Promise<BuildEng
     setLevel: level => client.setLevel(level), setMainSelection: selection => client.setMainSelection(selection), setCalcsSelection: index => client.setCalcsSelection(index),
     setConfig: config => client.setConfig(config), getBuildInfo: () => client.getBuildInfo(),
     captureSnapshot: () => client.unchangedItemsSnapshot(), getTree: () => client.getTree(),
-    refreshTreeProgress: () => client.refreshTreeProgress(), searchNodes: params => client.searchNodes(params), getMasteryOptions: () => client.getMasteryOptions(), getMasteryNodeOptions: nodeId => client.getMasteryNodeOptions(nodeId), updateTreeDelta: params => client.updateTreeDelta(params),
+    refreshTreeProgress: () => client.refreshTreeProgress(), searchNodes: params => client.searchNodes(params), getMasteryOptions: () => client.getMasteryOptions(), getMasteryNodeOptions: nodeId => client.getMasteryNodeOptions(nodeId), updateTreeDelta: params => client.updateTreeDelta(params), ...(deallocationAvailable ? { deallocateTreeNode: (nodeId: number) => client.deallocateTreeNode(nodeId) } : {}),
     setTree: (params, preserve) => { if (preserve) { if (!preservingTreeAvailable) throw new Error('PoB adapter lacks override-preserving tree replacement'); return client.setTreePreservingOverrides(params); } if (!guardedTreeAvailable) throw new Error('PoB adapter lacks guarded tree replacement'); return client.setTreeGuarded(params); },
     getTreeOverrides: () => { if (!preservingTreeAvailable) throw new Error('PoB adapter lacks node override inspection'); return client.getTreeOverrides(); },
     generateWeightedTradeQuery: (slot, options) => { if (!weightedBaselinesAvailable) throw new Error('PoB adapter lacks weighted trade baselines'); return client.generateWeightedTradeQueryV2(slot, options); },

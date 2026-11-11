@@ -42,6 +42,7 @@ try {
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_derive_flask_active'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_item_sets'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_derive_item_set'));
+  assert.ok(!tools.result.tools.some(t => t.name === 'foundation_trial_tree_removal'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_specs'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_derive_spec'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_create_spec'));
@@ -135,6 +136,7 @@ try {
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_flask_active').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_item_sets').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_item_set').length, 1);
+  assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_trial_tree_removal').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_specs').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_derive_spec').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'foundation_create_spec').length, 1);

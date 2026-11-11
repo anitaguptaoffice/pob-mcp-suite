@@ -14,6 +14,9 @@ try {
   await client.start(); await client.newBuild({ className: 'Witch' });
   await client.setTree({ classId: 3, ascendClassId: 0, nodes: [], treeVersion: '3_29' });
   await client.setLevel(90);
+  const initialTree = await client.getTree();
+  assert.equal(initialTree.nodes.length, 1);
+  await assert.rejects(client.deallocateTreeNode(initialTree.nodes[0]), /starting node/);
   const xml = await client.exportBuildXml();
   const native = await client.searchNodes({ keyword: "Arcanist's Dominion", nodeType: 'notable', maxResults: 30, includeAllocated: false });
   const expectedPath = native.nodes.find(node => node.id === 11420)?.pathNodes;
@@ -46,6 +49,18 @@ try {
   const derived = await call('foundation_derive_tree', { snapshot_id: parent.id, add_nodes: path.node.pathNodes });
   const after = await call('find_snapshot_tree_path', { snapshot_id: derived.id, target_node_id: 11420 });
   assert.equal(after.node.status, 'allocated'); assert.deepEqual(after.node.pathNodes, []);
+  await client.start();
+  await client.loadBuildXml((await call('foundation_export_build', { snapshot_id: derived.id })).xml);
+  const nativeRemoval = await client.deallocateTreeNode(37569);
+  assert.ok(nativeRemoval.expectedRemoved.includes(37569));
+  assert.ok(nativeRemoval.expectedRemoved.includes(11420));
+  const nativeRemovedTree = await client.getTree(); await client.stop();
+  const removed = await call('foundation_trial_tree_removal', { snapshot_id: derived.id, node_id: 37569 });
+  assert.equal(removed.parentId, derived.id); assert.equal(removed.retention.kind, 'trial');
+  assert.deepEqual(removed.removed.map(entry => entry.id), nativeRemoval.expectedRemoved);
+  assert.ok(removed.removed.some(entry => entry.id === 11420 && entry.name === "Arcanist's Dominion"));
+  assert.deepEqual((await call('foundation_inspect', { snapshot_id: removed.id, sections: ['tree'] })).data.tree, nativeRemovedTree);
+  assert.equal((await call('find_snapshot_tree_path', { snapshot_id: derived.id, target_node_id: 11420 })).node.status, 'allocated');
   const nextCandidates = await call('find_snapshot_nearby_nodes', { snapshot_id: derived.id, max_distance: 10, limit: 30 });
   const next = nextCandidates.nodes.find(node => !node.isBlighted && node.status === 'reachable');
   assert.ok(next, 'fixture requires a second reachable target');
