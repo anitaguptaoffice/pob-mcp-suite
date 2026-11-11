@@ -669,6 +669,28 @@ export class BuildFoundation {
     return this.deriveItemChanges(id, [{ slot, itemText }], trial, 'derived:item');
   }
 
+  async deriveAutoItem(id: string, itemText: string, trial = false): Promise<{ snapshot: SnapshotRecord; slot: string; itemId: number }> {
+    if (typeof itemText !== 'string' || !itemText.trim() || Buffer.byteLength(itemText, 'utf8') > 10240) throw new Error('Invalid item text');
+    let slot = '', itemId = 0;
+    let expectedInventory: Array<{ id: number; raw: string }> = [];
+    const snapshot = await this.derive(id, 'derived:auto-item', async engine => {
+      const inventory = await this.readItemInventory(engine);
+      const before = normalizeObservation({ tree: await engine.getTree(), items: await engine.getItems(), skills: await engine.getSkills(), config: await engine.getConfig() });
+      if (!Array.isArray(before.items)) throw new Error('PoB returned invalid equipment');
+      const added = await engine.addItem(itemText);
+      if (!Number.isSafeInteger(added.id) || added.id < 1 || typeof added.slot !== 'string' || !added.slot.trim() || inventory.some(item => item.id === added.id)) throw new Error('PoB did not auto-equip the item into an empty slot');
+      slot = added.slot; itemId = added.id;
+      const after = normalizeObservation({ tree: await engine.getTree(), items: await engine.getItems(), skills: await engine.getSkills(), config: await engine.getConfig() });
+      if (!Array.isArray(after.items) || before.items.filter(item => item.slot === slot && item.id === 0).length !== 1 || after.items.filter(item => item.slot === slot && item.id === itemId).length !== 1 || !isDeepStrictEqual(before.items.filter(item => item.slot !== slot), after.items.filter(item => item.slot !== slot))) throw new Error('PoB changed equipment beyond the selected empty slot');
+      for (const section of ['tree', 'skills', 'config'] as const) if (!isDeepStrictEqual(before[section], after[section])) throw new Error(`Auto-equipping changed unrelated ${section}`);
+      expectedInventory = await this.readItemInventory(engine);
+      if (expectedInventory.filter(item => item.id === itemId).length !== 1 || !isDeepStrictEqual(inventory, expectedInventory.filter(item => item.id !== itemId))) throw new Error('PoB changed unrelated inventory items');
+    }, trial, async engine => {
+      if (!isDeepStrictEqual(expectedInventory, await this.readItemInventory(engine))) throw new Error('Auto-equipped inventory did not survive serialization');
+    });
+    return { snapshot, slot, itemId };
+  }
+
   private async readItemInventory(engine: BuildEngine) {
     if (!engine.getItemInventory) throw new Error('PoB adapter lacks item inventory inspection');
     const items = await engine.getItemInventory();

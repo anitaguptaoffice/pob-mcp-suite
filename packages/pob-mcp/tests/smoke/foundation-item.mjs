@@ -23,6 +23,16 @@ try {
   const foundation = new BuildFoundation(new SnapshotStore(dir), () => openPoBEngine(options));
   const parent = await foundation.importBuild(xml, 'item-fixture');
   const before = await foundation.evaluate(parent.id, ['Life']);
+  const autoFirst = await foundation.deriveAutoItem(parent.id, ring, true);
+  assert.equal(autoFirst.slot, 'Ring 1'); assert.equal(autoFirst.snapshot.parentId, parent.id);
+  const autoSecond = await foundation.deriveAutoItem(autoFirst.snapshot.id, ring, true);
+  assert.equal(autoSecond.slot, 'Ring 2');
+  const both = (await foundation.inspect(autoSecond.snapshot.id, ['items'])).data.items;
+  assert.equal(both.find(item => item.slot === 'Ring 1').id, autoFirst.itemId);
+  assert.equal(both.find(item => item.slot === 'Ring 2').id, autoSecond.itemId);
+  const afterAuto = await foundation.listSnapshots();
+  await assert.rejects(foundation.deriveAutoItem(autoSecond.snapshot.id, ring), /did not auto-equip/);
+  assert.deepEqual(await foundation.listSnapshots(), afterAuto);
   const child = await foundation.deriveItem(parent.id, 'Ring 1', ring);
   assert.equal(child.parentId, parent.id);
   const after = await foundation.evaluate(child.id, ['Life']);
@@ -37,6 +47,9 @@ try {
   try {
     await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'item-smoke', version: '1' } });
     mcp.notify('notifications/initialized', {});
+    const auto = await mcp.request('tools/call', { name: 'foundation_derive_auto_item', arguments: { snapshot_id: parent.id, item_text: ring, trial: true } });
+    assert.ok(!auto.error && !auto.result?.isError, JSON.stringify(auto));
+    assert.equal(JSON.parse(auto.result.content[0].text).slot, 'Ring 1');
     const response = await mcp.request('tools/call', { name: 'foundation_derive_item', arguments: { snapshot_id: parent.id, slot: 'Ring 1', item_text: ring } });
     assert.ok(!response.error && !response.result?.isError, JSON.stringify(response));
     assert.equal(JSON.parse(response.result.content[0].text).id, child.id);

@@ -5,6 +5,23 @@ import { BuildFoundation, type BuildEngine } from '../../src/foundation/buildFou
 import { SnapshotStore } from '../../src/foundation/snapshotStore.js';
 
 describe('BuildFoundation isolation', () => {
+  it('rejects auto-equipping when PoB selects no slot or replaces occupied equipment', async () => {
+    for (const selectedSlot of [undefined, 'Ring 1']) {
+      const dir = await mkdtemp(path.join(tmpdir(), 'pob-auto-item-reject-'));
+      try {
+        const store = new SnapshotStore(dir);
+        const parent = await store.create({ xml: '<build/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
+        let added = false;
+        const engine = { identity: { engineVersion: null, dataVersion: null, adapterVersion: null }, loadBuildXml: async () => {},
+          getItemInventory: async () => [{ id: 1, raw: 'original' }], getTree: async () => ({}), getSkills: async () => ({}), getConfig: async () => ({}),
+          getItems: async () => [{ slot: 'Ring 1', id: added && selectedSlot ? 2 : 1 }],
+          addItem: async () => { added = true; return { id: 2, slot: selectedSlot }; }, close: async () => {},
+        } as unknown as BuildEngine;
+        await expect(new BuildFoundation(store, async () => engine).deriveAutoItem(parent.id, 'item')).rejects.toThrow(selectedSlot ? 'beyond the selected empty slot' : 'did not auto-equip');
+        expect(await readdir(dir)).toEqual([`${parent.id}.json`]);
+      } finally { await rm(dir, { recursive: true, force: true }); }
+    }
+  });
   it('never publishes an inventory item that equips itself, alters an inactive set or spec, or disappears on reload', async () => {
     for (const failure of ['equipped', 'inactive', 'spec', 'lost'] as const) {
       const dir = await mkdtemp(path.join(tmpdir(), 'pob-inventory-reject-'));
