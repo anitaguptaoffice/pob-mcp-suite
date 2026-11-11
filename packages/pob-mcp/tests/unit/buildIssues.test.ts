@@ -40,6 +40,18 @@ describe('snapshot issue scan', () => {
     }
     expect(analyzeBuildIssues(fixture).checks.manaRecoveryObservation).toBe('unknown');
   });
+  it('compares selected-skill cost with PoB payable pool without replacing missing values with zero', () => {
+    const scan = (stats: Record<string, unknown>) => analyzeBuildIssues({ ...fixture, stats });
+    expect(scan({ ManaCost: 50, ManaCostPayablePool: 49, ManaPerSecondCost: 200 }).issues.find(issue => issue.code === 'selected_skill_mana_cost_above_pool')).toMatchObject({ severity: 'warning', evidence: { manaCost: 50, payablePool: 49, manaPerSecondCost: 200 } });
+    for (const stats of [{ ManaCost: 50, ManaCostPayablePool: 50 }, { ManaCost: 0, ManaCostPayablePool: 0 }, { ManaCost: 50, ManaCostPayablePool: 100 }]) {
+      expect(scan(stats).checks.selectedSkillManaCost).toBe('checked');
+      expect(codes(scan(stats))).not.toContain('selected_skill_mana_cost_above_pool');
+    }
+    for (const stats of [{ ManaCost: 50 }, { ManaCost: 50, ManaCostPayablePool: null }, { ManaCost: -1, ManaCostPayablePool: 0 }, { ManaCost: 50, ManaCostPayablePool: false }]) {
+      expect(scan(stats).checks.selectedSkillManaCost).toBe('unknown');
+      expect(codes(scan(stats))).not.toContain('selected_skill_mana_cost_above_pool');
+    }
+  });
   it('preserves slot visibility, passive estimate and clearly labels gem heuristics', () => {
     const result = analyzeBuildIssues({ stats: { ChaosResist: -40, EffectiveSpellSuppressionChance: 50 }, build: { level: 90 }, tree: { nodes: [1], treeVersion: '3_29', ascendancyPointsUsed: 0 }, items: [
       { slot: 'Ring 3', id: 0, shown: false }, { slot: 'Helmet', id: 0, shown: true }, { slot: 'Flask 1', id: 0, shown: true }, { slot: 'Jewel 1', id: 0, shown: false },

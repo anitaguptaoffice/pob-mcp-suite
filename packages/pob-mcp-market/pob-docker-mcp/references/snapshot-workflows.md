@@ -118,9 +118,12 @@ by server configuration. Never assume legacy tools are exposed alongside it.
 - `check_snapshot_issues` includes PoB's player hit chance and mana recovery
   when available. A low hit-chance observation requires checking the actual
   calculation selection and whether player accuracy applies; it is not minion
-  accuracy. Recovery figures alone do not prove a skill is sustainable, and an
-  unknown observation is not a pass. Full immunity and build validation remain
-  outside this partial scan.
+  accuracy. The scan also compares `ManaCost` with PoB's `ManaCostPayablePool`
+  for the calculated skill, which may differ from the main skill. A warning is
+  an observation to investigate, not proof that a triggered skill cannot work.
+  Recovery figures alone do not prove a skill is sustainable, and an unknown
+  observation is not a pass. Full immunity and build validation remain outside
+  this partial scan.
 - Use `inspect_snapshot_ailments` to inspect player non-damaging ailment effects
   under the saved skill and enemy configuration. `appliedEffect` is what PoB
   credits; `calculatedEffect` is a separate estimate, not an uptime guarantee.
