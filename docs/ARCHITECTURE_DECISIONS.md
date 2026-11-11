@@ -225,10 +225,10 @@ only after contract and real-engine validation; do not silently drop a feature.
 The table reports evidence and limitations rather than declaring whole-layer
 acceptance for behavior outside the tested fixtures.
 
-The latest expanded wrapper smoke used a local derivative of the existing PoB
-test image with this branch's compiled server and Lua bridge copied in, once as
-the image's default user and once as the host's numeric UID/GID. It did not
-rebuild or verify the final distributable image, its dependency installation, or
+The expanded wrapper smoke also passed with an image built locally from the
+repository's Dockerfile and this branch, once as the image's default user and
+once as the host's numeric UID/GID. This covers the Dockerfile's dependency
+installation and production pruning, but does not validate a published image or
 the user's installed client configuration; those remain release-gate work.
 
 The first delivery is foundation plus the vertical slice. Only after it passes
