@@ -34,10 +34,10 @@ POE_TRADE_ENABLED="true"                           # Enable Trade API tools
 | `analyze_build` | Full build analysis | "Analyze MyBuild.xml" |
 | `compare_builds` | Compare two builds | "Compare Build1.xml and Build2.xml" |
 | `get_build_stats` | Get stats only | "What are the stats for MyBuild.xml?" |
-| `start_watching` | Monitor for changes | "Start watching builds" |
-| `stop_watching` | Stop monitoring | "Stop watching" |
-| `watch_status` | Check watch status | "Watch status" |
-| `get_recent_changes` | Show recent changes | "What changed recently?" |
+| `start_local_build_watch` | Observe local build files | "开始监视构筑文件" |
+| `stop_local_build_watch` | Stop observation | "停止监视" |
+| `get_local_build_watch` | Read watcher state | "查看监视状态" |
+| `list_local_build_changes` | List bounded change events | "最近有哪些文件变化？" |
 | `refresh_tree_data` | Refresh cached tree data | "Refresh tree data" |
 
 ### Lua Bridge Tools (When Enabled)

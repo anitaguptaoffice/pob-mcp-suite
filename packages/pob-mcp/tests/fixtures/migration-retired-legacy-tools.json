@@ -13,5 +13,25 @@
     "replacement": "simulate_reference_currency_chain",
     "evidence": ["unit/currencyReference.test.ts", "smoke/currency-reference-live.mjs"],
     "note": "Legacy profit verdict removed; chain simulation reports reference conversion and incomplete chains without claiming executable profit."
+  },
+  "start_watching": {
+    "replacement": "start_local_build_watch",
+    "evidence": ["unit/localBuildWatcher.test.ts", "smoke/foundation-file-catalog.mjs", "smoke/foundation-gating.mjs"],
+    "note": "Legacy auto-reloading watcher removed; the replacement observes files without importing or mutating any snapshot."
+  },
+  "stop_watching": {
+    "replacement": "stop_local_build_watch",
+    "evidence": ["unit/localBuildWatcher.test.ts", "smoke/foundation-file-catalog.mjs"],
+    "note": "Legacy watcher control removed; the replacement stops the independent observer and keeps recorded events for this process."
+  },
+  "get_recent_changes": {
+    "replacement": "list_local_build_changes",
+    "evidence": ["unit/localBuildWatcher.test.ts", "smoke/foundation-file-catalog.mjs"],
+    "note": "Legacy unbounded recent-change list removed; the replacement returns ordered bounded events with a session-bound cursor and overflow indicator."
+  },
+  "watch_status": {
+    "replacement": "get_local_build_watch",
+    "evidence": ["unit/localBuildWatcher.test.ts", "smoke/foundation-gating.mjs"],
+    "note": "Legacy status report removed; the replacement reports process-local state, directory, cursor and error."
   }
 }

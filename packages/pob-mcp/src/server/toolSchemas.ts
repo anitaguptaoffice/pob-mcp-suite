@@ -69,43 +69,6 @@ export function getToolSchemas(): ToolSchema[] {
       },
     },
     {
-      name: "start_watching",
-      description: "Start monitoring the builds directory for changes. Builds will be auto-reloaded when saved in PoB.",
-      inputSchema: {
-        type: "object",
-        properties: {},
-      },
-    },
-    {
-      name: "stop_watching",
-      description: "Stop monitoring the builds directory for changes.",
-      inputSchema: {
-        type: "object",
-        properties: {},
-      },
-    },
-    {
-      name: "get_recent_changes",
-      description: "Get a list of recently changed build files.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          limit: {
-            type: "number",
-            description: "Maximum number of recent changes to return (default: 10)",
-          },
-        },
-      },
-    },
-    {
-      name: "watch_status",
-      description: "Check if file watching is currently enabled.",
-      inputSchema: {
-        type: "object",
-        properties: {},
-      },
-    },
-    {
       name: "refresh_tree_data",
       description: "Force refresh the passive skill tree data cache. Use this if tree data seems outdated.",
       inputSchema: {

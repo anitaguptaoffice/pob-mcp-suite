@@ -11,6 +11,7 @@ import { comparableToolSchemas } from '../../src/features/tradeComparable/tool.j
 import { featureRegistry } from '../../src/server/featureModules.js';
 import { currencyReferenceSchemas } from '../../src/features/currencyReference/tools.js';
 import { currencySpreadSchema } from '../../src/features/currencySpread/tool.js';
+import { buildWatchSchemas } from '../../src/features/localBuildWatch/tools.js';
 
 // Historical legacy surface captured before the first route removal. Never
 // regenerate it from the current build: silent removals must fail here.
@@ -36,7 +37,7 @@ test('legacy surface keeps the historical baseline except documented retirements
 });
 
 test('retired legacy tools point at advertised replacement interfaces', () => {
-  const names = [...advertised(), ...currencyReferenceSchemas().map(schema => schema.name), currencySpreadSchema().name];
+  const names = [...advertised(), ...currencyReferenceSchemas().map(schema => schema.name), currencySpreadSchema().name, ...buildWatchSchemas().map(schema => schema.name)];
   const replacements = [...new Set(Object.values(retired).map(entry => entry.replacement))];
   expect(replacements.filter(name => !names.includes(name))).toEqual([]);
 });

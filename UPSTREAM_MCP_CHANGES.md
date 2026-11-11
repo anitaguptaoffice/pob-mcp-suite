@@ -19,7 +19,7 @@ PoB 引擎和 MCP 是两个不同的上游：`vendor/PathOfBuilding/src` 在上�
 | 职业、升华和天赋树 | 从当前天赋树数据读取职业、升华和第二升华名称，避免特殊天赋树被固定名称误判；在点数估算不可靠时避免错误告警。创建角色时使用当前树里的职业数据；切换树版本时清理旧升华状态，避免旧节点引发错误。特殊名称覆盖了替代天赋树，但不能仅凭这些提交确定其对应的赛季名称。 | `packages/pob-mcp/lua/pob_ops.lua`、`src/services/treeService.ts` |
 | PoB 新版接口适配 | 适配当前引擎的物品构造、交易查询构造和查询结果格式；自定义词缀写入独立的 `MCP Custom Mods` 组，保留其他自定义组。这些适配针对上面固定的引擎版本，后续升级仍需验证。 | `packages/pob-mcp/lua/pob_ops.lua`、`lua/vanilla_stdio_bridge.lua` |
 | 交易查询 | 保留按词缀来源区分和审计、多个 `stat_groups` 条件组、在线状态及稀有度筛选等能力，并处理官方词缀数据与查询值格式。 | `packages/pob-mcp/src/handlers/tradeHandlers.ts`、`src/services/tradeQueryBuilder.ts`、`src/services/tradeClient.ts` |
-| 旧接口兼容 | 保留旧版工具声明；测试基于旧工具名称清单检查接口声明。声明存在不等于所有参数组合和游戏机制都经过功能验证。Docker 启动脚本仅在环境变量已设置时传递 `POE_SESSION_ID`。 | `packages/pob-mcp/tests/unit/legacyToolCompatibility.test.ts`、`tests/fixtures/legacy-tool-names.json`、`packages/pob-mcp-market/pob-docker-mcp/scripts/pob-mcp-docker.sh` |
+| 旧接口兼容 | 保留仍在迁移中的旧工具声明；测试以 114 个历史工具基线检查接口声明，并单独记录已退役工具及其替代接口，避免删除后清单检查失效。声明存在不等于所有参数组合和游戏机制都经过功能验证。Docker 启动脚本仅在环境变量已设置时传递 `POE_SESSION_ID`。 | `packages/pob-mcp/tests/unit/legacyToolCompatibility.test.ts`、`tests/fixtures/migration-legacy-tool-names.json`、`tests/fixtures/migration-retired-legacy-tools.json`、`scripts/check-legacy-tool-inventory.mjs`、`packages/pob-mcp-market/pob-docker-mcp/scripts/pob-mcp-docker.sh` |
 | 运行时 | Docker 使用与 PoB SimpleGraphic 对应的固定 LuaJIT 版本，仓库自己的 Lua 辅助模块放在适配层目录内。这样可以运行当前 PoB 所需的 Lua 语法，同时保持引擎源码原样。 | `Dockerfile`、`packages/pob-mcp/lua/` |
 
 表内省略前缀的 `src/`、`lua/` 和 `tests/` 路径均相对于 `packages/pob-mcp/`。

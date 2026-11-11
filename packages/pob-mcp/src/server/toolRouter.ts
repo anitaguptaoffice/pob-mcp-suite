@@ -17,7 +17,7 @@ import { featureRegistry } from './featureModules.js';
 
 // Import handlers
 import { handleListBuilds, handleAnalyzeBuild, handleCompareBuilds, handleGetBuildStats, handleGetBuildNotes, handleSetBuildNotes } from "../handlers/buildHandlers.js";
-import { handleStartWatching, handleStopWatching, handleGetRecentChanges, handleWatchStatus, handleRefreshTreeData } from "../handlers/watchHandlers.js";
+import { handleRefreshTreeData } from "../handlers/watchHandlers.js";
 import { handleCompareTrees, handleGetNearbyNodes, handleFindPath, handleGetPassiveUpgrades, handleSuggestMasteries } from "../handlers/treeHandlers.js";
 import { handleGetBuildIssues, formatIssuesResponse } from "../handlers/buildGoalsHandlers.js";
 import { handleFindBestAnointment } from "../handlers/anointHandlers.js";
@@ -113,18 +113,6 @@ export async function routeToolCall(
     case "get_build_stats":
       if (!args) throw new Error("Missing arguments");
       return await handleGetBuildStats(handlerContext, args.build_name as string);
-
-    case "start_watching":
-      return handleStartWatching(watchContext);
-
-    case "stop_watching":
-      return await handleStopWatching(watchContext);
-
-    case "get_recent_changes":
-      return handleGetRecentChanges(watchContext, args?.limit as number | undefined);
-
-    case "watch_status":
-      return handleWatchStatus(watchContext);
 
     case "refresh_tree_data":
       return await handleRefreshTreeData(watchContext, args?.version as string | undefined);

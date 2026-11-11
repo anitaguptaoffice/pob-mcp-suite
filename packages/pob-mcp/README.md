@@ -326,11 +326,13 @@ data files, credentials, or network service are usable.
 | `get_build_stats` | Extract raw stats from build XML |
 | `get_build_notes` | Get build notes from XML |
 | `set_build_notes` | Set build notes in XML |
-| `start_watching` | Monitor builds directory for changes |
-| `stop_watching` | Stop file monitoring |
-| `watch_status` | Show watching status and cache info |
-| `get_recent_changes` | List recently modified builds |
 | `refresh_tree_data` | Clear passive tree data cache |
+
+File observation moved to the independent watcher tools
+(`start_local_build_watch`, `stop_local_build_watch`,
+`get_local_build_watch`, `list_local_build_changes`). They record bounded
+events and never import or mutate a build automatically; every import stays an
+explicit `foundation_import_file`.
 
 ### Tree Analysis Tools (Always Available)
 
