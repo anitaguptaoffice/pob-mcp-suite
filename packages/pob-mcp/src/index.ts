@@ -15,7 +15,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { BuildFoundation } from './foundation/buildFoundation.js';
 import { SnapshotStore } from './foundation/snapshotStore.js';
-import { openPoBEngine } from './foundation/pobEngineAdapter.js';
+import { openPoBEngine } from './adapters/pob/engine.js';
 import { acquireStoreLock } from './foundation/storeLock.js';
 import { JobStore } from './foundation/jobStore.js';
 import { JobRunner } from './foundation/jobRunner.js';

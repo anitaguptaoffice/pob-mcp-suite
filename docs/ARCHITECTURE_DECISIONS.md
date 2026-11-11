@@ -17,8 +17,9 @@ belong in the adapter. Machine interfaces and internal diagnostics use English;
 user explanations use Simplified Chinese.
 
 The snapshot foundation now depends on `ports/pobEngine.ts`, which owns the
-engine contract and its result types; the Lua client implements it through the
-existing adapter. Shared numeric conversion is independent of that client.
+engine contract and its result types; `adapters/pob/engine.ts` and
+`adapters/pob/bridge.ts` implement it. Fingerprinting helpers live in shared
+infrastructure. Shared numeric conversion is independent of the Lua client.
 `pobEngineBoundary.test.ts` guards the migrated foundation and readers against
 direct bridge dependencies. Legacy feature implementations and compatibility
 exports remain until their callers are migrated and the legacy router is removed.

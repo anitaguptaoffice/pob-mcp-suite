@@ -1,19 +1,25 @@
 # PoB Headless Bridge Plan
 
+> Historical integration notes. The current supported architecture is a local
+> stdio service; the TCP examples and `PoBLuaTcpClient` below describe an old
+> proposal and are not implemented by this repository. See the
+> [architecture decisions](../../../docs/ARCHITECTURE_DECISIONS.md) for the
+> current contract.
+
 This document outlines how we will integrate the forked Path of Building (PoB) headless API into this MCP server to power high‑fidelity calculations and live tree edits.
 
 ## Overview
 - Goal: Use the forked PoB headless API to load builds, compute stats, and edit passive trees from MCP tools.
 - Fork location: `~/Projects/PathOfBuilding` (API server runs from `~/Projects/PathOfBuilding/src`).
 - Transport: stdio JSON lines (one line per request/response), long‑lived process. Optional TCP (embedded in GUI) on 127.0.0.1:POB_API_TCP_PORT.
-- Bridge: `src/pobLuaBridge.ts` spawns and talks to the PoB API.
+- Bridge: `src/adapters/pob/bridge.ts` spawns and talks to the PoB API; `src/pobLuaBridge.ts` is a temporary compatibility export.
 - Rollout: Feature‑flagged; graceful fallback to current XML‑only analysis if headless is unavailable.
 
 ## Architecture
 - Process model: One long‑lived PoB Lua process per MCP server instance (stdio), or embedded in the GUI (TCP).
   - Start: On first “lua_*” tool call (or explicit `lua_start`).
   - Stop: On MCP shutdown (or explicit `lua_stop`).
-- Node bridge (already added): `src/pobLuaBridge.ts`
+- Node bridge: `src/adapters/pob/bridge.ts`
   - Spawns `luajit HeadlessWrapper.lua` in `~/Projects/PathOfBuilding/src` with `POB_API_STDIO=1`.
   - Methods: `start()`, `stop()`, `ping()`, `loadBuildXml()`, `getStats()`, `getTree()`, `setTree()`.
 - Fork API (implemented): `load_build_xml`, `get_stats`, `get_tree`, `set_tree`, `quit`.
