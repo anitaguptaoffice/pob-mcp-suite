@@ -45,3 +45,16 @@ it('recognizes PoB default skill flags after reload without hiding real changes'
   expect(result.results[0].comparison.contextDifferent).toBe(false);
   expect(result.results[0].comparison.metrics.Life.delta).toBe(20);
 });
+it('labels a generated-group reorder as unverified even when a numeric delta is available', async () => {
+  const engine = { getTree: async () => ({ nodes: [10] }), getItems: async () => [{ slot: 'Jewel 10', id: 0 }], inspectItemParse: async () => ({ base: 'Cobalt Jewel', diagnostics: { available: true, unparsed: [] } }) };
+  const runReadOnlySnapshot = jest.fn(async (_id, callback) => ({ identity: identity(), warnings: [], result: await callback(engine) }));
+  const skill = (index: number, name: string, slot?: string) => ({ index, ...(slot ? { slot } : {}), gems: [{ name }] });
+  const context = (groups: object[], calc: number) => ({ skills: { groups, mainSocketGroup: 1, calcsSkillNumber: calc } });
+  const evaluate = jest.fn().mockResolvedValueOnce({ snapshotId: id, identity: identity(), context: context([skill(1, 'Fireball', 'Helmet'), skill(2, ''), skill(3, 'Grace', 'Boots')], 3), warnings: [], metrics: { Life: { status: 'available', value: 100 } } })
+    .mockResolvedValueOnce({ snapshotId: child, identity: identity(), context: context([skill(1, 'Fireball', 'Helmet'), skill(2, 'Grace', 'Boots'), skill(3, '')], 2), warnings: [], metrics: { Life: { status: 'available', value: 120 } } });
+  const tool = createJewelComparisonTool({ runReadOnlySnapshot, deriveItem: async () => ({ id: child }), evaluate } as unknown as Pick<BuildFoundation, 'runReadOnlySnapshot' | 'deriveItem' | 'evaluate'>);
+  const result = JSON.parse((await tool.invoke({ snapshot_id: id, socket_node_id: 10, fields: ['Life'], candidates: [{ name: 'test', item_text: 'x' }] })).content[0].text);
+  expect(result.results[0].comparison).toMatchObject({ contextComparison: 'generated_group_reindexed', metrics: { Life: { status: 'context_reindexed_unverified', delta: 20 } } });
+});
+
+function identity() { return { engineVersion: '1', adapterVersion: '2', dataVersion: '3', runtimeVersion: '4', executableVersion: '5' }; }

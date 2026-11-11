@@ -1,8 +1,7 @@
 import type { BuildFoundation } from '../../foundation/buildFoundation.js';
 import type { FeatureTool } from '../../server/featureRegistry.js';
 import { snapshotMetadata } from '../../foundation/snapshotStore.js';
-import { isDeepStrictEqual } from 'node:util';
-import { normalizeObservation } from '../../foundation/observation.js';
+import { compareJewelContexts } from './context.js';
 
 const object = (x: unknown): x is Record<string, any> => !!x && typeof x === 'object' && !Array.isArray(x);
 const supportedBases = new Set(['Crimson Jewel', 'Cobalt Jewel', 'Viridian Jewel', 'Prismatic Jewel', 'Murderous Eye Jewel', 'Searching Eye Jewel', 'Ghastly Eye Jewel', 'Hypnotic Eye Jewel']);
@@ -54,19 +53,20 @@ export function createJewelComparisonTool(foundation: Pick<BuildFoundation, 'run
         const identities = [validation.identity, baseline.identity, evaluation.identity];
         const identityDifferences = identityKeys.filter(key => new Set(identities.map(identity => identity[key]).filter(Boolean)).size > 1);
         const identityUnknown = identityKeys.filter(key => identities.some(identity => !identity[key]));
-        const contextDifferent = !isDeepStrictEqual(normalizeObservation(baseline.context), normalizeObservation(evaluation.context));
+        const contextComparison = compareJewelContexts(baseline.context, evaluation.context);
+        const contextDifferent = contextComparison === 'different';
         const metrics = Object.fromEntries((fields as string[]).map(field => {
           const before = baseline.metrics[field], after = evaluation.metrics[field];
           if (!before || !after || before.status !== 'available' || after.status !== 'available' || typeof before.value !== 'number' || typeof after.value !== 'number' || !Number.isFinite(before.value) || !Number.isFinite(after.value)) return [field, { status: 'unknown', baseline: before ?? null, candidate: after ?? null, delta: null }];
           const delta = after.value - before.value;
           if (identityDifferences.length || contextDifferent || !Number.isFinite(delta)) return [field, { status: 'incomparable', baseline: before, candidate: after, delta: null }];
-          return [field, { status: identityUnknown.length ? 'identity_unverified' : 'available', baseline: before, candidate: after, delta }];
+          return [field, { status: identityUnknown.length ? 'identity_unverified' : contextComparison === 'generated_group_reindexed' ? 'context_reindexed_unverified' : 'available', baseline: before, candidate: after, delta }];
         }));
         return { name: entry.name, status: 'compared', snapshot: snapshotMetadata(candidate), parseDiagnostics: parsed.diagnostics,
-          comparison: { baseline: { snapshotId, identity: baseline.identity, context: baseline.context, warnings: baseline.warnings }, candidate: { snapshotId: evaluation.snapshotId, identity: evaluation.identity, context: evaluation.context, warnings: evaluation.warnings }, identityDifferences, identityUnknown, contextDifferent, metrics } };
+          comparison: { baseline: { snapshotId, identity: baseline.identity, context: baseline.context, warnings: baseline.warnings }, candidate: { snapshotId: evaluation.snapshotId, identity: evaluation.identity, context: evaluation.context, warnings: evaluation.warnings }, identityDifferences, identityUnknown, contextDifferent, contextComparison, metrics } };
       } catch (error) { return { name: entry.name, status: 'error', snapshot: candidate ? snapshotMetadata(candidate) : null, parseDiagnostics: parsed.diagnostics, error: error instanceof Error ? error.message : String(error) }; }
     }));
     return { content: [{ type: 'text', text: JSON.stringify({ snapshotId, socketNodeId: nodeId, fields, identity: validation.identity, currentDiagnostics: validation.result.currentDiagnostics, results,
-      warnings: [...validation.warnings, 'Each candidate uses the same parent and produces a seven-day trial; retain a desired child explicitly. The parent and saved file are unchanged.', 'Inspect unsupported modifier lines on both current and candidate items; PoB may omit their effects. Empty diagnostics do not prove complete mechanic support.', 'Compare player, minion and full damage as separate metrics. Configuration, uptime, game legality, prices and trade availability require independent verification.', 'Cluster jewel replacements that change the passive tree are rejected; this workflow compares ordinary jewels only.'] }) }] };
+      warnings: [...validation.warnings, 'Each candidate uses the same parent and produces a seven-day trial; retain a desired child explicitly. The parent and saved file are unchanged.', 'Inspect unsupported modifier lines on both current and candidate items; PoB may omit their effects. Empty diagnostics do not prove complete mechanic support.', 'When contextComparison is generated_group_reindexed, the observed generated group moved while other group order and both selections were preserved. Review context when group order affects the build.', 'Compare player, minion and full damage as separate metrics. Configuration, uptime, game legality, prices and trade availability require independent verification.', 'Cluster jewel replacements that change the passive tree are rejected; this workflow compares ordinary jewels only.'] }) }] };
   } };
 }

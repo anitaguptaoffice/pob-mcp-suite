@@ -244,9 +244,11 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   `fields` to compare. It creates separate seven-day trial children and reports
   PoB parse diagnostics for the equipped and candidate jewels. Inspect unparsed
   lines, missing metrics, changed contexts and candidate errors before interpreting
-  deltas; PoB can reorder generated skill groups during serialization, causing
-  the strict context comparison to withhold a delta despite available numbers.
-  Do not assume those numbers are comparable. A child ID can be returned even
+  deltas. `contextComparison: generated_group_reindexed` means a uniquely
+  matched generated group moved while ordinary group order and main/calculation
+  selections remained unchanged. Such deltas are `context_reindexed_unverified`;
+  review whether group order affects the build. Other context changes withhold
+  deltas. A child ID can be returned even
   if its later comparison failed. Retain a desired child explicitly. Cluster and unsupported jewel bases are excluded;
   legality, aura uptime and item prices are not established.
 - For longer comparisons, `submit_snapshot_jewels` queues up to ten candidates;

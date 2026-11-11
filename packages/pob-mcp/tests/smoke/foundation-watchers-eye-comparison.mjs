@@ -33,6 +33,10 @@ try {
   const after = await client.getStats(fields);
   assert.ok(Number.isFinite(before.SpellSuppressionChance) && Number.isFinite(after.SpellSuppressionChance));
   assert.ok(after.SpellSuppressionChance > before.SpellSuppressionChance);
+  await client.loadBuildXml(reorderedXml);
+  const reorderedBefore = await client.getStats(fields);
+  await client.addItem(item, 'Jewel 34483');
+  const reorderedAfter = await client.getStats(fields);
   await client.stop();
 
   const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
@@ -62,9 +66,10 @@ try {
   const reordered = await call('foundation_import_build', { xml: reorderedXml, source: 'watcher-reordered-skill-fixture' });
   const partial = await call('compare_snapshot_jewels', { snapshot_id: reordered.id, socket_node_id: 34483, fields, candidates: [{ name: 'watcher', item_text: item }] });
   const uncertain = partial.results[0].comparison;
-  assert.equal(uncertain.contextDifferent, true);
-  assert.equal(uncertain.metrics.SpellSuppressionChance.status, 'incomparable');
-  assert.equal(uncertain.metrics.SpellSuppressionChance.delta, null);
+  assert.equal(uncertain.contextDifferent, false);
+  assert.equal(uncertain.contextComparison, 'generated_group_reindexed');
+  assert.equal(uncertain.metrics.SpellSuppressionChance.status, 'context_reindexed_unverified');
+  assert.ok(Math.abs(uncertain.metrics.SpellSuppressionChance.delta - (reorderedAfter.SpellSuppressionChance - reorderedBefore.SpellSuppressionChance)) < 0.01);
   assert.equal((await call('foundation_export_build', { snapshot_id: reordered.id })).xml, reorderedXml);
   child.stdin.end(); assert.equal((await exited)[0], 0);
   console.log('foundation watchers eye comparison passed');

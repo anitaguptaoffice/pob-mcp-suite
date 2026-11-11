@@ -27,3 +27,12 @@ it('withholds deltas when separately calculated baselines disagree', async () =>
   expect(result.baselineMismatch).toBe(true); expect(result.status).toBe('partial');
   expect(result.results.every((item: any) => item.status === 'unranked' && item.comparison.metrics.Life.delta === null)).toBe(true);
 });
+it('keeps generated-group reindexing unverified in a completed job', async () => {
+  const report = entry('one', 100);
+  report.results[0].comparison.metrics.Life.status = 'context_reindexed_unverified';
+  const get = jest.fn().mockResolvedValue({ id: 'job', status: 'completed', items: [{ status: 'completed', input, result: report }] });
+  const tool = createJewelJobTools({} as Pick<BuildFoundation, 'readSnapshot'>, { get } as unknown as Pick<JobRunner, 'submitJewels' | 'get'>)[1];
+  const result = JSON.parse((await tool.invoke({ job_id: 'job' })).content[0].text);
+  expect(result.status).toBe('partial');
+  expect(result.results[0].comparison.metrics.Life.status).toBe('context_reindexed_unverified');
+});
