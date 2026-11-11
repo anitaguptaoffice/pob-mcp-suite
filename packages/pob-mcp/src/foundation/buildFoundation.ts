@@ -1017,7 +1017,13 @@ export class BuildFoundation {
       if (overridePolicy === 'preserve' && !isDeepStrictEqual(expectedOverrides, await engine.getTreeOverrides!())) throw new Error('PoB changed node overrides during tree replacement');
       const tree = await engine.getTree() as { classId?: unknown; ascendClassId?: unknown; secondaryAscendClassId?: unknown; treeVersion?: unknown; nodes?: unknown; masteryEffects?: unknown };
       const mastery = Array.isArray(tree?.masteryEffects) && tree.masteryEffects.length === 0 ? {} : tree?.masteryEffects;
-      if (!tree || tree.classId !== target.classId || tree.ascendClassId !== target.ascendClassId || tree.secondaryAscendClassId !== target.secondaryAscendClassId || tree.treeVersion !== target.treeVersion || !Array.isArray(tree.nodes) || tree.nodes.length !== target.nodes.length || new Set(tree.nodes).size !== target.nodes.length || tree.nodes.some(node => !target.nodes.includes(node)) || !isDeepStrictEqual(mastery, target.masteryEffects)) throw new Error('PoB did not apply the complete requested tree');
+      if (!tree || tree.classId !== target.classId || tree.ascendClassId !== target.ascendClassId || tree.secondaryAscendClassId !== target.secondaryAscendClassId || tree.treeVersion !== target.treeVersion || !Array.isArray(tree.nodes) || tree.nodes.length !== target.nodes.length || new Set(tree.nodes).size !== target.nodes.length || tree.nodes.some(node => !target.nodes.includes(node)) || !isDeepStrictEqual(mastery, target.masteryEffects)) {
+        const actual = Array.isArray(tree?.nodes) ? tree.nodes : undefined;
+        const missing = actual ? target.nodes.filter(node => !actual.includes(node)) : [];
+        const extra = actual ? actual.filter(node => !target.nodes.includes(node)) : [];
+        const detail = actual ? `; missing node IDs (${missing.length}): ${missing.slice(0, 20).join(', ')}; unexpected node IDs (${extra.length}): ${extra.slice(0, 20).join(', ')}` : '; applied node list unavailable';
+        throw new Error(`PoB did not apply the complete requested tree${detail}. Check the tree version, class, masteries and socketed jewels.`);
+      }
       for (const [node, effect] of Object.entries(target.masteryEffects)) {
         const options = await engine.getMasteryNodeOptions(Number(node));
         if (!options || options.nodeId !== Number(node) || !options.allocated || options.allocatedEffect !== effect || !options.availableEffects?.some(entry => entry.effectId === effect)) throw new Error(`PoB did not validate mastery effect: ${node}=${effect}`);

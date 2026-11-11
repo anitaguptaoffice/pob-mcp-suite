@@ -93,7 +93,8 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   in an isolated child, and the default is a seven-day trial. Existing node
   overrides cause rejection. Official tree codes omit jewel assignments,
   overrides, equipment and skills; the target keeps its own other data. Cluster
-  nodes may fail without matching socketed jewels. No point or game legality is
+  nodes may fail without matching socketed jewels; errors show counts and up to
+  20 missing and unexpected node IDs. No point or game legality is
   established. This is separate from compressed PoB build-code import.
 - Call `foundation_inspect` with that `snapshot_id` and the needed `sections`
   from `build`, `tree`, `items`, `skills`, and `config`. Use its real PoB state

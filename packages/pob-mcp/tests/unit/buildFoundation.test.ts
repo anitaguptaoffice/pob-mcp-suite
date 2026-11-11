@@ -175,7 +175,7 @@ describe('BuildFoundation isolation', () => {
         listSpecs: async () => catalog, selectSpec: async () => catalog, getTree: async () => ({ treeVersion: '3_29', classId: 3, ascendClassId: 0, secondaryAscendClassId: 0, nodes: [1], masteryEffects: {} }),
         getItems: async () => [], getSkills: async () => ({}), getConfig: async () => ({}), setTree: async () => ({}), close: async () => {} } as unknown as BuildEngine;
       const foundation = new BuildFoundation(store, async () => engine);
-      await expect(foundation.deriveTreeReplacement(parent.id, { classId: 3, ascendClassId: 0, secondaryAscendClassId: 0, treeVersion: '3_29', nodes: [1, 2], masteryEffects: {} })).rejects.toThrow('complete requested tree');
+      await expect(foundation.deriveTreeReplacement(parent.id, { classId: 3, ascendClassId: 0, secondaryAscendClassId: 0, treeVersion: '3_29', nodes: [1, 2], masteryEffects: {} })).rejects.toThrow('missing node IDs (1): 2');
       expect(await readdir(dir)).toEqual([`${parent.id}.json`]);
     } finally { await rm(dir, { recursive: true, force: true }); }
   });
