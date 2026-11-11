@@ -37,6 +37,11 @@ try {
   assert.equal(contribution.results[0].metrics.MinionCombinedDPS.candidate.value, withoutSupport.MinionCombinedDPS);
   assert.equal(contribution.results[0].metrics.MinionCombinedDPS.delta, withoutSupport.MinionCombinedDPS - baseline.MinionCombinedDPS);
   assert.equal((await call('foundation_read_snapshot', { snapshot_id: disabled.id })).parentId, parent.id);
+  const automatic = await call('compare_snapshot_support_contributions', { snapshot_id: parent.id, group_index: group.index, gem_indices: [support.index] });
+  assert.equal(automatic.results[0].status, 'ok', JSON.stringify(automatic.results[0]));
+  assert.equal(automatic.results[0].comparison.metrics.MinionCombinedDPS.candidate.value, withoutSupport.MinionCombinedDPS);
+  assert.equal(automatic.results[0].comparison.metrics.MinionCombinedDPS.delta, withoutSupport.MinionCombinedDPS - baseline.MinionCombinedDPS);
+  assert.equal((await call('foundation_read_snapshot', { snapshot_id: automatic.results[0].snapshotId })).parentId, parent.id);
   const submitted = await call('submit_snapshot_gem_setups', { snapshot_id: parent.id, group_index: group.index, setups: [
     { name: 'current', gems: [{ gemName: 'Summon Raging Spirit' }, { gemName: 'Minion Damage Support' }] },
     { name: 'speed', gems: [{ gemName: 'Summon Raging Spirit' }, { gemName: 'Minion Speed Support' }] },

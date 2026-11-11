@@ -75,6 +75,7 @@ try {
   assert.ok(!tools.result.tools.some(t => t.name === 'compare_snapshot_jewels'));
   assert.ok(!tools.result.tools.some(t => t.name === 'submit_snapshot_jewels' || t.name === 'summarize_snapshot_jewels'));
   assert.ok(!tools.result.tools.some(t => t.name === 'compare_snapshot_gem_setups'));
+  assert.ok(!tools.result.tools.some(t => t.name === 'compare_snapshot_support_contributions'));
   assert.ok(!tools.result.tools.some(t => t.name === 'submit_snapshot_gem_setups' || t.name === 'summarize_snapshot_gem_setups'));
   assert.ok(!tools.result.tools.some(t => t.name === 'rank_snapshot_supports'));
   assert.ok(!tools.result.tools.some(t => t.name === 'rank_discovered_snapshot_supports'));
@@ -174,6 +175,7 @@ try {
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'derive_snapshot_enemy_config').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'summarize_snapshot_passive_ranking').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'compare_snapshot_gem_setups').length, 1);
+  assert.equal(foundationOnly.result.tools.filter(t => t.name === 'compare_snapshot_support_contributions').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'submit_snapshot_gem_setups').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'summarize_snapshot_gem_setups').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'rank_snapshot_supports').length, 1);

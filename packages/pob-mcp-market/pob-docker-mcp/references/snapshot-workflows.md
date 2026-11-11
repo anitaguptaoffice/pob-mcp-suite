@@ -327,12 +327,13 @@ by server configuration. Never assume legacy tools are exposed alongside it.
 
 ## Discover and compare supports
 
-- To investigate the contribution of an existing enabled support, inspect the
-  saved main group first and use its explicit group and gem indices. Confirm
-  PoB reports the support as applied. Disable just that gem in a trial child
-  using `foundation_derive_gem`, then use `compare_snapshot_gem_setups` against
-  the unchanged parent. The candidate delta is the change when the support is
-  removed, not the gain from adding it. Choose the relevant PoB metric and
+- To investigate existing supports, inspect the saved main group first, then use
+  `compare_snapshot_support_contributions` with its group index and up to three
+  explicit gem indices. It separately disables each support PoB confirms is
+  applied, compares each trial with the unchanged parent, and reports failures
+  or unknown application individually. The candidate delta is the change when
+  the support is removed, not the gain from adding it; effects interact, so do
+  not add the deltas. Choose the relevant PoB metric and
   inspect its availability and identity warnings; for poison minions this can
   be `MinionCombinedDPS`. This measures the configured scenario, not support
   uptime, a universal more multiplier, penetration, legality or an optimum.
