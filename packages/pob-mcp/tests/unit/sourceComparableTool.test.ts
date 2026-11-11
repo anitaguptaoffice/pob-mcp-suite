@@ -14,7 +14,7 @@ describe('source-backed comparable pricing', () => {
       ] }] } as StatData }),
       search: async (league: string, query: TradeQuery) => { sent = query; return { source: 'official-trade', fetchedAt: time, request: { league, query: JSON.parse(JSON.stringify(query)) }, data: { id: 'q1', total: 2, result: ['one', 'two'], complexity: 1 } }; },
       fetchListings: async (ids: string[], queryId: string) => ({ source: 'official-trade', fetchedAt: time, request: { ids, queryId }, data: { listings: [
-        { id: 'one', item: { extended: { hashes: { explicit: [['explicit.stat_1', [0]]] } } }, listing: { price: { amount: 4, currency: 'chaos' } } },
+        { id: 'one', item: { league: 'Standard', verified: true, extended: { hashes: { explicit: [['explicit.stat_1', [0]]] } } }, listing: { price: { type: '~b/o', amount: 4, currency: 'chaos' } } },
       ] as unknown as ItemListing[], missingIds: ['two'] } }),
     } as unknown as OfficialTradeSource;
     const report = JSON.parse((await createSourceComparableTool(source).invoke(args)).content[0].text);

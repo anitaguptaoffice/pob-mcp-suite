@@ -2,6 +2,7 @@ import { TradeQueryBuilder } from '../../domain/trade/queryBuilder.js';
 import { auditStatSourceCoverage } from '../../domain/trade/sourceAudit.js';
 import type { ItemListing, SearchResult, StatData, StatFilterGroup, TradeQuery } from '../../types/tradeTypes.js';
 import { collectSourceStatistics } from './sourceStatistics.js';
+import { classifyBuyoutEvidence, emptyBuyoutEvidenceCounts } from '../../domain/trade/buyoutEvidence.js';
 
 interface ComparableClient {
   searchItems(league: string, query: TradeQuery): Promise<SearchResult>;
@@ -43,9 +44,13 @@ export async function estimateComparable(client: ComparableClient, args: Record<
   const listings = await client.fetchItems((search.result ?? []).slice(0, limit), search.id);
   const sourceStatistics = collectSourceStatistics(listings, normalized.flatMap(group => group.filters.map(filter => filter.id)));
   const prices = new Map<string, number[]>();
+  const priceEvidenceCounts = emptyBuyoutEvidenceCounts();
   for (const item of listings) {
+    const evidence = classifyBuyoutEvidence(item, league);
+    priceEvidenceCounts[evidence]++;
+    if (evidence !== 'explicit_buyout') continue;
     const price = item.listing?.price;
-    if (!price || !Number.isFinite(price.amount) || price.amount <= 0 || !price.currency) continue;
+    if (!price) throw new Error('Confirmed buyout price is missing');
     const amounts = prices.get(price.currency) ?? [];
     amounts.push(price.amount);
     prices.set(price.currency, amounts);
@@ -56,12 +61,13 @@ export async function estimateComparable(client: ComparableClient, args: Record<
     return { currency, sampleCount: amounts.length, min: amounts[0], median: amounts.length % 2 ? amounts[midpoint] : amounts[midpoint - 1] / 2 + amounts[midpoint] / 2, max: amounts[amounts.length - 1] };
   });
   return { league, baseType: base, query, searchId: search.id, searchUrl: `https://www.pathofexile.com/trade/search/${encodeURIComponent(league)}/${encodeURIComponent(search.id)}`,
-    listingScope: 'instant_buyout', sourceWarnings, sourceStatistics, checkedAt: new Date().toISOString(), totalMatches: search.total, fetchedCount: listings.length, inexact: search.inexact === true, byCurrency,
+    listingScope: 'instant_buyout', sourceWarnings, sourceStatistics, priceEvidenceCounts, checkedAt: new Date().toISOString(), totalMatches: search.total, fetchedCount: listings.length, inexact: search.inexact === true, byCurrency,
     warnings: [...sourceWarnings, ...(search.inexact ? ['The official search reports inexact results; not every condition is guaranteed to match.'] : []),
       ...(groups.some(group => group.type === 'count' && group.min === 0) ? ['A count group explicitly permits zero matches, so its filters are not required to be present.'] : []),
       'The search targets instant-buyout listings matching the supplied conditions; sellers may be offline and listings may no longer be available. This is not an exact appraisal.',
       'checkedAt is report generation time; search and item details may be cached and it is not the market retrieval time.',
       'At most ten price-sorted listings are sampled; the median does not represent the entire market, and currencies are reported separately.',
+      'Price statistics include only listings explicitly marked ~b/o with verified items in the requested league. Exclusion counts are mutually exclusive first-failure categories. Source statistics cover all fetched listings, including excluded prices.',
       'Source counts match official hashes to query IDs and do not validate values. Conditions with hashComparable=false, including pseudo stats, cannot be counted this way; zero or missing hashes do not prove absence. listingsContainingSource may be unrelated to the query and a listing can count under multiple sources.',
       'Unspecified sources, values, base, corruption and other conditions can materially affect price.'] };
 }

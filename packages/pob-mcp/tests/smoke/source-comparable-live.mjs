@@ -66,10 +66,15 @@ try {
   assert.deepEqual(repeat.sourceTimes, search.sourceTimes);
   const priceArgs = { league: 'Standard', item_name: 'Goldrim', rarity: 'unique', limit: 3 };
   const price = await call('sample_trade_item_price', priceArgs);
+  const priceListings = await call('search_official_trade', { league: 'Standard', item_name: 'Goldrim', item_rarity: 'unique', limit: 3 });
   assert.equal(decodeURIComponent(new URL(price.searchUrl).pathname.split('/').at(-1)), price.searchId);
   assert.equal(price.query.query.status.option, 'securable');
   assert.equal(price.query.query.filters.trade_filters.filters.sale_type.option, 'priced');
   assert.ok(price.pricedCount > 0 && price.pricedCount <= 3);
+  const buyouts = priceListings.listings.filter(listing => listing.item?.verified === true && listing.item?.league === 'Standard' && listing.listing?.price?.type === '~b/o' && typeof listing.listing.price.amount === 'number' && Number.isFinite(listing.listing.price.amount) && listing.listing.price.amount > 0 && typeof listing.listing.price.currency === 'string' && listing.listing.price.currency.trim() === listing.listing.price.currency && !!listing.listing.price.currency);
+  assert.equal(price.priceEvidenceCounts.explicit_buyout, buyouts.length);
+  assert.equal(price.pricedCount, buyouts.length);
+  assert.equal(Object.values(price.priceEvidenceCounts).reduce((sum, count) => sum + count, 0), price.fetchedCount);
   assert.equal(price.byCurrency.reduce((sum, group) => sum + group.sampleCount, 0), price.pricedCount);
   assert.equal(new Set(price.byCurrency.map(group => group.currency)).size, price.byCurrency.length);
   assert.ok(Number.isFinite(Date.parse(price.sourceTimes.search)));

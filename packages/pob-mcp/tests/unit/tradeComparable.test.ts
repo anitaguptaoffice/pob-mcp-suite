@@ -3,12 +3,26 @@ import { estimateComparable } from '../../src/features/tradeComparable/tool.js';
 import type { TradeApiClient } from '../../src/services/tradeClient.js';
 
 describe('comparable trade prices', () => {
+  it('keeps non-buyouts and unverified items out of prices while counting all fetched sources', async () => {
+    const listings = [
+      { item: { league: 'Standard', verified: true, extended: { hashes: { explicit: [['explicit.stat_1', [0]]] } } }, listing: { price: { type: '~b/o', amount: 8, currency: 'chaos' } } },
+      { item: { league: 'Standard', verified: true, extended: { hashes: { explicit: [['explicit.stat_1', [0]]] } } }, listing: { price: { type: '~price', amount: 1, currency: 'chaos' } } },
+      { item: { league: 'Standard', verified: false }, listing: { price: { type: '~b/o', amount: 2, currency: 'chaos' } } },
+      { item: { league: 'Standard', verified: true }, listing: { price: { amount: 3, currency: 'chaos' } } },
+    ];
+    const client = { searchItems: async () => ({ id: 'abc', total: 4, result: ['1', '2', '3', '4'] }), fetchItems: async () => listings } as unknown as Pick<TradeApiClient, 'searchItems' | 'fetchItems'>;
+    const report = await estimateComparable(client, { league: 'Standard', base_type: 'Hubris Circlet', stat_groups: [{ type: 'and', filters: [{ stat_id: 'explicit.stat_1' }] }] });
+    expect(report.byCurrency).toEqual([{ currency: 'chaos', sampleCount: 1, min: 8, median: 8, max: 8 }]);
+    expect(report.priceEvidenceCounts).toEqual({ explicit_buyout: 1, invalid_price: 0, unconfirmed_buyout: 2, unverified_item: 1, league_unconfirmed: 0 });
+    expect(report.sourceStatistics.sampleCount).toBe(4);
+    expect(report.sourceStatistics.matchingListingsBySource.explicit).toBe(2);
+  });
   it('preserves user-confirmed source groups and separates currencies', async () => {
     const searchItems = jest.fn(async () => ({ id: 'abc', complexity: 1, total: 20, result: ['1', '2', '3'] }));
     const fetchItems = jest.fn(async () => [
-      { listing: { price: { amount: 3, currency: 'chaos' } } },
-      { listing: { price: { amount: 7, currency: 'chaos' } } },
-      { listing: { price: { amount: 1, currency: 'divine' } } },
+      { item: { league: 'Standard', verified: true }, listing: { price: { type: '~b/o', amount: 3, currency: 'chaos' } } },
+      { item: { league: 'Standard', verified: true }, listing: { price: { type: '~b/o', amount: 7, currency: 'chaos' } } },
+      { item: { league: 'Standard', verified: true }, listing: { price: { type: '~b/o', amount: 1, currency: 'divine' } } },
     ]);
     const client = { searchItems, fetchItems } as unknown as Pick<TradeApiClient, 'searchItems' | 'fetchItems'>;
     const report = await estimateComparable(client, { league: 'Standard', base_type: 'Hubris Circlet', stat_groups: [

@@ -42,7 +42,12 @@ an explicit snapshot ID; if a needed capability is unavailable, report that limi
 4. Use `estimate_trade_comparable` for a confirmed rare base and stat groups,
    or `sample_trade_item_price` for a confirmed item name. Both sample at most
    ten asking prices, preserve currencies separately, and default to the
-   securable priced search. They are comparable samples, not exact appraisals.
+   securable priced search. Their price statistics include only fetched items
+   confirmed in the requested league, marked verified, and explicitly priced
+   `~b/o`. Check `priceEvidenceCounts` for exclusions; an empty sample is not
+   proof of no listings. Comparable modifier-source counts cover all fetched
+   listings, including those excluded from price statistics. These samples are
+   not exact appraisals.
    `estimate_snapshot_cost` is a separate poe.ninja reference subtotal, not an
    instant-buyout quote or proof that a complete build can be purchased.
 5. Use `compare_official_trade_listings` to inspect raw listings; its price

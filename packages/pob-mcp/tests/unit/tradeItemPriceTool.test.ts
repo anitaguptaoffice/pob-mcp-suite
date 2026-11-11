@@ -10,10 +10,10 @@ describe('named item asking price sampling', () => {
     const source = {
       search: async (league: string, value: TradeQuery) => { query = value; return { source: 'official-trade', fetchedAt: time, request: { league, query: value }, data: { id: 'q', total: 100, result: ['a', 'b', 'c', 'd', 'missing'], inexact: true } }; },
       fetchListings: async (ids: string[], queryId: string) => ({ source: 'official-trade', fetchedAt: time, request: { ids, queryId }, data: { missingIds: ['missing'], listings: [
-        { id: 'a', item: {}, listing: { price: { amount: 2, currency: 'chaos' } } },
-        { id: 'b', item: {}, listing: { price: { amount: 4, currency: 'chaos' } } },
-        { id: 'c', item: {}, listing: { price: { amount: 0.005, currency: 'divine' } } },
-        { id: 'd', item: {}, listing: { price: { amount: 0, currency: 'chaos' } } },
+        { id: 'a', item: { league: 'Standard', verified: true }, listing: { price: { type: '~b/o', amount: 2, currency: 'chaos' } } },
+        { id: 'b', item: { league: 'Standard', verified: true }, listing: { price: { type: '~b/o', amount: 4, currency: 'chaos' } } },
+        { id: 'c', item: { league: 'Standard', verified: true }, listing: { price: { type: '~b/o', amount: 0.005, currency: 'divine' } } },
+        { id: 'd', item: { league: 'Standard', verified: true }, listing: { price: { type: '~b/o', amount: 0, currency: 'chaos' } } },
       ] } }),
     } as unknown as OfficialTradeSource;
     const report = JSON.parse((await createTradeItemPriceTool(source).invoke({ league: 'Standard', item_name: 'Goldrim', rarity: 'unique', limit: 5 })).content[0].text);
@@ -35,10 +35,41 @@ describe('named item asking price sampling', () => {
     expect(source.search).not.toHaveBeenCalled();
   });
 
+  it('excludes negotiated, untyped, unverified and invalid prices from buyout statistics', async () => {
+    const listings = [
+      { id: 'a', item: { league: 'Standard', verified: true }, listing: { price: { type: '~b/o', amount: 8, currency: 'chaos' } } },
+      { id: 'b', item: { league: 'Standard', verified: true }, listing: { price: { type: '~price', amount: 1, currency: 'chaos' } } },
+      { id: 'c', item: { league: 'Standard', verified: true }, listing: { price: { amount: 2, currency: 'chaos' } } },
+      { id: 'd', item: { league: 'Standard', verified: false }, listing: { price: { type: '~b/o', amount: 3, currency: 'chaos' } } },
+      { id: 'e', item: {}, listing: { price: { type: '~b/o', amount: 4, currency: 'chaos' } } },
+      { id: 'f', item: { league: 'Standard', verified: true }, listing: { price: { type: '~b/o', amount: 0, currency: 'chaos' } } },
+      { id: 'g', item: { league: 'Other', verified: true }, listing: { price: { type: '~b/o', amount: 5, currency: 'chaos' } } },
+      { id: 'h', item: { verified: true }, listing: { price: { type: '~b/o', amount: 6, currency: 'chaos' } } },
+    ];
+    const source = {
+      search: async (league: string, query: TradeQuery) => ({ source: 'official-trade', fetchedAt: time, request: { league, query }, data: { id: 'q', total: listings.length, result: listings.map(item => item.id) } }),
+      fetchListings: async (ids: string[], queryId: string) => ({ source: 'official-trade', fetchedAt: time, request: { ids, queryId }, data: { listings, missingIds: [] } }),
+    } as unknown as OfficialTradeSource;
+    const report = JSON.parse((await createTradeItemPriceTool(source).invoke({ league: 'Standard', item_name: 'Goldrim' })).content[0].text);
+    expect(report.byCurrency).toEqual([{ currency: 'chaos', sampleCount: 1, min: 8, median: 8, average: 8, max: 8 }]);
+    expect(report.priceEvidenceCounts).toEqual({ explicit_buyout: 1, invalid_price: 1, unconfirmed_buyout: 2, unverified_item: 2, league_unconfirmed: 2 });
+    expect(report.pricedCount).toBe(1); expect(report.unpricedOrInvalidCount).toBe(1);
+  });
+
+  it('returns no price statistic when none of the fetched listings has confirmed buyout evidence', async () => {
+    const source = {
+      search: async (league: string, query: TradeQuery) => ({ source: 'official-trade', fetchedAt: time, request: { league, query }, data: { id: 'q', total: 1, result: ['a'] } }),
+      fetchListings: async (ids: string[], queryId: string) => ({ source: 'official-trade', fetchedAt: time, request: { ids, queryId }, data: { listings: [{ id: 'a', item: { verified: true, league: 'Standard' }, listing: { price: { type: '~price', amount: 1, currency: 'chaos' } } }], missingIds: [] } }),
+    } as unknown as OfficialTradeSource;
+    const report = JSON.parse((await createTradeItemPriceTool(source).invoke({ league: 'Standard', item_name: 'Goldrim' })).content[0].text);
+    expect(report.byCurrency).toEqual([]); expect(report.pricedCount).toBe(0);
+    expect(report.priceEvidenceCounts.unconfirmed_buyout).toBe(1);
+  });
+
   it('does not overflow when aggregating large finite prices', async () => {
     const source = {
       search: async (league: string, query: TradeQuery) => ({ source: 'official-trade', fetchedAt: time, request: { league, query }, data: { id: 'q', total: 2, result: ['a', 'b'] } }),
-      fetchListings: async (ids: string[], queryId: string) => ({ source: 'official-trade', fetchedAt: time, request: { ids, queryId }, data: { missingIds: [], listings: ids.map(id => ({ id, item: {}, listing: { price: { amount: Number.MAX_VALUE, currency: 'chaos' } } })) } }),
+      fetchListings: async (ids: string[], queryId: string) => ({ source: 'official-trade', fetchedAt: time, request: { ids, queryId }, data: { missingIds: [], listings: ids.map(id => ({ id, item: { league: 'Standard', verified: true }, listing: { price: { type: '~b/o', amount: Number.MAX_VALUE, currency: 'chaos' } } })) } }),
     } as unknown as OfficialTradeSource;
     const report = JSON.parse((await createTradeItemPriceTool(source).invoke({ league: 'Standard', item_name: 'Goldrim' })).content[0].text);
     expect(report.byCurrency[0].median).toBe(Number.MAX_VALUE);
