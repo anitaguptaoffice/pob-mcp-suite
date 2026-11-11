@@ -20,6 +20,8 @@ exec docker run --rm -i \
   -e POB_DIRECTORY=/builds \
   -e POB_FORK_PATH=/opt/PathOfBuilding/src \
   -e POB_LUA_ENABLED="${POB_LUA_ENABLED:-true}" \
+  -e POB_FOUNDATION_ENABLED \
+  -e POB_LEGACY_ENABLED \
   -e POB_CMD="${POB_CMD:-luajit}" \
   -e POE_TRADE_ENABLED="${POE_TRADE_ENABLED:-false}" \
   -e POE_SESSION_ID \

@@ -14,8 +14,8 @@ Trade tools are environment-gated.
 
 ## Snapshot and independent-source workflow
 
-Use these tools when advertised; check the schemas rather than assuming legacy
-tool arguments carry over. They do not share a mutable loaded build.
+Use advertised tools and check their schemas. Build-specific operations require
+an explicit snapshot ID; if a needed capability is unavailable, report that limit.
 
 1. Confirm the exact international league; `list_trade_leagues` lists official
    choices but does not select one for the user. Import a build and keep its
@@ -48,18 +48,10 @@ most 30 fetched results; an empty filtered sample is not an empty market.
 `list_snapshot_equipment` requires a snapshot and exact league; it reports the
 active item set and optional reference prices, not a complete shopping plan.
 
-## Legacy tool selection
-
-On a server that advertises only legacy tools, use `get_leagues`, `search_stats`,
-`search_trade_items`, `get_item_price` and the legacy comparison tools. Their
-loaded build is separate from a snapshot. When available, the independent-source
-tools above take precedence and the legacy `online_only` alias must not be
-passed to `search_official_trade`.
-
 ## Search Workflow
 
 1. Confirm league, budget, item slot, and mandatory stats.
-2. Use `search_trade_stats` before building detailed filters, or legacy `search_stats` with `official_sources=true` when the new tool is unavailable. Identical text under `Explicit`, `Implicit`, `Fractured`, `Crafted`, or `Enchant` represents distinct trade stat IDs.
+2. Use `search_trade_stats` before building detailed filters. Identical text under `Explicit`, `Implicit`, `Fractured`, `Crafted`, or `Enchant` represents distinct trade stat IDs.
    For offline PoB-name or abbreviation lookup, `search_bundled_stat_mappings`
    searches the bundled alias catalog independently. Its candidate IDs are
    unverified and may be obsolete or invalid; do not build a Trade query until
@@ -81,7 +73,7 @@ passed to `search_official_trade`.
 5. Keep searches bounded with price caps, listing status, rarity, links, and stat minimums. For this user, default to `status=securable` for instant-buyout listings; sellers may be offline. `available` also includes in-person trades, while `online` is in-person only.
 6. Prefer a small ranked shortlist over broad market dumps.
 7. If recommending an item, explain what it improves and what it may cost the build.
-8. Preview a candidate with `preview_trade_listings` or `foundation_preview_item` when available; use legacy `compare_equipment_candidate` only for the loaded legacy build. Verify socket and requirement changes separately.
+8. Preview a candidate with `preview_trade_listings` or `foundation_preview_item` when available. Verify socket and requirement changes separately.
 
 ### Source-aware stat group example
 
@@ -115,7 +107,7 @@ Do not mechanically add every identical-text source. A named unique item normall
 
 ## Upgrade Workflow
 
-1. Import the build and inspect its snapshot equipment, or load it when using the legacy server.
+1. Import the build and inspect its snapshot equipment.
 2. Identify the weakest slot or the user-selected slot.
 3. Search with constraints that preserve required stats such as attributes, resistances, suppression, or gem levels.
 4. Apply or simulate one item at a time.

@@ -1,0 +1,54 @@
+import assert from 'node:assert/strict';
+import { spawn, spawnSync } from 'node:child_process';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { once } from 'node:events';
+
+// Run against an explicitly selected local image containing both registries.
+if (!process.env.POB_DOCKER_IMAGE) throw new Error('Set POB_DOCKER_IMAGE to the image under test');
+const builds = await mkdtemp(join(tmpdir(), 'pob-wrapper-smoke-'));
+try {
+  for (const foundation of [false, true]) {
+    const env = { ...process.env, POB_BUILDS_DIR: builds, POE_TRADE_ENABLED: 'true' };
+    delete env.POB_FOUNDATION_ENABLED;
+    delete env.POB_LEGACY_ENABLED;
+    if (foundation) env.POB_FOUNDATION_ENABLED = 'true';
+    const child = spawn(resolve('pob-docker-mcp/scripts/pob-mcp-docker.sh'), [], { env, stdio: ['pipe', 'pipe', 'pipe'] });
+    const exited = once(child, 'exit');
+    let buffer = '', stderr = '', nextId = 0;
+    const pending = new Map();
+    child.stderr.setEncoding('utf8'); child.stderr.on('data', chunk => { stderr += chunk; });
+    child.stdout.setEncoding('utf8'); child.stdout.on('data', chunk => {
+      buffer += chunk;
+      for (;;) {
+        const index = buffer.indexOf('\n'); if (index < 0) break;
+        const line = buffer.slice(0, index); buffer = buffer.slice(index + 1);
+        const message = JSON.parse(line); pending.get(message.id)?.(message); pending.delete(message.id);
+      }
+    });
+    const request = (method, params) => new Promise((resolveRequest, reject) => {
+      const id = ++nextId; pending.set(id, resolveRequest);
+      child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n');
+      const timer = setTimeout(() => { if (pending.delete(id)) reject(new Error(`Timed out: ${method}: ${stderr}`)); }, 60000); timer.unref();
+    });
+    try {
+      const init = await request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'wrapper-smoke', version: '1' } });
+      assert.ok(!init.error, JSON.stringify(init));
+      child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} }) + '\n');
+      const response = await request('tools/list', {}); assert.ok(!response.error, JSON.stringify(response));
+      const names = new Set(response.result.tools.map(tool => tool.name));
+      assert.equal(names.has('foundation_import_build'), foundation);
+      assert.equal(names.has('search_official_trade'), foundation);
+      assert.equal(names.has('lua_load_build'), !foundation);
+      child.stdin.end(); assert.equal((await exited)[0], 0, stderr);
+    } finally { if (child.exitCode === null && child.signalCode === null) { child.kill('SIGTERM'); await exited; } }
+  }
+  console.log('Docker wrapper legacy and snapshot modes passed');
+} finally {
+  // The image runs as root and may own snapshot files in the temporary mount.
+  // Remove only contents of the fresh test directory through the same image.
+  const cleanup = spawnSync('docker', ['run', '--rm', '-v', `${builds}:/cleanup`, '--entrypoint', 'node', process.env.POB_DOCKER_IMAGE, '-e', "const fs=require('fs');for(const name of fs.readdirSync('/cleanup'))fs.rmSync('/cleanup/'+name,{recursive:true,force:true})"], { encoding: 'utf8' });
+  if (cleanup.status !== 0) throw new Error(`Temporary fixture cleanup failed: ${cleanup.stderr}`);
+  await rm(builds, { recursive: true, force: true });
+}

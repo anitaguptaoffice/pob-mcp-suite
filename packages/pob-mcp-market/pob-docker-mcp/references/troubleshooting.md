@@ -2,8 +2,7 @@
 
 Use this reference when the MCP output looks wrong, Docker fails, or a build does not match pobb.in or PoB.
 
-Snapshot mode uses the explicit ID workflow in `snapshot-workflows.md`; references
-to loaded-build and `lua_*` tools below apply only to the legacy server.
+Use the explicit ID workflow in `snapshot-workflows.md`.
 
 ## Build Not Found
 
@@ -13,7 +12,8 @@ Check:
 - The plugin script mounts that directory to `/builds`.
 - The filename passed to the MCP tool exactly matches the saved XML filename.
 
-Use `list_builds` before assuming a build is missing.
+Use `list_local_build_files` before assuming a build is missing; inspect
+`complete` and `issues` because a partial scan cannot prove absence.
 
 ## Lua Bridge Problems
 
@@ -55,7 +55,7 @@ Compare:
 - class and ascendancy names
 - passive count from source page
 - XML `Build` and `Spec` metadata
-- `lua_get_tree` output
+- `foundation_inspect` tree and build observations for the imported snapshot
 
 For alternate trees, node-level legacy ascendancy labels and static passive point counts can be misleading.
 

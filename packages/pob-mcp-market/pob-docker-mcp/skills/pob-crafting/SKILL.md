@@ -13,8 +13,7 @@ item level, modifiers, special state, eligibility or crafting steps. Optional
 `verify_base: true` checks the PoEDB page title only. For an exact international
 league, obtain reference currency prices separately with
 `reference_currency_rates`; use a securable priced official Trade search for
-buyable comparisons. On a legacy server `suggest_crafting` gathers similar
-context. Neither tool is a rules engine or probability simulator. A Scouring Orb
+buyable comparisons. This tool is not a rules engine or probability simulator. A Scouring Orb
 normally removes all explicit modifiers and returns an item to normal rarity;
 protection and special-item rules require separate verification.
 
@@ -24,8 +23,8 @@ the returned data fingerprints, unknown slot counts, pagination, and warnings.
 Only supply `item_tags` with `item_tags_complete: true` after independently
 confirming the complete tag set including `default`; a broad `slot_tags` match
 does not prove eligibility. A base spawn rule is neither a crafting probability
-nor proof that a modifier can be obtained on the item. On older servers, inspect
-advertised tools and use their corresponding legacy queries if available.
+nor proof that a modifier can be obtained on the item. If the required interface
+is unavailable, report that limitation.
 
 When advertised, `inspect_pob_item_affix_weight` accepts a PoB modifier ID and
 complete item text without a snapshot. It uses PoB item data and reports
