@@ -20,6 +20,11 @@ try {
   assert.equal(screened.query.query.status.option, 'securable'); assert.equal(screened.query.query.filters.trade_filters.filters.sale_type.option, 'priced');
   assert.equal(screened.query.query.filters.trade_filters.filters.price.max, 100);
   assert.ok(screened.candidates.some(candidate => candidate.status === 'previewed' && candidate.priceEvidence === 'explicit_buyout' && candidate.preview.snapshotId === parent.id), JSON.stringify(screened));
+  const bundle = await call('assemble_snapshot_budget_bundle', { snapshot_id: parent.id, league: 'Standard', budget_chaos: 100, fields: ['Life'], searches: [{ slot: 'Ring 1', item_type: 'Gold Ring', item_rarity: 'rare', limit: 2 }, { slot: 'Ring 2', item_type: 'Gold Ring', item_rarity: 'rare', limit: 2 }] });
+  assert.equal(bundle.status, 'compared', JSON.stringify({ status: bundle.status, reason: bundle.reason, error: bundle.error, trial: bundle.trial, searches: bundle.searches }));
+  assert.equal(bundle.selected.length, 2); assert.notEqual(bundle.selected[0].itemId, bundle.selected[1].itemId);
+  assert.equal(bundle.subtotal.withinBudget, true); assert.equal(bundle.trial.parentId, parent.id);
+  assert.equal(bundle.comparison.metrics.Life.status, 'available');
   const search = await call('search_official_trade', { league: 'Standard', item_type: 'Gold Ring', item_rarity: 'rare', identified: true, limit: 5 });
   assert.equal(search.listingScope, 'instant_buyout'); assert.ok(search.listings.length > 0);
   assert.equal(search.query.query.status.option, 'securable');

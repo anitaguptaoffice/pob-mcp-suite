@@ -37,6 +37,13 @@ times and partial failures. Individual candidates do not establish the cost or
 combined effect of an entire build, and unconfirmed price types are not proven
 instant buyouts.
 
+For a combined PoB trial, `assemble_snapshot_budget_bundle` chooses one
+previewable, verified explicit chaos buyout per requested slot from bounded
+`securable` and `priced` searches. It sums those selected listings exactly and
+only creates a trial when that subtotal fits the budget. Inspect search failures,
+parse diagnostics and the full comparison context. It is not an optimizer or a
+complete build cost; item availability and uncounted expenses remain uncertain.
+
 For cluster jewels, use `search_cluster_listings`. Enchant text and notable names are local checks over
 at most 30 fetched results; the trade link represents a broader query. Report
 missing or unexamined listings and do not treat an empty sample as an empty market.
