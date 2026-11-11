@@ -327,6 +327,17 @@ by server configuration. Never assume legacy tools are exposed alongside it.
 
 ## Discover and compare supports
 
+- To investigate the contribution of an existing enabled support, inspect the
+  saved main group first and use its explicit group and gem indices. Confirm
+  PoB reports the support as applied. Disable just that gem in a trial child
+  using `foundation_derive_gem`, then use `compare_snapshot_gem_setups` against
+  the unchanged parent. The candidate delta is the change when the support is
+  removed, not the gain from adding it. Choose the relevant PoB metric and
+  inspect its availability and identity warnings; for poison minions this can
+  be `MinionCombinedDPS`. This measures the configured scenario, not support
+  uptime, a universal more multiplier, penetration, legality or an optimum.
+  If the comparison rejects a multi-active-gem group or other changed context,
+  report the limitation rather than guessing from the gem name.
 - Use `rank_discovered_snapshot_supports` with the saved main `group_index`,
   the enabled support `gem_index` to replace and an explicit metric such as
   `MinionCombinedDPS` for poison-inclusive minion damage. PoB finds compatible

@@ -18,12 +18,25 @@ try {
   assert.ok((await client.setConfig({ customMods: 'Minions have 100% chance to Poison on Hit' })).applied.customMods);
   const baseline = await client.getStats(['MinionTotalDPS', 'MinionCombinedDPS']);
   assert.ok(baseline.MinionCombinedDPS > baseline.MinionTotalDPS && baseline.MinionTotalDPS > 0);
+  const support = (await client.getSkills()).groups.find(g => g.index === group.index).gems.find(g => g.name === 'Minion Damage');
+  assert.equal(support.appliedToSelectedSkill, true);
+  await client.setGemEnabled({ groupIndex: group.index, gemIndex: support.index, enabled: false });
+  const withoutSupport = await client.getStats(['MinionTotalDPS', 'MinionCombinedDPS']);
+  assert.ok(withoutSupport.MinionCombinedDPS < baseline.MinionCombinedDPS);
+  await client.setGemEnabled({ groupIndex: group.index, gemIndex: support.index, enabled: true });
   const { xml } = await client.unchangedItemsSnapshot(); await client.stop();
   const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
   child = mcp.child; child.stderr.on('data', () => {}); const exited = once(child, 'exit');
   await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'gem-setup-job-smoke', version: '1' } }); mcp.notify('notifications/initialized', {});
   const call = async (name, args) => { const response = await mcp.request('tools/call', { name, arguments: args }); assert.ok(!response.error && !response.result?.isError, JSON.stringify(response)); return JSON.parse(response.result.content[0].text); };
   const parent = await call('foundation_import_build', { xml, source: 'gem-job-fixture' });
+  const disabled = await call('foundation_derive_gem', { snapshot_id: parent.id, group_index: group.index, gem_index: support.index, changes: { enabled: false }, trial: true });
+  const contribution = await call('compare_snapshot_gem_setups', { snapshot_id: parent.id, group_index: group.index, candidate_snapshot_ids: [disabled.id] });
+  assert.equal(contribution.results[0].status, 'ok', JSON.stringify(contribution.results[0]));
+  assert.equal(contribution.baseline.metrics.MinionCombinedDPS.value, baseline.MinionCombinedDPS);
+  assert.equal(contribution.results[0].metrics.MinionCombinedDPS.candidate.value, withoutSupport.MinionCombinedDPS);
+  assert.equal(contribution.results[0].metrics.MinionCombinedDPS.delta, withoutSupport.MinionCombinedDPS - baseline.MinionCombinedDPS);
+  assert.equal((await call('foundation_read_snapshot', { snapshot_id: disabled.id })).parentId, parent.id);
   const submitted = await call('submit_snapshot_gem_setups', { snapshot_id: parent.id, group_index: group.index, setups: [
     { name: 'current', gems: [{ gemName: 'Summon Raging Spirit' }, { gemName: 'Minion Damage Support' }] },
     { name: 'speed', gems: [{ gemName: 'Summon Raging Spirit' }, { gemName: 'Minion Speed Support' }] },
