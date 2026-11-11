@@ -89,9 +89,9 @@ Generated from registered schema groups in the current build. Most entries are p
 
 ## getPoeNinjaToolSchemas
 
-- `get_currency_rates` — target: market and workflows; replacement: `reference_currency_rates`; status: independent source workflow live-tested, legacy callers require migration; skill references: `skills/pob-economy/SKILL.md`.
-- `find_arbitrage` — target: market and workflows; replacement: `screen_currency_spreads`; status: bounded theoretical screening live-tested, instant-buyout verification and legacy callers remain pending; skill references: `skills/pob-economy/SKILL.md`.
-- `calculate_trading_profit` — target: market and workflows; replacement: `simulate_reference_currency_chain`; status: reference-only workflow live-tested, executable profit and legacy callers remain pending; skill references: `skills/pob-economy/SKILL.md`.
+- `get_currency_rates` — target: market and workflows; replacement: `reference_currency_rates`; status: independent source workflow live-tested, other legacy callers require migration; skill references: no exact name found in packaged skill Markdown.
+- `find_arbitrage` — target: market and workflows; replacement: `screen_currency_spreads`; status: bounded theoretical screening live-tested, instant-buyout verification and other legacy callers remain pending; skill references: no exact name found in packaged skill Markdown.
+- `calculate_trading_profit` — target: market and workflows; replacement: `simulate_reference_currency_chain`; status: reference-only workflow live-tested, executable profit and other legacy callers remain pending; skill references: no exact name found in packaged skill Markdown.
 - `find_timeless_jewel_seeds` — target: timeless jewels; replacement: `search_snapshot_timeless_seeds`, independent snapshot-based feature; status: partially migrated (Elegant Hubris notable seeds and Caspiro fixed keystone only; further independent native transformation comparison remains); skill references: no exact name found in packaged skill Markdown.
 
 ## getSkillGemToolSchemas
@@ -134,8 +134,8 @@ Generated from registered schema groups in the current build. Most entries are p
 - `get_leagues` — target: market and workflows; replacement: `list_trade_leagues`; status: new source tool live-tested, caller migration and legacy removal pending; skill references: `references/trade-tools.md`.
 - `search_stats` — target: market and workflows; replacement: `search_trade_stats` for official metadata; status: new source tool live-tested, static fallback and callers require separate migration; skill references: `references/trade-tools.md`, `skills/pob-docker-mcp/SKILL.md`.
 - `compare_trade_items` — target: market and workflows; replacement: `compare_official_trade_listings` and optional `preview_trade_listings`; status: partially migrated (legacy callers and skills remain); skill references: `references/trade-tools.md`.
-- `find_resistance_gear` — target: market and workflows; replacement: `search_resistance_listings`; status: source-backed search live-tested, legacy callers require migration; skill references: `references/trade-tools.md`, `skills/pob-economy/SKILL.md`.
-- `search_cluster_jewels` — target: market and workflows; replacement: `search_cluster_listings`; status: source-backed bounded search live-tested, legacy aliases and callers require migration; skill references: `skills/pob-economy/SKILL.md`.
+- `find_resistance_gear` — target: market and workflows; replacement: `search_resistance_listings`; status: source-backed search live-tested, legacy callers require migration; skill references: `references/trade-tools.md`.
+- `search_cluster_jewels` — target: market and workflows; replacement: `search_cluster_listings`; status: source-backed bounded search live-tested, legacy aliases and callers require migration; skill references: no exact name found in packaged skill Markdown.
 - `generate_shopping_list` — target: market and workflows; replacement: `list_snapshot_equipment` with optional reference prices and separate securable Trade search; status: partially migrated (legacy file-name callers and skills remain); skill references: `references/trade-tools.md`.
 
 ## getValidationToolSchemas
@@ -144,11 +144,11 @@ Generated from registered schema groups in the current build. Most entries are p
 
 ## buildCostSchemas
 
-- `estimate_build_cost` — target: market and workflows; replacement: `estimate_snapshot_cost` over snapshot and independent economy source; status: new tool implemented and live-tested, legacy caller/skill migration and old route removal pending; skill references: `skills/pob-economy/SKILL.md`.
+- `estimate_build_cost` — target: market and workflows; replacement: `estimate_snapshot_cost` over snapshot and independent economy source; status: new tool implemented and live-tested, other legacy caller migration and old route removal pending; skill references: no exact name found in packaged skill Markdown.
 
 ## comparableToolSchemas
 
-- `estimate_comparable_item` — target: market and workflows; replacement: `estimate_trade_comparable`; status: new source tool live-tested and policy extracted, caller migration and legacy route removal pending; skill references: `skills/pob-economy/SKILL.md`.
+- `estimate_comparable_item` — target: market and workflows; replacement: `estimate_trade_comparable`; status: new source tool live-tested and policy extracted, other caller migration and legacy route removal pending; skill references: no exact name found in packaged skill Markdown.
 
 ## featureRegistry
 
