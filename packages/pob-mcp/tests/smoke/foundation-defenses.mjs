@@ -34,6 +34,12 @@ try {
   const parent = await call('foundation_import_build', { xml, source: 'ci-defense-fixture' });
   const report = await call('inspect_snapshot_defenses', { snapshot_id: parent.id });
   assert.equal(report.groups.pools.Life.value, 1); assert.equal(report.groups.pools.EnergyShield.value, native.EnergyShield);
+  const reference = report.layerReference.layers;
+  assert.equal(reference.recovery.checks.find(check => check.metric === 'LifeRegenPercentOfLife').value, null);
+  for (const [layer, metric] of [['avoidance', 'Evasion'], ['mitigation', 'Armour'], ['recovery', 'EnergyShieldRecharge']]) {
+    const check = reference[layer].checks.find(entry => entry.metric === metric);
+    assert.equal(check.value, typeof native[metric] === 'number' && Number.isFinite(native[metric]) && native[metric] >= 0 ? native[metric] : null);
+  }
   for (const group of Object.values(report.groups)) for (const [field, metric] of Object.entries(group)) {
     if (typeof native[field] === 'number' && Number.isFinite(native[field])) { assert.equal(metric.status, 'available', field); assert.equal(metric.value, native[field], field); }
     else { assert.equal(metric.status, 'unknown', field); assert.equal(metric.value, null, field); }

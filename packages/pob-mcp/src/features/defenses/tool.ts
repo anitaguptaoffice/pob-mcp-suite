@@ -1,5 +1,6 @@
 import type { BuildFoundation } from '../../foundation/buildFoundation.js';
 import type { FeatureTool } from '../../server/featureRegistry.js';
+import { defenseReference } from '../../domain/defenseReference.js';
 
 export const defenseGroups = {
   pools: ['Life', 'LifeUnreserved', 'EnergyShield', 'Ward', 'Mana', 'ManaUnreserved', 'TotalEHP'],
@@ -19,7 +20,7 @@ export function createSnapshotDefensesTool(foundation: Pick<BuildFoundation, 'ev
     if (Object.keys(args).some(key => key !== 'snapshot_id') || typeof args.snapshot_id !== 'string' || !/^[a-f0-9]{64}$/.test(args.snapshot_id)) throw new Error('Invalid snapshot defense options');
     const result = await foundation.evaluate(args.snapshot_id, [...defenseFields]);
     const groups = Object.fromEntries(Object.entries(defenseGroups).map(([name, fields]) => [name, Object.fromEntries(fields.map(field => [field, result.metrics[field] ?? { status: 'unknown', value: null, reason: 'PoB did not provide this metric' }]))]));
-    return { content: [{ type: 'text', text: JSON.stringify({ snapshotId: result.snapshotId, identity: result.identity, context: result.context, groups,
+    return { content: [{ type: 'text', text: JSON.stringify({ snapshotId: result.snapshotId, identity: result.identity, context: result.context, groups, layerReference: defenseReference(result.metrics),
       warnings: [...result.warnings, 'Defensive metrics depend on the saved PoB enemy and character configuration; EHP is not a guarantee of survival.', 'Maximum hit, avoidance, mitigation and recovery measure different situations and must not be added together.', 'Ailment avoidance is calculated under saved PoB conditions, including active flasks; 100% is not proof of permanent immunity, removal of an existing ailment, or corrupted blood protection.', 'Missing metrics are unknown, not zero; this report does not assign a defensive score or prove in-game uptime.'] }) }] };
   } };
 }
