@@ -2,18 +2,22 @@ import { strict as assert } from 'node:assert';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { once } from 'node:events';
 import { PoBLuaApiClient } from '../../build/pobLuaBridge.js';
 import { BuildFoundation } from '../../build/foundation/buildFoundation.js';
 import { SnapshotStore } from '../../build/foundation/snapshotStore.js';
 import { openPoBEngine } from '../../build/foundation/pobEngineAdapter.js';
 import { createSnapshotGemComparisonTool } from '../../build/features/snapshotGemComparison/tool.js';
 import { createSnapshotSupportRankingTool } from '../../build/features/snapshotSupportRanking/tool.js';
+import { createGemUpgradeTool } from '../../build/features/gemUpgrade/tool.js';
 import { gearedBuildXml, smokePoBSrc } from './pobSource.mjs';
+import { startMcpServer } from './mcpClient.mjs';
 
 const dir = await mkdtemp(join(tmpdir(), 'pob-minion-'));
 const options = { cwd: smokePoBSrc(), command: process.env.POB_CMD, adapterPath: resolve('lua/vanilla_stdio_bridge.lua'), timeoutMs: 60000 };
 const client = new PoBLuaApiClient({ cwd: options.cwd, cmd: options.command, args: [options.adapterPath], env: { POB_API_STDIO: '0' }, timeoutMs: 60000 });
 const fields = ['Life', 'TotalDPS', 'CombinedDPS', 'MinionTotalDPS', 'MinionCombinedDPS'];
+let mcpChild;
 try {
   await client.start();
   await client.loadBuildXml(await readFile(gearedBuildXml, 'utf8'));
@@ -39,6 +43,11 @@ try {
   const compared = JSON.parse(comparison.content[0].text);
   assert.equal(compared.results[0].status, 'ok', JSON.stringify(compared.results[0]));
   assert.equal(compared.results[0].metrics.MinionCombinedDPS.delta, lowered.metrics.MinionCombinedDPS.value - actual.metrics.MinionCombinedDPS.value);
+  const upgrade = JSON.parse((await createGemUpgradeTool(foundation).invoke({ snapshot_id: parent.id, group_index: group.index, candidates: [{ gem_index: 1, level: 19 }, { gem_index: 99, quality: 20 }] })).content[0].text);
+  assert.equal(upgrade.results[0].comparison.status, 'ok', JSON.stringify(upgrade.results[0]));
+  assert.equal(upgrade.results[0].comparison.metrics.MinionCombinedDPS.delta, lowered.metrics.MinionCombinedDPS.value - actual.metrics.MinionCombinedDPS.value);
+  assert.equal(upgrade.results[1].comparison.status, 'error');
+  assert.equal((await foundation.readSnapshot(upgrade.results[0].snapshotId)).parentId, parent.id);
   const rankResponse = await createSnapshotSupportRankingTool(foundation).invoke({ snapshot_id: parent.id, group_index: group.index, gem_index: 2, metric: 'MinionCombinedDPS', candidates: [{ gem_name: 'Minion Speed Support' }] });
   const ranked = JSON.parse(rankResponse.content[0].text);
   assert.deepEqual(ranked.rankedCandidates, ['Minion Speed Support'], JSON.stringify(ranked.results));
@@ -52,5 +61,15 @@ try {
   const reloaded = await foundation.evaluate(reload.id, fields);
   assert.deepEqual(reloaded.stats, changed.stats);
   assert.equal(await foundation.exportBuild(parent.id), xml);
+  const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: join(dir, 'mcp'), POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
+  mcpChild = mcp.child; mcpChild.stderr.on('data', () => {}); const exited = once(mcpChild, 'exit');
+  await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'gem-upgrade-smoke', version: '1' } }); mcp.notify('notifications/initialized', {});
+  const call = async (name, args) => { const response = await mcp.request('tools/call', { name, arguments: args }); assert.ok(!response.error && !response.result?.isError, JSON.stringify(response).slice(0, 1200)); return JSON.parse(response.result.content[0].text); };
+  const imported = await call('foundation_import_build', { xml, source: 'gem-upgrade-fixture' });
+  const viaMcp = await call('compare_snapshot_gem_upgrades', { snapshot_id: imported.id, group_index: group.index, candidates: [{ gem_index: 1, level: 19 }] });
+  assert.equal(viaMcp.results[0].comparison.status, 'ok', JSON.stringify(viaMcp.results[0]));
+  assert.equal(viaMcp.results[0].comparison.metrics.MinionCombinedDPS.delta, lowered.metrics.MinionCombinedDPS.value - actual.metrics.MinionCombinedDPS.value);
+  assert.equal((await call('foundation_export_build', { snapshot_id: imported.id })).xml, xml);
+  mcpChild.stdin.end(); assert.equal((await exited)[0], 0);
   console.log('foundation poison minion roundtrip passed');
-} finally { await client.stop(); await rm(dir, { recursive: true, force: true }); }
+} finally { if (mcpChild && mcpChild.exitCode === null && mcpChild.signalCode === null) mcpChild.kill('SIGTERM'); await client.stop(); await rm(dir, { recursive: true, force: true }); }

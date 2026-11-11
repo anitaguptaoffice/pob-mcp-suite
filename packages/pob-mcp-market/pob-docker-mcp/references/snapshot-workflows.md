@@ -273,6 +273,13 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   Disabled groups and gems remain visible. Unknown gem classification and
   support-application state must not be interpreted as confirmed compatibility.
   Level and quality alone do not establish corruption state, benefit or price.
+- To compare explicit level or quality changes, call
+  `compare_snapshot_gem_upgrades` with the saved main `group_index` and up to
+  three candidates containing `gem_index` and `level` and/or `quality`. Each
+  candidate changes one gem in its own trial. Check each `comparison.status`,
+  baseline, identity warnings and the appropriate player or minion metric;
+  an error can still return a trial ID. The tool neither combines candidates
+  nor establishes cost, availability, corruption or socket legality.
 - Use the selected main group's one-based index. Submit
   `submit_snapshot_gem_setups` with `snapshot_id`, `group_index`, and 2–5
   `setups`: each has a unique `name` and a complete `gems` array of 1–6

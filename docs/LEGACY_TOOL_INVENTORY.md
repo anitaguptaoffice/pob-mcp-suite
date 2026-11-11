@@ -102,7 +102,7 @@ Generated from registered schema groups in the current build. Most entries are p
 - `rank_support_gems` — target: analysis and optimization; replacement: `foundation_replace_support` and `rank_snapshot_supports`; status: partially migrated (legacy callers remain); skill references: no exact name found in packaged skill Markdown.
 - `validate_gem_quality` — target: analysis and optimization; replacement: `inspect_snapshot_skill_groups` with `all_groups`; status: partially migrated (legacy callers remain; no quality benefit or corruption inferred); skill references: no exact name found in packaged skill Markdown.
 - `find_optimal_links` — target: analysis and optimization; replacement: `rank_discovered_snapshot_supports` for bounded compatible support discovery and PoB comparisons, or explicit candidate comparisons; status: partial, global optimum, prices, socket legality and legacy callers remain; skill references: no exact name found in packaged skill Markdown.
-- `gem_upgrade_path` — target: analysis and optimization; replacement: `inspect_snapshot_skill_groups` plus explicit comparisons; status: partially migrated (legacy callers remain; prices and upgrade priorities remain unknown); skill references: no exact name found in packaged skill Markdown.
+- `gem_upgrade_path` — target: analysis and optimization; replacement: `inspect_snapshot_skill_groups` and `compare_snapshot_gem_upgrades` for explicit level or quality trials; status: partially migrated (legacy callers remain; prices and upgrade priorities remain unknown); skill references: no exact name found in packaged skill Markdown.
 
 ## getToolSchemas
 
