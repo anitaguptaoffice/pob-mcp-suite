@@ -39,7 +39,8 @@ export interface BuildEngine {
   getMasteryOptions(): Promise<{ masteries: Array<{ nodeId: number | string; nodeName?: string; allocatedEffect?: number; availableEffects: Array<{ effectId: number; stat?: string }> }> }>;
   searchNodes(params: { keyword: string; nodeType?: string; maxResults: number; includeAllocated: boolean }): Promise<{ nodes: unknown[]; count: number }>;
   getItems(): Promise<unknown>;
-  addItem(itemText: string, slot: string): Promise<{ id: number; slot?: string }>;
+  addItem(itemText: string, slot?: string, noAutoEquip?: boolean): Promise<{ id: number; slot?: string }>;
+  getItemInventory?(): Promise<Array<{ id: number; raw: string }>>;
   getItemAffixWeight(modId: string, itemText: string): Promise<{ modId: string; base: string; weight: number; itemLevel?: number; requiredItemLevel?: number; affixType?: string; affixGroup?: string }>;
   getSkills(): Promise<unknown>;
   setGemLevel(params: { groupIndex: number; gemIndex: number; level: number }): Promise<void>;
@@ -666,6 +667,37 @@ export class BuildFoundation {
 
   async deriveItem(id: string, slot: string, itemText: string, trial = false): Promise<SnapshotRecord> {
     return this.deriveItemChanges(id, [{ slot, itemText }], trial, 'derived:item');
+  }
+
+  private async readItemInventory(engine: BuildEngine) {
+    if (!engine.getItemInventory) throw new Error('PoB adapter lacks item inventory inspection');
+    const items = await engine.getItemInventory();
+    if (!Array.isArray(items) || items.some(item => !item || !Number.isSafeInteger(item.id) || item.id < 1 || typeof item.raw !== 'string') || new Set(items.map(item => item.id)).size !== items.length) throw new Error('PoB returned invalid item inventory');
+    return [...items].sort((a, b) => a.id - b.id);
+  }
+
+  async itemInventory(id: string, limit = 50, afterItemId = 0) {
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100 || !Number.isSafeInteger(afterItemId) || afterItemId < 0) throw new Error('Invalid inventory pagination');
+    const { result, ...context } = await this.runReadOnlySnapshot(id, engine => this.readItemInventory(engine));
+    const remaining = result.filter(item => item.id > afterItemId);
+    const items = remaining.slice(0, limit);
+    return { ...context, items, total: result.length, nextAfterItemId: remaining.length > items.length ? items[items.length - 1].id : null };
+  }
+
+  async deriveInventoryItem(id: string, itemText: string, trial = false): Promise<SnapshotRecord> {
+    if (typeof itemText !== 'string' || !itemText.trim() || Buffer.byteLength(itemText, 'utf8') > 10240) throw new Error('Invalid item text');
+    let expected: Array<{ id: number; raw: string }> = [];
+    return this.derive(id, 'derived:inventory-item', async engine => {
+      const inventory = await this.readItemInventory(engine);
+      const before = normalizeObservation({ tree: await engine.getTree(), items: await engine.getItems(), skills: await engine.getSkills(), config: await engine.getConfig() });
+      const added = await engine.addItem(itemText, undefined, true);
+      expected = await this.readItemInventory(engine);
+      if (!Number.isSafeInteger(added.id) || added.id < 1 || added.slot != null || inventory.some(item => item.id === added.id) || expected.filter(item => item.id === added.id).length !== 1 || !isDeepStrictEqual(inventory, expected.filter(item => item.id !== added.id))) throw new Error('PoB did not add exactly one unequipped item');
+      const after = normalizeObservation({ tree: await engine.getTree(), items: await engine.getItems(), skills: await engine.getSkills(), config: await engine.getConfig() });
+      if (!isDeepStrictEqual(before, after)) throw new Error('Adding an inventory item changed the build');
+    }, trial, async engine => {
+      if (!isDeepStrictEqual(expected, await this.readItemInventory(engine))) throw new Error('Item inventory did not survive serialization');
+    });
   }
 
   async deriveItems(id: string, items: Array<{ slot: string; itemText: string }>, trial = false): Promise<SnapshotRecord> {

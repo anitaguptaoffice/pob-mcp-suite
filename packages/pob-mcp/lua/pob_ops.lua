@@ -1194,6 +1194,19 @@ function M.set_flask_active(params)
 end
 
 
+function M.get_item_inventory()
+  if not build or not build.itemsTab then return nil, 'items not initialized' end
+  local result = {}
+  for id, item in pairs(build.itemsTab.items or {}) do
+    if type(id) ~= 'number' or id < 1 or id ~= math.floor(id) or type(item.raw) ~= 'string' then
+      return nil, 'invalid item inventory'
+    end
+    table.insert(result, { id = id, raw = item.raw })
+  end
+  table.sort(result, function(a, b) return a.id < b.id end)
+  return result
+end
+
 function M.get_items()
   if not build or not build.itemsTab then return nil, 'items not initialized' end
   local itemsTab = build.itemsTab

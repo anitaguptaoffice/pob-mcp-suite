@@ -9,6 +9,8 @@ import { inspectLocalFile, restoreLocalFile } from './restoreLocalFile.js';
 
 /** Experimental surface; enabled only by explicit configuration. */
 export const foundationSchemas: ToolSchema[] = [
+  { name: 'foundation_item_inventory', description: 'List PoB item inventory for a snapshot, including unequipped items, with ID pagination.', inputSchema: { type: 'object', additionalProperties: false, properties: { snapshot_id: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 100 }, after_item_id: { type: 'integer', minimum: 0 } }, required: ['snapshot_id'] } },
+  { name: 'foundation_derive_inventory_item', description: 'Add an explicit item to inventory without auto-equipping, verify active equipment and inventory after reload, and create a child snapshot. Inactive equipment sets and game legality are not independently verified.', inputSchema: { type: 'object', additionalProperties: false, properties: { snapshot_id: { type: 'string' }, item_text: { type: 'string' }, trial: { type: 'boolean' } }, required: ['snapshot_id', 'item_text'] } },
   { name: 'foundation_replace_tree', description: 'Replace the complete active passive tree in a verified child snapshot. Existing node overrides are rejected by default; preserve may retain them only on the same tree version. Target overrides and in-game legality are not supported.', inputSchema: { type: 'object', additionalProperties: false, properties: { snapshot_id: { type: 'string' }, trial: { type: 'boolean' }, override_policy: { type: 'string', enum: ['reject', 'preserve'] }, tree: { type: 'object', additionalProperties: false, properties: { classId: { type: 'integer', minimum: 0 }, ascendClassId: { type: 'integer', minimum: 0 }, secondaryAscendClassId: { type: 'integer', minimum: 0 }, treeVersion: { type: 'string' }, nodes: { type: 'array', maxItems: 2000, uniqueItems: true, items: { type: 'integer', minimum: 1 } }, masteryEffects: { type: 'object', additionalProperties: { type: 'integer', minimum: 1 } } }, required: ['classId', 'ascendClassId', 'secondaryAscendClassId', 'treeVersion', 'nodes', 'masteryEffects'] } }, required: ['snapshot_id', 'tree'] } },
   { name: 'inspect_unpaired_legacy_xml', description: 'Fingerprint an old history XML without readable metadata, selected from list_legacy_build_history issues. Does not infer its tag or purpose.', inputSchema: { type: 'object', additionalProperties: false, properties: { build_name: { type: 'string' }, origin: { type: 'string' }, file: { type: 'string' } }, required: ['build_name', 'origin', 'file'] } },
   { name: 'import_unpaired_legacy_xml', description: 'Explicitly import an unpaired old history XML after verifying its inspected content digest. Records the original filename without inventing missing metadata.', inputSchema: { type: 'object', additionalProperties: false, properties: { build_name: { type: 'string' }, origin: { type: 'string' }, file: { type: 'string' }, expected_xml_sha256: { type: 'string' } }, required: ['build_name', 'origin', 'file', 'expected_xml_sha256'] } },
@@ -162,6 +164,14 @@ export async function invokeFoundation(foundation: BuildFoundation, name: string
     case 'foundation_cancel_job':
       if (!jobs) throw new Error('Job runner is unavailable');
       return jobs.cancel(stringArg('job_id'));
+    case 'foundation_item_inventory': {
+      if (Object.keys(args).some(key => !['snapshot_id', 'limit', 'after_item_id'].includes(key))) throw new Error('Invalid inventory options');
+      return foundation.itemInventory(stringArg('snapshot_id'), args.limit as number | undefined, args.after_item_id as number | undefined);
+    }
+    case 'foundation_derive_inventory_item': {
+      if (Object.keys(args).some(key => !['snapshot_id', 'item_text', 'trial'].includes(key))) throw new Error('Invalid inventory item options');
+      return snapshotMetadata(await foundation.deriveInventoryItem(stringArg('snapshot_id'), stringArg('item_text'), trialArg()));
+    }
     case 'foundation_read_snapshot': return foundation.readSnapshot(stringArg('snapshot_id'));
     case 'foundation_retain_snapshot': return foundation.retainSnapshot(stringArg('snapshot_id'));
     case 'foundation_snapshot_retention': return foundation.snapshotRetention(stringArg('snapshot_id'));

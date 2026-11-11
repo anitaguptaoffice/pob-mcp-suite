@@ -709,6 +709,12 @@ export class PoBLuaApiClient {
     return res.items as EquippedItem[];
   }
 
+  async getItemInventory(): Promise<Array<{ id: number; raw: string }>> {
+    const res = await this.send({ action: 'get_item_inventory' });
+    if (!res.ok) throw new Error(res.error || 'get_item_inventory failed');
+    return res.items as Array<{ id: number; raw: string }>;
+  }
+
   async addItem(itemText: string, slotName?: string, noAutoEquip?: boolean): Promise<AddedItem> {
     const res = await this.send({
       action: "add_item_text",

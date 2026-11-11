@@ -1,0 +1,55 @@
+import { strict as assert } from 'node:assert';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { once } from 'node:events';
+import { BuildFoundation } from '../../build/foundation/buildFoundation.js';
+import { SnapshotStore } from '../../build/foundation/snapshotStore.js';
+import { openPoBEngine } from '../../build/foundation/pobEngineAdapter.js';
+import { normalizeObservation } from '../../build/foundation/observation.js';
+import { gearedBuildXml, smokePoBSrc } from './pobSource.mjs';
+import { startMcpServer } from './mcpClient.mjs';
+
+const dir = await mkdtemp(join(tmpdir(), 'pob-inventory-'));
+const options = { cwd: smokePoBSrc(), command: process.env.POB_CMD, adapterPath: resolve('lua/vanilla_stdio_bridge.lua'), timeoutMs: 60000 };
+const ring = 'Rarity: RARE\nInventory Test\nGold Ring\nItem Level: 86\nImplicits: 0\n+30 to maximum Life';
+let child;
+try {
+  const foundation = new BuildFoundation(new SnapshotStore(dir), () => openPoBEngine(options));
+  const xml = await readFile(gearedBuildXml, 'utf8');
+  const parent = await foundation.importBuild(xml, 'inventory-fixture');
+  const before = await foundation.itemInventory(parent.id, 100);
+  const equipment = await foundation.inspect(parent.id, ['items']);
+  const life = await foundation.evaluate(parent.id, ['Life']);
+  const derived = await foundation.deriveInventoryItem(parent.id, ring, true);
+  const after = await foundation.itemInventory(derived.id, 100);
+  assert.equal(after.total, before.total + 1);
+  const added = after.items.filter(item => !before.items.some(old => old.id === item.id));
+  assert.equal(added.length, 1); assert.match(added[0].raw, /\+30 to maximum Life/);
+  assert.deepEqual(normalizeObservation({ items: (await foundation.inspect(derived.id, ['items'])).data.items }).items, normalizeObservation({ items: equipment.data.items }).items);
+  assert.equal((await foundation.evaluate(derived.id, ['Life'])).stats.Life, life.stats.Life);
+  assert.equal(await foundation.exportBuild(parent.id), xml);
+  const imported = await foundation.importBuild(await foundation.exportBuild(derived.id), 'inventory-reload');
+  assert.deepEqual((await foundation.itemInventory(imported.id, 100)).items, after.items);
+  const first = await foundation.itemInventory(derived.id, 1);
+  const second = await foundation.itemInventory(derived.id, 1, first.nextAfterItemId);
+  assert.notEqual(first.items[0].id, second.items[0].id);
+  const snapshots = await foundation.listSnapshots();
+  await assert.rejects(foundation.deriveInventoryItem(parent.id, 'not an item'));
+  assert.deepEqual(await foundation.listSnapshots(), snapshots);
+  const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
+  child = mcp.child; child.stderr.on('data', () => {}); const exited = once(child, 'exit');
+  await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'inventory-smoke', version: '1' } });
+  mcp.notify('notifications/initialized', {});
+  const response = await mcp.request('tools/call', { name: 'foundation_item_inventory', arguments: { snapshot_id: derived.id, limit: 100 } });
+  assert.ok(!response.error && !response.result?.isError, JSON.stringify(response));
+  assert.deepEqual(JSON.parse(response.result.content[0].text).items, after.items);
+  const add = await mcp.request('tools/call', { name: 'foundation_derive_inventory_item', arguments: { snapshot_id: parent.id, item_text: ring, trial: true } });
+  assert.ok(!add.error && !add.result?.isError, JSON.stringify(add));
+  assert.equal(JSON.parse(add.result.content[0].text).parentId, parent.id);
+  child.stdin.end(); assert.equal((await exited)[0], 0);
+  console.log('foundation unequipped item inventory passed');
+} finally {
+  if (child && child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');
+  await rm(dir, { recursive: true, force: true });
+}

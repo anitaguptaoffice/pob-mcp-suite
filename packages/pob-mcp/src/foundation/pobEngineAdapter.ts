@@ -44,9 +44,11 @@ export async function openPoBEngine(options: PoBEngineOptions): Promise<BuildEng
   let guardedTreeAvailable = false;
   let preservingTreeAvailable = false;
   let weightedBaselinesAvailable = false;
+  let itemInventoryAvailable = false;
   try {
     await client.start();
     const capabilities = await client.getCapabilities();
+    itemInventoryAvailable = capabilities.actions?.includes('get_item_inventory') === true;
     guardedTreeAvailable = capabilities.actions?.includes('set_tree_guarded') === true;
     preservingTreeAvailable = capabilities.actions?.includes('set_tree_preserve_overrides') === true && capabilities.actions?.includes('get_tree_overrides') === true;
     weightedBaselinesAvailable = capabilities.actions?.includes('generate_weighted_trade_query_v2') === true;
@@ -81,7 +83,7 @@ export async function openPoBEngine(options: PoBEngineOptions): Promise<BuildEng
     setTree: (params, preserve) => { if (preserve) { if (!preservingTreeAvailable) throw new Error('PoB adapter lacks override-preserving tree replacement'); return client.setTreePreservingOverrides(params); } if (!guardedTreeAvailable) throw new Error('PoB adapter lacks guarded tree replacement'); return client.setTreeGuarded(params); },
     getTreeOverrides: () => { if (!preservingTreeAvailable) throw new Error('PoB adapter lacks node override inspection'); return client.getTreeOverrides(); },
     generateWeightedTradeQuery: (slot, options) => { if (!weightedBaselinesAvailable) throw new Error('PoB adapter lacks weighted trade baselines'); return client.generateWeightedTradeQueryV2(slot, options); },
-    getItems: () => client.getItems(), addItem: (text, slot) => client.addItem(text, slot), getItemAffixWeight: (modId, itemText) => client.getItemAffixWeight(modId, itemText), getSkills: () => client.getSkills(),
+    getItems: () => client.getItems(), addItem: (text, slot, noAutoEquip) => client.addItem(text, slot, noAutoEquip), ...(itemInventoryAvailable ? { getItemInventory: () => client.getItemInventory() } : {}), getItemAffixWeight: (modId, itemText) => client.getItemAffixWeight(modId, itemText), getSkills: () => client.getSkills(),
     setGemLevel: params => client.setGemLevel(params), setGemQuality: params => client.setGemQuality(params), setGemEnabled: params => client.setGemEnabled(params),
     addGem: params => client.addGem(params), removeGem: params => client.removeGem(params),
     createSocketGroup: params => client.createSocketGroup(params),

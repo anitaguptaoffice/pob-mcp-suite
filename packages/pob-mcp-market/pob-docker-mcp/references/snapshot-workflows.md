@@ -39,6 +39,11 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   distinct equipment slots together. A failure publishes no partial child;
   inspect the resulting equipment and compare calculations before retaining it.
   Slot acceptance does not prove item legality or market availability.
+- Use `foundation_derive_inventory_item` to save a candidate without equipping
+  it, then `foundation_item_inventory` to list items by ID; continue with
+  `nextAfterItemId` when present. The child is checked after reload and does not
+  alter the parent. Inactive equipment sets are not independently checked. PoB
+  parsing does not establish item legality or availability.
 - Use `analyze_snapshot_equipment` for one slot or the active equipment set and
   its PoB stats and calculation context. Its separate legacy suggestions are
   unverified heuristics; hidden, inactive, unresolved, visibility-unknown and
