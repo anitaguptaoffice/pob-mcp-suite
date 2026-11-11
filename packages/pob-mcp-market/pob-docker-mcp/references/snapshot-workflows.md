@@ -233,6 +233,10 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   report missing graphs as jewels with no notables. This does not assess synergy,
   DPS, legality or jewels stored outside the active tree. Use a separate
   `search_cluster_listings` query for bounded international Trade candidates.
+  `include_legacy_heuristic: true` additionally returns old gem-name and raw-item
+  keyword matches, with gem enabled states and PoB allocation when uniquely
+  observable. These unversioned matches include disabled and inactive gems and
+  do not prove synergy; unmatched names do not prove poor synergy.
 - Use `inspect_snapshot_watchers_eye` for source-backed Watcher's Eye modifier
   candidates matching saved gem names. Check each gem's `enabledState` and
   `matchKind`; an enabled aura gem does not prove the character is affected,
