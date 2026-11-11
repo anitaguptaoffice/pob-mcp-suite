@@ -36,9 +36,13 @@ const engine = new PoBLuaApiClient({ cwd, cmd: process.env.POB_CMD,
   args: [resolve('lua/vanilla_stdio_bridge.lua')], env: { POB_API_STDIO: '0' }, timeoutMs: 60000 });
 try {
   await client.connect(transport);
-  await call('analyze_build', { build_name: 'lean' });
+  const isolatedAnalysis = await call('analyze_build', { build_name: 'lean' });
+  assert.match(isolatedAnalysis, /Life: 6728/);
+  assert.match(isolatedAnalysis, /isolated engine; the current build was preserved/);
+  assert.match(await call('lua_get_build_info'), /Name: Init Test/);
+  await call('lua_load_build', { build_name: 'lean' });
   assert.match(await call('lua_get_build_info'), /Name: lean\nLevel: 99/);
-  console.log('ok: first analysis loads the requested build instead of bootstrap stats');
+  console.log('ok: first analysis reads the saved build without replacing the bridge, and an explicit load adopts it');
 
   await call('lua_load_build', { build_name: 'fixture.xml' });
   await call('get_build_stats', { build_name: 'fixture.xml' }); // Populate the file cache.

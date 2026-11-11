@@ -97,6 +97,12 @@ describe('loadBuildIfDifferent', () => {
     expect(client.calls).toHaveLength(0);
   });
 
+  it('treats a save-as destination as the same in-memory build by name', async () => {
+    const client = { ...makeClient('Same'), getLoadedFilePath: () => path.join(dir, 'SavedCopy.xml') };
+    await loadBuildIfDifferent(client, 'Same', dir);
+    expect(client.calls).toHaveLength(0);
+  });
+
   it('preserves the current build when it differs or its state is unknown', async () => {
     for (const loaded of ['Other', null] as const) {
       const client = makeClient(loaded);

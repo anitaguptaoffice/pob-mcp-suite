@@ -35,13 +35,13 @@ export async function loadBuildIfDifferent(
   const source = luaClient.getLoadedFilePath?.();
   const target = resolveBuildFile(buildName, buildsDir);
   if (source && source === target) return;
-  if (!source) {
-    const strip = (n: string) => n.replace(/\.xml$/i, '');
-    try {
-      const info = await luaClient.getBuildInfo();
-      if (info?.name && strip(info.name) === strip(buildName)) return;
-    } catch { /* The bridge state is unknown; do not replace it. */ }
-  }
+  // "Save as" changes the file the bridge last wrote without renaming the
+  // in-memory build, so the PoB build name is the fallback identity.
+  const strip = (n: string) => n.replace(/\.xml$/i, '');
+  try {
+    const info = await luaClient.getBuildInfo();
+    if (info?.name && strip(info.name) === strip(buildName)) return;
+  } catch { /* The bridge state is unknown; do not replace it. */ }
   await readNamedBuild(buildName, buildsDir);
   throw new BuildMismatchError(`Cannot analyze "${buildName}" without replacing the current build, which may have unsaved edits. Save it first, then use lua_load_build to load the requested build.`);
 }
