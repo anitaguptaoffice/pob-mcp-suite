@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { PoBLuaApiClient } from '../build/pobLuaBridge.js';
+import { PoBLuaApiClient } from '../build/adapters/pob/bridge.js';
 import { parseModFile } from '../build/services/modDataStore.js';
 import { firstMatchingSpawnRule } from '../build/services/affixQuery.js';
 import { formatLoadStats } from '../build/handlers/luaHandlers.js';

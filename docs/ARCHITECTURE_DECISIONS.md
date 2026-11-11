@@ -94,6 +94,13 @@ removed. A clean-directory compile and module-load check verifies the legacy
 runtime, engine adapter and item domain imports without the deleted files; real PoB bridge and build
 round-trip smoke tests exercise the adapter. Legacy routes still need migration.
 
+Two standalone scripts were initially missed in that import migration. Their
+bridge imports now use the adapter directly. `buildScriptImports.test.ts` checks
+relative build imports in scripts and smoke tests against the current source tree.
+A freshly built Docker image ran both `engine-regression.mjs` and the legacy
+international Trade-to-PoB preview script successfully. This checks those paths,
+not every external client or future dynamic import.
+
 On 2026-11-11 a local, read-only Standard-league probe of the new adapter
 successfully fetched public skill-gem and currency snapshots. The legacy
 `/api/data/currencyoverview` spread endpoint returned HTTP 404 for the same

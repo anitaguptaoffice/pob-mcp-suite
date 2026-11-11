@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { TradeApiClient } from '../build/services/tradeClient.js';
-import { PoBLuaApiClient } from '../build/pobLuaBridge.js';
+import { PoBLuaApiClient } from '../build/adapters/pob/bridge.js';
 import { compareTradeListing, tradeClipboardText } from '../build/features/itemComparison/tradeListing.js';
 
 const league = process.env.POB_TEST_LEAGUE;
