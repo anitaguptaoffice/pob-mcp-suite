@@ -5,6 +5,7 @@ import { resolvePoBLayout } from '../../utils/pobLayout.js';
 import { digestDirectory } from '../../infrastructure/contentDigest.js';
 import { digestExecutable, resolveExecutable } from '../../infrastructure/executableIdentity.js';
 import type { BuildEngine } from '../../ports/pobEngine.js';
+import { verifyLoadedTree } from './loadFidelity.js';
 
 export interface PoBEngineOptions {
   cwd?: string;
@@ -86,7 +87,11 @@ export async function openPoBEngine(options: PoBEngineOptions): Promise<BuildEng
     evaluateAnointCandidates: params => client.evaluateAnointCandidates(params),
     getBuildNotes: () => client.getBuildNotes(), setBuildNotes: notes => client.setBuildNotes(notes),
     queryTreePaths: params => client.queryTreePaths(params),
-    loadBuildXml: xml => client.loadBuildXml(xml), getStats: fields => client.getStats(fields),
+    loadBuildXml: async xml => {
+      const result = await client.loadBuildXml(xml);
+      await verifyLoadedTree(xml, () => client.getTree());
+      return result;
+    }, getStats: fields => client.getStats(fields),
     setLevel: level => client.setLevel(level), setMainSelection: selection => client.setMainSelection(selection), setCalcsSelection: index => client.setCalcsSelection(index),
     setConfig: config => client.setConfig(config), getBuildInfo: () => client.getBuildInfo(),
     captureSnapshot: () => client.unchangedItemsSnapshot(), getTree: () => client.getTree(),

@@ -4,7 +4,10 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { once } from 'node:events';
 import { startMcpServer } from './mcpClient.mjs';
+import { PoBLuaApiClient } from '../../build/adapters/pob/bridge.js';
+import { smokePoBSrc } from './pobSource.mjs';
 const dir = await mkdtemp(join(tmpdir(), 'pob-jewel-jobs-'));
+const client = new PoBLuaApiClient({ cwd: smokePoBSrc(), cmd: process.env.POB_CMD, args: [resolve('lua/vanilla_stdio_bridge.lua')], env: { POB_API_STDIO: '0' }, timeoutMs: 60000 });
 let child;
 async function start() {
   const mcp = startMcpServer({ POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
@@ -23,7 +26,9 @@ async function poll(call, jobId, predicate) {
   throw new Error('jewel job did not reach expected state');
 }
 try {
-  const xml = await readFile(resolve('tests/fixtures/cluster-toxic-rain.xml'), 'utf8');
+  await client.start(); await client.loadBuildXml(await readFile(resolve('tests/fixtures/cluster-toxic-rain.xml'), 'utf8'));
+  const xml = (await client.unchangedItemsSnapshot()).xml;
+  await client.stop();
   const jewel = 'Rarity: RARE\nTest Jewel\nCobalt Jewel\nImplicits: 0\n+50 to maximum Life';
   let server = await start(); const parent = await server.call('foundation_import_build', { xml, source: 'jewel-job-fixture' });
   const submit = async () => server.call('submit_snapshot_jewels', { snapshot_id: parent.id, socket_node_id: 34483, fields: ['Life'], candidates: [{ name: 'life', item_text: jewel }] });
@@ -31,8 +36,6 @@ try {
   const progress = await poll(server.call, interruptedJob.jobId, result => !!result.results[0].snapshotId);
   assert.equal(progress.jobStatus, 'running'); const childId = progress.results[0].snapshotId;
   child.kill('SIGKILL'); await server.exited;
-  // This is an isolated temporary store; explicit stale-lock recovery is needed after a crash.
-  await rm(join(dir, '.writer.lock'));
   server = await start();
   const interrupted = await server.call('summarize_snapshot_jewels', { job_id: interruptedJob.jobId });
   assert.equal(interrupted.jobStatus, 'interrupted'); assert.equal(interrupted.results[0].snapshotId, childId);
@@ -47,4 +50,4 @@ try {
   const restored = await server.call('summarize_snapshot_jewels', { job_id: completedJob.jobId });
   assert.equal(restored.jobStatus, 'completed'); assert.equal(restored.results[0].snapshotId, completed.results[0].snapshotId);
   await server.close(); console.log('foundation jewel jobs passed');
-} finally { if (child && child.exitCode === null && child.signalCode === null) child.kill('SIGTERM'); await rm(dir, { recursive: true, force: true }); }
+} finally { if (child && child.exitCode === null && child.signalCode === null) child.kill('SIGTERM'); await client.stop(); await rm(dir, { recursive: true, force: true }); }

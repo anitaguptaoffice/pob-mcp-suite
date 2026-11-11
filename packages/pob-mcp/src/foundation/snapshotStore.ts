@@ -4,7 +4,7 @@ import path from 'node:path';
 import { atomicWriteFile } from '../utils/atomicWrite.js';
 import { DEFAULT_TRIAL_TTL_MS, planSnapshotCollection, type TrialRetention } from './snapshotRetention.js';
 
-/** Snapshot format is provisional until PoB round-trip coverage is established. */
+/** Immutable build revision. Identity fields describe creation/edit provenance. */
 export interface SnapshotRecord {
   formatVersion: 1;
   id: string;

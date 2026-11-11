@@ -10,9 +10,10 @@ const dir = await mkdtemp(join(tmpdir(), 'pob-jewel-compare-'));
 const client = new PoBLuaApiClient({ cwd: smokePoBSrc(), cmd: process.env.POB_CMD, args: [resolve('lua/vanilla_stdio_bridge.lua')], env: { POB_API_STDIO: '0' }, timeoutMs: 60000 });
 let child;
 try {
-  const xml = await readFile(resolve('tests/fixtures/cluster-toxic-rain.xml'), 'utf8');
+  const sourceXml = await readFile(resolve('tests/fixtures/cluster-toxic-rain.xml'), 'utf8');
   const jewel = 'Rarity: RARE\nTest Jewel\nCobalt Jewel\nImplicits: 0\n+50 to maximum Life';
-  await client.start(); await client.loadBuildXml(xml);
+  await client.start(); await client.loadBuildXml(sourceXml);
+  const xml = (await client.unchangedItemsSnapshot()).xml;
   const tree = await client.getTree(); assert.ok(tree.nodes.includes(34483)); assert.ok(!tree.nodes.includes(9797));
   const before = await client.getStats(['Life']); await client.addItem(jewel, 'Jewel 34483');
   const after = await client.getStats(['Life']); assert.notEqual(before.Life, after.Life); await client.stop();

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -23,8 +24,10 @@ def main():
     if marketplace != codex_marketplace:
         raise SystemExit("marketplace.json and .agents/plugins/marketplace.json must match")
 
-    if not versions["image"].startswith("ghcr.io/anitaguptaoffice/pob-mcp-suite:"):
-        raise SystemExit("versions.json image must point at ghcr.io/anitaguptaoffice/pob-mcp-suite")
+    if not re.fullmatch(r"ghcr\.io/anitaguptaoffice/pob-mcp-suite@sha256:[a-f0-9]{64}", versions["image"]):
+        raise SystemExit("versions.json image must use an immutable ghcr.io digest")
+    if versions.get("imageDigest") != versions["image"].split("@", 1)[1]:
+        raise SystemExit("versions.json image and imageDigest must agree")
 
     for plugin in marketplace.get("plugins", []):
         source = plugin.get("source", {})
@@ -43,8 +46,9 @@ def main():
 
         assert_file(plugin_dir / ".mcp.json")
         assert_file(plugin_dir / "skills" / plugin.get("name") / "SKILL.md")
-        for skill in ("pob-economy", "pob-crafting"):
+        for skill in ("pob-build-review", "pob-gear-upgrade", "pob-economy", "pob-crafting"):
             assert_file(plugin_dir / "skills" / skill / "SKILL.md")
+        assert_file(plugin_dir / "references" / "recommendation-workflows.md")
         assert_file(plugin_dir / "scripts" / "pob-mcp-docker.sh")
 
     print("market validation passed")

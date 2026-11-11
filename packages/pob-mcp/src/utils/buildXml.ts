@@ -71,7 +71,7 @@ export class BuildXml {
         return `{${node},${effect}}`;
       });
       attrs['@_masteryEffects'] = pairs.join(',');
-      // Remove the obsolete, unreadable representation emitted by older server versions.
+      // PoB stores mastery selections in the Spec attribute, not child elements.
       spec.Spec = (BuildXml.children(spec, 'Spec') ?? []).filter(node => !node.MasteryEffect);
     }
     return oldNodes;

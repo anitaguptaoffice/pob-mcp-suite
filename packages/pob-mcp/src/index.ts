@@ -21,7 +21,6 @@ import { JobStore } from './foundation/jobStore.js';
 import { JobRunner } from './foundation/jobRunner.js';
 import { foundationSchemas, invokeFoundation } from './foundation/mcpTools.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-// Import services
 import { defaultBuildsDirectory } from "./utils/pobLayout.js";
 import { featureRegistry } from "./server/featureModules.js";
 import { assertUniqueToolSchemas, FeatureRegistry } from "./server/featureRegistry.js";
@@ -199,7 +198,6 @@ class PoBMCPServer {
       },
       {
         capabilities: {
-          resources: {},
           tools: {},
         },
       }
@@ -390,34 +388,31 @@ class PoBMCPServer {
         const response = await createJewelComparisonTool(foundation, onDerived).invoke({ snapshot_id: input.snapshotId, socket_node_id: input.socketNodeId, fields: input.fields, candidates: [{ name: input.name, item_text: input.itemText }] });
         return JSON.parse(response.content[0].text);
       });
-    const migrated = [createSnapshotCostTool(foundation, economy), createShoppingListTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), createSnapshotBuildComparisonTool(foundation), createSnapshotGemComparisonTool(foundation), ...createGemSetupJobTools(foundation, this.foundationJobs), createSnapshotSupportRankingTool(foundation), createDiscoveredSupportRankingTool(foundation), ...createTreePathTools(foundation), createBuildIssuesTool(foundation), createBossReadinessTool(foundation), createMasteryRankingTool(foundation), createMasteryDiscoveryTool(foundation), ...createMasteryJobTools(foundation, this.foundationJobs), ...createPassiveRankingTools(foundation, this.foundationJobs), createAnointmentTool(foundation), createSnapshotSummaryTool(foundation), createSkillInspectionTool(foundation), createEnemyConfigTool(foundation), ...createSnapshotConfigPresetTools(foundation, this.localConfigPresets), createTimelessSearchTool(foundation)];
-    migrated.push(createSnapshotTreeTransplantTool(foundation));
-    migrated.push(createSupportContributionsTool(foundation));
-    migrated.push(createCachedStatsTool('snapshot', id => foundation.exportBuild(id)));
-    migrated.push(createPassiveSuggestionsTool(foundation));
-    migrated.push(createGemUpgradeTool(foundation));
-    migrated.push(createSnapshotAilmentsTool(foundation));
-    migrated.push(createSnapshotDefensesTool(foundation));
-    migrated.push(createCraftingContextTool(foundation, new PoedbBaseReference()));
-    migrated.push(createItemAffixWeightTool(new PoBItemDataAdapter(engineLimiter)));
-    migrated.push(createEngineStatusTool(new PoBEngineStatusAdapter(engineLimiter)));
-    migrated.push(createClusterAnalysisTool(foundation));
-    migrated.push(createOfficialTreeTool(foundation, decodeOfficialTreeCode));
-    migrated.push(createWatchersEyeTool(foundation, new PoBWatchersEyeSource()));
-    migrated.push(createJewelComparisonTool(foundation));
-    migrated.push(...createJewelJobTools(foundation, this.foundationJobs));
-    migrated.push(...createWeightedTradeTools(foundation, trade ?? undefined, () => Boolean(process.env.POE_SESSION_ID)));
-    migrated.push(createStatCategoriesTool(foundation));
-    migrated.push(createEquipmentAnalysisTool(foundation));
-    migrated.push(createLevelingTool(foundation));
-    if (trade) migrated.push(createTradePreviewTool(foundation, trade));
-    if (trade) migrated.push(createBudgetCandidatesTool(foundation, trade), createBudgetBundleTool(foundation, trade));
-    this.foundationFeatures = new FeatureRegistry(migrated);
-    // StatMapper is intentionally static-only: the trade API /stats dump keys
-    // everything by hashed ID (no PoB names), so swapping it in at startup used
-    // to erase the curated aliases that search_stats matches against. Official
-    // stat IDs enter queries via tradeQueryBuilder's own stat-id handling, not
-    // via this class.
+    const buildTools = [createSnapshotCostTool(foundation, economy), createShoppingListTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), createSnapshotBuildComparisonTool(foundation), createSnapshotGemComparisonTool(foundation), ...createGemSetupJobTools(foundation, this.foundationJobs), createSnapshotSupportRankingTool(foundation), createDiscoveredSupportRankingTool(foundation), ...createTreePathTools(foundation), createBuildIssuesTool(foundation), createBossReadinessTool(foundation), createMasteryRankingTool(foundation), createMasteryDiscoveryTool(foundation), ...createMasteryJobTools(foundation, this.foundationJobs), ...createPassiveRankingTools(foundation, this.foundationJobs), createAnointmentTool(foundation), createSnapshotSummaryTool(foundation), createSkillInspectionTool(foundation), createEnemyConfigTool(foundation), ...createSnapshotConfigPresetTools(foundation, this.localConfigPresets), createTimelessSearchTool(foundation)];
+    buildTools.push(createSnapshotTreeTransplantTool(foundation));
+    buildTools.push(createSupportContributionsTool(foundation));
+    buildTools.push(createCachedStatsTool('snapshot', id => foundation.exportBuild(id)));
+    buildTools.push(createPassiveSuggestionsTool(foundation));
+    buildTools.push(createGemUpgradeTool(foundation));
+    buildTools.push(createSnapshotAilmentsTool(foundation));
+    buildTools.push(createSnapshotDefensesTool(foundation));
+    buildTools.push(createCraftingContextTool(foundation, new PoedbBaseReference()));
+    buildTools.push(createItemAffixWeightTool(new PoBItemDataAdapter(engineLimiter)));
+    buildTools.push(createEngineStatusTool(new PoBEngineStatusAdapter(engineLimiter)));
+    buildTools.push(createClusterAnalysisTool(foundation));
+    buildTools.push(createOfficialTreeTool(foundation, decodeOfficialTreeCode));
+    buildTools.push(createWatchersEyeTool(foundation, new PoBWatchersEyeSource()));
+    buildTools.push(createJewelComparisonTool(foundation));
+    buildTools.push(...createJewelJobTools(foundation, this.foundationJobs));
+    buildTools.push(...createWeightedTradeTools(foundation, trade ?? undefined, () => Boolean(process.env.POE_SESSION_ID)));
+    buildTools.push(createStatCategoriesTool(foundation));
+    buildTools.push(createEquipmentAnalysisTool(foundation));
+    buildTools.push(createLevelingTool(foundation));
+    if (trade) buildTools.push(createTradePreviewTool(foundation, trade));
+    if (trade) buildTools.push(createBudgetCandidatesTool(foundation, trade), createBudgetBundleTool(foundation, trade));
+    this.foundationFeatures = new FeatureRegistry(buildTools);
+    // Static aliases and official stat metadata have different keys and roles.
+    // Keep alias lookup independent of the official API's hashed stat IDs.
   }
 
   async run() {

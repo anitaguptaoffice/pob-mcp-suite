@@ -2,6 +2,15 @@ import { BoundedCache } from '../../src/infrastructure/cache.js';
 
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { promise, resolve }; }
 describe('BoundedCache', () => {
+  it('keeps hot entries on access and evicts the least recently used entry', async () => {
+    const cache = new BoundedCache<number>(2, 2);
+    const loader = jest.fn(async () => 1);
+    await cache.get('hot', 10000, loader); await cache.get('cold', 10000, loader);
+    await cache.get('hot', 10000, loader); await cache.get('new', 10000, loader);
+    expect((await cache.get('hot', 10000, loader)).cached).toBe(true);
+    expect((await cache.get('cold', 10000, loader)).cached).toBe(false);
+    expect(loader).toHaveBeenCalledTimes(4);
+  });
   it('coalesces concurrent loads, preserves source time and respects expiration', async () => {
     let now = 100;
     const cache = new BoundedCache<{ fetchedAt: number }>(2, 2, () => now);

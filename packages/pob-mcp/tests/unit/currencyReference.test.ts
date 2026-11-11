@@ -1,4 +1,4 @@
-import { createCurrencyReferenceTools } from '../../src/features/currencyReference/tools.js';
+import { createCurrencyReferenceTools, readCurrencyRates } from '../../src/features/currencyReference/tools.js';
 import type { EconomySource } from '../../src/ports/economySource.js';
 
 const fetchedAt = '2026-01-01T00:00:00.000Z';
@@ -6,6 +6,15 @@ const payload = { core: { primary: 'chaos' }, items: [{ id: 'divine', name: 'Div
 const makeSource = () => ({ read: jest.fn(async () => ({ source: 'poe.ninja' as const, query: { kind: 'currency' as const, league: 'Standard' }, fetchedAt, payload })) });
 
 describe('currency reference workflows', () => {
+  it('preserves legacy chaos quotes and anchors a non-chaos primary currency to its actual chaos line', () => {
+    const snapshot = { source: 'poe.ninja' as const, query: { kind: 'currency' as const, league: 'Standard' }, fetchedAt, payload };
+    expect(readCurrencyRates({ ...snapshot, payload: { lines: [{ currencyTypeName: 'Divine Orb', chaosEquivalent: 120 }] } }, 'Standard').rates).toEqual([
+      { name: 'Divine Orb', id: null, chaosValue: 120 }, { name: 'Chaos Orb', id: 'chaos', chaosValue: 1 },
+    ]);
+    const modern = { core: { primary: 'divine' }, items: [{ id: 'chaos', name: 'Chaos Orb' }, { id: 'divine', name: 'Divine Orb' }], lines: [{ id: 'chaos', primaryValue: 0.01 }, { id: 'divine', primaryValue: 1 }] };
+    expect(readCurrencyRates({ ...snapshot, payload: modern }, 'Standard').rates).toContainEqual({ name: 'Divine Orb', id: 'divine', chaosValue: 100 });
+    expect(() => readCurrencyRates({ ...snapshot, payload: { ...modern, lines: [modern.lines[1]] } }, 'Standard')).toThrow('no usable Chaos Orb reference');
+  });
   it('normalizes source rates and retains source time and quote currency', async () => {
     const source = makeSource();
     const [ratesTool] = createCurrencyReferenceTools(source as EconomySource);
