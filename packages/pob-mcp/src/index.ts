@@ -28,17 +28,6 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 // Import services
 import { defaultBuildsDirectory } from "./utils/pobLayout.js";
-import { BuildService } from "./services/buildService.js";
-import { TreeService } from "./services/treeService.js";
-import { WatchService } from "./services/watchService.js";
-import { ValidationService } from "./services/validationService.js";
-import { BuildExportService } from "./services/buildExportService.js";
-import { SkillGemService } from "./services/skillGemService.js";
-import { TradeApiClient } from "./services/tradeClient.js";
-import { StatMapper } from "./services/statMapper.js";
-import { PoeNinjaClient } from "./services/poeNinjaClient.js";
-import { ItemRecommendationEngine } from "./services/itemRecommendationEngine.js";
-import { NinjaPrices } from "./features/buildCost/ninjaPrices.js";
 import { buildCostSchemas } from "./features/buildCost/tool.js";
 import { comparableToolSchemas } from "./features/tradeComparable/tool.js";
 import { featureRegistry } from "./server/featureModules.js";
@@ -111,13 +100,11 @@ import { createClusterTradeTool, clusterTradeSchema } from './features/clusterTr
 import { createTimelessSearchTool, timelessSearchSchema } from './features/timelessSearch/tool.js';
 
 // Import utilities
-import { ContextBuilder } from "./utils/contextBuilder.js";
+import type { LegacyRuntime } from './server/legacyRuntime.js';
 
 // Import server modules
-import { LuaClientManager } from "./server/luaClientManager.js";
 import type { ToolSchema } from "./server/toolSchemas.js";
 import { getToolSchemas, getLuaToolSchemas, getOptimizationToolSchemas, getConfigToolSchemas, getValidationToolSchemas, getExportToolSchemas, getSkillGemToolSchemas, getTradeToolSchemas, getPoeNinjaToolSchemas, getBuildGoalsToolSchemas } from "./server/toolSchemas.js";
-import { routeToolCall, type ToolRouterDependencies } from "./server/toolRouter.js";
 import { wrapWithTruncation, shouldTruncate } from "./server/responseUtils.js";
 
 class PoBMCPServer {
@@ -136,25 +123,8 @@ class PoBMCPServer {
   private foundationClosing = false;
   private foundationPending = new Set<Promise<unknown>>();
 
-  // Services
-  private buildService: BuildService;
-  private treeService: TreeService;
-  private watchService: WatchService;
-  private validationService: ValidationService;
-  private exportService: BuildExportService;
-  private skillGemService: SkillGemService;
-  private tradeClient: TradeApiClient | null = null;
+  private legacy: LegacyRuntime | null = null;
   private officialTrade: OfficialTradeAdapter | null = null;
-  private statMapper: StatMapper | null = null;
-  private recommendationEngine: ItemRecommendationEngine | null = null;
-  private ninjaClient: PoeNinjaClient;
-  private buildCostPrices = new NinjaPrices();
-
-  // Context builder
-  private contextBuilder: ContextBuilder;
-
-  // Server modules
-  private luaClientManager: LuaClientManager;
 
   /**
    * Every tool schema across all groups, regardless of runtime availability
@@ -257,18 +227,6 @@ class PoBMCPServer {
     this.localConfigPresets = new LocalConfigPresetStore(this.pobDirectory);
     this.configPresetCatalog = new FeatureRegistry(createConfigPresetCatalogTools(this.localConfigPresets));
 
-    // Initialize services
-    this.buildService = new BuildService(this.pobDirectory);
-    this.treeService = new TreeService(this.buildService);
-    this.watchService = new WatchService(this.pobDirectory, this.buildService);
-    this.validationService = new ValidationService();
-    this.exportService = new BuildExportService(this.pobDirectory);
-    this.skillGemService = new SkillGemService();
-
-    // Initialize poe.ninja client (always available)
-    this.ninjaClient = new PoeNinjaClient();
-    console.error('[poe.ninja API] Client initialized');
-
     // In foundation mode both surfaces share the same source, queue and cache.
     // The original legacy-only mode keeps its existing client unchanged.
     if (process.env.POE_TRADE_ENABLED === 'true' && (process.env.POB_FOUNDATION_ENABLED === 'true' || !this.legacyEnabled())) {
@@ -276,59 +234,6 @@ class PoBMCPServer {
       const minTimeMs = Number.isFinite(rate) && rate > 0 ? Math.ceil(1000 / Math.min(rate, 4)) : 250;
       this.officialTrade = new OfficialTradeAdapter({ minTimeMs, session: () => process.env.POE_SESSION_ID || undefined });
     }
-    // The legacy client is unnecessary when only the source adapter is exposed.
-    const tradeEnabled = process.env.POE_TRADE_ENABLED === 'true' && this.legacyEnabled();
-    if (tradeEnabled) {
-      const requestsPerSecond = parseInt(process.env.POE_RATE_LIMIT_PER_SECOND || '4', 10);
-      const cacheTTL = parseInt(process.env.POE_CACHE_TTL || '300', 10);
-      this.tradeClient = new TradeApiClient({
-        requestsPerSecond,
-        cacheTTL,
-        ...(this.officialTrade ? { source: this.officialTrade } : {}),
-      });
-      this.statMapper = new StatMapper();
-      this.recommendationEngine = new ItemRecommendationEngine(this.tradeClient);
-      console.error('[Trade API] Enabled with rate limit:', requestsPerSecond, 'req/s');
-    } else if (process.env.POE_TRADE_ENABLED !== 'true') {
-      console.error('[Trade API] Disabled (set POE_TRADE_ENABLED=true to enable)');
-    }
-
-    // Initialize server modules
-
-    const luaEnabled = process.env.POB_LUA_ENABLED === 'true';
-    this.luaClientManager = new LuaClientManager(luaEnabled);
-
-    // Initialize context builder
-    this.contextBuilder = new ContextBuilder({
-      buildService: this.buildService,
-      treeService: this.treeService,
-      watchService: this.watchService,
-      validationService: this.validationService,
-      exportService: this.exportService,
-      skillGemService: this.skillGemService,
-      pobDirectory: this.pobDirectory,
-      luaEnabled: luaEnabled,
-      getLuaClient: () => this.luaClientManager.getClient(),
-      ensureLuaClient: () => this.luaClientManager.ensureClient(),
-      stopLuaClient: () => this.luaClientManager.stopClient(),
-      createIsolatedLuaClient: async () => {
-        const manager = new LuaClientManager(luaEnabled);
-        try {
-          await manager.ensureClient();
-          const client = manager.getClient();
-          if (!client) throw new Error('Comparison bridge failed to start');
-          return { client, close: () => manager.stopClient() };
-        } catch (error) {
-          await manager.stopClient();
-          throw error;
-        }
-      },
-    });
-
-    if (luaEnabled) {
-      console.error('[MCP Server] PoB Lua Bridge enabled (stdio mode)');
-    }
-
     this.allToolSchemas(); // Validate all names, including currently disabled capability groups.
     this.setupHandlers();
 
@@ -363,7 +268,7 @@ class PoBMCPServer {
       let jobsError: unknown;
       try { await this.foundationJobs?.close(); } catch (error) { jobsError = error; }
       const results = await Promise.allSettled([
-        this.watchService.stopWatching(), this.localBuildWatcher.stop(), this.luaClientManager.stopClient(), this.server.close(),
+        this.legacy?.close(), this.localBuildWatcher.stop(), this.server.close(),
       ]);
       if (jobsError !== undefined) results.push({ status: 'rejected', reason: jobsError });
       if (this.releaseFoundationLock) {
@@ -392,9 +297,9 @@ class PoBMCPServer {
   private setupHandlers() {
     // List available resources (build files)
     this.server.setRequestHandler(ListResourcesRequestSchema, async () => {
-      if (!this.legacyEnabled()) return { resources: [] };
+      if (!this.legacy) return { resources: [] };
       try {
-        const builds = await this.buildService.listBuilds();
+        const builds = await this.legacy.buildService.listBuilds();
         return {
           resources: builds.map((build) => ({
             uri: `pob://build/${encodeURIComponent(build)}`,
@@ -411,7 +316,7 @@ class PoBMCPServer {
 
     // Read a specific build file
     this.server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-      if (!this.legacyEnabled()) throw new Error('Legacy resources are unavailable');
+      if (!this.legacy) throw new Error('Legacy resources are unavailable');
       const uri = request.params.uri;
       const match = uri.match(/^pob:\/\/build\/(.+)$/);
 
@@ -422,8 +327,8 @@ class PoBMCPServer {
       const buildName = decodeURIComponent(match[1]);
 
       try {
-        const build = await this.buildService.readBuild(buildName);
-        const summary = this.buildService.generateBuildSummary(build);
+        const build = await this.legacy.buildService.readBuild(buildName);
+        const summary = this.legacy.buildService.generateBuildSummary(build);
 
         return {
           contents: [
@@ -441,7 +346,7 @@ class PoBMCPServer {
 
     // List available tools
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
-      if (!this.legacyEnabled()) {
+      if (!this.legacy) {
         const tools = [...(this.foundation ? [...foundationSchemas, ...featureRegistry.schemas(), ...(this.foundationFeatures?.schemas() ?? [])] : []), ...this.modifierFeatures.schemas(), ...this.buildFileCatalog.schemas(), ...this.configPresetCatalog.schemas(), ...(this.marketFeatures?.schemas() ?? [])];
         assertUniqueToolSchemas(tools);
         return { tools: tools.map(({ truncatable: _truncatable, ...wire }) => wire) };
@@ -451,7 +356,7 @@ class PoBMCPServer {
 
       // Add Lua tools if enabled — the repo-owned stdio adapter drives a stock
       // PoB checkout and supports the full action set
-      if (this.luaClientManager.isEnabled()) {
+      if (this.legacy.luaEnabled) {
         tools.push(...getLuaToolSchemas());
         tools.push(...buildCostSchemas());
         tools.push(...getConfigToolSchemas()); // Phase 9: Config tools (require Lua)
@@ -471,11 +376,11 @@ class PoBMCPServer {
       tools.push(...getSkillGemToolSchemas());
 
       // Add Trade API tools if enabled
-      if (this.tradeClient) {
+      if (this.legacy.tradeEnabled) {
         // Weighted search needs the Lua bridge (query generation) and an
         // authenticated session (the Trade API rejects anonymous weighted sums)
         const weightedAvailable = Boolean(process.env.POE_SESSION_ID)
-          && this.luaClientManager.isEnabled();
+          && this.legacy.luaEnabled;
         tools.push(...getTradeToolSchemas().filter((tool) => tool.name !== 'find_weighted_trade_items' || weightedAvailable));
         tools.push(...comparableToolSchemas());
       }
@@ -536,21 +441,11 @@ class PoBMCPServer {
           try { return await pending; }
           finally { this.foundationPending.delete(pending); }
         }
-        if (!this.legacyEnabled()) throw new Error('Legacy tools are unavailable');
-        // Build router dependencies
-        const routerDeps: ToolRouterDependencies = {
-          contextBuilder: this.contextBuilder,
-          tradeClient: this.tradeClient,
-          statMapper: this.statMapper,
-          recommendationEngine: this.recommendationEngine,
-          ninjaClient: this.ninjaClient,
-          buildCostPrices: this.buildCostPrices,
-          getLuaClient: () => this.luaClientManager.getClient(),
-          ensureLuaClient: () => this.luaClientManager.ensureClient(),
-        };
-
-        // Route the tool call
-        const result = await routeToolCall(name, args, routerDeps);
+        if (!this.legacy || this.foundationClosing) throw new Error('Legacy tools are unavailable');
+        const pending = this.legacy.route(name, args);
+        this.foundationPending.add(pending);
+        let result;
+        try { result = await pending; } finally { this.foundationPending.delete(pending); }
 
         // Apply truncation for tools that opt in via their schema flag
         // (ToolSchema.truncatable). The old hand-maintained name list here
@@ -585,6 +480,10 @@ class PoBMCPServer {
    * Initialize async components
    */
   private async initialize() {
+    if (this.legacyEnabled()) {
+      const { LegacyRuntime } = await import('./server/legacyRuntime.js');
+      this.legacy = new LegacyRuntime(this.pobDirectory, process.env.POB_LUA_ENABLED === 'true', process.env.POE_TRADE_ENABLED === 'true', this.officialTrade ?? undefined);
+    }
     const economy = new PoeNinjaAdapter();
     const market = [...createCurrencyReferenceTools(economy), createCurrencySpreadTool(economy), createStaticStatMappingTool(new StaticStatCatalog())];
     const trade = this.officialTrade;
@@ -650,7 +549,8 @@ class PoBMCPServer {
     const transport = new StdioServerTransport();
     try { await this.initialize(); await this.server.connect(transport); }
     catch (error) {
-      if (this.releaseFoundationLock) await this.releaseFoundationLock();
+      const cleanup = await Promise.allSettled([this.legacy?.close(), this.releaseFoundationLock?.()]);
+      for (const result of cleanup) if (result.status === 'rejected') console.error('[Startup Cleanup Error]', result.reason);
       throw error;
     }
     console.error("Path of Building MCP Server running on stdio");
