@@ -23,7 +23,7 @@ try {
   const nativePoison = await client.generateWeightedTradeQueryV2('Amulet', nativeOptions('MinionCombinedDPS'));
   const nativeHit = await client.generateWeightedTradeQueryV2('Amulet', nativeOptions('MinionTotalDPS'));
   const { xml } = await client.unchangedItemsSnapshot(); await client.stop();
-  const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POE_TRADE_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_TIMEOUT_MS: '180000', POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') }, 180000);
+  const mcp = startMcpServer({ POE_TRADE_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_TIMEOUT_MS: '180000', POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') }, 180000);
   child = mcp.child; child.stderr.on('data', () => {}); const exited = once(child, 'exit');
   await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'weighted-trade-smoke', version: '1' } }); mcp.notify('notifications/initialized', {});
   const call = async (name, args) => { const response = await mcp.request('tools/call', { name, arguments: args }); assert.ok(!response.error && !response.result?.isError, JSON.stringify(response).slice(0, 1600)); return JSON.parse(response.result.content[0].text); };
@@ -34,7 +34,7 @@ try {
   assert.equal(leveling.selectedSkill.groupIndex, group.index);
   assert.equal(leveling.selectedSkill.name, selectedGroup.skills[(selectedGroup.mainActiveSkill ?? 1) - 1]);
   assert.ok(leveling.selectedSkill.gems.some(gem => gem.name === 'Summon Raging Spirit' && gem.kind === 'active'));
-  assert.equal(leveling.legacyReference.status, 'unverified');
+  assert.equal(leveling.referenceExamples.status, 'unverified');
   const category = await call('evaluate_snapshot_stat_category', { snapshot_id: parent.id, category: 'all' });
   for (const name of ['Life', 'CombinedDPS', 'FullDPS', 'MinionCombinedDPS', 'ChaosResist']) {
     if (typeof stats[name] === 'number' && Number.isFinite(stats[name])) {

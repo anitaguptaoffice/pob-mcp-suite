@@ -17,7 +17,7 @@ try {
   assert.ok(mastery?.pathNodes?.length); await client.setLevel(90);
   await client.setTree({ ...initial, nodes: [...initial.nodes, ...mastery.pathNodes], masteryEffects: { 4139: 47642 } });
   const xml = await client.exportBuildXml(); await client.stop();
-  const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
+  const mcp = startMcpServer({ POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
   child = mcp.child; child.stderr.on('data', () => {}); const exited = once(child, 'exit');
   await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'mastery-job-smoke', version: '1' } }); mcp.notify('notifications/initialized', {});
   const call = async (name, args) => { const result = await mcp.request('tools/call', { name, arguments: args }); assert.ok(!result.error && !result.result?.isError, JSON.stringify(result)); return JSON.parse(result.result.content[0].text); };

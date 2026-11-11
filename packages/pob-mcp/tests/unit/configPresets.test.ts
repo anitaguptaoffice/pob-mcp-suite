@@ -9,24 +9,17 @@ import type { ConfigPresetStore } from '../../src/ports/configPresets.js';
 
 const id = 'a'.repeat(64), identity = { engineVersion: '1', adapterVersion: '2', dataVersion: '3' };
 describe('local config presets', () => {
-  it('reads legacy presets, preserves collisions, and writes versioned presets atomically', async () => {
+  it('writes and reads presets atomically', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'pob-presets-'));
     try {
-      const legacy = path.join(root, '.pob-mcp-presets'); await mkdir(legacy);
-      const legacyText = JSON.stringify({ enemyIsBoss: 'Pinnacle', brandAttachedToEnemy: true });
-      await writeFile(path.join(legacy, 'boss.json'), legacyText);
       const store = new LocalConfigPresetStore(root);
-      expect((await store.read('boss')).config).toEqual(JSON.parse(legacyText));
-      const preset = { name: 'boss', origin: 'versioned' as const, sourceSnapshotId: id, sourceIdentity: identity, savedAt: new Date().toISOString(), enemyLevelSetting: { mode: 'automatic' as const }, config: { enemyIsBoss: 'Boss', enemyLevel: 84 } };
+      expect(await store.list()).toEqual([]);
+      const preset = { name: 'boss', sourceSnapshotId: id, sourceIdentity: identity, savedAt: new Date().toISOString(), enemyLevelSetting: { mode: 'automatic' as const }, config: { enemyIsBoss: 'Boss', enemyLevel: 84 } };
       await store.save(preset, false); await expect(store.save(preset, false)).rejects.toThrow();
-      expect(await readFile(path.join(legacy, 'boss.json'), 'utf8')).toBe(legacyText);
-      expect(await store.list()).toEqual([{ name: 'boss', origins: ['versioned', 'legacy'] }]);
-      await expect(store.read('boss')).rejects.toThrow('specify origin');
-      expect((await store.read('boss', 'versioned')).config).toEqual(preset.config);
+      expect(await store.list()).toEqual([{ name: 'boss' }]);
+      expect((await store.read('boss')).config).toEqual(preset.config);
       await store.save({ ...preset, config: { enemyIsBoss: 'Pinnacle', enemyLevel: 84 } }, true);
-      expect((await store.read('boss', 'versioned')).config.enemyIsBoss).toBe('Pinnacle');
-      await writeFile(path.join(root, '.pob-mcp-presets-v2', 'v1.json'), JSON.stringify({ format: 'pob-config-preset/v1', sourceSnapshotId: id, sourceIdentity: identity, savedAt: preset.savedAt, config: { enemyLevel: 84 } }));
-      expect((await store.read('v1')).enemyLevelSetting).toBeNull();
+      expect((await store.read('boss')).config.enemyIsBoss).toBe('Pinnacle');
       await expect(store.read('../boss')).rejects.toThrow('Invalid');
     } finally { await rm(root, { recursive: true, force: true }); }
   });
@@ -36,7 +29,7 @@ describe('local config presets', () => {
       const store = new LocalConfigPresetStore(root); expect(await store.list()).toEqual([]);
       const dir = path.join(root, '.pob-mcp-presets'); await mkdir(dir); await writeFile(path.join(dir, 'bad.json'), '{');
       await expect(store.read('bad')).rejects.toThrow('invalid JSON');
-      await symlink(outside, path.join(root, '.pob-mcp-presets-v2'));
+      await rm(dir, { recursive: true, force: true }); await symlink(outside, path.join(root, '.pob-mcp-presets'));
       await expect(store.list()).rejects.toThrow('not a regular directory');
       await expect(new LocalConfigPresetStore(path.join(root, 'missing')).list()).rejects.toThrow();
     } finally { await rm(root, { recursive: true, force: true }); await rm(outside, { recursive: true, force: true }); }
@@ -55,7 +48,7 @@ describe('local config presets', () => {
 
 describe('exact snapshot config application', () => {
   it('saves complete snapshot config and delegates exact application without mutating the preset', async () => {
-    const preset = { name: 'boss', origin: 'legacy' as const, config: { brandAttachedToEnemy: true, enemyIsBoss: 'Pinnacle', enemyLevel: 84 }, sourceSnapshotId: null, sourceIdentity: null, savedAt: null, enemyLevelSetting: null };
+    const preset = { name: 'boss', config: { brandAttachedToEnemy: true, enemyIsBoss: 'Pinnacle', enemyLevel: 84 }, sourceSnapshotId: id, sourceIdentity: identity, savedAt: new Date().toISOString(), enemyLevelSetting: { mode: 'automatic' as const } };
     const save = jest.fn(), read = jest.fn().mockResolvedValue(preset);
     const store = { save, read } as unknown as ConfigPresetStore;
     const runReadOnlySnapshot = jest.fn().mockResolvedValue({ snapshotId: id, identity, warnings: [], result: { config: preset.config, enemyLevelSetting: { mode: 'automatic' } } });
@@ -64,7 +57,7 @@ describe('exact snapshot config application', () => {
     await tools[0].invoke({ snapshot_id: id, name: 'new' });
     expect(save).toHaveBeenCalledWith(expect.objectContaining({ config: preset.config, sourceSnapshotId: id }), false);
     const report = JSON.parse((await tools[1].invoke({ snapshot_id: id, name: 'boss', trial: true })).content[0].text);
-    expect(deriveExactConfig).toHaveBeenCalledWith(id, preset.config, true, undefined);
+    expect(deriveExactConfig).toHaveBeenCalledWith(id, preset.config, true, { mode: 'automatic' });
     expect(report.snapshot.parentId).toBe(id); expect(report.snapshot.xml).toBeUndefined(); expect(report.identityUnknown.length).toBeGreaterThan(0);
     expect(preset.config).toEqual({ brandAttachedToEnemy: true, enemyIsBoss: 'Pinnacle', enemyLevel: 84 });
   });

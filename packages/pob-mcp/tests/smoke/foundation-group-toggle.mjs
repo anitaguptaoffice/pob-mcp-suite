@@ -75,7 +75,7 @@ try {
   const threeSkills = (await foundation.inspect(threeAfter.id, ['skills'])).data.skills;
   assert.equal(threeSkills.mainSocketGroup, 1); assert.equal(threeSkills.calcsSkillNumber, 2);
   assert.deepEqual(threeSkills.groups.map(group => group.label), ['main', 'third']);
-  const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
+  const mcp = startMcpServer({ POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
   mcp.child.stderr.on('data', () => {}); const exited = once(mcp.child, 'exit');
   try {
     await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'group-toggle-smoke', version: '1' } });

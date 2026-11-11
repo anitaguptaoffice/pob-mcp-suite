@@ -1,20 +1,20 @@
 import { strict as assert } from 'node:assert';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { once } from 'node:events';
 import { smokePoBSrc } from './pobSource.mjs';
 import { startMcpServer } from './mcpClient.mjs';
 
 const src = smokePoBSrc();
-const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'false', POB_LEGACY_ENABLED: 'false', POB_LUA_ENABLED: 'false', POE_TRADE_ENABLED: 'false', POB_PATH: src });
+const dir = await mkdtemp(join(tmpdir(), 'pob-modifier-data-'));
+const mcp = startMcpServer({ POE_TRADE_ENABLED: 'false', POB_PATH: src, POB_DIRECTORY: dir, POB_SNAPSHOT_DIRECTORY: join(dir, 'snapshots') });
 const child = mcp.child; child.stderr.on('data', () => {}); const exited = once(child, 'exit');
 try {
   await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'modifier-data-smoke', version: '1' } }); mcp.notify('notifications/initialized', {});
   const names = (await mcp.request('tools/list', {})).result.tools.map(tool => tool.name);
-  for (const name of ['classify_modifier_lines', 'query_bench_modifiers', 'query_modifier_tiers']) assert.ok(names.includes(name));
-  assert.ok(!names.includes('foundation_import_build'));
-  assert.ok(!names.includes('list_builds'));
+  for (const name of ['classify_modifier_lines', 'query_bench_modifiers', 'query_modifier_tiers', 'foundation_import_build']) assert.ok(names.includes(name));
   assert.ok(!names.includes('search_official_trade'));
   const hiddenTrade = await mcp.request('tools/call', { name: 'search_official_trade', arguments: { league: 'Standard' } });
   assert.equal(hiddenTrade.result.isError, true);
@@ -33,4 +33,7 @@ try {
   const invalid = await mcp.request('tools/call', { name: 'query_modifier_tiers', arguments: { search: 'Life', item_tags: ['ring'], item_tags_complete: true } });
   assert.equal(invalid.result.isError, true);
   child.stdin.end(); assert.equal((await exited)[0], 0); console.log('independent modifier data passed');
-} finally { if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM'); }
+} finally {
+  if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');
+  await rm(dir, { recursive: true, force: true });
+}

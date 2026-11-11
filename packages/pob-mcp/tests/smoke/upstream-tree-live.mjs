@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { startMcpServer } from './mcpClient.mjs';
 
 const dir = await mkdtemp(join(tmpdir(), 'pob-upstream-tree-'));
-const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'false', POB_LEGACY_ENABLED: 'false', POE_TRADE_ENABLED: 'false', POE_SESSION_ID: '', POB_DIRECTORY: dir });
+const mcp = startMcpServer({ POE_TRADE_ENABLED: 'false', POE_SESSION_ID: '', POB_DIRECTORY: dir });
 const child = mcp.child; child.stderr.on('data', () => {}); const exited = once(child, 'exit');
 try {
   await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'upstream-tree-live', version: '1' } });

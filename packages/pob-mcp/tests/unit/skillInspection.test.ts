@@ -1,6 +1,5 @@
 import { createSkillInspectionTool } from '../../src/features/skillInspection/tool.js';
 import type { BuildFoundation } from '../../src/foundation/buildFoundation.js';
-import { analyzeSkillSetup } from '../../src/skillLinkOptimizer.js';
 const id = 'a'.repeat(64);
 function setup(skills: unknown) {
   const inspect = jest.fn().mockResolvedValue({ snapshotId: id, identity: { engineVersion: '1' }, warnings: [], data: { skills } });
@@ -40,16 +39,13 @@ it('separates confirmed empty, supports-only, multiple actives and unknown input
   expect(await assess(group([gem(1, false, null)]))).toMatchObject({ enabledGemCount: null, activeGemCount: null, unknownEnabledGemIndices: [1], issues: [] });
   expect(await assess(group([gem(1, true)], null))).toMatchObject({ state: 'unknown', issues: [] });
 });
-it('preserves legacy supports-only and multiple-active observations for confirmed groups', async () => {
+it('reports supports-only and multiple-active observations for confirmed groups', async () => {
   const groups = [
     { index: 1, enabled: true, slotEnabled: true, isMainSkill: true, gems: [{ index: 1, name: 'Support', enabled: true, isSupport: true, supportClassificationKnown: true }] },
     { index: 2, enabled: true, slotEnabled: true, isMainSkill: false, gems: [{ index: 1, name: 'One', enabled: true, isSupport: false, supportClassificationKnown: true }, { index: 2, name: 'Two', enabled: true, isSupport: false, supportClassificationKnown: true }] },
   ];
-  const old = analyzeSkillSetup(groups, 'unknown');
   const report = JSON.parse((await setup({ mainSocketGroup: 1, groups }).tool.invoke({ snapshot_id: id, all_groups: true })).content[0].text);
-  expect(old.groupAnalyses[0].issues.some(issue => issue.type === 'wrong_support')).toBe(true);
   expect(report.groups[0].assessment.issues).toContain('only_support_gems');
-  expect(old.groupAnalyses[1].suggestions).toHaveLength(1);
   expect(report.groups[1].assessment.issues).toContain('multiple_active_gems');
 });
 it('rejects missing selections, inconsistent indices and conflicting scope options', async () => {

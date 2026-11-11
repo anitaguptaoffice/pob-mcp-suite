@@ -1,44 +1,19 @@
 import { strict as assert } from 'node:assert';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { once } from 'node:events';
 import { startMcpServer } from './mcpClient.mjs';
-import { BuildExportService } from '../../build/services/buildExportService.js';
 import { SnapshotStore } from '../../build/foundation/snapshotStore.js';
 
 const dir = await mkdtemp(join(tmpdir(), 'pob-file-catalog-'));
-const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_DIRECTORY: dir, POB_SNAPSHOT_DIRECTORY: join(dir, '.snapshots'), POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
+const mcp = startMcpServer({ POB_DIRECTORY: dir, POB_SNAPSHOT_DIRECTORY: join(dir, '.snapshots'), POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
 const child = mcp.child; child.stderr.on('data', () => {}); const exited = once(child, 'exit');
 try {
   const xml = await readFile(resolve('example-build.xml'), 'utf8');
   await mkdir(join(dir, 'league')); await writeFile(join(dir, 'league', 'build.xml'), xml);
-  const legacyService = new BuildExportService(dir);
-  const legacy = await legacyService.snapshotBuild({ buildName: 'league/build', tag: 'before', description: 'legacy history fixture' });
-  const legacyRestore = await legacyService.restoreSnapshot({ buildName: 'league/build', snapshotId: legacy.snapshotId });
   await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'file-catalog-smoke', version: '1' } }); mcp.notify('notifications/initialized', {});
   const call = async (name, args) => { const response = await mcp.request('tools/call', { name, arguments: args }); assert.ok(!response.error && !response.result?.isError, JSON.stringify(response).slice(0, 1000)); return JSON.parse(response.result.content[0].text); };
-  const history = await call('list_legacy_build_history', { build_name: 'league/build', tag: 'before' });
-  assert.equal(history.complete, false); assert.equal(history.entries.length, 1);
-  assert.equal(history.entries[0].id, legacy.snapshotId); assert.equal(history.entries[0].metadata.description, 'legacy history fixture');
-  const backupFile = `${legacyRestore.backupId}_before-restore.xml`;
-  const unpaired = history.issues.find(issue => issue.file === backupFile && issue.reason === 'XML_WITHOUT_READABLE_METADATA'); assert.ok(unpaired);
-  const orphanInfo = await call('inspect_unpaired_legacy_xml', { build_name: 'league/build', origin: unpaired.origin, file: unpaired.file });
-  const orphan = await call('import_unpaired_legacy_xml', { build_name: 'league/build', origin: unpaired.origin, file: unpaired.file, expected_xml_sha256: orphanInfo.xmlDigest });
-  assert.equal((await call('foundation_export_build', { snapshot_id: orphan.snapshot.id })).xml, xml);
-  assert.equal(orphan.history.legacy.metadata.originalFileName, backupFile); assert.equal(orphan.history.tag, '');
-  const importedHistory = await call('import_legacy_build_history', { build_name: 'league/build', origin: history.entries[0].origin, legacy_id: history.entries[0].id, metadata_digest: history.entries[0].metadataDigest });
-  assert.equal(importedHistory.legacy.metadata.tag, 'before'); assert.equal(importedHistory.snapshot.parentId, null);
-  assert.equal((await call('foundation_export_build', { snapshot_id: importedHistory.snapshot.id })).xml, xml);
-  assert.equal(await readFile(legacy.snapshotPath, 'utf8'), xml);
-  await rm(legacy.snapshotPath); await rm(join(dirname(legacy.snapshotPath), `${legacy.snapshotId}_metadata.json`));
-  await rm(join(dirname(legacy.snapshotPath), backupFile));
-  const durableHistory = await call('list_snapshot_history', { build_name: 'league/build', tag: 'before' });
-  assert.equal(durableHistory.entries.length, 1); assert.equal(durableHistory.entries[0].id, importedHistory.history.id);
-  assert.equal(durableHistory.entries[0].description, 'legacy history fixture');
-  assert.deepEqual(durableHistory.entries[0].legacy.metadata, importedHistory.legacy.metadata);
-  const named = await call('save_snapshot_history', { snapshot_id: importedHistory.snapshot.id, build_name: 'league/build', tag: 'manual', description: 'saved through MCP' });
-  assert.equal(named.description, 'saved through MCP');
   const catalog = await call('list_local_build_files', {});
   assert.equal(catalog.complete, true); assert.deepEqual(catalog.names, [join('league', 'build.xml')]);
   const cached = await call('inspect_local_cached_stats', { build_name: catalog.names[0], limit: 2 });
@@ -50,6 +25,10 @@ try {
   const calculated = await call('foundation_evaluate', { snapshot_id: snapshot.id, fields: ['Life'] });
   assert.equal(calculated.metrics.Life.status, 'available');
   assert.notEqual(calculated.metrics.Life.value, Number(cached.entries[0].value), 'fixture must distinguish historical values from current PoB calculation');
+  const named = await call('save_snapshot_history', { snapshot_id: snapshot.id, build_name: 'league/build', tag: 'manual', description: 'saved through MCP' });
+  assert.equal(named.description, 'saved through MCP');
+  const durableHistory = await call('list_snapshot_history', { build_name: 'league/build', tag: 'manual' });
+  assert.equal(durableHistory.entries.length, 1); assert.equal(durableHistory.entries[0].id, named.id);
   const watch = await call('start_local_build_watch', {}); assert.equal(watch.state, 'running');
   await writeFile(join(dir, 'league', 'build.xml'), `${xml}\n`);
   const stalePage = await mcp.request('tools/call', { name: 'inspect_local_cached_stats', arguments: { build_name: catalog.names[0], offset: cached.nextOffset, xml_fingerprint: cached.xmlFingerprint } });
@@ -71,8 +50,7 @@ try {
   assert.equal(backups.entries.length, 1); assert.equal(backups.entries[0].snapshotId, restored.backupSnapshotId);
   child.stdin.end(); assert.equal((await exited)[0], 0);
   const reopened = new SnapshotStore(join(dir, '.snapshots'));
-  assert.equal((await reopened.readHistory(importedHistory.history.id)).description, 'legacy history fixture');
-  assert.equal((await reopened.readHistory(orphan.history.id)).legacy.metadata.originalFileName, backupFile);
+  assert.equal((await reopened.readHistory(named.id)).description, 'saved through MCP');
   assert.equal((await reopened.readHistory(named.id)).tag, 'manual');
   console.log('foundation file catalog passed');
 } finally { if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM'); await rm(dir, { recursive: true, force: true }); }

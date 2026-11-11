@@ -301,7 +301,7 @@ export class PoBLuaApiClient {
   constructor(options: PoBLuaApiOptions = {}) {
     // Prevent unhandled 'error' events (emitted on process exit) from crashing Node.js
     this.dataEmitter.on("error", () => {});
-    const forkSrc = options.cwd || process.env.POB_PATH || process.env.POB_FORK_PATH;
+    const forkSrc = options.cwd || process.env.POB_PATH;
     const adapter = process.env.POB_ADAPTER_PATH || path.resolve(path.dirname(process.argv[1] || "."), "../lua/vanilla_stdio_bridge.lua");
     this.options = {
       cwd: forkSrc,  // may be undefined; resolved by layout detection in start()
@@ -396,10 +396,7 @@ export class PoBLuaApiClient {
             throw new Error(
               `Failed to start PoB Lua Bridge: LuaJIT executable not found.\n\n` +
               `The command "${cmd}" does not exist or is not in PATH.\n\n` +
-              `Please:\n` +
-              `1. Install LuaJIT (https://luajit.org/download.html)\n` +
-              `2. Update your Claude Desktop config with the correct POB_CMD path\n` +
-              `3. Or add LuaJIT to your system PATH and set POB_CMD=luajit\n\n` +
+              `Install LuaJIT and either add it to PATH or set POB_CMD to its absolute path.\n\n` +
               `Current POB_CMD: ${cmd}`
             );
           }

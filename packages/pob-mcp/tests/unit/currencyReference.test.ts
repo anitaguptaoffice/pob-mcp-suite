@@ -1,5 +1,4 @@
 import { createCurrencyReferenceTools } from '../../src/features/currencyReference/tools.js';
-import { normalizeCurrencyOverview } from '../../src/services/poeNinjaClient.js';
 import type { EconomySource } from '../../src/ports/economySource.js';
 
 const fetchedAt = '2026-01-01T00:00:00.000Z';
@@ -7,12 +6,12 @@ const payload = { core: { primary: 'chaos' }, items: [{ id: 'divine', name: 'Div
 const makeSource = () => ({ read: jest.fn(async () => ({ source: 'poe.ninja' as const, query: { kind: 'currency' as const, league: 'Standard' }, fetchedAt, payload })) });
 
 describe('currency reference workflows', () => {
-  it('matches the legacy normalization and retains source time and quote currency', async () => {
+  it('normalizes source rates and retains source time and quote currency', async () => {
     const source = makeSource();
     const [ratesTool] = createCurrencyReferenceTools(source as EconomySource);
     const result = JSON.parse((await ratesTool.invoke({ league: 'Standard' })).content[0].text);
-    const previous = normalizeCurrencyOverview(payload);
-    for (const line of previous.lines) expect(result.rates).toContainEqual(expect.objectContaining({ name: line.currencyTypeName, chaosValue: line.chaosEquivalent }));
+    expect(result.rates).toContainEqual(expect.objectContaining({ name: 'Divine Orb', chaosValue: 120 }));
+    expect(result.rates).toContainEqual(expect.objectContaining({ name: 'Exalted Orb', chaosValue: 20 }));
     expect(result.rates).toContainEqual({ name: 'Chaos Orb', id: 'chaos', chaosValue: 1 });
     expect(result.fetchedAt).toBe(fetchedAt);
     expect(result.warnings.join(' ')).toContain('not executable');

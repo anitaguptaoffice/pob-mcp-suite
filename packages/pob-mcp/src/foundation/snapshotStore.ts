@@ -26,7 +26,6 @@ export interface SnapshotHistoryInput {
   tag: string;
   description: string;
   recordedAt: string | null;
-  legacy?: { id: string; origin: string; metadataDigest: string; xmlDigest: string; metadata: Record<string, unknown> };
 }
 export type SnapshotHistoryRecord = SnapshotHistoryInput & { formatVersion: 1; snapshotId: string; id: string };
 export function snapshotMetadata(record: SnapshotRecord): SnapshotMetadata {
@@ -120,9 +119,8 @@ export class SnapshotStore {
 
   /** History is separate from immutable snapshot contents; retain before publishing a reference. */
   async saveHistory(snapshotId: string, input: SnapshotHistoryInput): Promise<SnapshotHistoryRecord> {
-    if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some(key => !['buildName', 'tag', 'description', 'recordedAt', 'legacy'].includes(key)) ||
-        typeof input.buildName !== 'string' || !input.buildName.trim() || input.buildName.length > 1000 || typeof input.tag !== 'string' || input.tag.length > 1000 || typeof input.description !== 'string' || input.description.length > 10000 || (input.recordedAt !== null && (typeof input.recordedAt !== 'string' || input.recordedAt.length > 100)) ||
-        (input.legacy !== undefined && (!input.legacy || typeof input.legacy !== 'object' || Array.isArray(input.legacy) || Object.keys(input.legacy).some(key => !['id', 'origin', 'metadataDigest', 'xmlDigest', 'metadata'].includes(key)) || typeof input.legacy.id !== 'string' || !/^[A-Za-z0-9-]{1,100}$/.test(input.legacy.id) || typeof input.legacy.origin !== 'string' || !input.legacy.origin || input.legacy.origin.length > 1000 || !/^[a-f0-9]{64}$/.test(input.legacy.metadataDigest) || !/^[a-f0-9]{64}$/.test(input.legacy.xmlDigest) || !input.legacy.metadata || typeof input.legacy.metadata !== 'object' || Array.isArray(input.legacy.metadata)))) throw new Error('Invalid snapshot history');
+    if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some(key => !['buildName', 'tag', 'description', 'recordedAt'].includes(key)) ||
+        typeof input.buildName !== 'string' || !input.buildName.trim() || input.buildName.length > 1000 || typeof input.tag !== 'string' || input.tag.length > 1000 || typeof input.description !== 'string' || input.description.length > 10000 || (input.recordedAt !== null && (typeof input.recordedAt !== 'string' || input.recordedAt.length > 100))) throw new Error('Invalid snapshot history');
     const body = { formatVersion: 1 as const, snapshotId, ...input };
     const serialized = JSON.stringify(body);
     if (Buffer.byteLength(serialized, 'utf8') > 131072) throw new Error('Snapshot history exceeds the size limit');

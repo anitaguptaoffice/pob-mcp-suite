@@ -1,4 +1,4 @@
-// Legacy unversioned keyword heuristics; not proof of synergy or allocation.
+// Unversioned keyword heuristics; not proof of synergy or allocation.
 // Notable → relevant build-type tags
 export const CLUSTER_NOTABLE_TAGS: Record<string, string[]> = {
   'Feasting Fiends':       ['minion', 'leech'],
@@ -21,6 +21,7 @@ export const CLUSTER_NOTABLE_TAGS: Record<string, string[]> = {
   'Precise Commander':     ['aura', 'critical'],
   'Wish for Death':        ['chaos', 'damage'],
   'Touch of Cruelty':      ['chaos', 'debuff'],
+  'Wicked Pall':           ['chaos', 'damage'],
   'Unwaveringly Evil':     ['chaos', 'damage'],
   'Cold to the Core':      ['cold', 'penetration'],
   'Prismatic Heart':       ['cold', 'damage'],

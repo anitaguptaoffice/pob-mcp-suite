@@ -5,12 +5,11 @@ import { resolve } from 'node:path';
 
 /**
  * Spawn the built server and return { child, request, notify }.
- * `env` is merged over the parent environment; POB_LUA_ENABLED is on by default
- * because every caller so far drives the bridge.
+ * `env` is merged over the parent environment.
  */
 export function startMcpServer(env = {}, timeoutMs = 60_000) {
   const child = spawn('node', [resolve('build/index.js')], {
-    env: { ...process.env, POB_LUA_ENABLED: 'true', ...env },
+    env: { ...process.env, ...env },
     stdio: ['pipe', 'pipe', 'pipe'],
   });
 

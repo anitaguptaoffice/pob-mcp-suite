@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { parseModFile } from '../../src/services/modDataStore.js';
+import { parseModFile } from '../../src/adapters/modifierData/modDataStore.js';
 import { MOD_EXPLICIT_EXCERPT, MOD_MASTER_EXCERPT } from '../fixtures/modDataExcerpt.js';
 
 const explicit = parseModFile(MOD_EXPLICIT_EXCERPT, 'explicit');

@@ -7,8 +7,9 @@ import { PoBModifierData } from '../../src/adapters/modifierData/pobModifierData
 it('identifies the actual bytes and refreshes changed data even with the same size and timestamp', () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'pob-mod-data-')), previous = process.env.POB_PATH;
   try {
-    mkdirSync(path.join(dir, 'Data')); const file = path.join(dir, 'Data', 'ModExplicit.lua');
-    const text = 'return {\n["x"] = { type = "Prefix", affix = "A", "+(1-5) to maximum Life", statOrder = { 1 }, level = 1, group = "Life", weightKey = { "default" }, weightVal = { 100 }, },\n}';
+    mkdirSync(path.join(dir, 'Data')); writeFileSync(path.join(dir, 'HeadlessWrapper.lua'), '-- engine marker\n');
+    const file = path.join(dir, 'Data', 'ModExplicit.lua');
+    const text = 'return {\n["x"] = { type = "Prefix", affix = "A", "+(1-5) to maximum Life", statOrder = { 1 }, level = 1, group = "Life", weightKey = { "default" }, weightVal = { 100 } },\n}';
     writeFileSync(file, text); process.env.POB_PATH = dir;
     const source = new PoBModifierData(), first = source.readExplicit(), timestamp = statSync(file);
     expect(first.sha256).toBe(createHash('sha256').update(readFileSync(file)).digest('hex'));

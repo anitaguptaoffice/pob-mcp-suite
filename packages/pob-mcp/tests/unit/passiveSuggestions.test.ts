@@ -15,7 +15,7 @@ function setup() {
 }
 
 describe('snapshot passive suggestions', () => {
-  it('uses legacy goal and gem keywords, deduplicates and reports bounded searches', async () => {
+  it('uses goal and gem keywords, deduplicates and reports bounded searches', async () => {
     const { tool, searchNodes } = setup();
     const result = JSON.parse((await tool.invoke({ snapshot_id: id, goal: 'damage', limit: 2 })).content[0].text);
     expect(result).toMatchObject({ snapshotId: id, treeVersion: '3_29', inferredArchetypes: ['minion'], returnedCount: 2, outputTruncated: true });

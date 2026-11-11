@@ -11,8 +11,7 @@ FROM node:20-bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV POB_DIRECTORY=/builds
-ENV POB_FORK_PATH=/opt/PathOfBuilding/src
-ENV POB_LUA_ENABLED=true
+ENV POB_PATH=/opt/PathOfBuilding/src
 ENV POB_CMD=/opt/luajit/bin/luajit
 ENV POB_ADAPTER_PATH=/opt/pob-mcp/lua/vanilla_stdio_bridge.lua
 ENV POE_TRADE_ENABLED=false

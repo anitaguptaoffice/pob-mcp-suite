@@ -32,12 +32,17 @@ export function validateEvaluationOptions(options: EvaluationOptions): void {
     }
   }
 }
-function hasLegacyGemQuality(xml: string): boolean {
+function hasNonDefaultGemQuality(xml: string): boolean {
   return xml.includes('qualityId') && new BuildXml(xml).hasNonDefaultGemQuality();
 }
+/** PoB applies these options together: a boss preset also sets its enemy level. */
+const coupledConfigKeys: Record<string, readonly string[]> = { enemyIsBoss: ['enemyLevel'] };
+
 function unrelatedConfig(value: unknown, requested: Record<string, unknown>): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value) && value.length !== 0) throw new Error('PoB returned invalid config');
-  return Object.fromEntries(Object.entries(value).filter(([key]) => !Object.hasOwn(requested, key)));
+  const related = new Set(Object.keys(requested));
+  for (const key of Object.keys(requested)) for (const coupled of coupledConfigKeys[key] ?? []) related.add(coupled);
+  return Object.fromEntries(Object.entries(value).filter(([key]) => !related.has(key)));
 }
 function checkIdentity(snapshot: SnapshotRecord, engine: BuildEngine): string[] {
   const warnings: string[] = [];
@@ -48,7 +53,7 @@ function checkIdentity(snapshot: SnapshotRecord, engine: BuildEngine): string[] 
     if (!expected || !actual) warnings.push(`${key} is unknown; compatibility cannot be established`);
   }
   warnings.push('Fingerprints do not cover external dependencies, wrapper interpreters or transient changes between checks');
-  if (hasLegacyGemQuality(snapshot.xml)) warnings.push('Source XML contains non-default gem qualityId fields; PoB may ignore them, so skill observations and calculations may not represent the original build.');
+  if (hasNonDefaultGemQuality(snapshot.xml)) warnings.push('Source XML contains non-default gem qualityId fields; PoB may ignore them, so skill observations and calculations may not represent the original build.');
   return warnings;
 }
 async function observe(engine: BuildEngine) {
@@ -280,7 +285,7 @@ export class BuildFoundation {
   private async derive(id: string, source: string, apply: (engine: BuildEngine) => Promise<void>, trial: boolean, verifyReload?: (engine: BuildEngine) => Promise<void>): Promise<SnapshotRecord> {
     if (typeof trial !== 'boolean') throw new Error('Invalid trial flag');
     const parent = await this.store.read(id);
-    if (hasLegacyGemQuality(parent.xml)) throw new Error('Cannot derive snapshot: source XML contains a non-default gem qualityId that PoB may discard. Original snapshot remains unchanged.');
+    if (hasNonDefaultGemQuality(parent.xml)) throw new Error('Cannot derive snapshot: source XML contains a non-default gem qualityId that PoB may discard. Original snapshot remains unchanged.');
     return this.limiter.withEngine(async engine => {
       checkIdentity(parent, engine);
       await engine.loadBuildXml(parent.xml);
@@ -1265,7 +1270,7 @@ export class BuildFoundation {
     }, trial);
   }
 
-  /** Apply every preset value exactly; unchanged legacy keys need not be writable. */
+  /** Apply every preset value exactly; unchanged pre-existing keys need not be writable. */
   async deriveExactConfig(id: string, config: Record<string, string | number | boolean>, trial = false, enemyLevelSetting?: EnemyLevelSetting): Promise<{ snapshot: SnapshotRecord; changedKeys: string[] }> {
     if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('Invalid config');
     validateEvaluationOptions({ config });

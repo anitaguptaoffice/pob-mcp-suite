@@ -15,7 +15,7 @@ export interface PoBEngineOptions {
 
 /** Start a disposable bridge for one foundation operation. */
 export async function openPoBEngine(options: PoBEngineOptions): Promise<BuildEngine> {
-  const layout = resolvePoBLayout(options.cwd || process.env.POB_PATH || process.env.POB_FORK_PATH);
+  const layout = resolvePoBLayout(options.cwd || process.env.POB_PATH);
   const src = layout.src;
   const runtimeDir = layout.kind === 'checkout' ? path.join(path.dirname(src), 'runtime') : null;
   const runtimeDigest = async (): Promise<string | null> => {

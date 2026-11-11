@@ -1,5 +1,5 @@
 /** Shared field definitions; names are PoB output identifiers, not damage formulae. */
-export const LEGACY_OFFENSE_FIELDS = [
+export const OFFENSE_FIELDS = [
   'TotalDPS', 'CombinedDPS', 'TotalDot', 'TotalDotDPS', 'WithBleedDPS', 'WithIgniteDPS',
   'WithPoisonDPS', 'IgniteDPS', 'BleedDPS', 'PoisonDPS', 'AverageDamage', 'AverageBurstDamage',
   'Speed', 'HitChance', 'CritChance', 'CritMultiplier', 'PreEffectiveCritChance',
@@ -10,7 +10,7 @@ export const LEGACY_OFFENSE_FIELDS = [
   'MinionFireResist', 'MinionColdResist', 'MinionLightningResist', 'MinionChaosResist',
 ] as const;
 
-export const LEGACY_DEFENSE_FIELDS = [
+export const DEFENSE_FIELDS = [
   'Life', 'LifeRegen', 'LifeRegenRecovery', 'LifeLeechGainRate', 'LifeUnreserved',
   'Mana', 'ManaRegen', 'ManaRegenRecovery', 'ManaLeechGainRate', 'ManaUnreserved',
   'EnergyShield', 'EnergyShieldRegen', 'EnergyShieldRegenRecovery', 'EnergyShieldLeechGainRate',
@@ -23,8 +23,8 @@ export const LEGACY_DEFENSE_FIELDS = [
 ] as const;
 
 export function statCategoryFields(category: 'offense' | 'defense' | 'all'): string[] {
-  const offense = ['FullDPS', ...LEGACY_OFFENSE_FIELDS];
+  const offense = ['FullDPS', ...OFFENSE_FIELDS];
   if (category === 'offense') return offense;
-  if (category === 'defense') return [...LEGACY_DEFENSE_FIELDS];
-  return [...new Set([...offense, ...LEGACY_DEFENSE_FIELDS])];
+  if (category === 'defense') return [...DEFENSE_FIELDS];
+  return [...new Set([...offense, ...DEFENSE_FIELDS])];
 }

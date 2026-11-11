@@ -7,7 +7,7 @@ import { gearedBuildXml } from './pobSource.mjs';
 import { startMcpServer } from './mcpClient.mjs';
 
 const dir = await mkdtemp(join(tmpdir(), 'pob-trade-preview-'));
-const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POE_TRADE_ENABLED: 'true', POE_SESSION_ID: '', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
+const mcp = startMcpServer({ POE_TRADE_ENABLED: 'true', POE_SESSION_ID: '', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
 mcp.child.stderr.on('data', () => {}); const exited = once(mcp.child, 'exit');
 const call = async (name, args) => { const response = await mcp.request('tools/call', { name, arguments: args }); assert.ok(!response.error && !response.result?.isError, JSON.stringify(response)); return JSON.parse(response.result.content[0].text); };
 try {

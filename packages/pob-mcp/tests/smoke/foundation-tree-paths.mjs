@@ -22,7 +22,7 @@ try {
   const expectedPath = native.nodes.find(node => node.id === 11420)?.pathNodes;
   assert.deepEqual(expectedPath, [57264, 37569, 36542, 4397, 11420]);
   await client.stop();
-  const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
+  const mcp = startMcpServer({ POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
   child = mcp.child; child.stderr.on('data', () => {}); const exited = once(child, 'exit');
   await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'paths-smoke', version: '1' } });
   mcp.notify('notifications/initialized', {});

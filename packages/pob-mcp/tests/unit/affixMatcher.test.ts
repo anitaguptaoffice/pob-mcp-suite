@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 import { resolveAffixes, statTemplate, statValues } from '../../src/domain/modifiers/affixMatcher.js';
-import { parseModFile } from '../../src/services/modDataStore.js';
+import { parseModFile } from '../../src/adapters/modifierData/modDataStore.js';
 import { MOD_EXPLICIT_EXCERPT, MOD_MASTER_EXCERPT } from '../fixtures/modDataExcerpt.js';
 
 const entries = [
@@ -33,8 +33,8 @@ describe('statValues', () => {
 describe('resolveAffixes', () => {
   it('treats same-group prefix and suffix readings as ambiguous', () => {
     const fixture = `return {
-      ["One"] = { type = "Prefix", affix = "First", "+(1-5) to Strength", statOrder = { 1 }, level = 1, group = "Shared", weightKey = { "default" }, weightVal = { 100 }, },
-      ["Two"] = { type = "Suffix", affix = "Second", "+(1-5) to Strength", statOrder = { 1 }, level = 1, group = "Shared", weightKey = { "default" }, weightVal = { 100 }, },
+      ["One"] = { type = "Prefix", affix = "First", "+(1-5) to Strength", statOrder = { 1 }, level = 1, group = "Shared", weightKey = { "default" }, weightVal = { 100 } },
+      ["Two"] = { type = "Suffix", affix = "Second", "+(1-5) to Strength", statOrder = { 1 }, level = 1, group = "Shared", weightKey = { "default" }, weightVal = { 100 } },
     }`;
     const result = resolveAffixes(['+3 to Strength'], parseModFile(fixture, 'explicit'));
     expect(result.affixes[0].alternatives).toHaveLength(1);

@@ -1,49 +1,56 @@
 # PoB MCP Suite
 
-本仓库为简体中文社区提供 Path of Building（PoB）MCP 工具，让支持 MCP 的 AI 客户端读取和分析流放之路构筑，并使用 PoB 引擎计算修改前后的属性。建议先核对构筑使用的 PoB 版本、技能和敌人配置：计算结果取决于这些设置。
+本仓库为简体中文社区提供 Path of Building（PoB）MCP 工具，让支持 MCP 的 AI 客户端读取和分析流放之路 1 的构筑，并用 PoB 引擎计算修改前后的属性。计算结果取决于构筑使用的 PoB 版本、技能和敌人配置，请先核对这些设置。
 
 ## 仓库内容
 
 | 路径 | 内容 |
 | --- | --- |
 | `vendor/PathOfBuilding` | 保持原样的 PoB 引擎源码。 |
-| `packages/pob-mcp` | MCP 服务、PoB 适配层和测试。 |
+| `packages/pob-mcp` | MCP 服务、PoB 适配层、快照存储和测试。 |
 | `packages/pob-mcp-market` | 客户端插件、Skill、配置及启动脚本。 |
 
-PoB 引擎和 MCP 适配层分别维护。本仓库保留军团珠宝种子搜索、特殊升华名称和交易查询等定制；对照版本、改动与测试范围见[相对上游 MCP 的改动记录](UPSTREAM_MCP_CHANGES.md)。详细 MCP 工具与开发参考见 [MCP 说明](packages/pob-mcp/README.md)，插件和客户端入口见[插件说明](packages/pob-mcp-market/README.md)。
+PoB 引擎和 MCP 适配层分别维护。本仓库保留军团珠宝种子搜索、特殊升华名称和交易查询等定制；对照版本、改动与测试范围见[相对上游 MCP 的改动记录](UPSTREAM_MCP_CHANGES.md)。详细工具、配置和开发说明见 [MCP 说明](packages/pob-mcp/README.md)，插件和客户端入口见[插件说明](packages/pob-mcp-market/README.md)。
 
-已确认的方向是一个本地 `stdio` 服务、内部模块化；PoB、poe.ninja 和官方交易分别作为数据源适配能力。设计和当前验收边界见[架构决策](docs/ARCHITECTURE_DECISIONS.md)，旧工具迁移计划见[迁移清单](docs/LEGACY_TOOL_INVENTORY.md)。新基础层仍在试验，旧业务尚未迁移。
+## 工作方式
 
-本地设置 `POB_FOUNDATION_ENABLED=true` 可试用隔离快照接口；此模式默认隐藏旧工具，可额外设置 `POB_LEGACY_ENABLED=true` 暂时启用兼容入口。普通导入和变更快照永久保存；变更时显式传入 `trial: true` 创建试算快照，7 天后可在服务下次启动时清理。调用 `foundation_retain_snapshot` 或保存构筑文件会永久保留该快照及其祖先。试验接口和旧接口的构筑状态互不共享。
+服务只有一个工具面：每个构筑状态保存为不可变快照，修改生成子快照，计算在独立、短生命周期的无界面 PoB 进程中完成。快照 ID 可以复现当时的 XML、引擎版本和限制。PoB、poe.ninja 和官方国际服交易分别作为独立数据源接入。
 
-造价功能和操作指引独立维护。`estimate_build_cost` 按国际服指定赛季查询 poe.ninja 公开行情，列出暗金和宝石参考价及无法估价的项目；稀有装备尚未自动估价，参考小计不是整套造价。`pob-economy` Skill 负责引导 AI 使用造价、交易与制作工具。
+- 缺失的属性保持 `unknown`，不会被写成 0。
+- poe.ninja 价格是带赛季和时间戳的参考价，不是可成交价格。
+- 交易搜索默认使用 `securable` 和明确标价，区分一口价、要价和未知。
+- 启发式建议标注为未验证；有界采样说明上限。
 
-在 MCP 服务环境中设置 `POE_TRADE_ENABLED=true` 并重启服务后，`estimate_comparable_item` 可按明确给出的底材和词缀条件对比稀有装备挂牌。`compare_craft_budget` 使用外部已核实的单次成功率和单次成本比较预算；它不推断游戏概率，也不是制作模拟器。制作操作另由 `pob-crafting` Skill 提供指导。
+设计取舍见[架构说明](docs/ARCHITECTURE.md)、[架构决策](docs/ARCHITECTURE_DECISIONS.md)和[中文摘要](docs/ARCHITECTURE.zh-CN.md)。
 
-`compare_equipment_candidate` 接收完整物品文本和当前装备部位，使用 PoB 引擎预览换装前后的伤害与防御，不会实际装备物品，也不会自动提高候选物品的品质。结果会列出原装备和候选装备上 PoB 标记为未解析的生效词缀；这不能证明整套构筑或所有特殊机制均被正确识别。结果依赖当前技能和配置，珠宝、药剂和备用武器栏暂不支持；物品是否合法、能否买到以及价格仍需另行核对。
+## 快速开始
 
-启用交易接口后，`compare_trade_listing_in_pob` 可以读取指定国际服挂牌的官方物品复制文本，交给同一 PoB 预览功能；`compare_trade_listings_in_pob` 会捕获当前构筑并在隔离的 PoB 引擎中逐一预览同一搜索中的最多五件挂牌，基准数值不一致时拒绝对应结果。每件结果及失败原因单独列出，不自动排名或换算通货。挂牌可能失效或来自缓存，且单凭价格不能判断是否是一口价；请从使用 `securable` 筛选的搜索结果选取候选。
+需要 Node.js 20 或更高版本，以及能解析所用 PoB 版本的 LuaJIT。
 
-`compare_gem_setups` 可以用隔离的 PoB 引擎比较已保存主技能组中的明确候选方案，分别返回角色和召唤物的伤害指标，并标注 PoB 能确认的辅助宝石生效状态。每套方案都要包含原有主动宝石；新辅助宝石默认按 20 级、0% 品质计算，也可为方案指定等级和品质；仍需核对宝石是否可获得、孔数、辅助效果和构筑配置。`suggest_support_gems` 根据 PoB 原版兼容性筛选候选，按名称排列，不表示伤害收益或可买到。 `rank_support_gems` 可以对指定的 1–4 个替换候选逐个用 PoB 实测排序，并排除未生效的辅助宝石；它不会搜索全部宝石或估算价格。当前不自动搜索最优宝石或估算价格。
+```bash
+npm --prefix packages/pob-mcp ci
+npm --prefix packages/pob-mcp run build
+```
 
-`simulate_simple_annul` 仅枚举普通物品使用一次剥离石的结果，要求事先确认完整外显词缀清单且不存在保护、分裂、催化剂等特殊规则；不能用于自动识别物品或模拟完整工艺。
+在 MCP 客户端中注册 `packages/pob-mcp/build/index.js`，至少设置 `POB_DIRECTORY`（你的 PoB `Builds` 目录）和 `POB_CMD`（LuaJIT 路径）。完整变量表、首次调用流程和排障见 [MCP 说明](packages/pob-mcp/README.md)与[快速开始](packages/pob-mcp/docs/QUICKSTART.md)。
+
+设置 `POE_TRADE_ENABLED=true` 后启用官方国际服交易工具；需要登录的查询还要设置 `POE_SESSION_ID`。
 
 ## 本地验证
 
-以下命令在仓库根目录执行，需要 Node.js、npm 和 Docker：
+以下命令在仓库根目录执行：
 
 ```bash
 npm --prefix packages/pob-mcp ci
 npm run validate
 docker build -t pob-mcp-suite:local .
-docker run --rm --entrypoint node -e POB_LUA_ENABLED=true -e POE_TRADE_ENABLED=false pob-mcp-suite:local /opt/pob-mcp/scripts/mcp-smoke.mjs node /opt/pob-mcp/build/index.js
 docker run --rm --entrypoint node pob-mcp-suite:local /opt/pob-mcp/scripts/engine-regression.mjs
 ```
 
-最后两条分别检查 MCP 服务与实际 PoB 引擎的代表性计算。通过测试不能保证所有构筑、游戏机制或交易结果均正确。
+`npm run validate` 依次执行构建、全量 Jest、插件元数据校验和 shell 语法检查。真实引擎行为由 `packages/pob-mcp/tests/smoke/` 覆盖，最后一条命令检查固定数值基线。通过测试不能保证所有构筑、游戏机制或交易结果均正确。
 
 ## 发布与同步
 
 - Docker 镜像从仓库中的 PoB 源码和 MCP 服务构建；插件默认使用 `ghcr.io/anitaguptaoffice/pob-mcp-suite:latest`。
 - `.github/workflows/sync-pob.yml` 每周一同步 Path of Building Community 的 `dev` 分支，检查军团珠宝数据并运行引擎测试。冲突或兼容问题需要人工处理。
-- 该流程同步 PoB 引擎，**不会自动同步 MCP 上游代码**。旧的独立仓库仅作为历史参考。
+- 该流程同步 PoB 引擎，**不会自动同步 MCP 上游代码**。

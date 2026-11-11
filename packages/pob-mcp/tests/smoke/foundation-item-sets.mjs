@@ -37,7 +37,7 @@ try {
   assert.equal((await foundation.inspect(back.id, ['items'])).data.items.find(item => item.slot === 'Ring 1').id, 5);
   assert.equal((await foundation.evaluate(back.id, ['Life'])).stats.Life, base.stats.Life);
   await assert.rejects(foundation.deriveItemSet(parent.id, 999), /Item set not found/);
-  const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
+  const mcp = startMcpServer({ POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
   mcp.child.stderr.on('data', () => {}); const exited = once(mcp.child, 'exit');
   try {
     await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'item-set-smoke', version: '1' } });

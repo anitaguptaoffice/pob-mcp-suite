@@ -23,10 +23,6 @@ export class FeatureRegistry {
 
   schemas(): ToolSchema[] { return [...this.tools.values()].map(tool => tool.schema); }
 
-  assertNoCollisions(legacy: readonly ToolSchema[]): void {
-    for (const schema of legacy) if (this.tools.has(schema.name)) throw new Error(`feature tool collides with legacy tool: ${schema.name}`);
-  }
-
   get(name: string): FeatureTool | undefined { return this.tools.get(name); }
 }
 

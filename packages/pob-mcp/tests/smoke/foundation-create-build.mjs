@@ -6,7 +6,7 @@ import { once } from 'node:events';
 import { startMcpServer } from './mcpClient.mjs';
 
 const dir = await mkdtemp(join(tmpdir(), 'pob-create-build-'));
-const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
+const mcp = startMcpServer({ POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
 mcp.child.stderr.on('data', () => {}); const exited = once(mcp.child, 'exit');
 try {
   await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'create-build-smoke', version: '1' } });

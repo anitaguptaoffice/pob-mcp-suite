@@ -1,112 +1,95 @@
-# Path of Building MCP Server - Quick Start
+# Quick start
 
-> Agent-facing Codex plugin setup now lives in
-> `packages/pob-mcp-market/pob-docker-mcp/references/client-configs.md`.
-> Keep this file for local MCP server development and manual Claude Desktop setup.
+This guide takes a build from disk to a calculated comparison in four calls.
 
-🎮 **Analyze your Path of Exile builds with Claude!**
-
-## What You've Built
-
-An MCP server that lets Claude:
-- Read and analyze your Path of Building builds
-- Compare builds side-by-side
-- Extract stats, skills, items, and more
-- Help optimize your character builds
-
-## Next Steps
-
-### 1. Get Your Builds from PC → Mac
-
-See `TRANSFER_GUIDE.md` for detailed instructions, but basically:
-- Locate builds on PC: `C:\Users\<You>\Documents\Path of Building\Builds\`
-- Copy all `.xml` files
-- Put them on Mac: `~/Documents/Path of Building/Builds/`
-
-Tip: If your builds are not detected, set `POB_DIRECTORY` in your Claude config to the exact folder path (the server’s default on macOS is `~/Path of Building/Builds`).
-
-### 2. Configure Claude Desktop
-
-Edit: `~/Library/Application Support/Claude/claude_desktop_config.json`
-
-Use the example from `claude_desktop_config.example.json` and update:
-- Path to this project's `build/index.js`
-- Path to your builds directory
-
-### 3. Restart Claude Desktop
-
-After saving the config, completely quit and restart Claude Desktop.
-
-### 4. Test It!
-
-Try these prompts:
-- "List my Path of Building builds"
-- "Analyze my <build-name>.xml"
-- "Compare <build1>.xml and <build2>.xml"
-- "What's the life and DPS on my <build>?"
-
-## Project Structure
-
-```
-pob-mcp/
-├── src/
-│   ├── index.ts              # Main MCP server entry point
-│   ├── server/               # MCP server, tool routing, schemas
-│   ├── handlers/             # Tool handler implementations
-│   ├── services/             # Business logic services
-│   └── types/                # TypeScript type definitions
-├── tests/                    # Test suites
-├── build/                    # Compiled JavaScript (after npm run build)
-├── package.json              # Dependencies
-├── tsconfig.json             # TypeScript config
-└── README.md                 # Full documentation
-```
-
-## Development
+## 1. Build and register
 
 ```bash
-# Install dependencies
-npm install
-
-# Build
-npm run build
-
-# Watch mode for development
-npm run dev
+npm --prefix packages/pob-mcp ci
+npm --prefix packages/pob-mcp run build
 ```
 
-## How It Works
+Point your MCP client at `packages/pob-mcp/build/index.js` and set at least
+`POB_DIRECTORY` (your PoB `Builds` folder) and `POB_CMD` (a compatible LuaJIT).
+See [the README](../README.md#configuration) for every variable.
 
-1. **MCP Protocol**: Uses the Model Context Protocol to expose tools to Claude
-2. **XML Parsing**: Reads Path of Building's XML format
-3. **Resources**: Exposes builds as readable resources
-4. **Tools**: Provides analysis, comparison, and stat extraction tools
+## 2. Import a build
 
-## Example Interactions
+```json
+{ "name": "foundation_import_file", "arguments": { "build_name": "league/my-build.xml" } }
+```
 
-**You**: "Show me all my builds"
-**Claude**: *calls list_builds tool* "You have 15 builds: Lightning Arrow Deadeye.xml, RF Chieftain.xml, ..."
+The response contains a `snapshot.id`. That ID is the handle for every
+following call; the file on disk is not modified.
 
-**You**: "Analyze my Lightning Arrow build"
-**Claude**: *calls analyze_build tool* "This is a Level 95 Ranger (Deadeye) with 4.2M DPS..."
+Use `foundation_import_build` for raw XML, `foundation_import_code` for a PoB
+share code, or `foundation_create_build` for a new character.
 
-**You**: "Compare my two Deadeye builds"
-**Claude**: *calls compare_builds tool* "Build A has higher DPS (3.5M vs 2.8M) but Build B has better defenses..."
+## 3. Read what the engine sees
+
+```json
+{ "name": "summarize_snapshot_build", "arguments": {
+  "snapshot_id": "<id>",
+  "fields": ["Life", "TotalDPS", "CombinedDPS"]
+} }
+```
+
+For narrower reads use `foundation_inspect` with one or more of
+`build`, `tree`, `items`, `skills`, `config`, or `foundation_evaluate` with an
+explicit metric list.
+
+## 4. Change and compare
+
+Create a child snapshot with a concrete mutation, then evaluate it:
+
+```json
+{ "name": "foundation_derive_tree", "arguments": {
+  "snapshot_id": "<id>",
+  "add_nodes": [12345],
+  "trial": true
+} }
+```
+
+```json
+{ "name": "foundation_evaluate", "arguments": {
+  "snapshot_id": "<child-id>",
+  "fields": ["Life", "TotalDPS"]
+} }
+```
+
+`trial: true` creates a seven-day snapshot. Omit it for a durable child, or
+call `foundation_retain_snapshot` on a result you want to keep.
+
+## Common flows
+
+| Goal | Tools |
+|---|---|
+| What is missing or broken | `check_snapshot_issues`, `inspect_snapshot_defenses` |
+| Compare two trees or items | `compare_snapshot_trees`, `foundation_preview_item` |
+| Find reachable upgrades | `find_snapshot_nearby_nodes`, `find_snapshot_passive_suggestions` |
+| Rank nodes with real calculations | `submit_snapshot_passive_ranking` → `summarize_snapshot_passive_ranking` |
+| Rank support gems | `rank_snapshot_supports`, `rank_discovered_snapshot_supports` |
+| Compare whole gem setups | `submit_snapshot_gem_setups` → `summarize_snapshot_gem_setups` |
+| Cluster jewels | `inspect_snapshot_cluster_jewels`, `search_cluster_listings` |
+| Watcher's Eye options | `inspect_snapshot_watchers_eye` |
+| Save or share | `foundation_export_build`, `foundation_save_file`, `save_snapshot_history` |
+| Reference prices | `estimate_snapshot_cost`, `reference_currency_rates` |
+| Live trade | `search_official_trade`, `estimate_trade_comparable`, `preview_trade_listings` |
 
 ## Troubleshooting
 
-- **No builds found**: Check `POB_DIRECTORY` path in config
-- **Server not starting**: Verify path to `build/index.js` is absolute
-- **Can't see the server**: Restart Claude Desktop completely
-- **Parse errors**: Ensure builds are valid PoB XML files
+| Symptom | Check |
+|---|---|
+| `POB_CMD` not found | Put a compatible LuaJIT on `PATH` or set an absolute `POB_CMD` |
+| Syntax error loading PoB | The interpreter cannot parse the engine revision; see [POB_BRIDGE](POB_BRIDGE.md) |
+| `module 'lua-utf8' not found` | Install `luautf8` for the same LuaJIT (see README) |
+| Snapshot not found | Trial snapshots expire after seven days; check `foundation_snapshot_retention` |
+| Trade tools absent | Set `POE_TRADE_ENABLED=true` and restart the server |
+| Trade request rejected | Confirm the exact league name and `POESESSID` if the endpoint requires login |
 
-## Future Ideas
+## Next
 
-- Parse passive skill tree data
-- Analyze gem links and suggest alternatives
-- Budget vs expensive gear comparisons
-- Integration with PoE Wiki for item info
-- Build optimization suggestions
-- DPS calculations and breakpoints
-
-Enjoy analyzing your builds! 🚀
+- [Tool reference](../README.md#tool-reference)
+- [Quick reference](QUICK_REFERENCE.md)
+- [Tree analysis](TREE_ANALYSIS_GUIDE.md)
+- [Trade](TRADE_API_QUICKSTART.md)

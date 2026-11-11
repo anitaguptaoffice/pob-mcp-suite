@@ -61,7 +61,7 @@ try {
   assert.deepEqual((await foundation.inspect(reindexed.id, ['tree'])).data.tree, alternative);
   await assert.rejects(foundation.deriveDeleteSpec(removeInactive.id, 1), /only passive spec/);
   assert.equal((await foundation.specs(parent.id)).specs.length, 2);
-  const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
+  const mcp = startMcpServer({ POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
   mcp.child.stderr.on('data', () => {}); const exited = once(mcp.child, 'exit');
   try {
     await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'spec-smoke', version: '1' } });

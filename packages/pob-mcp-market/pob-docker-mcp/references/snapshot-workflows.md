@@ -1,9 +1,8 @@
 # Snapshot workflows
 
-Use this workflow when the server advertises `foundation_import_build`. Each
-tool takes an explicit snapshot ID; there is no current mutable build. Check the
-advertised schemas because the migration is incomplete and capabilities differ
-by server configuration. Never assume legacy tools are exposed alongside it.
+Use this workflow when the server advertises `foundation_import_build`. Every
+build tool takes an explicit snapshot ID, and the advertised tool set is the
+served tool set.
 
 ## Import and inspect
 
@@ -17,19 +16,6 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   name and optionally an ascendancy and `tree_version`. Special-season
   ascendancies require the matching tree version; the name is checked against
   that version. The durable root snapshot is published only after reload checks.
-- Discover old named history with `list_legacy_build_history`, checking
-  `complete`, `issues` and the catalog fingerprint when paging. To analyze one
-  entry, call `import_legacy_build_history` with its exact origin, ID and
-  metadata digest. Import does not delete or alter the old XML and metadata.
-  The original metadata is copied to a durable history record; inspect it via
-  `list_snapshot_history`. Legacy cached stats are historical values, not
-  recalculated results. If recording metadata fails after import, the error
-  identifies the durable snapshot; retry the same import to record it.
-- An `XML_WITHOUT_READABLE_METADATA` issue may represent an old backup or an
-  incomplete history entry. Inspect it with `inspect_unpaired_legacy_xml`,
-  then pass the returned digest to `import_unpaired_legacy_xml` if the user
-  wants to recover it. The original tag, timestamp and purpose are unknown;
-  the saved recovery metadata is explicitly synthetic and preserves the filename.
 - Use `save_snapshot_history` to retain a snapshot with an explicit build name,
   tag and description. `list_snapshot_history` filters by exact name and tag;
   use its fingerprint when paging. Retention can succeed even if writing the
@@ -57,15 +43,16 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   tree with the active equipment set; their full cross-product is not checked.
   PoB parsing does not establish item legality or availability.
 - Use `analyze_snapshot_equipment` for one slot or the active equipment set and
-  its PoB stats and calculation context. Its separate legacy suggestions are
-  unverified heuristics; hidden, inactive, unresolved, visibility-unknown and
-  unsupported slots are excluded. Active swap weapons remain identified by
+  its PoB stats and calculation context. Its separately labeled unverified
+  heuristics are suggestions, not measurements; hidden, inactive, unresolved,
+  visibility-unknown and unsupported slots are excluded. Active swap weapons remain identified by
   their actual slot name. Use `foundation_preview_item` for a specific replacement
   and independent Trade tools for current securable priced listings.
 - For leveling context, `prepare_snapshot_leveling` reads the selected PoB skill,
-  class and ascendancy from the snapshot. Its legacy campaign and starter-skill
-  examples are unversioned and unverified, not an actual passive route or proof
-  of gem availability, quest rewards, recipe validity or lab timing. Confirm
+  class and ascendancy from the snapshot. Its reference campaign and
+  starter-skill examples are unversioned and unverified, not an actual passive
+  route or proof of gem availability, quest rewards, recipe validity or lab
+  timing. Confirm
   current game information and the user's progress before giving directions.
 - Use `foundation_replace_tree` only with a complete explicit target tree,
   including the exact version, class, ascendancy, allocated node IDs and mastery
@@ -154,15 +141,12 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   match the main skill, estimates and thresholds are withheld instead of mixed.
   Minion and damaging ailments and freeze duration are outside this report.
 - Use `save_snapshot_config_preset` to persist every observed configuration
-  value in the versioned local preset store; overwrite requires `overwrite: true`.
-  `list_local_config_presets` and `read_local_config_preset` also expose legacy
-  presets without modifying them. Specify `origin` when both stores have the
-  same name; legacy presets lack source-version provenance. Apply with
-  `apply_snapshot_config_preset`, which verifies saved settings and preserves
-  target settings absent from the preset before publishing a child snapshot.
-  Current presets also preserve automatic versus explicit enemy-level mode;
-  an automatic level can resolve differently for the target build. Older preset
-  formats did not record this mode and report it as unknown.
+  value in `.pob-mcp-presets`; overwrite requires `overwrite: true`.
+  `list_local_config_presets` and `read_local_config_preset` read that store.
+  Apply with `apply_snapshot_config_preset`, which verifies saved settings and
+  preserves target settings absent from the preset before publishing a child
+  snapshot. Presets record whether enemy level was automatic or explicit; an
+  automatic level can resolve differently for the target build.
   PoB-rejected changed values fail the whole operation; an unchanged obsolete
   value can remain in place. Inspect and evaluate the resulting child.
 - For explicit enemy level, resistance, armour and evasion changes, use
@@ -209,8 +193,8 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   character level have dedicated derivations. `foundation_derive_gem` changes
   an existing gem's level, quality or enabled state using explicit one-based
   group and gem indices. `qualityId: Default` is the only explicit quality type
-  accepted. The tested PoB version reports a legacy alternate `qualityId` as
-  Default after import; read-only calculations report this as a warning. Any
+  accepted. The tested PoB version reports an alternate `qualityId` as Default
+  after import; read-only calculations report this as a warning. Any
   derivation from a snapshot containing a non-default gem `qualityId` is refused
   to prevent silent loss. The original imported snapshot retains its source XML;
   conversion and historical quality mechanics are not supported. Use
@@ -251,15 +235,16 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   report missing graphs as jewels with no notables. This does not assess synergy,
   DPS, legality or jewels stored outside the active tree. Use a separate
   `search_cluster_listings` query for bounded international Trade candidates.
-  `include_legacy_heuristic: true` additionally returns old gem-name and raw-item
-  keyword matches, with gem enabled states and PoB allocation when uniquely
-  observable. These unversioned matches include disabled and inactive gems and
+  `include_heuristic: true` additionally returns unversioned gem-name and
+  raw-item keyword matches, with gem enabled states and PoB allocation when
+  uniquely observable. These unversioned matches include disabled and inactive gems and
   do not prove synergy; unmatched names do not prove poor synergy.
 - Use `inspect_snapshot_watchers_eye` for source-backed Watcher's Eye modifier
   candidates matching saved gem names. Check each gem's `enabledState` and
   `matchKind`; an enabled aura gem does not prove the character is affected,
-  and Vaal-name matches are only candidates. The PoB table can include legacy
-  variants. No ranking, current item availability or damage gain is established;
+  and Vaal-name matches are only candidates. The PoB table can also list
+  variants that are not currently obtainable. No ranking, current item
+  availability or damage gain is established;
   verify explicit candidates in PoB and prices through official Trade separately.
 - To compare up to three explicit ordinary jewel item texts, use
   `compare_snapshot_jewels` with an allocated `socket_node_id` and the exact PoB

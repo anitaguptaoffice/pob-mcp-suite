@@ -5,18 +5,18 @@ import { SnapshotStore } from '../../src/foundation/snapshotStore.js';
 import { invokeFoundation } from '../../src/foundation/mcpTools.js';
 import type { BuildFoundation } from '../../src/foundation/buildFoundation.js';
 
-it('retains a trial and stores immutable, idempotent history independently of legacy files', async () => {
+it('retains a trial and stores immutable, idempotent history separately from snapshot content', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'pob-snapshot-history-'));
   try {
     const store = new SnapshotStore(dir);
     const snapshot = await store.create({ xml: '<build/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null }, true);
-    const history = { buildName: 'build', tag: 'before', description: 'old description', recordedAt: '2024-01-01', legacy: { id: 'old-id', origin: 'build.xml', metadataDigest: 'a'.repeat(64), xmlDigest: 'b'.repeat(64), metadata: { tag: 'before', statsSnapshot: { life: 123 } } } };
+    const history = { buildName: 'build', tag: 'before', description: 'old description', recordedAt: '2024-01-01' };
     const saved = await store.saveHistory(snapshot.id, history);
     expect(await store.saveHistory(snapshot.id, history)).toEqual(saved);
     expect((await store.retentionStatus(snapshot.id)).retained).toBe(true);
     expect(await store.collectExpired(new Set(), Date.now() + 30 * 86400000)).toEqual([]);
     expect((await store.listHistory())[0]).toEqual(saved);
-    expect((await store.readHistory(saved.id)).legacy?.metadata).toEqual(history.legacy.metadata);
+    expect((await store.readHistory(saved.id)).description).toBe('old description');
     await writeFile(path.join(dir, 'history', `${saved.id}.json`), JSON.stringify({ ...saved, tag: 'altered' }));
     await expect(store.listHistory()).rejects.toThrow('integrity check');
   } finally { await rm(dir, { recursive: true, force: true }); }

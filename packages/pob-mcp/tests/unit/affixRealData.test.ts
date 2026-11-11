@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from '@jest/globals';
-import { loadAllMods, loadExplicitMods, loadMasterMods, ModDataUnavailableError } from '../../src/services/modDataStore.js';
+import { loadAllMods, loadExplicitMods, loadMasterMods, ModDataUnavailableError } from '../../src/adapters/modifierData/modDataStore.js';
 import { resolveAffixes } from '../../src/domain/modifiers/affixMatcher.js';
 import { findAffixTiers as queryTiers, findCraftableMods as queryBench } from '../../src/domain/modifiers/affixQuery.js';
 
@@ -17,7 +17,8 @@ const installed = ((): boolean => {
     loadExplicitMods();
     return true;
   } catch (error) {
-    if (error instanceof ModDataUnavailableError) return false;
+    const message = error instanceof Error ? error.message : String(error);
+    if (error instanceof ModDataUnavailableError || message.includes('Path of Building engine not found')) return false;
     throw error;
   }
 })();
@@ -78,7 +79,7 @@ withPoB('classifying against the installed data', () => {
 
     expect(result.affixes.find((affix) => affix.affix === "Pixie's")!.lines).toHaveLength(2);
     expect(result.affixes).toHaveLength(3);
-    // Legacy tables also contain a fire-resistance prefix. Without base tags
+    // Older tables also contain a fire-resistance prefix. Without base tags
     // these readings are ambiguous, so no remaining-slot count is justified.
     if (result.affixes.some(affix => affix.alternatives.length > 0)) {
       expect(result.openPrefixes).toBeNull();

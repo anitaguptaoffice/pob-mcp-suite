@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { once } from 'node:events';
@@ -9,7 +9,7 @@ import { startMcpServer } from './mcpClient.mjs';
 const dir = await mkdtemp(join(tmpdir(), 'pob-config-preset-'));
 let child;
 async function start() {
-  const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_DIRECTORY: dir, POB_SNAPSHOT_DIRECTORY: join(dir, '.snapshots'), POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
+  const mcp = startMcpServer({ POB_DIRECTORY: dir, POB_SNAPSHOT_DIRECTORY: join(dir, '.snapshots'), POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
   child = mcp.child; child.stderr.on('data', () => {}); const exited = once(child, 'exit');
   await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'preset-smoke', version: '1' } }); mcp.notify('notifications/initialized', {});
   const call = async (name, args) => { const response = await mcp.request('tools/call', { name, arguments: args }); assert.ok(!response.error && !response.result?.isError, JSON.stringify(response).slice(0, 1600)); return JSON.parse(response.result.content[0].text); };
@@ -28,7 +28,6 @@ try {
   assert.equal(conflict.result.isError, true);
   const otherBoss = before.enemyIsBoss === 'Pinnacle' ? 'Boss' : 'Pinnacle';
   const target = await server.call('foundation_derive_config', { snapshot_id: parent.id, config: { enemyIsBoss: otherBoss } });
-  await mkdir(join(dir, '.pob-mcp-presets'));
   await writeFile(join(dir, '.pob-mcp-presets', 'bad.json'), JSON.stringify({ brandAttachedToEnemy: !before.brandAttachedToEnemy }));
   await server.close(); server = await start();
   const listed = await server.call('list_local_config_presets', {});
@@ -68,7 +67,7 @@ try {
   assert.match(fixedXml, /<Input\b(?=[^>]*\bname="enemyLevel")(?=[^>]*\bnumber="65")[^>]*\/?\s*>/, 'explicit enemy level must survive export');
   const idsBefore = (await server.call('foundation_list_snapshots', { limit: 50 })).snapshots.map(item => item.id).sort();
   const rejected = await server.mcp.request('tools/call', { name: 'apply_snapshot_config_preset', arguments: { snapshot_id: parent.id, name: 'bad' } });
-  assert.equal(rejected.result.isError, true); assert.match(rejected.result.content[0].text, /rejected/);
+  assert.equal(rejected.result.isError, true); assert.match(rejected.result.content[0].text, /Invalid preset metadata|rejected/);
   assert.deepEqual((await server.call('foundation_list_snapshots', { limit: 50 })).snapshots.map(item => item.id).sort(), idsBefore);
   assert.equal((await server.call('foundation_export_build', { snapshot_id: parent.id })).xml, xml);
   await server.close(); console.log('foundation config presets passed');

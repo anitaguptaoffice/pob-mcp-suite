@@ -1,109 +1,47 @@
 # Path of Building MCP Server
 
-面向中文用户的项目入口和本仓库构建方法见[根目录说明](../../README.md)。本文件保留英文的 MCP 工具和开发参考，以下安装示例已针对本仓库调整。
+MCP server for Path of Building (PoE 1). It exposes PoB's own calculation
+engine over stdio and stores every build state as an immutable snapshot, so a
+result can be traced back to the exact XML, engine identity and configuration
+that produced it.
 
-This package is integrated into `pob-mcp-suite`. In addition to the upstream
-MCP tools it retains source-aware trade filters, dynamic alternate-ascendancy
-names, and `find_timeless_jewel_seeds` for Elegant Hubris. The last is an
-independent Lua module (`lua/timeless_jewel.lua`) using PoB's own lookup data.
-The suite Docker image bundles a compatible LuaJIT and the unmodified PoB
-source; use the monorepo's root Dockerfile and validation workflow.
+Chinese-language entry point and repository build instructions live in the
+[root README](../../README.md). This file is the English reference for tools,
+configuration and development.
 
-An MCP (Model Context Protocol) server that enables Claude to analyze, modify, and optimize Path of Building builds using PoB's actual calculation engine.
+## Design
 
-Uses an **unmodified [PathOfBuildingCommunity](https://github.com/PathOfBuildingCommunity/PathOfBuilding) source tree** with a compatible LuaJIT interpreter. The server ships its own stdio adapter that loads PoB's `HeadlessWrapper.lua` as a library and drives the calculation engine. It can also locate the engine and Lua modules from a supported macOS PoB installation. Some PoB revisions require a patched interpreter; see [Lua bridge setup](#setting-up-the-lua-bridge).
+- **One service surface.** Every tool is registered by the same feature
+  registry and every registration is checked for a unique name at startup.
+- **Immutable snapshots.** Builds are content-addressed JSON records. Every
+  mutation creates a verified child snapshot; nothing edits a parent in place.
+  Trial snapshots expire after seven days unless retained.
+- **Isolated engine processes.** Calculations run in a separate headless PoB
+  process started from an unmodified engine checkout. A failing or hanging
+  evaluation cannot corrupt the snapshot store.
+- **Explicit evidence.** Results carry the engine identity, requested metrics
+  and warnings. Missing values stay `unknown` instead of becoming zero, and
+  reference prices are labelled as reference data, never executable profit.
+- **Durable jobs.** Long rankings (gem setups, masteries, passives, jewels)
+  run as resumable local jobs and report partial failures.
 
-> **PoE 3.29 compatibility:** This release targets Path of Building data and builds for the 3.29 league. Use a current PoB checkout for the matching tree, skills, and item data. Trade calls should always use `get_leagues` instead of hard-coding a challenge-league name.
+The engine is driven through `lua/vanilla_stdio_bridge.lua`. PoB source is not
+patched; `#@` directive lines are stripped when the adapter loads the vendor
+files.
 
----
+## Requirements
 
-**☕ If you find this project helpful, consider [buying me a coffee](https://buymeacoffee.com/ianderse)!**
+- Node.js 20 or later
+- A LuaJIT interpreter able to parse your PoB revision (`POB_CMD`)
+- A Path of Building `src/` checkout, or the vendored engine at
+  `vendor/PathOfBuilding/src` when running from a full checkout of this
+  repository
 
----
+Both dependencies are mandatory. Startup resolves the engine checkout and
+opens one engine instance to verify the interpreter, bridge and PoB data; the
+server exits with an error when either LuaJIT or PoB is missing.
 
-## Features
-
-### Build Analysis (Always Available)
-- **List & Analyze Builds**: Browse builds and extract stats, skills, items, passive trees, and notes from XML
-- **Compare Builds**: Side-by-side build comparison
-- **File Watching**: Real-time detection of builds saved from PoB with automatic cache invalidation
-- **Tree Analysis**: Compare passive trees, find paths to nodes, and discover nearby notables from saved builds
-
-### High-Fidelity Calculations (Lua Bridge)
-- **Live Stats**: Calculate stats using PoB's own engine; compare with the GUI using the same engine version, build, spec, item set, skill, and configuration
-- **Build Loading & Creation**: Load existing builds or create new ones from scratch by class/ascendancy
-- **Passive Tree Editing**: Set full tree allocation and see immediate stat recalculation
-- **Tree Specs**: List, switch, create, copy, rename, and delete passive tree specs
-- **Node Search**: Search the passive tree for nodes by name or stat text
-- **Character Level**: Set level and watch all stats update accordingly
-- **Anointment Ranking**: Simulate every anointable notable through PoB's live calculator and rank by DPS/EHP impact
-
-### Item & Skill Management (Lua Bridge)
-- **Affix weights**: `inspect_item_affix_weight` queries PoB's spawn weight for a supplied item and modifier ID. It reports item-level eligibility separately; weight is not a success probability or proof that a crafting method can produce the modifier.
-- **Items**: Add items from PoE clipboard text, view all equipped gear
-- **Flasks**: Toggle flasks active/inactive with immediate stat feedback
-- **Skills**: Full gem management — create socket groups, add/remove/level/quality gems
-- **Batch Operations**: `setup_skill_with_gems` and `add_multiple_items` for efficient workflows
-
-### Build Optimization
-- **Defensive Analysis**: 3-layer framework (avoidance / mitigation / recovery) — evaluates EHP, spell suppression, armour/PDR, evasion, block, life regen, and leech
-- **Node Suggestions**: Archetype-aware suggestions by goal (damage, life, ES, defense, resist)
-- **Passive Simulations**: Rank reachable passive paths by live stat impact per point and evaluate mastery choices. Candidate search is bounded, not an exhaustive global optimum; verify paths and constraints in PoB before applying.
-- **Tree Optimization**: Recommend nodes within reach of the current allocation
-- **Item Upgrade Analysis**: Slot-by-slot upgrade recommendations based on live stats
-- **Shopping Specs**: Describe bases and mods to look for based on the loaded build's gaps, without requiring the Trade API
-- **Skill Link Optimization**: Detect missing "more" multipliers, penetration gaps, anti-synergies
-- **Budget Build Creation**: Generate starter build plans with skill links, gearing strategy, and passive priorities
-
-### Build Validation
-- **Comprehensive Checks**: Resistances, life pool, defensive layers, mana, flask immunities, accuracy, damage scaling
-- **Severity Classification**: Critical / Warning / Info with actionable suggestions
-- **Dual Source**: Uses Lua bridge stats when available, falls back to XML parsing
-- **Overall Score**: 0–10 build health score for named saved builds
-
-### Configuration & Scenario Testing (Lua Bridge)
-- **Config State**: View bandit, pantheon, enemy settings
-- **Toggle Conditions**: Charges, buffs (Onslaught, Fortify, Leeching), boss mode
-- **Enemy Tuning**: Set enemy level, resistances, armour, evasion for boss DPS testing
-
-### Skill Gem Analysis
-- **Archetype Detection**: Classify builds (Elemental Bow Attack, Summoner, Critical Spell, etc.)
-- **Support Gem Recommendations**: Ranked suggestions with DPS estimates and cost context
-- **Quality Validation**: Identify missing quality, awakened upgrade paths, corruption targets
-- **Optimal Links**: Auto-generate best support gem combinations for 4/5/6-link setups
-- **Budget Tiers**: League-start, mid-league, and endgame recommendations
-
-### Build Export & Persistence
-- **Export**: Copy builds to XML files with optional notes
-- **Save Tree**: Write optimized passive tree back to an existing build file
-- **Snapshots**: Versioned build history with tags, cached stat metadata, and a restore tool; restoring the active source also reloads the engine
-
-### Affix Data (No Lua Bridge Required)
-- **Affix Classification**: Match explicit mod lines to prefixes, suffixes, and hybrid affixes
-- **Bench Crafts**: Find crafts allowed for an item class and item level
-- **Affix Tiers**: Look up roll ranges, required item levels, and base tags from PoB data
-
-These tools need the corresponding data files from a PoB installation or checkout.
-
-### Currency & Market Data (poe.ninja)
-- **Build cost**: `estimate_build_cost` prices identifiable uniques and skill gems in the loaded build using public PoE 1 economy data. It requires the exact international league and reports unknowns; its reference subtotal is never a complete build price.
-- **Exchange Rates**: Real-time currency prices in Chaos Orb equivalent
-- **Arbitrage Detection**: Find profitable currency trading loops
-- **Trade Profit Calculator**: Evaluate custom trading chains
-
-### Trade API (Optional, `POE_TRADE_ENABLED=true`)
-- **Item Search**: Search trade with stat filters, price range, link count
-- **Weighted BIS Search**: Build-specific best-in-slot listings using PoB's native TradeQueryGenerator stat weights (requires `POE_SESSION_ID`)
-- **Price Checking**: Min/max/median/average from recent listings
-- **Resistance Gear**: Find affordable gear to cap resistances
-- **Cluster Jewels**: Search trade listings by size, passives, and notables
-- **Shopping List**: Generate a prioritized shopping list from build analysis
-
----
-
-## Installation
-
-Use Node.js 20 or later. CI runs on Node.js 20.
+## Install
 
 ```bash
 git clone https://github.com/anitaguptaoffice/pob-mcp-suite.git
@@ -112,609 +50,310 @@ npm --prefix packages/pob-mcp ci
 npm --prefix packages/pob-mcp run build
 ```
 
+Or build the container image from the repository root:
+
+```bash
+docker build -t pob-mcp-suite:local .
+```
+
 ## Configuration
 
-### Claude Desktop Configuration
-
-**Mac**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-
-#### XML-Only (No Lua Bridge)
-```json
-{
-  "mcpServers": {
-    "pob": {
-      "command": "node",
-      "args": ["/absolute/path/to/pob-mcp-server/build/index.js"],
-      "env": {
-        "POB_DIRECTORY": "/path/to/your/Path of Building/Builds"
-      }
-    }
-  }
-}
-```
-
-#### With the Lua Bridge
-
-On macOS, supported PoB app locations and common builds directories are detected.
-The interpreter is a separate executable: `POB_CMD` defaults to `luajit` on `PATH`.
-Set it to an absolute path when needed, and ensure it supports your PoB revision.
+Register the server in your MCP client. The command is the same in every
+client; only the configuration file differs.
 
 ```json
 {
   "mcpServers": {
     "pob": {
       "command": "node",
-      "args": ["/absolute/path/to/pob-mcp-server/build/index.js"],
+      "args": ["/absolute/path/to/pob-mcp-suite/packages/pob-mcp/build/index.js"],
       "env": {
-        "POB_LUA_ENABLED": "true",
-        "POB_CMD": "/absolute/path/to/pob-compatible/luajit"
+        "POB_DIRECTORY": "/path/to/Path of Building/Builds",
+        "POB_CMD": "/absolute/path/to/luajit"
       }
     }
   }
 }
 ```
 
-For a checkout or a nonstandard engine location, also set `POB_PATH` in that
-`env` object. Override `POB_DIRECTORY` if your builds use another location:
-
-```json
-{
-  "POB_PATH": "/path/to/PathOfBuilding/src",
-  "POB_DIRECTORY": "/path/to/your/Path of Building/Builds"
-}
-```
-
-### Environment Variables
+### Environment variables
 
 | Variable | Default | Description |
 |---|---|---|
-| `POB_DIRECTORY` | detected Builds dir | Path to your PoB builds directory |
-| `POB_LUA_ENABLED` | `false` | Set `"true"` to enable Lua bridge |
-| `POB_PATH` | installed PoB app, else `~/Projects/PathOfBuilding/src` | `src/` of a stock PathOfBuilding checkout. Usually unnecessary: an installed PoB is detected automatically (`POB_FORK_PATH` is a legacy alias) |
-| `POB_CMD` | `luajit` | Compatible LuaJIT executable; resolved through `PATH` unless an absolute path is supplied. Not detected from the app. |
-| `POB_TIMEOUT_MS` | `30000` | Lua request timeout (ms) |
-| `POB_DEBUG` | `false` | Set `"true"` for verbose Lua bridge logging |
-| `POB_ARGS` | (none) | Space-separated arguments passed to the Lua process (overrides the default adapter arguments) |
-| `POE_TRADE_ENABLED` | `false` | Enable Trade API tools |
-| `POE_SESSION_ID` | (none) | Your POESESSID cookie value; required for the `find_weighted_trade_items` tool |
-| `POE_CACHE_TTL` | `300` | Trade API response cache TTL in seconds |
-| `POE_RATE_LIMIT_PER_SECOND` | `4` | Trade API requests per second |
+| `POB_DIRECTORY` | detected Builds directory | Directory of `.xml` builds used for import, file catalog and save targets |
+| `POB_SNAPSHOT_DIRECTORY` | `<POB_DIRECTORY>/.pob-snapshots` | Snapshot store, history catalog and durable job state |
+| `POB_CMD` | `luajit` | LuaJIT executable; resolved through `PATH` unless absolute |
+| `POB_PATH` | detected PoB app, else vendored `vendor/PathOfBuilding/src` | Path to a PoB `src/` checkout; required, and the server verifies the engine at startup |
+| `POB_ADAPTER_PATH` | `<repo>/lua/vanilla_stdio_bridge.lua` | Bridge entry file loaded into the engine |
+| `POB_TIMEOUT_MS` | `30000` | Timeout for one engine request |
+| `POB_DEBUG` | `false` | Set `"true"` for bridge stderr logging |
+| `POE_TRADE_ENABLED` | `false` | Advertise the official international Trade tools |
+| `POE_SESSION_ID` | (none) | `POESESSID` cookie for endpoints that require login |
+| `POE_RATE_LIMIT_PER_SECOND` | `4` | Client-side Trade request rate limit |
 
-### Saving and restoring builds
+`POE_TRADE_ENABLED=true` adds twelve tools. Tool discovery means the group is
+enabled, not that credentials, network access or the selected league work.
 
-`lua_save_build` writes atomically. Saving back to the file loaded into the bridge
-is allowed. To replace a different existing file, pass `overwrite: true` explicitly;
-otherwise choose a new name. Saved-file stats are invalidated immediately, and names
-with or without `.xml` share the same cache entry.
+### Choosing the interpreter
 
-`save_tree` preserves unrelated XML elements and writes mastery selections in PoB's
-native format. Snapshot restore reloads the engine when that exact source file is
-active. If the reload fails, the response states that the file was restored but
-live stats are not yet synchronized. Another active build is left untouched.
-
-Affix tools support both current `Data/ModExplicit.lua` and legacy `Data/ModItem.lua`
-installations. Unmatched or ambiguous explicit lines leave remaining slots unknown.
-
-### Setting Up the Lua Bridge
-
-#### 1. Locate the PoB engine
-
-On macOS, the server recognizes `Path of Building.app` and `PathOfBuilding.app`
-in `/Applications` or `~/Applications`. It prefers the app's writable engine
-under `~/Library/Application Support/PathOfBuildingMac/src`, falling back to the
-bundle's `Contents/Resources/src`. It also uses the app's Lua modules.
-
-For a checkout, clone PoB and set `POB_PATH` to its `src/` directory:
+The server verifies the interpreter and engine at startup. To check by hand:
 
 ```bash
-git clone https://github.com/PathOfBuildingCommunity/PathOfBuilding.git
-export POB_PATH="/absolute/path/to/PathOfBuilding/src"
-```
-
-With no detected app and no explicit path, the fallback is
-`~/Projects/PathOfBuilding/src`. Set `POB_DIRECTORY` separately to your builds folder.
-
-#### 2. Choose a compatible LuaJIT interpreter
-
-The server launches a command-line LuaJIT executable. It does not discover an
-interpreter inside the PoB app or bundle one with this repository.
-
-For PoB revisions that use standard Lua syntax, system packages are sufficient:
-
-```bash
-# macOS
-brew install luajit
-
-# Ubuntu/Debian
-sudo apt-get install luajit
-```
-
-Newer PoB sources can use compound assignment such as `count += 1`, which standard
-LuaJIT cannot parse. The revision recorded by this repo's item-format fixtures
-(`ed354c2`) uses that syntax in
-[`Modules/Main.lua`](https://github.com/PathOfBuildingCommunity/PathOfBuilding/blob/ed354c2/src/Modules/Main.lua).
-For those sources, supply a patched, PoB-compatible command-line interpreter and
-set `POB_CMD` to its path. This repository does not provide an installer for it.
-On Windows, a CLI executable is still required; PoB's `lua51.dll` alone is not a
-command-line interpreter.
-
-Check the chosen interpreter against your engine before configuring the server:
-
-```bash
-export POB_CMD="/absolute/path/to/pob-compatible/luajit"
 "$POB_CMD" -v
 "$POB_CMD" -bl "$POB_PATH/Modules/Main.lua" > /dev/null
 ```
 
-The second command only compiles the file. An error such as `'=' expected near '+'`
-means the interpreter cannot parse that PoB revision. Passing this check establishes
-syntax support; the smoke checks below exercise initialization and calculations.
-For a detected macOS app, use its resolved `src/` path as `POB_PATH` in this check.
+The second command only compiles the file. `'=' expected near '+'` means the
+interpreter cannot parse that PoB revision.
 
-#### 3. Supply Lua modules for a checkout
-
-A recognized macOS app supplies its own Lua modules. A standalone checkout may need
-native modules built for the chosen interpreter and platform. PoB's bundled Windows
-DLLs cannot serve as macOS or Linux modules.
-
-For example, install `lua-utf8` locally with LuaRocks configured for your LuaJIT:
+A standalone checkout may also need Lua modules such as `lua-utf8`:
 
 ```bash
-luarocks --lua-version=5.1 --lua-dir=/path/to/your/luajit-prefix --local install luautf8
+luarocks --lua-version=5.1 --lua-dir=/path/to/luajit-prefix --local install luautf8
 ```
 
-The bridge searches the checkout's `runtime/` and `~/.luarocks/lib/lua/5.1`.
-Follow any missing-module diagnostic for additional dependencies. Windows checkouts
-can use the bundled DLLs with a compatible interpreter and architecture.
+The bridge searches the checkout's `runtime/` directory and
+`~/.luarocks/lib/lua/5.1`. Follow any missing-module diagnostic for additional
+dependencies.
 
-The adapter uses the upstream `HeadlessWrapper.lua` without changing PoB source.
-It runs over stdio in a separate headless process. Use `lua_get_capabilities` for
-the loaded bridge's action list.
+### Snapshots and retention
 
-#### 4. Verify and configure your MCP client
+- `foundation_import_*`, `foundation_create_build` and every `derive_*`,
+  `replace_*` or `transplant_*` operation produce a snapshot.
+- Mutating tools create a durable child unless `trial: true` is passed.
+  Ranking and comparison candidates always use seven-day trial snapshots so a
+  large evaluation does not fill the store with permanent children.
+- `foundation_retain_snapshot` makes a snapshot permanent; saving a build file
+  also retains it and its ancestors.
+- Expired trials are removed on a later server start, never while a job is
+  using them.
+- Snapshots are shared by every tool: each calculation loads the snapshot named
+  in the request, so results always describe one recorded build state.
 
-After building this project, run:
+## Tool reference
 
-```bash
-npm run test:smoke
-```
+120 tools are advertised with the default configuration; 132 with
+`POE_TRADE_ENABLED=true`. Names are stable identifiers; descriptions below are
+summaries, and each tool's schema is authoritative.
 
-The smoke tests resolve the engine the same way the server does. They exercise the
-adapter and MCP stdio transport: discovery, capabilities, build loading, snapshots,
-stats, items, skills, reversible tree mutation, configuration, and anointment ranking.
-Some smoke helpers invoke `luajit` by name, including the adapter check in this
-suite. Make the compatible interpreter available as `luajit` on `PATH` as well as
-setting `POB_CMD` for the server.
-
-The additional suites are:
-
-| Command | Checks | Requirements |
-|---|---|---|
-| `npm run test:smoke:offline` | Bridge lifecycle race, persistence, and state truthfulness, including a passive-removal simulation that must change Life | Compatible PoB engine and interpreter; no GUI or live Trade API required |
-| `npm run test:smoke:full` | Blank-build gem editing, file persistence, level changes, tree search, validation, config/snapshot restore, defense and boss readiness | Compatible PoB engine and interpreter |
-| `npm run test:smoke:persistence` | Overwrite protection, cache refresh, snapshot reload, XML notes/masteries, and rejected incomplete imports | Compatible PoB engine and interpreter |
-| `npm run test:smoke:trade` | Live league, stat, item-search, price, resistance-gear, currency-rate, and trading-profit requests through MCP | Network access |
-| `npm run test:smoke:crafting` | Live currency rates and base-mod data through MCP | Compatible PoB engine and interpreter, plus network access |
-
-For the authenticated weighted trade smoke, set your `POE_SESSION_ID` in the shell
-and run:
-
-```bash
-npm run test:smoke:weighted
-```
-
-This also requires a compatible PoB engine, interpreter, and network access.
-
-Finally, update the Claude Desktop configuration above and restart Claude Desktop.
-
----
-
-## Available Tools
-
-The advertised tool set depends on `POB_LUA_ENABLED`, `POE_TRADE_ENABLED`, and
-`POE_SESSION_ID`. Tool discovery is not a guarantee that the required engine,
-data files, credentials, or network service are usable.
-
-### XML-Based Tools (Always Available)
+### Foundation — build and snapshot lifecycle
 
 | Tool | Description |
 |---|---|
-| `list_builds` | List all `.xml` build files |
-| `analyze_build` | Full build summary: class, stats, skills, items, tree |
-| `compare_builds` | Side-by-side build comparison |
-| `get_build_stats` | Extract raw stats from build XML |
-| `get_build_notes` | Get build notes from XML |
-| `set_build_notes` | Set build notes in XML |
-| `refresh_tree_data` | Clear passive tree data cache |
+| `foundation_trial_tree_removal` | Create a seven-day trial removing a passive node and PoB-native dependent nodes; return every removed node. |
+| `foundation_derive_tree_paths` | Allocate 1–5 target nodes in order using PoB native paths in one verified child. |
+| `foundation_derive_auto_item` | Ask PoB to auto-equip an item in an empty compatible slot and return the selected slot and a verified child. |
+| `foundation_item_inventory` | List PoB item inventory for a snapshot, including unequipped items, with ID pagination. |
+| `foundation_derive_inventory_item` | Add an item without auto-equipping and create a verified child. |
+| `foundation_replace_tree` | Replace the complete active passive tree in a verified child snapshot. |
+| `restore_snapshot_file` | Replace an existing local build file using an explicit snapshot and expected current fingerprint. |
+| `foundation_derive_items` | Atomically equip 1–10 explicit items in distinct slots and create a verified snapshot. |
+| `foundation_create_build` | Create a new PoB build as a durable immutable snapshot after verifying the requested class, ascendancy and tree version survive reload. |
+| `foundation_import_build` | Import a PoB XML document into an immutable snapshot. |
+| `foundation_import_file` | Import an XML build from the configured local build directory. |
+| `foundation_save_file` | Retain the snapshot and save it to the local build directory; overwrite is false by default. |
+| `foundation_import_code` | Import a compressed PoB build share code into an immutable snapshot. |
+| `foundation_read_snapshot` | Read snapshot metadata without XML. |
+| `foundation_retain_snapshot` | Permanently retain a snapshot and its ancestors without changing its ID. |
+| `foundation_snapshot_retention` | Read snapshot trial expiry and explicit retention status. |
+| `foundation_list_snapshots` | List snapshot metadata by ID in pages. |
+| `foundation_item_affix_weight` | Read PoB modifier spawn weight for an item; not a crafting probability. |
+| `foundation_preview_item` | Compare an item against a snapshot in PoB without modifying it; item legality and availability are not verified. |
+| `foundation_compatible_supports` | Query PoB support compatibility for the selected skill; not a damage ranking. |
+| `foundation_search_tree` | Search nodes in the snapshot tree version; results are bounded and unordered. |
+| `foundation_inspect` | Read selected build, tree, item, skill or config sections from a snapshot. |
+| `foundation_read_notes` | Read PoB notes from an immutable snapshot. |
+| `foundation_derive_notes` | Create a verified snapshot with replaced or appended PoB notes; the source snapshot and any local build file are unchanged. |
+| `foundation_evaluate` | Calculate specified PoB metrics for a snapshot. |
+| `foundation_mastery_node_options` | Read PoB options for a mastery node, allocated or not; this does not prove allocatability. |
+| `foundation_mastery_options` | Read PoB effect options for allocated mastery nodes in a snapshot. |
+| `foundation_derive_masteries` | Change effects on already allocated mastery nodes using PoB-valid effect IDs. |
+| `foundation_derive_tree` | Create a snapshot with exact passive node additions and removals, including effects for newly added mastery nodes. |
+| `foundation_derive_config` | Create a new snapshot with explicit PoB config changes. |
+| `foundation_derive_item` | Equip an item in one slot and create a verified snapshot. |
+| `foundation_derive_level` | Create a new snapshot with a changed character level. |
+| `foundation_derive_selection` | Create a verified snapshot with an explicitly selected main skill group, active skill or skill part. |
+| `foundation_derive_gem` | Create a verified child snapshot changing an existing gem level, quality, default quality type and/or enabled state. |
+| `foundation_replace_support` | Atomically replace one enabled support in the saved main skill group and create a verified child snapshot. |
+| `foundation_derive_gem_setup` | Atomically create a child snapshot with an explicit full main-group gem setup, retaining existing gem instances where possible. |
+| `foundation_derive_gem_list` | Add or remove one gem in a verified child snapshot. |
+| `foundation_derive_skill_group` | Atomically create a skill group with optional PoB-resolved gems in a verified child snapshot. |
+| `foundation_derive_skill_group_enabled` | Enable or disable one skill group in a verified child snapshot. |
+| `foundation_remove_skill_group` | Remove a skill group in a verified child snapshot; provide post-removal replacements when removing a selected main or independent calculation group. |
+| `foundation_derive_flask_active` | Set the PoB activation state of one flask slot in a verified child snapshot; activation does not establish in-game uptime. |
+| `foundation_item_sets` | List the snapshot item sets using PoB IDs and identify the selected set. |
+| `foundation_derive_item_set` | Select a PoB item set in a verified child snapshot, checking equipment in every set after reload. |
+| `foundation_specs` | List the passive tree specs of a snapshot using PoB indices. |
+| `foundation_derive_spec` | Select a passive spec in a verified child snapshot, checking all specs after reload. |
+| `foundation_create_spec` | Create or copy a passive spec in a verified child snapshot. |
+| `foundation_rename_spec` | Rename a passive spec in a verified child snapshot. |
+| `foundation_delete_spec` | Delete a passive spec in a verified child. |
+| `foundation_export_build` | Export a snapshot as PoB XML. |
+| `foundation_submit_evaluations` | Start a bounded batch of snapshot evaluations. |
+| `foundation_get_job` | Read job status and per-item results. |
+| `foundation_cancel_job` | Request cancellation; the active item finishes before cancellation is complete. |
 
-File observation moved to the independent watcher tools
-(`start_local_build_watch`, `stop_local_build_watch`,
-`get_local_build_watch`, `list_local_build_changes`). They record bounded
-events and never import or mutate a build automatically; every import stays an
-explicit `foundation_import_file`.
+### Snapshot analysis and evaluation
 
-### Tree Analysis Tools (Always Available)
-
-| Tool | Description |
-|---|---|
-| `compare_trees` | Show node differences between two builds |
-| `get_nearby_nodes` | Find notables/keystones reachable from current allocation |
-| `find_path_to_node` | Shortest path to a target node ID |
-
-### Affix Data (Always Advertised)
-
-These tools read PoB data files without starting the Lua bridge. They require a
-PoB installation or checkout containing the relevant mod tables.
-
-| Tool | Description |
-|---|---|
-| `classify_modifier_lines` | Match explicit lines to prefixes, suffixes, and hybrid affixes; report uncertainty for unmatched or ambiguous lines |
-| `query_bench_modifiers` | List bench crafts for an item class and level; does not check an equipped item's existing conflicts |
-| `query_modifier_tiers` | Look up affix ranges, minimum item levels, and base tags; a complete tag set evaluates the first matching spawn rule |
-
-### Lua Bridge — Core (Require `POB_LUA_ENABLED=true`)
-
-| Tool | Description |
-|---|---|
-| `lua_start` | Start a separate headless PoB process over stdio |
-| `lua_stop` | Stop the engine and free resources |
-| `lua_get_capabilities` | Report the bridge adapter and supported actions |
-| `lua_get_build_snapshot` | Compact current-state view: core stats, tree count, equipped items, and main gems |
-| `lua_new_build` | Create a blank build for a given class/ascendancy |
-| `lua_load_build` | Load a build file into the engine |
-| `lua_import_code` | Decode a PoB import/export code (e.g. from pobb.in or the desktop app's Generate button) and load it into the engine |
-| `lua_save_build` | Save the current in-memory build to a `.xml` file |
-| `lua_reload_build` | Reload the current build from disk |
-| `lua_get_build_info` | Get current build metadata (class, level, etc.) |
-| `set_character_level` | Set level and recalculate all stats |
-| `lua_get_stats` | Get calculated stats (`category`: `offense`/`defense`/`all`) |
-| `lua_get_ailments` | Non-damaging ailment magnitude, and whether the DPS calc is crediting it |
-| `lua_get_tree` | View passive tree: class, ascendancy, all allocated node IDs |
-| `lua_set_tree` | Replace passive tree allocation (preserves class if omitted) |
-| `update_tree_delta` | Add/remove individual nodes without replacing entire tree |
-| `search_tree_nodes` | Search passive tree by name or stat text |
-| `list_specs` | List all tree specs in the current build |
-| `select_spec` | Switch active tree spec |
-| `create_spec` | Create a new tree spec, optionally copying an existing one |
-| `rename_spec` | Rename a tree spec |
-| `delete_spec` | Delete a tree spec |
-| `list_item_sets` | List all item sets in the current build |
-| `select_item_set` | Switch active item set |
-| `plan_leveling` | Generate a leveling plan for a build |
-
-**`lua_set_tree` class IDs**: 0=Scion, 1=Marauder, 2=Ranger, 3=Witch, 4=Duelist, 5=Templar, 6=Shadow
-
-**Witch ascendancy IDs**: 1=Occultist, 2=Elementalist, 3=Necromancer
-
-Use `lua_save_build` before reading live edits through saved-file tools such as
-`analyze_build` or `get_build_stats`. `validate_build` without `build_name` can
-check the current in-memory build directly.
-
-### Lua Bridge — Item & Skill Management
+All tools in this group read one immutable snapshot (or two explicit
+snapshots) inside an isolated engine. Rankings that need many evaluations run
+as durable jobs: create the job with `submit_*`, poll with `summarize_*` or
+`foundation_get_job`, and cancel with `foundation_cancel_job`.
 
 | Tool | Description |
 |---|---|
-| `add_item` | Add item from PoE clipboard text to a slot |
-| `add_multiple_items` | Add multiple items in one operation |
-| `get_equipped_items` | List all equipped gear with name, base, and rarity |
-| `toggle_flask` | Activate/deactivate flask 1–5; returns updated stats |
-| `get_skill_setup` | Show all socket groups with gems, levels, and quality |
-| `set_main_skill` | Set which group/gem is used for DPS calculations |
-| `create_socket_group` | Create a new socket group (label, slot, enabled) |
-| `add_gem` | Add a gem to a socket group (name, level, quality) |
-| `set_gem_level` | Set gem level by group + gem index |
-| `set_gem_quality` | Set gem quality (Default/Anomalous/Divergent/Phantasmal) |
-| `remove_gem` | Remove a gem by group + gem index |
-| `remove_skill` | Remove an entire socket group |
-| `toggle_socket_group` | Enable/disable an entire socket group |
-| `toggle_gem` | Enable/disable a single gem within a group |
-| `setup_skill_with_gems` | Create a socket group with active gem + supports in one call |
-| `find_item_upgrades` | Generate a shopping spec from the loaded build's gaps; no Trade API required |
+| `save_snapshot_history` | Permanently retain a snapshot and record its build name, tag and description separately from snapshot content. |
+| `list_snapshot_history` | List saved snapshot history, optionally filtering by exact build name and tag. |
+| `estimate_snapshot_cost` | Estimate an incomplete poe.ninja reference subtotal for the active equipment and skill setup of one immutable PoB snapshot and explicit international league. |
+| `list_snapshot_equipment` | List the snapshot active equipment set and optional poe.ninja reference estimates. |
+| `compare_snapshot_trees` | Compare allocated passive nodes and mastery selections on two immutable snapshots with the same known tree version; this does not calculate damage or establish legality. |
+| `compare_snapshot_builds` | Calculate and compare explicit snapshot metrics in their saved contexts. |
+| `compare_snapshot_gem_setups` | Compare explicit descendant snapshots with changes limited to the saved main skill group. |
+| `submit_snapshot_gem_setups` | Start a durable job to derive and compare 2–5 explicit full main-skill gem setups from one snapshot. |
+| `summarize_snapshot_gem_setups` | Summarize a gem-setup job, preserving failed and pending setups and rejecting comparisons when baseline or engine identity differs. |
+| `rank_snapshot_supports` | Replace one enabled support with explicit candidates in separate seven-day trial snapshots and compare one requested PoB metric. |
+| `rank_discovered_snapshot_supports` | Discover a bounded alphabetical set of PoB-compatible supports and rank up to four explicit replacements by one metric; not a global optimizer. |
+| `find_snapshot_tree_path` | Query the PoB native path to one passive node on the snapshot tree. |
+| `find_snapshot_nearby_nodes` | Find unallocated reachable notables and keystones by PoB native passive-point distance on the snapshot tree. |
+| `check_snapshot_issues` | Run explicit heuristic checks against a snapshot using PoB stats, items, skills and its saved configuration. |
+| `assess_snapshot_boss_reference` | Compare snapshot stats with rough boss reference thresholds; this does not prove readiness. |
+| `rank_snapshot_mastery_effects` | Compare up to four effects for an allocated mastery against one immutable snapshot. |
+| `discover_snapshot_mastery_effects` | List and page all PoB effect options for allocated mastery nodes in an immutable snapshot; results are not ranked or verified as allocatable. |
+| `submit_snapshot_mastery_ranking` | Start a durable local job to compare all discovered allocated mastery effects against one snapshot and one PoB metric. |
+| `summarize_snapshot_mastery_ranking` | Summarize a mastery ranking job, retaining partial failures and ranking only observations with consistent baseline, snapshot, configuration and engine identity. |
+| `submit_snapshot_passive_ranking` | Find nearby reachable notable and keystone paths and start isolated PoB evaluations. |
+| `summarize_snapshot_passive_ranking` | Read passive ranking job progress, failures and relative gains per point. |
+| `rank_snapshot_anointments` | Rank PoB native anointment simulations for one equipped item on an immutable snapshot. |
+| `summarize_snapshot_build` | Read one snapshot in one PoB engine and return build, selected skills, tree nodes, equipment, config and requested metrics, preserving missing sections and values. |
+| `inspect_snapshot_skill_groups` | Inspect saved PoB skill groups and gem level, quality, enabled state and support application, with structured observations. |
+| `derive_snapshot_enemy_config` | Apply explicit enemy level, resistances, armour and evasion to a verified child snapshot; optionally compare separate PoB damage metrics. |
+| `save_snapshot_config_preset` | Save all current snapshot config values to a local preset. |
+| `apply_snapshot_config_preset` | Apply saved settings in a derived snapshot, preserving automatic enemy level where recorded. |
+| `search_snapshot_timeless_seeds` | Search Elegant Hubris seeds using the snapshot tree and PoB native lookup data. |
+| `transplant_snapshot_tree` | Copy the active tree from one snapshot into a verified child of another. |
+| `compare_snapshot_support_contributions` | Measure explicitly selected applied supports by disabling each in an isolated trial and comparing PoB damage against the unchanged snapshot. |
+| `inspect_snapshot_cached_stats` | Read serialized historical PoB PlayerStat and MinionStat values; these are not current calculations. |
+| `find_snapshot_passive_suggestions` | Find unallocated notable and keystone candidates by goal keywords on the snapshot tree. |
+| `compare_snapshot_gem_upgrades` | Compare 1–3 explicit gem level or quality changes in separate seven-day trial snapshots using saved PoB calculation context. |
+| `inspect_snapshot_ailments` | Inspect non-damaging ailments for the saved skill and enemy configuration, distinguishing effects credited by PoB from estimated effects on the configured enemy. |
+| `inspect_snapshot_defenses` | Read grouped PoB defensive metrics for an explicit snapshot with saved calculation context; unavailable values remain unknown. |
+| `inspect_pob_item_affix_weight` | Read a modifier spawn weight from PoB item data for explicit item text, without a build snapshot; this is not a crafting probability. |
+| `inspect_pob_engine` | Start an isolated PoB engine and report its actual version, identity and bridge actions without loading a build. |
+| `inspect_snapshot_cluster_jewels` | Inspect cluster jewels socketed in the active snapshot tree and PoB-generated notable allocations; optionally include unverified keyword heuristics. |
+| `derive_snapshot_official_tree` | Decode an official PoE 1 passive tree URL or code in binary formats 1–6 and replace the active tree of a snapshot. |
+| `inspect_snapshot_watchers_eye` | Find PoB Watcher's Eye modifier candidates matching saved skill-gem names and expose enabled states. |
+| `compare_snapshot_jewels` | Equip 1–3 explicit jewel candidates in the same allocated passive socket as isolated seven-day trial snapshots and compare requested PoB metrics. |
+| `submit_snapshot_jewels` | Start a durable job to compare 1–10 explicit jewel candidates in an allocated socket. |
+| `summarize_snapshot_jewels` | Read jewel job results, errors, interrupted items and any recorded child snapshot IDs. |
+| `generate_snapshot_weighted_trade` | Generate a PoB weighted Trade query from an isolated snapshot and explicit metric weights. |
+| `evaluate_snapshot_stat_category` | Calculate a bounded offense, defense or combined set of PoB metrics for one snapshot. |
+| `analyze_snapshot_equipment` | Inspect the active equipment set and PoB context from one snapshot, with separately labeled unverified heuristic suggestions. |
+| `prepare_snapshot_leveling` | Read a snapshot’s class, ascendancy and selected skill and provide separately labeled unverified campaign examples. |
 
-**Common equipment slot names**: `Weapon 1`, `Weapon 2`, `Helmet`, `Body Armour`,
-`Gloves`, `Boots`, `Amulet`, `Ring 1`, `Ring 2`, `Belt`, `Flask 1`–`Flask 5`.
-PoB versions and builds may expose additional slots such as `Ring 3` and `Graft 1/2`.
-`get_equipped_items` reports equipped slot names; it omits empty slots. Skill groups
-use their own slot list in the tool schema.
-
-### Build Optimization (Always Advertised)
-
-| Tool | Description | Runtime requirements |
-|---|---|---|
-| `analyze_defenses` | 3-layer defensive audit: avoidance / mitigation / recovery | Lua bridge |
-| `suggest_optimal_nodes` | Archetype-aware node suggestions by goal | Lua bridge |
-| `optimize_tree` | Recommend nearby nodes to allocate for a goal; does not apply changes | Lua bridge |
-| `analyze_items` | Slot-by-slot item analysis with upgrade priorities | Lua bridge, or saved XML fallback |
-| `optimize_skill_links` | Audit supports: "more" multipliers, penetration, anti-synergies | Lua bridge, or saved XML fallback |
-| `create_budget_build` | Generate a starter build plan from a named saved build and budget tier | Saved XML |
-
-### Lua Bridge — Diagnostics and Advice
-
-These tools are advertised when `POB_LUA_ENABLED=true`. They do not require the
-Trade API. `analyze_cluster_jewels` reads saved XML; the other diagnostic tools use
-the loaded engine build. `suggest_crafting` can use an explicit base without a
-loaded build and fetches crafting/currency context from network services.
-
-| Tool | Description |
-|---|---|
-| `get_build_issues` | Get prioritized list of build problems and suggestions |
-| `get_passive_upgrades` | Rank unallocated notables by simulated DPS/EHP impact |
-| `suggest_masteries` | Rank effects available on allocated mastery nodes by live stat impact |
-| `check_boss_readiness` | Evaluate readiness for specific boss encounters |
-| `suggest_watchers_eye` | Suggest Watcher's Eye mods for the build's auras |
-| `find_best_anointment` | Rank anointable notables by live DPS/EHP impact (Amulet or anointable Belt) |
-| `analyze_cluster_jewels` | Analyze a cluster jewel setup from a build file |
-| `analyze_build_cluster_jewels` | Analyze cluster jewels equipped in the loaded build |
-| `suggest_crafting` | Suggest crafting methods using a slot, base, desired mods, and available build context |
-
-**`suggest_optimal_nodes` goals**: `damage`, `defense`, `life`, `es`, `resist`, `speed`
-
-**Defensive layers**:
-- **Avoidance** — evasion, spell suppression, dodge, block
-- **Mitigation** — armour/PDR, endurance charges
-- **Recovery** — life regen (≥1%/s), leech, ES recharge
-
-A build with all 3 layers is considered exceptional.
-
-### Configuration & Enemy Settings
+### Local build directory
 
 | Tool | Description |
 |---|---|
-| `get_config` | View bandit, pantheon, and enemy settings |
-| `set_config` | Toggle charges, buffs, conditions (e.g. `usePowerCharges`, `enemyIsBoss`) |
-| `set_enemy_stats` | Set enemy level, resistances, armour, evasion for DPS scenarios |
-| `save_config_preset` | Save current config as a named preset |
-| `load_config_preset` | Load a saved config preset |
-| `list_config_presets` | List all saved config presets |
+| `inspect_local_build_file` | Read a local build file fingerprint before an explicit restore; no PoB engine is started. |
+| `list_local_build_files` | List XML files in the configured local build directory without importing them. |
+| `inspect_local_cluster_jewels` | Inspect cluster jewel assignments in the active spec of a saved local PoB XML file without starting PoB. |
+| `inspect_local_cached_stats` | Read serialized historical PoB PlayerStat and MinionStat values; these are not current calculations. |
+| `start_local_build_watch` | Start observing local build-file changes without importing or modifying snapshots. |
+| `stop_local_build_watch` | Stop local build-file observation; already recorded events remain in this process. |
+| `get_local_build_watch` | Read current local build watcher state and process-local event cursor. |
+| `list_local_build_changes` | Read bounded, ordered file-change events. |
+| `list_local_config_presets` | List saved local PoB MCP configuration presets with collision-safe pagination. |
+| `read_local_config_preset` | Read a configuration preset without changing a build. |
 
-### Build Validation
-
-| Tool | Description |
-|---|---|
-| `validate_build` | Check resistances, life, defensive layers, mana, immunities, accuracy, damage scaling |
-
-For a named saved build, returns critical issues, warnings, and recommendations
-with an overall 0–10 health score. Uses matching Lua stats when available and falls
-back to XML. Omitting `build_name` checks the currently loaded Lua build with a
-smaller set of live-stat checks; that path does not produce the full XML validation
-or its health score.
-
-### Skill Gem Analysis
+### Crafting data
 
 | Tool | Description |
 |---|---|
-| `analyze_skill_links` | Evaluate support gems and detect build archetype |
-| `suggest_support_gems` | Ranked support gem recommendations with DPS estimates |
-| `validate_gem_quality` | Find gems needing quality, awakened upgrades, or corruption |
-| `compare_gem_setups` | Side-by-side structural comparison of gem configurations |
-| `find_optimal_links` | Auto-generate best support combo for a 4/5/6-link and budget |
-| `gem_upgrade_path` | Show upgrade path for a gem (awakened, quality variants) |
+| `compare_craft_budget` | Compare buying with a geometric repeat-attempt crafting cost model. |
+| `simulate_simple_annul` | Enumerate the single-use outcomes of an Orb of Annulment on a manually verified ordinary magic or rare PoE 1 item. |
+| `prepare_crafting_context` | Gather explicit item and optional snapshot context for crafting research. |
+| `classify_modifier_lines` | Classify explicit lines against versioned PoB tables; slot counts require confirmed rarity, complete lines and ordinary capacity. |
+| `query_bench_modifiers` | Query PoB bench table candidates by item class, level and optional affix type; does not establish unlocks or crafting legality. |
+| `query_modifier_tiers` | Query PoB explicit modifier tiers; broad tags or a caller-confirmed complete tag set are distinct from crafting probability. |
 
-`gem_upgrade_path` requires a loaded Lua bridge build. The other tools read a
-named saved build; their DPS estimates are heuristic rather than live simulations.
+### Market reference data
 
-**Budget tiers**: `league_start`, `mid_league`, `endgame`
-
-### Build Export & Persistence
-
-| Tool | Description |
-|---|---|
-| `export_build` | Copy a build to a new XML file with optional notes |
-| `save_tree` | Write passive tree back to an existing build file |
-| `snapshot_build` | Create a versioned snapshot with description and tag |
-| `list_snapshots` | List all snapshots for a build |
-| `restore_snapshot` | Restore from a snapshot (auto-backs up current state) |
-| `export_build_summary` | Export a Simplified Chinese build report with calculated stats, skill groups, equipment, tree and raw configuration |
-
-Snapshots are stored in `POB_DIRECTORY/.pob-mcp/snapshots/`.
-Their stat metadata comes from cached `<PlayerStat>` entries in the saved XML.
-Missing cached stats display as `N/A`. `export_build_summary` requires a loaded
-Lua bridge build.
-
-**Note**: `export_build` copies from the XML file, not from the Lua bridge. Use `lua_save_build` first if you want to export in-memory changes.
-
-### Currency Reference & Market Data (poe.ninja)
+poe.ninja values are reference prices from a stated league and timestamp.
+They are not executable buyouts and do not include fees, availability or
+liquidity.
 
 | Tool | Description |
 |---|---|
-| `reference_currency_rates` | Reference values in Chaos Orbs for one exact international league |
-| `screen_currency_spreads` | Screen bounded theoretical currency loops from stash-side aggregate quotes |
-| `simulate_reference_currency_chain` | Convert a currency chain with one reference snapshot |
+| `reference_currency_rates` | Read poe.ninja currency reference values in Chaos Orbs for the exact international league; these are not buyable trade listings. |
+| `simulate_reference_currency_chain` | Convert a currency chain using one poe.ninja reference snapshot. |
+| `screen_currency_spreads` | Screen bounded theoretical loops using poe.ninja stash-side aggregate quotes. |
+| `search_bundled_stat_mappings` | Search the bundled PoB-name and alias mapping offline. |
 
-These tools read poe.ninja reference data, not executable trade offers; spreads,
-fees and availability are never inferred. Rates are fetched on demand and cached
-for 5 minutes. Pass the **exact** league name returned by `get_leagues` when Trade
-is enabled, or use `Standard` explicitly. `screen_currency_spreads` evaluates
-two-currency loops across every usable currency, limits three-currency loops to
-the first 20 names in alphabetical order, rejects sources above 1000 currencies,
-and returns at most `limit` candidates (maximum 50).
-
-### Trade API Tools (Require `POE_TRADE_ENABLED=true`)
+### Upstream tree reference
 
 | Tool | Description |
 |---|---|
-| `search_trade_items` | Search trade with stat filters, price range, link count |
-| `find_weighted_trade_items` | Build-specific BIS search via PoB's TradeQueryGenerator stat weights (requires `POE_SESSION_ID` and the Lua bridge) |
-| `get_item_price` | Price statistics (min/max/median/average) for an item |
-| `get_leagues` | List available leagues |
-| `search_stats` | Look up Trade API stat IDs |
-| `search_resistance_listings` | Find securable, priced listings for explicit resistance targets and a per-item budget |
-| `compare_trade_items` | Compare multiple trade listings side by side |
-| `search_cluster_listings` | Search securable cluster jewels and check enchant and exact notable names locally |
-| `generate_shopping_list` | Generate a prioritized shopping list from build analysis |
+| `inspect_upstream_tree_nodes` | Read explicitly selected serialized nodes from the upstream PoB GitHub tree, separately from local snapshot calculations. |
 
----
+### Official international Trade (`POE_TRADE_ENABLED=true`)
 
-## Typical Workflows
+Every search tool that can produce a price uses the `securable` status and an
+explicit priced sale type. Tools that take a bounded sample say so; a missing
+price is unknown, never zero.
 
-### Analyze an existing build
-```text
-1. lua_start
-2. lua_load_build (build_name: "MyBuild.xml")
-3. validate_build (build_name: "MyBuild.xml")
-4. lua_get_stats (category: "offense")
-```
-
-For a fast live issue scan instead of full validation, use `get_build_issues`.
-Use `analyze_defenses` separately when you need the detailed defensive breakdown.
-
-### Build from scratch
-```text
-1. lua_start
-2. lua_new_build (class_name: "Witch", ascendancy: "Necromancer")
-3. setup_skill_with_gems (label: "Skeletons", active_gem: "Summon Skeletons", support_gems: ["Minion Damage Support", "Melee Physical Damage Support"])
-4. set_main_skill (group_index: the index returned by step 3)
-5. lua_get_tree, then lua_set_tree with your complete connected node list and any mastery_effects
-6. lua_get_stats (category: "offense")
-7. lua_save_build (build_name: "MySummoner.xml")
-```
-
-### Optimize passive tree
-```text
-1. lua_load_build (build_name: "MyBuild.xml")
-2. suggest_optimal_nodes (build_name: "MyBuild.xml", goal: "life", points_available: 5)
-3. search_tree_nodes (query: "maximum life")
-4. lua_get_tree   ← copy current node list
-5. lua_set_tree   ← add new nodes to the list
-6. lua_get_stats  ← verify improvement
-7. lua_save_build (build_name: "MyBuild.xml") ← persist
-```
-
-Check reachability and point cost before applying a suggestion. Simulated stat
-gains alone do not establish a legal allocation.
-
-### Test DPS against Shaper
-```text
-1. lua_load_build (build_name: "MyBuild.xml")
-2. set_enemy_stats (level: 84, fire_resist: 40, cold_resist: 40, lightning_resist: 40)
-3. set_config (config_name: "enemyIsBoss", value: "Pinnacle")
-4. lua_get_stats (category: "offense")
-```
-
-`enemyIsBoss` is a dropdown value, not a boolean. The bridge also maps the legacy
-name `"Shaper"` to `"Pinnacle"`. Check whether configuration writes were accepted
-before interpreting the stats.
-
-### Find the best anointment and shop for upgrades
-```
-1. lua_load_build (build_name: "MyBuild.xml")
-2. find_best_anointment (slot: "Amulet", focus: "both")
-3. find_weighted_trade_items (league: "Standard", slot: "Amulet")   ← requires POE_TRADE_ENABLED + POE_SESSION_ID
-```
-
----
-
-## Troubleshooting
-
-### XML Features
-
-**No builds found**
-- Verify `POB_DIRECTORY` is correct and contains `.xml` files
-- Check file permissions
-
-**Parse errors**
-- Open the build in PoB GUI to verify it isn't corrupted
-- Ensure PoB is up to date
-
-### Lua Bridge
-
-**`luajit command not found`**
-Set `POB_CMD` to the absolute path of a compatible command-line LuaJIT executable.
-Check the [interpreter requirements](#2-choose-a-compatible-luajit-interpreter)
-before using a system package; some PoB revisions require patched syntax support.
-
-**`'=' expected near '+'` (or another compound-assignment operator)**
-The interpreter cannot parse the chosen PoB source. Increasing the timeout or
-installing a Lua module will not add syntax support. Use a compatible interpreter
-and verify it with the compile-only command in the setup section.
-
-**`unexpected symbol near '#'` in `HeadlessWrapper.lua` or `Launch.lua`**
-These PoB files begin with a `#@ ...` directive line for the SimpleGraphic host.
-The shipped adapter strips that line at load time, so this error means an older
-adapter or a different launcher is in use. Do not edit the PoB checkout; update
-the adapter (`lua/vanilla_stdio_bridge.lua`) or use the image bundled with this
-suite.
-
-**`module 'lua-utf8' not found`**
-The pinned repository engine at `vendor/PathOfBuilding` needs a LuaJIT-compatible
-native module that its Windows runtime cannot provide on Linux:
-```bash
-luarocks --local --lua-version=5.1 install luautf8 LUA_INCDIR=/usr/include/luajit-2.1
-```
-Smoke tests fall back to `vendor/PathOfBuilding/src` when no engine is configured
-or installed; set `POB_PATH` to override that choice.
-
-**`Failed to find valid ready banner`**
-`POB_PATH` must point to the directory containing `HeadlessWrapper.lua`:
-```bash
-ls "$POB_PATH/HeadlessWrapper.lua"   # must exist
-ls "$POB_PATH/Modules/"              # must exist
-```
-
-**`Timed out waiting for response`**
-- If startup is slow, increase `POB_TIMEOUT_MS` above its default (try `60000`).
-- Check the server's stderr for missing-module or syntax errors.
-- Run `npm run test:smoke:truthfulness` to exercise the repo-owned adapter against
-  the resolved engine using `POB_CMD`. Run commands from this project's directory.
-
-**Stats don't match PoB GUI**
-- Check bandit/pantheon/enemy settings with `get_config`
-- Ensure the correct tree spec is active in the XML
-- Make sure your PathOfBuilding checkout is up to date
-
-**Bridge becomes unresponsive**
-```
-lua_stop → wait a moment → lua_start
-```
-If still unresponsive, restart Claude Desktop.
-
-**Nodes dropped after `lua_set_tree`**
-Nodes must form a valid connected path from the class starting node. Disconnected nodes are silently dropped by PoB. Ensure all intermediate nodes are included.
-
----
+| Tool | Description |
+|---|---|
+| `search_snapshot_weighted_trade` | Generate a PoB weighted query and search official international Trade with securable and priced filters. |
+| `preview_trade_listings` | Fetch up to five official trade listings and compare each exact clipboard item against an immutable PoB snapshot. |
+| `screen_snapshot_budget_candidates` | Search explicit international equipment candidates within a chaos budget using securable priced Trade listings, then preview each candidate in PoB. |
+| `assemble_snapshot_budget_bundle` | Search bounded securable priced listings for explicit slots, sum selected explicit chaos buyouts and compare their combined PoB trial. |
+| `estimate_trade_comparable` | Compare official international instant-buyout listings using confirmed base and stat groups. |
+| `search_official_trade` | Search official international PoE 1 listings. |
+| `sample_trade_item_price` | Sample up to ten official securable, priced listings for a confirmed item name and international league; currencies are separate and this is not a complete appraisal. |
+| `compare_official_trade_listings` | Compare raw official Trade listings by ID, with source time and missing entries. |
+| `search_resistance_listings` | Search individual securable, priced international Trade listings with explicit resistance targets and per-item budget. |
+| `search_cluster_listings` | Search securable cluster jewels and locally check enchant text and exact notable names within a bounded sample; the trade link represents the broader query. |
+| `search_trade_stats` | Search official Trade stat text and return IDs grouped by identical text and source. |
+| `list_trade_leagues` | List leagues from official international Trade metadata. |
 
 ## Development
 
 ```bash
-npm run build   # compile TypeScript
-npm run dev     # watch mode
+npm --prefix packages/pob-mcp run build      # clean build/ then tsc
+npm --prefix packages/pob-mcp test           # unit + integration suites
+npm --prefix packages/pob-mcp run test:smoke # real engine + MCP stdio
 ```
 
-## Path of Building XML Structure
+Engine-dependent smoke suites:
 
-PoB builds are XML files with:
-- `<Build>`: Character info and stats
-- `<Tree>`: Passive skill tree node allocations
-- `<Skills>`: Socket groups and gem links
-- `<Items>`: Equipped items
-- `<Notes>`: Build notes
+| Command | Checks |
+|---|---|
+| `test:smoke` | Bridge lifecycle, state truthfulness and MCP stdio round trip |
+| `test:smoke:foundation` | End-to-end snapshot, tree, item, gem, job and evaluation flows; parallel runner, `SMOKE_CONCURRENCY` controls jobs |
+| `test:smoke:trade` | Live international Trade search, stats and price paths |
+| `test:smoke:snapshot-cost` | Reference cost of a snapshot in a stated league |
+| `test:smoke:source-comparable` | Official listing comparison with source audit |
+| `test:smoke:currency-reference` | poe.ninja currency reference output |
+| `test:smoke:trade-preview` | Listing preview in an isolated engine |
+| `test:smoke:cluster-trade` | Cluster jewel search against official Trade |
+| `test:smoke:upstream-tree` | Upstream passive tree node reader |
+| `test:smoke:truthfulness` | Adapter state matches the engine |
+| `test:smoke:requirements` | Server refuses to start without PoB or LuaJIT and starts with both |
+| `test:smoke:build-info` | Lua build-info smoke without a tree |
 
-## Contributing
+The foundation suite runs its scripts in parallel (`SMOKE_CONCURRENCY`, default
+`min(4, CPUs)`); rerun a subset with
+`node scripts/smoke-suite.mjs foundation <filter> [--jobs=N] [--skip=a,b]`.
 
-Issues and pull requests are welcome!
+`npm run validate` at the repository root runs the build, the full Jest suite,
+market metadata validation and shell syntax checks.
 
-## Contributors
+## Further documentation
 
-<!-- readme: collaborators,contributors -start -->
-<table>
-  <tbody>
-    <tr>
-      <td align="center"><a href="https://github.com/ianderse"><img src="https://avatars.githubusercontent.com/u/5242189?v=4" width="100" alt="ianderse"/><br /><sub><b>Ian</b></sub></a></td>
-      <td align="center"><a href="https://github.com/rchasman"><img src="https://avatars.githubusercontent.com/u/1267219?v=4" width="100" alt="rchasman"/><br /><sub><b>Roey D. Chasman</b></sub></a></td>
-      <td align="center"><a href="https://github.com/notquitedrdeath"><img src="https://avatars.githubusercontent.com/u/890462?v=4" width="100" alt="notquitedrdeath"/><br /><sub><b>Tim Death</b></sub></a></td>
-      <td align="center"><a href="https://github.com/J-Gierend"><img src="https://avatars.githubusercontent.com/u/39157646?v=4" width="100" alt="J-Gierend"/><br /><sub><b>J-Gierend</b></sub></a></td>
-      <td align="center"><a href="https://github.com/gonzodamus"><img src="https://avatars.githubusercontent.com/u/219195895?v=4" width="100" alt="gonzodamus"/><br /><sub><b>gonzodamus</b></sub></a></td>
-      <td align="center"><a href="https://github.com/Kloggzer"><img src="https://avatars.githubusercontent.com/u/19823711?v=4" width="100" alt="Kloggzer"/><br /><sub><b>Marius K</b></sub></a></td>
-    </tr>
-    <tr>
-      <td align="center"><a href="https://github.com/mcagnion"><img src="https://avatars.githubusercontent.com/u/22574458?v=4" width="100" alt="mcagnion"/><br /><sub><b>Mickael Cagnion</b></sub></a></td>
-      <td align="center"><a href="https://github.com/exception0x876"><img src="https://avatars.githubusercontent.com/u/676813?v=4" width="100" alt="exception0x876"/><br /><sub><b>exception0x876</b></sub></a></td>
-    </tr>
-  </tbody>
-</table>
-<!-- readme: collaborators,contributors -end -->
-
-## License
-
-GPL-3.0
+- [Quick start](docs/QUICKSTART.md)
+- [Quick reference](docs/QUICK_REFERENCE.md)
+- [PoB bridge and engine setup](docs/POB_BRIDGE.md)
+- [Tree analysis guide](docs/TREE_ANALYSIS_GUIDE.md)
+- [Trade API guide](docs/TRADE_API_QUICKSTART.md)
+- [Testing guide](docs/TESTING_GUIDE.md)
+- [Status and roadmap](docs/ROADMAP.md)

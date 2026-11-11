@@ -1,6 +1,8 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { estimateComparable } from '../../src/features/tradeComparable/tool.js';
-import type { TradeApiClient } from '../../src/services/tradeClient.js';
+import { estimateComparable } from '../../src/features/tradeComparable/pricingPolicy.js';
+
+// The policy accepts a structural client; the fake below only implements the subset each case exercises.
+type ComparableClient = Parameters<typeof estimateComparable>[0];
 
 describe('comparable trade prices', () => {
   it('keeps non-buyouts and unverified items out of prices while counting all fetched sources', async () => {
@@ -10,7 +12,7 @@ describe('comparable trade prices', () => {
       { item: { league: 'Standard', verified: false }, listing: { price: { type: '~b/o', amount: 2, currency: 'chaos' } } },
       { item: { league: 'Standard', verified: true }, listing: { price: { amount: 3, currency: 'chaos' } } },
     ];
-    const client = { searchItems: async () => ({ id: 'abc', total: 4, result: ['1', '2', '3', '4'] }), fetchItems: async () => listings } as unknown as Pick<TradeApiClient, 'searchItems' | 'fetchItems'>;
+    const client = { searchItems: async () => ({ id: 'abc', total: 4, result: ['1', '2', '3', '4'] }), fetchItems: async () => listings } as unknown as ComparableClient;
     const report = await estimateComparable(client, { league: 'Standard', base_type: 'Hubris Circlet', stat_groups: [{ type: 'and', filters: [{ stat_id: 'explicit.stat_1' }] }] });
     expect(report.byCurrency).toEqual([{ currency: 'chaos', sampleCount: 1, min: 8, median: 8, max: 8 }]);
     expect(report.priceEvidenceCounts).toEqual({ explicit_buyout: 1, invalid_price: 0, unconfirmed_buyout: 2, unverified_item: 1, league_unconfirmed: 0 });
@@ -24,7 +26,7 @@ describe('comparable trade prices', () => {
       { item: { league: 'Standard', verified: true }, listing: { price: { type: '~b/o', amount: 7, currency: 'chaos' } } },
       { item: { league: 'Standard', verified: true }, listing: { price: { type: '~b/o', amount: 1, currency: 'divine' } } },
     ]);
-    const client = { searchItems, fetchItems } as unknown as Pick<TradeApiClient, 'searchItems' | 'fetchItems'>;
+    const client = { searchItems, fetchItems } as unknown as ComparableClient;
     const report = await estimateComparable(client, { league: 'Standard', base_type: 'Hubris Circlet', stat_groups: [
       { type: 'count', min: 1, filters: [{ stat_id: 'explicit.stat_1', min: 50 }, { stat_id: 'fractured.stat_1', min: 50 }] },
     ] });
@@ -53,7 +55,7 @@ describe('comparable trade prices', () => {
         { item: { extended: { hashes: { explicit: [['explicit.unrelated', [0]]] } } }, listing: {} },
         { item: {}, listing: {} },
       ],
-    } as unknown as Pick<TradeApiClient, 'searchItems' | 'fetchItems' | 'getStats'>;
+    } as unknown as ComparableClient;
     const report = await estimateComparable(client, { league: 'Standard', base_type: 'Hubris Circlet', stat_groups: [
       { type: 'and', filters: [{ stat_id: 'explicit.stat_1', min: 50 }] },
     ] });
@@ -68,7 +70,7 @@ describe('comparable trade prices', () => {
   it('reports an unavailable source audit instead of claiming complete coverage', async () => {
     const client = { getStats: async () => { throw new Error('network'); },
       searchItems: async () => ({ id: 'abc', total: 0, result: [] }), fetchItems: async () => []
-    } as unknown as Pick<TradeApiClient, 'searchItems' | 'fetchItems' | 'getStats'>;
+    } as unknown as ComparableClient;
     const report = await estimateComparable(client, { league: 'Standard', base_type: 'Hubris Circlet', stat_groups: [
       { type: 'and', filters: [{ stat_id: 'explicit.stat_1', min: 50 }] },
     ] });
@@ -76,20 +78,20 @@ describe('comparable trade prices', () => {
   });
 
   it('refuses an unspecified search instead of pricing unrelated items', async () => {
-    const client = { searchItems: jest.fn(), fetchItems: jest.fn() } as unknown as Pick<TradeApiClient, 'searchItems' | 'fetchItems'>;
+    const client = { searchItems: jest.fn(), fetchItems: jest.fn() } as unknown as ComparableClient;
     await expect(estimateComparable(client, { league: 'Standard', base_type: 'Hubris Circlet', stat_groups: [] })).rejects.toThrow();
     expect(client.searchItems).not.toHaveBeenCalled();
   });
 
   it('discloses inexact trade searches even when results are returned', async () => {
-    const client = { searchItems: async () => ({ id: 'abc', complexity: 1, total: 0, result: [], inexact: true }), fetchItems: async () => [] } as unknown as Pick<TradeApiClient, 'searchItems' | 'fetchItems'>;
+    const client = { searchItems: async () => ({ id: 'abc', complexity: 1, total: 0, result: [], inexact: true }), fetchItems: async () => [] } as unknown as ComparableClient;
     const report = await estimateComparable(client, { league: 'Standard', base_type: 'Hubris Circlet', stat_groups: [{ type: 'and', filters: [{ stat_id: 'explicit.stat_1', min: 50 }] }] });
     expect(report.inexact).toBe(true);
     expect(report.warnings.join(' ')).toContain('inexact');
   });
 
   it('rejects impossible or contradictory count groups before calling trade', async () => {
-    const client = { searchItems: jest.fn(), fetchItems: jest.fn() } as unknown as Pick<TradeApiClient, 'searchItems' | 'fetchItems'>;
+    const client = { searchItems: jest.fn(), fetchItems: jest.fn() } as unknown as ComparableClient;
     for (const group of [
       { type: 'count', min: 2, filters: [{ stat_id: 'explicit.a' }] },
       { type: 'count', min: 0.5, filters: [{ stat_id: 'explicit.a' }] },
@@ -101,7 +103,7 @@ describe('comparable trade prices', () => {
   });
 
   it('rejects unsupported constraints and invalid limits instead of silently broadening a search', async () => {
-    const client = { searchItems: jest.fn(), fetchItems: jest.fn() } as unknown as Pick<TradeApiClient, 'searchItems' | 'fetchItems'>;
+    const client = { searchItems: jest.fn(), fetchItems: jest.fn() } as unknown as ComparableClient;
     const valid = { league: 'Standard', base_type: 'Hubris Circlet', stat_groups: [{ type: 'and', filters: [{ stat_id: 'explicit.a' }] }] };
     await expect(estimateComparable(client, { ...valid, status: 'any' })).rejects.toThrow('unsupported');
     await expect(estimateComparable(client, { ...valid, limit: 11 })).rejects.toThrow('limit');

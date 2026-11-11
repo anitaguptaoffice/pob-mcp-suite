@@ -43,7 +43,7 @@ try {
   const transformedKeystones = (await client.searchNodes({ keyword: 'Ignore Attribute Requirements', nodeType: 'keystone', maxResults: 1000 })).nodes;
   assert.ok(transformedKeystones.some(node => node.id === 54307));
   await client.stop();
-  const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POE_TRADE_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
+  const mcp = startMcpServer({ POE_TRADE_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
   child = mcp.child;
   child.stderr.on('data', () => {});
   const exited = once(child, 'exit');

@@ -1,4 +1,4 @@
-import { parseWatchersEyeFile } from '../../src/services/modDataStore.js';
+import { parseWatchersEyeFile } from '../../src/adapters/modifierData/modDataStore.js';
 import { createWatchersEyeTool } from '../../src/features/watchersEye/tool.js';
 import type { BuildFoundation } from '../../src/foundation/buildFoundation.js';
 import type { WatchersEyeSource } from '../../src/ports/watchersEyeSource.js';

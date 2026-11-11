@@ -41,6 +41,6 @@ bash -n pob-docker-mcp/scripts/smoke-test.sh
 Run `pob-docker-mcp/scripts/smoke-test.sh` when Docker and the relevant image
 are available. A packaging check does not establish actual client behavior.
 To verify both wrapper modes with a locally built image, run
-`POB_DOCKER_IMAGE=pob-mcp-suite:foundation-local node scripts/smoke-docker-wrapper.mjs`.
+`POB_DOCKER_IMAGE=pob-mcp-suite:local node scripts/smoke-docker-wrapper.mjs`.
 On Linux, set `POB_DOCKER_USER="$(id -u):$(id -g)"` for an additional
 host-ownership check; the test uses a temporary build directory.

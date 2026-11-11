@@ -40,7 +40,7 @@ try {
   assert.deepEqual((await foundation.inspect(parent.id, ['items'])).data.items, original.data.items);
   const restored = await foundation.deriveFlaskActive(child.id, 2, true);
   assert.deepEqual(normalizeObservation({ items: (await foundation.inspect(restored.id, ['items'])).data.items }).items, normalizeObservation({ items: original.data.items }).items);
-  const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
+  const mcp = startMcpServer({ POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
   mcp.child.stderr.on('data', () => {}); const exited = once(mcp.child, 'exit');
   try {
     await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'flask-smoke', version: '1' } });

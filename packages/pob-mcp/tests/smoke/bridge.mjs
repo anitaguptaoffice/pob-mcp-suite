@@ -103,12 +103,12 @@ try {
     throw new Error(`configured shock should be credited: ${JSON.stringify(configured)}`);
   }
 
-  // enemyIsBoss: legacy names must land on the current list values exactly as
+  // enemyIsBoss: older names must land on the current list values exactly as
   // PoB's own XML import maps them; an unknown list value must be REJECTED
   // per key, never silently stored (it would match no branch in the engine).
   const bossAlias = await client.setConfig({ enemyIsBoss: 'Shaper' });
   if (bossAlias?.rejected?.enemyIsBoss || bossAlias?.applied?.enemyIsBoss !== 'Pinnacle') {
-    throw new Error(`legacy boss name 'Shaper' should apply as 'Pinnacle': ${JSON.stringify(bossAlias)}`);
+    throw new Error(`older boss name 'Shaper' should apply as 'Pinnacle': ${JSON.stringify(bossAlias)}`);
   }
   const bossBogus = await client.setConfig({ enemyIsBoss: 'NotABoss' });
   if (!bossBogus?.rejected?.enemyIsBoss) {

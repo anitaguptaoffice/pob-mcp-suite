@@ -1,7 +1,12 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { createTradeSearchTool } from '../../src/features/tradeSearch/tool.js';
-import { handleSearchTradeItems } from '../../src/handlers/tradeHandlers.js';
 import type { OfficialTradeSource } from '../../src/ports/officialTrade.js';
 import type { TradeQuery } from '../../src/types/tradeTypes.js';
+
+// Captured from the previous route before removal; the replacement must
+// keep the same filters and additionally require an explicit priced sale type.
+const expectedQuery = JSON.parse(readFileSync(resolve('tests/fixtures/expected-trade-search-query.json'), 'utf8'));
 
 const time = '2026-01-01T00:00:00.000Z';
 const stats = { result: [{ entries: [{ id: 'explicit.life', text: '+# Life', type: 'explicit' }, { id: 'fractured.life', text: '+# Life', type: 'fractured' }] }] };
@@ -51,17 +56,15 @@ describe('new official trade search', () => {
     expect(response.content[0].text).not.toContain('must-not-leak');
   });
 
-  it('matches the previous query on supported filters, adding an explicit priced constraint', async () => {
+  it('matches the expected query on supported filters, including an explicit priced constraint', async () => {
     const args = { league: 'Standard', item_type: 'Gold Ring', item_rarity: 'rare' as const, corrupted: false, identified: true,
       mods: [{ stat_id: 'explicit.life', min: 40 }], min_price: 2, max_price: 10, price_currency: 'chaos', sort: 'price_desc' as const };
-    let previous: TradeQuery | undefined;
-    await handleSearchTradeItems({ tradeClient: { getStats: async () => stats, searchItems: async (_league: string, query: TradeQuery) => { previous = query; return { id: 'q', total: 0, result: [] }; } } as any }, args);
     const source = {
       stats: async () => ({ source: 'official-trade', fetchedAt: time, request: { kind: 'stats' }, data: stats }),
       search: async (league: string, query: TradeQuery) => ({ source: 'official-trade', fetchedAt: time, request: { league, query: JSON.parse(JSON.stringify(query)) }, data: { id: 'q', total: 0, result: [] } }),
     } as unknown as OfficialTradeSource;
     const actual = JSON.parse((await createTradeSearchTool(source).invoke(args)).content[0].text);
-    const expected = JSON.parse(JSON.stringify(previous));
+    const expected = JSON.parse(JSON.stringify(expectedQuery));
     expected.query.filters.trade_filters.filters.sale_type = { option: 'priced' };
     expect(actual.query).toEqual(expected);
     expect(actual.fetchedCount).toBe(0);

@@ -16,7 +16,7 @@ describe('JobStore', () => {
       expect(await jobs.protectedSnapshotIds()).toEqual(new Set([parent, child]));
     } finally { await rm(dir, { recursive: true, force: true }); }
   });
-  it('protects interrupted and queued job inputs and refuses ambiguous legacy jobs', async () => {
+  it('protects interrupted and queued job inputs and refuses ambiguous stored jobs', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'pob-jobs-'));
     try {
       const jobs = new JobStore(dir);

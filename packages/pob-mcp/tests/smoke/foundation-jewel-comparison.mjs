@@ -16,7 +16,7 @@ try {
   const tree = await client.getTree(); assert.ok(tree.nodes.includes(34483)); assert.ok(!tree.nodes.includes(9797));
   const before = await client.getStats(['Life']); await client.addItem(jewel, 'Jewel 34483');
   const after = await client.getStats(['Life']); assert.notEqual(before.Life, after.Life); await client.stop();
-  const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
+  const mcp = startMcpServer({ POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
   child = mcp.child; child.stderr.on('data', () => {}); const exited = once(child, 'exit');
   await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'jewel-comparison-smoke', version: '1' } }); mcp.notify('notifications/initialized', {});
   const call = async (name, args) => { const response = await mcp.request('tools/call', { name, arguments: args }); assert.ok(!response.error && !response.result?.isError, JSON.stringify(response).slice(0, 1600)); return JSON.parse(response.result.content[0].text); };

@@ -10,12 +10,8 @@ if (!process.env.POB_DOCKER_IMAGE) throw new Error('Set POB_DOCKER_IMAGE to the 
 const builds = await mkdtemp(join(tmpdir(), 'pob-wrapper-smoke-'));
 try {
   let parentId, childId, originalLevel, derivedLevel, derivedLife;
-  for (const mode of ['legacy', 'create', 'restart']) {
-    const foundation = mode !== 'legacy';
+  for (const mode of ['create', 'restart']) {
     const env = { ...process.env, POB_BUILDS_DIR: builds, POE_TRADE_ENABLED: 'true' };
-    delete env.POB_FOUNDATION_ENABLED;
-    delete env.POB_LEGACY_ENABLED;
-    if (foundation) env.POB_FOUNDATION_ENABLED = 'true';
     const child = spawn(resolve('pob-docker-mcp/scripts/pob-mcp-docker.sh'), [], { env, stdio: ['pipe', 'pipe', 'pipe'] });
     const exited = once(child, 'exit');
     let buffer = '', stderr = '', nextId = 0;
@@ -40,15 +36,11 @@ try {
       child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} }) + '\n');
       const response = await request('tools/list', {}); assert.ok(!response.error, JSON.stringify(response));
       const names = new Set(response.result.tools.map(tool => tool.name));
-      assert.equal(names.has('foundation_import_build'), foundation);
-      assert.equal(names.has('search_official_trade'), foundation);
-      assert.equal(names.has('lua_load_build'), !foundation);
-      if (foundation) {
-        assert.ok(names.has('check_snapshot_issues'));
-        assert.ok(names.has('transplant_snapshot_tree'));
-        const hidden = await request('tools/call', { name: 'lua_load_build', arguments: { build_name: 'ignored.xml' } });
-        assert.equal(hidden.result.isError, true);
-      }
+      assert.ok(names.has('foundation_import_build'));
+      assert.ok(names.has('search_official_trade'));
+      assert.ok(names.has('check_snapshot_issues'));
+      assert.ok(names.has('transplant_snapshot_tree'));
+      assert.ok(!names.has('lua_load_build'));
       const call = async (name, args) => {
         const result = await request('tools/call', { name, arguments: args });
         assert.ok(!result.error && !result.result?.isError, JSON.stringify(result));

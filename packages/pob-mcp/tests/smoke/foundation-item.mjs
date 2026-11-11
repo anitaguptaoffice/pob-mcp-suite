@@ -41,7 +41,7 @@ try {
   assert.match(equipped.data.items.find(item => item.slot === 'Ring 1').raw, /\+30 to maximum Life/);
   assert.equal(await foundation.exportBuild(parent.id), xml);
   await assert.rejects(foundation.deriveItem(parent.id, 'Helmet', ring), /incompatible/);
-  const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
+  const mcp = startMcpServer({ POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
   mcp.child.stderr.on('data', () => {});
   const exited = once(mcp.child, 'exit');
   try {

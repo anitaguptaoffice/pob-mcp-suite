@@ -12,7 +12,7 @@ const clients = [];
 const store = new SnapshotStore(dir);
 const input = { xml: '<build/>', source: 'retention-smoke', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null };
 async function start() {
-  const c = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_SNAPSHOT_DIRECTORY: dir, POB_DIRECTORY: dir });
+  const c = startMcpServer({ POB_SNAPSHOT_DIRECTORY: dir, POB_DIRECTORY: dir });
   c.child.stderr.on('data', () => {});
   clients.push(c.child);
   await c.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'retention-smoke', version: '1' } });

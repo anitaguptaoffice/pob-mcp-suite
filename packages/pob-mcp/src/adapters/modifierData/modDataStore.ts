@@ -173,7 +173,7 @@ function projectEntry(table: LuaTable, id: string, source: ModEntry["source"]): 
  * Both files emit exactly one entry per line, so we parse line by line and keep only the
  * projection. Parsing the file as one literal would hold every tradeHash in memory at once.
  */
-export function parseModFile(text: string, source: ModEntry["source"], affixesOnly = false): ModEntry[] {
+export function parseModFile(text: string, source: ModEntry["source"]): ModEntry[] {
   return text.split("\n").reduce<ModEntry[]>((entries, line) => {
     const trimmed = line.trim();
     if (trimmed === "" || trimmed.startsWith("--") || trimmed === "return {" || trimmed === "}") return entries;
@@ -182,11 +182,6 @@ export function parseModFile(text: string, source: ModEntry["source"], affixesOn
     const id = keyed ? unescapeLua(keyed[1]) : `master:${entries.length}`;
     const body = keyed ? trimmed.slice(keyed[0].length) : trimmed;
     const table = new LuaLiteralParser(body.replace(/,$/, "")).parseTable();
-    // ModItem.lua predates the split into ModExplicit/ModCorrupted/etc.
-    // Its non-affix entries must not be treated as rollable prefixes or suffixes.
-    const type = readString(table, "type");
-    if (affixesOnly && type && type !== 'Prefix' && type !== 'Suffix') return entries;
-
     return [...entries, projectEntry(table, id, source)];
   }, []);
 }
@@ -206,31 +201,29 @@ export class ModDataUnavailableError extends Error {}
  * Nothing is read until a tool actually asks for it.
  */
 export function loadModData(fileName: 'ModExplicit.lua' | 'ModMaster.lua', source: ModEntry["source"]): { entries: ModEntry[]; fileName: string; sha256: string } {
-  const layout = resolvePoBLayout(process.env.POB_PATH || process.env.POB_FORK_PATH);
-  let filePath = path.join(layout.src, "Data", fileName);
-  const legacy = fileName === 'ModExplicit.lua' && !fs.existsSync(filePath);
-  if (legacy) filePath = path.join(layout.src, 'Data', 'ModItem.lua');
+  const layout = resolvePoBLayout(process.env.POB_PATH);
+  const filePath = path.join(layout.src, "Data", fileName);
 
   const content = ((): Buffer => {
     try {
       return fs.readFileSync(filePath);
     } catch {
       throw new ModDataUnavailableError(
-        `Path of Building's ${fileName}${fileName === 'ModExplicit.lua' ? ' (or legacy ModItem.lua)' : ''} was not found at ${filePath}. Affix data needs an installed Path of Building or a checkout; point POB_PATH at one.`
+        `Path of Building's ${fileName} was not found at ${filePath}. Affix data needs a PoB src/ checkout; point POB_PATH at one.`
       );
     }
   })();
 
   const sha256 = createHash('sha256').update(content).digest('hex'), cached = cache.get(filePath);
   if (cached && cached.sha256 === sha256) return { entries: cached.entries, fileName: path.basename(filePath), sha256 };
-  const entries = parseModFile(content.toString('utf8'), source, legacy);
+  const entries = parseModFile(content.toString('utf8'), source);
   cache.set(filePath, { sha256, entries });
   return { entries, fileName: path.basename(filePath), sha256 };
 }
 
 export const loadExplicitMods = (): ModEntry[] => loadModData("ModExplicit.lua", "explicit").entries;
 
-/** Project the generated Watcher's Eye source without applying its legacy variants. */
+/** Project the generated Watcher's Eye source without applying variant-specific entries. */
 export function parseWatchersEyeFile(text: string): Array<{ id: string; lines: string[] }> {
   const entries: Array<{ id: string; lines: string[] }> = [], ids = new Set<string>();
   for (const line of text.split('\n')) {

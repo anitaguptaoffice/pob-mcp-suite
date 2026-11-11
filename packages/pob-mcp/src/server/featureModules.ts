@@ -2,8 +2,8 @@ import { craftBudgetSchemas, handleCraftBudget } from '../features/craftBudget/t
 import { craftSimulatorSchemas, handleSimpleAnnul } from '../features/craftSimulator/tool.js';
 import { FeatureRegistry } from './featureRegistry.js';
 
-// First migration: these tools are always available and require no shared clients.
-// Capability-gated modules remain on the legacy path until their contracts migrate.
+// Stateless tools that need no shared client. Capability-gated groups are
+// registered by the composition root in src/index.ts.
 export const featureRegistry = new FeatureRegistry([
   { schema: craftBudgetSchemas()[0], invoke: handleCraftBudget },
   { schema: craftSimulatorSchemas()[0], invoke: handleSimpleAnnul },

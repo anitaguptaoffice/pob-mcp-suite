@@ -1,12 +1,11 @@
 import { describe, expect, it } from '@jest/globals';
 import { auditStatSourceCoverage } from '../../src/domain/trade/sourceAudit.js';
-import type { TradeApiClient } from '../../src/services/tradeClient.js';
 
 const client = { getStats: async () => ({ result: [{ entries: [
   { id: 'explicit.life', text: '+# Life', type: 'explicit' },
   { id: 'fractured.life', text: '+# Life', type: 'fractured' },
   { id: 'crafted.life', text: '+# Life', type: 'crafted' },
-] }] }) } as unknown as Pick<TradeApiClient, 'getStats'>;
+] }] }) } as unknown as { getStats(): Promise<import('../../src/types/tradeTypes.js').StatData> };
 
 describe('trade stat source audit', () => {
   it('reports missing alternatives for fractured and crafted filters as well as explicit ones', async () => {

@@ -7,7 +7,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 
 const dir = await mkdtemp(join(tmpdir(), 'pob-sdk-client-'));
 const transport = new StdioClientTransport({ command: process.execPath, args: [resolve('build/index.js')],
-  env: { ...process.env, POB_FOUNDATION_ENABLED: 'true', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') }, stderr: 'pipe' });
+  env: { ...process.env, POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') }, stderr: 'pipe' });
 transport.stderr?.on('data', () => {});
 const client = new Client({ name: 'pob-foundation-sdk-smoke', version: '1.0.0' });
 try {

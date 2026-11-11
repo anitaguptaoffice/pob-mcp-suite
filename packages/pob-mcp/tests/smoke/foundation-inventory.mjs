@@ -76,7 +76,7 @@ try {
   const snapshots = await foundation.listSnapshots();
   await assert.rejects(foundation.deriveInventoryItem(parent.id, 'not an item'));
   assert.deepEqual(await foundation.listSnapshots(), snapshots);
-  const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
+  const mcp = startMcpServer({ POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
   child = mcp.child; child.stderr.on('data', () => {}); const exited = once(child, 'exit');
   await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'inventory-smoke', version: '1' } });
   mcp.notify('notifications/initialized', {});

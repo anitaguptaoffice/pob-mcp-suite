@@ -95,7 +95,7 @@ try {
   assert.equal(inspected.data.tree.masteryEffects['4139'], 31822);
   assert.equal((await foundation.inspect(parent.id, ['tree'])).data.tree.masteryEffects['4139'], 47642);
   await assert.rejects(foundation.deriveMasteries(parent.id, { 4139: 999999 }), /Invalid or unallocated mastery effect/);
-  const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_SNAPSHOT_DIRECTORY: dir, POB_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
+  const mcp = startMcpServer({ POB_SNAPSHOT_DIRECTORY: dir, POB_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
   mcp.child.stderr.on('data', () => {});
   const exited = once(mcp.child, 'exit');
   try {

@@ -15,7 +15,7 @@ const workspace = join(dir, 'workspace'), builds = join(dir, 'builds');
 const env = { ...process.env, POE_SESSION_ID: '', XDG_CONFIG_HOME: join(dir, 'config'), XDG_DATA_HOME: join(dir, 'data'), XDG_CACHE_HOME: join(dir, 'cache'), XDG_STATE_HOME: join(dir, 'state') };
 const executable = process.env.OPENCODE_BIN || 'opencode';
 const wrapper = resolve('pob-docker-mcp/scripts/pob-mcp-docker.sh');
-const image = process.env.POB_DOCKER_IMAGE || 'pob-mcp-suite:foundation-client-local';
+const image = process.env.POB_DOCKER_IMAGE || 'pob-mcp-suite:local';
 const call = (...args) => runFile(executable, args, { cwd: workspace, env, timeout: 45_000, maxBuffer: 1024 * 1024 });
 const listener = createServer();
 await new Promise((resolveListen, reject) => { listener.once('error', reject); listener.listen(0, '127.0.0.1', resolveListen); });
@@ -72,10 +72,10 @@ try {
   await Promise.all([mkdir(workspace, { recursive: true }), mkdir(builds, { recursive: true })]);
   await copyFile(resolve('../pob-mcp/tests/fixtures/occ-vortex.xml'), join(builds, 'example.xml'));
   const dockerUser = process.platform === 'linux' && process.getuid && process.getgid ? ['--env', `POB_DOCKER_USER=${process.getuid()}:${process.getgid()}`] : [];
-  await call('mcp', 'add', '--env', `POB_BUILDS_DIR=${builds}`, '--env', `POB_DOCKER_IMAGE=${image}`, '--env', 'POB_FOUNDATION_ENABLED=true', '--env', 'POB_LEGACY_ENABLED=false', '--env', 'POB_LUA_ENABLED=true', '--env', 'POB_CMD=luajit', '--env', 'POE_TRADE_ENABLED=false', ...dockerUser, 'pob_foundation', '--', wrapper);
+  await call('mcp', 'add', '--env', `POB_BUILDS_DIR=${builds}`, '--env', `POB_DOCKER_IMAGE=${image}`, '--env', 'POB_CMD=luajit', '--env', 'POE_TRADE_ENABLED=false', ...dockerUser, 'pob', '--', wrapper);
   const configPath = join(workspace, 'opencode.json');
   const config = JSON.parse(await readFile(configPath, 'utf8'));
-  config.mcp.servers.pob_foundation.codemode = false;
+  config.mcp.servers.pob.codemode = false;
   config.providers = { fixture: { name: 'Local test model', package: '@opencode/ai/providers/openai-compatible', settings: { baseURL: `http://127.0.0.1:${modelPort}/v1` }, models: { fixture: { name: 'Fixture', capabilities: { tools: true, input: ['text'], output: ['text'] }, limit: { context: 131072, output: 4096 } } } } };
   await writeFile(configPath, JSON.stringify(config, null, 2));
   await call('service', 'set', 'port', String(port));
@@ -87,10 +87,10 @@ try {
   const deadline = Date.now() + 15_000;
   do {
     stdout = (await call('mcp', 'list')).stdout;
-    if (/pob_foundation\s+connected/.test(stdout)) break;
+    if (/pob\s+connected/.test(stdout)) break;
     await new Promise(resolveWait => setTimeout(resolveWait, 300));
   } while (Date.now() < deadline);
-  assert.match(stdout, /pob_foundation\s+connected/);
+  assert.match(stdout, /pob\s+connected/);
   const run = await runFile(executable, ['run', '--auto', '--model', 'fixture/fixture', '--format', 'json', 'Import example.xml and evaluate Life using the PoB tools.'], { cwd: workspace, env, timeout: 180_000, maxBuffer: 4 * 1024 * 1024 });
   assert.match(run.stdout, /POB_CLIENT_TEST_COMPLETE/);
   assert.equal(modelCalls, 3); assert.ok(importedId); assert.ok(calculatedLife > 0);

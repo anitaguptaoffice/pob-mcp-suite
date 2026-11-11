@@ -65,15 +65,6 @@ jobs:
             type=gha,scope=pob-mcp-suite-pr-${{ github.event.pull_request.number }}
           cache-to: ${{ github.event_name == 'pull_request' && format('type=gha,scope=pob-mcp-suite-pr-{0},mode=max', github.event.pull_request.number) || '' }}
 
-      - name: Smoke image
-        run: |
-          docker run --rm \
-            --entrypoint node \
-            -e POB_LUA_ENABLED=true \
-            -e POE_TRADE_ENABLED=false \
-            "${IMAGE_NAME}:ci" \
-            /opt/pob-mcp/scripts/mcp-smoke.mjs node /opt/pob-mcp/build/index.js
-
       - name: Verify engine calculations
         run: |
           docker run --rm --entrypoint node "${IMAGE_NAME}:ci" \
@@ -89,9 +80,17 @@ jobs:
             -v "${PWD}/packages/pob-mcp/tests:/opt/pob-mcp/tests:ro" \
             -v "${PWD}/packages/pob-mcp/example-build.xml:/opt/pob-mcp/example-build.xml:ro" \
             "${IMAGE_NAME}:ci" run test:smoke:offline
-          docker run --rm --entrypoint npm -e POB_PATH=/opt/PathOfBuilding/src \
+          docker run --rm --entrypoint npm -e POB_REPO_ROOT=/opt/pob-mcp \
             -v "${PWD}/packages/pob-mcp/tests:/opt/pob-mcp/tests:ro" \
-            "${IMAGE_NAME}:ci" run generate:item-oracle:check
+            "${IMAGE_NAME}:ci" run test:smoke:requirements
+
+      - name: Verify foundation snapshot flows
+        timeout-minutes: 40
+        run: |
+          # Independent scripts run in parallel; keep jobs at the runner's CPU count.
+          docker run --rm --entrypoint npm -e POB_REPO_ROOT=/opt/pob-mcp -e SMOKE_CONCURRENCY=4 \
+            -v "${PWD}/packages/pob-mcp/tests:/opt/pob-mcp/tests:ro" \
+            "${IMAGE_NAME}:ci" run test:smoke:foundation
 
       - name: Prepare image tags
         if: github.event_name != 'pull_request'

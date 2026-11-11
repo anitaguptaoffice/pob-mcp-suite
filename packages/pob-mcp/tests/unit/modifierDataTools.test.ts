@@ -1,10 +1,10 @@
 import { createModifierDataTools } from '../../src/features/modifierData/tools.js';
-import { parseModFile } from '../../src/services/modDataStore.js';
+import { parseModFile } from '../../src/adapters/modifierData/modDataStore.js';
 import type { ModifierDataSource } from '../../src/ports/modifierData.js';
 import { MOD_EXPLICIT_EXCERPT, MOD_MASTER_EXCERPT } from '../fixtures/modDataExcerpt.js';
 
 const fixture = `return {
-["Example"] = { type = "Prefix", affix = "Example", "+(1-5) to maximum Life", statOrder = { 1 }, level = 1, group = "Life", weightKey = { "special_ring", "ring", "default" }, weightVal = { 0, 1000, 0 }, modTags = { "life" }, },
+["Example"] = { type = "Prefix", affix = "Example", "+(1-5) to maximum Life", statOrder = { 1 }, level = 1, group = "Life", weightKey = { "special_ring", "ring", "default" }, weightVal = { 0, 1000, 0 }, modTags = { "life" } },
 }`;
 const entry = parseModFile(fixture, 'explicit')[0];
 const master = { ...entry, id: 'master:1', source: 'master' as const, itemClasses: ['Ring'], level: 20 };

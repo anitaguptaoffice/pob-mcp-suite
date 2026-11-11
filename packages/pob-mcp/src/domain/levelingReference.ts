@@ -1,4 +1,4 @@
-/** Legacy examples only; these are not maintained as versioned game data. */
+/** Unversioned examples only; these are not maintained as versioned game data. */
 export const ACT_MILESTONES = [
   { act: 1, level: 12, label: 'End of Act 1 (Merveil)' },
   { act: 2, level: 22, label: 'End of Act 2 (Vaal Oversoul)' },

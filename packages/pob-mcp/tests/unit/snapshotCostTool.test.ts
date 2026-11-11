@@ -19,8 +19,8 @@ describe('snapshot build cost feature', () => {
   it('matches the existing price policy while retaining snapshot and source provenance', async () => {
     const source: EconomySource = { read: async query => ({ source: 'poe.ninja', query, fetchedAt, payload: { lines: lines(query.kind === 'items' ? query.category : '') } }) };
     const result = JSON.parse((await createSnapshotCostTool(foundation, source).invoke({ snapshot_id: id, league: 'Standard' })).content[0].text);
-    const legacy = await estimateBuildCost({ get: async (_league, category) => ({ fetchedAt, lines: lines(category) }) }, 'Standard', [item, rare], groups);
-    expect(result).toMatchObject({ ...JSON.parse(JSON.stringify(legacy)), snapshotId: id, identity: { engineVersion: 'test' }, failures: [] });
+    const direct = await estimateBuildCost({ get: async (_league, category) => ({ fetchedAt, lines: lines(category) }) }, 'Standard', [item, rare], groups);
+    expect(result).toMatchObject({ ...JSON.parse(JSON.stringify(direct)), snapshotId: id, identity: { engineVersion: 'test' }, failures: [] });
     expect(result.estimatedSubtotal).toBe(17);
     expect(result.complete).toBe(false);
     expect(result.entries.find((entry: { name: string }) => entry.name === 'Rare').status).toBe('unknown');
@@ -28,12 +28,12 @@ describe('snapshot build cost feature', () => {
     expect(result.sources.every((source: { fetchedAt: string; league: string }) => source.fetchedAt === fetchedAt && source.league === 'Standard')).toBe(true);
   });
 
-  it('matches the legacy provider against the same source response', async () => {
+  it('matches the direct adapter path against the same source response', async () => {
     const fetcher = (async (url: string) => new Response(JSON.stringify({ lines: lines(new URL(url).searchParams.get('type') ?? '') }), { status: 200 })) as unknown as typeof fetch;
     const current = createSnapshotCostTool(foundation, new PoeNinjaAdapter(fetcher, () => 0));
     const actual = JSON.parse((await current.invoke({ snapshot_id: id, league: 'Standard' })).content[0].text);
-    const previous = await estimateBuildCost(new NinjaPrices(fetcher, () => 0), 'Standard', [item, rare], groups);
-    expect(actual).toMatchObject(JSON.parse(JSON.stringify(previous)));
+    const direct = await estimateBuildCost(new NinjaPrices(fetcher, () => 0), 'Standard', [item, rare], groups);
+    expect(actual).toMatchObject(JSON.parse(JSON.stringify(direct)));
   });
 
   it('keeps failed categories unknown and preserves their typed failure', async () => {

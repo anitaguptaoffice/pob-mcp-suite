@@ -8,7 +8,7 @@ import { startMcpServer } from './mcpClient.mjs';
 import { JobStore } from '../../build/foundation/jobStore.js';
 import { gearedBuildXml } from './pobSource.mjs';
 const dir = await mkdtemp(join(tmpdir(), 'pob-foundation-mcp-'));
-const { child, request, notify } = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_SNAPSHOT_DIRECTORY: dir, POB_DIRECTORY: dir,
+const { child, request, notify } = startMcpServer({ POB_SNAPSHOT_DIRECTORY: dir, POB_DIRECTORY: dir,
   POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
 child.stderr.on('data', () => {});
 const childExit = once(child, 'exit');
@@ -194,7 +194,7 @@ try {
   assert.equal(active.items[0].status, 'running');
   child.stdin.end();
   await access(join(dir, '.writer.lock'));
-  const competitor = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_SNAPSHOT_DIRECTORY: dir });
+  const competitor = startMcpServer({ POB_SNAPSHOT_DIRECTORY: dir });
   competitor.child.stderr.on('data', () => {});
 const childExit = once(child, 'exit');
   const [competitorCode] = await once(competitor.child, 'exit');

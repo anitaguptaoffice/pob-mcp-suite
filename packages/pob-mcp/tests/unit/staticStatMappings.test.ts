@@ -1,7 +1,7 @@
 import { StatMapper } from '../../src/adapters/staticStats/catalog.js';
 import { createStaticStatMappingTool } from '../../src/features/tradeMetadata/staticMappings.js';
 
-it('retains legacy aliases and clearly labels bundled Trade IDs as unverified', async () => {
+it('retains bundled aliases and clearly labels Trade IDs as unverified', async () => {
   const source = new StatMapper(), tool = createStaticStatMappingTool(source);
   const result = JSON.parse((await tool.invoke({ query: 'minion damage', limit: 2 })).content[0].text);
   expect(result.source).toBe('bundled_stat_aliases'); expect(result.catalogDigest).toMatch(/^[a-f0-9]{64}$/);

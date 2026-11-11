@@ -25,7 +25,6 @@ cat > "${TMP_BUILDS}/smoke.xml" <<'XML'
 XML
 
 export POB_BUILDS_DIR="${TMP_BUILDS}"
-export POB_LUA_ENABLED=true
 export POE_TRADE_ENABLED=false
 
 echo "Starting PoB MCP smoke test..."

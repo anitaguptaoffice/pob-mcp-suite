@@ -48,7 +48,7 @@ try {
   assert.equal((await foundation.inspect(groupChild.id, ['skills'])).data.skills.mainSocketGroup, 2);
   assert.equal((await foundation.inspect(parent.id, ['skills'])).data.skills.mainSocketGroup, 1);
   assert.equal(await foundation.exportBuild(parent.id), xml);
-  const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
+  const mcp = startMcpServer({ POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
   mcp.child.stderr.on('data', () => {});
   const exited = once(mcp.child, 'exit');
   try {

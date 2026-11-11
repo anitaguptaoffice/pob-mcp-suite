@@ -40,6 +40,7 @@ const APP_SRC = path.join(os.homedir(), 'Library', 'Application Support', 'PathO
 describe('resolvePoBLayout', () => {
   it('should treat an explicit src with a sibling runtime as a checkout', () => {
     present.add('/repo/runtime');
+    present.add('/repo/src/HeadlessWrapper.lua');
 
     const layout = resolvePoBLayout('/repo/src');
 
@@ -50,6 +51,7 @@ describe('resolvePoBLayout', () => {
 
   it('should search the checkout runtime before luarocks', () => {
     present.add('/repo/runtime');
+    present.add('/repo/src/HeadlessWrapper.lua');
 
     const layout = resolvePoBLayout('/repo/src');
 
@@ -86,6 +88,7 @@ describe('resolvePoBLayout', () => {
   it('should adopt an installed app for an explicit src that has no runtime beside it', () => {
     setPlatform('darwin');
     present.add(BUNDLE_LUA);
+    present.add(path.join(APP_SRC, 'HeadlessWrapper.lua'));
 
     const layout = resolvePoBLayout(APP_SRC);
 
@@ -93,12 +96,16 @@ describe('resolvePoBLayout', () => {
     expect(layout.src).toBe(APP_SRC);
   });
 
-  it('should stay a checkout when nothing is installed', () => {
+  it('should reject an explicit src without HeadlessWrapper.lua', () => {
     setPlatform('linux');
 
-    const layout = resolvePoBLayout('/repo/src');
+    expect(() => resolvePoBLayout('/repo/src')).toThrow(/HeadlessWrapper\.lua/);
+  });
 
-    expect(layout.kind).toBe('checkout');
+  it('should fail when no engine checkout exists', () => {
+    setPlatform('linux');
+
+    expect(() => resolvePoBLayout()).toThrow(/Path of Building engine not found/);
   });
 
   it('should fall back to the pinned repository engine when no checkout is installed', () => {
@@ -126,9 +133,9 @@ describe('defaultBuildsDirectory', () => {
 
   it('should use the older port location when only that exists', () => {
     setPlatform('darwin');
-    const legacy = path.join(os.homedir(), 'Path of Building', 'Builds');
-    present.add(legacy);
+    const qtPortBuilds = path.join(os.homedir(), 'Path of Building', 'Builds');
+    present.add(qtPortBuilds);
 
-    expect(defaultBuildsDirectory()).toBe(legacy);
+    expect(defaultBuildsDirectory()).toBe(qtPortBuilds);
   });
 });

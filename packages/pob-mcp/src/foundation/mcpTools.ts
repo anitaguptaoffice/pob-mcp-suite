@@ -3,11 +3,9 @@ import type { BuildFoundation, EvaluationOptions } from './buildFoundation.js';
 import type { EvaluationInput, JobRunner } from './jobRunner.js';
 import { snapshotMetadata } from './snapshotStore.js';
 import { readLocalBuild, saveLocalBuild } from './localBuildFile.js';
-import { listLegacyHistory, readLegacyHistory, readUnpairedLegacyHistory } from './legacyHistory.js';
 import { createHash } from 'node:crypto';
 import { inspectLocalFile, restoreLocalFile } from './restoreLocalFile.js';
 
-/** Experimental surface; enabled only by explicit configuration. */
 export const foundationSchemas: ToolSchema[] = [
   { name: 'foundation_trial_tree_removal', description: 'Create a seven-day trial removing a passive node and PoB-native dependent nodes; return every removed node. No existing build or snapshot changes.', inputSchema: { type: 'object', additionalProperties: false, properties: { snapshot_id: { type: 'string' }, node_id: { type: 'integer', minimum: 1, maximum: 2147483647 } }, required: ['snapshot_id', 'node_id'] } },
   { name: 'foundation_derive_tree_paths', description: 'Allocate 1–5 target nodes in order using PoB native paths in one verified child. Mastery targets require an explicit effect. Point availability and in-game legality are not established.', inputSchema: { type: 'object', additionalProperties: false, properties: { snapshot_id: { type: 'string' }, targets: { type: 'array', minItems: 1, maxItems: 5, uniqueItems: true, items: { type: 'integer', minimum: 1, maximum: 2147483647 } }, mastery_effects: { type: 'object', additionalProperties: { type: 'integer', minimum: 1 } }, trial: { type: 'boolean' } }, required: ['snapshot_id', 'targets'] } },
@@ -15,14 +13,10 @@ export const foundationSchemas: ToolSchema[] = [
   { name: 'foundation_item_inventory', description: 'List PoB item inventory for a snapshot, including unequipped items, with ID pagination.', inputSchema: { type: 'object', additionalProperties: false, properties: { snapshot_id: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 100 }, after_item_id: { type: 'integer', minimum: 0 } }, required: ['snapshot_id'] } },
   { name: 'foundation_derive_inventory_item', description: 'Add an item without auto-equipping and create a verified child. Checks each equipment set in the active tree and each tree in the active equipment set, not every combination; game legality is unverified.', inputSchema: { type: 'object', additionalProperties: false, properties: { snapshot_id: { type: 'string' }, item_text: { type: 'string' }, trial: { type: 'boolean' } }, required: ['snapshot_id', 'item_text'] } },
   { name: 'foundation_replace_tree', description: 'Replace the complete active passive tree in a verified child snapshot. Existing node overrides are rejected by default; preserve may retain them only on the same tree version. Target overrides and in-game legality are not supported.', inputSchema: { type: 'object', additionalProperties: false, properties: { snapshot_id: { type: 'string' }, trial: { type: 'boolean' }, override_policy: { type: 'string', enum: ['reject', 'preserve'] }, tree: { type: 'object', additionalProperties: false, properties: { classId: { type: 'integer', minimum: 0 }, ascendClassId: { type: 'integer', minimum: 0 }, secondaryAscendClassId: { type: 'integer', minimum: 0 }, treeVersion: { type: 'string' }, nodes: { type: 'array', maxItems: 2000, uniqueItems: true, items: { type: 'integer', minimum: 1 } }, masteryEffects: { type: 'object', additionalProperties: { type: 'integer', minimum: 1 } } }, required: ['classId', 'ascendClassId', 'secondaryAscendClassId', 'treeVersion', 'nodes', 'masteryEffects'] } }, required: ['snapshot_id', 'tree'] } },
-  { name: 'inspect_unpaired_legacy_xml', description: 'Fingerprint an old history XML without readable metadata, selected from list_legacy_build_history issues. Does not infer its tag or purpose.', inputSchema: { type: 'object', additionalProperties: false, properties: { build_name: { type: 'string' }, origin: { type: 'string' }, file: { type: 'string' } }, required: ['build_name', 'origin', 'file'] } },
-  { name: 'import_unpaired_legacy_xml', description: 'Explicitly import an unpaired old history XML after verifying its inspected content digest. Records the original filename without inventing missing metadata.', inputSchema: { type: 'object', additionalProperties: false, properties: { build_name: { type: 'string' }, origin: { type: 'string' }, file: { type: 'string' }, expected_xml_sha256: { type: 'string' } }, required: ['build_name', 'origin', 'file', 'expected_xml_sha256'] } },
   { name: 'inspect_local_build_file', description: 'Read a local build file fingerprint before an explicit restore; no PoB engine is started.', inputSchema: { type: 'object', additionalProperties: false, properties: { build_name: { type: 'string' } }, required: ['build_name'] } },
   { name: 'restore_snapshot_file', description: 'Replace an existing local build file using an explicit snapshot and expected current fingerprint. Saves a durable backup snapshot by default; external writes can still race the final replacement.', inputSchema: { type: 'object', additionalProperties: false, properties: { snapshot_id: { type: 'string' }, build_name: { type: 'string' }, expected_current_sha256: { type: 'string' }, backup_current: { type: 'boolean' } }, required: ['snapshot_id', 'build_name', 'expected_current_sha256'] } },
   { name: 'save_snapshot_history', description: 'Permanently retain a snapshot and record its build name, tag and description separately from snapshot content.', inputSchema: { type: 'object', additionalProperties: false, properties: { snapshot_id: { type: 'string' }, build_name: { type: 'string' }, tag: { type: 'string' }, description: { type: 'string' } }, required: ['snapshot_id', 'build_name', 'tag'] } },
   { name: 'list_snapshot_history', description: 'List saved snapshot history, optionally filtering by exact build name and tag. Restart pagination if the catalog fingerprint changes.', inputSchema: { type: 'object', additionalProperties: false, properties: { build_name: { type: 'string' }, tag: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 50 }, after: { type: 'integer', minimum: 0 }, catalog_fingerprint: { type: 'string' } } } },
-  { name: 'list_legacy_build_history', description: 'List old local build snapshots and their original metadata without modifying them. Restart pagination if the catalog fingerprint changes.', inputSchema: { type: 'object', additionalProperties: false, properties: { build_name: { type: 'string' }, tag: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 50 }, after: { type: 'integer', minimum: 0 }, catalog_fingerprint: { type: 'string' } }, required: ['build_name'] } },
-  { name: 'import_legacy_build_history', description: 'Import one explicitly selected old history XML as a new durable snapshot; the old XML and metadata remain unchanged.', inputSchema: { type: 'object', additionalProperties: false, properties: { build_name: { type: 'string' }, origin: { type: 'string' }, legacy_id: { type: 'string' }, metadata_digest: { type: 'string' } }, required: ['build_name', 'origin', 'legacy_id', 'metadata_digest'] } },
   { name: 'foundation_derive_items', description: 'Atomically equip 1–10 explicit items in distinct slots and create a verified snapshot. Does not establish in-game item legality.', inputSchema: { type: 'object', additionalProperties: false, properties: { trial: { type: 'boolean' }, snapshot_id: { type: 'string' }, items: { type: 'array', minItems: 1, maxItems: 10, items: { type: 'object', additionalProperties: false, properties: { slot: { type: 'string' }, item_text: { type: 'string' } }, required: ['slot', 'item_text'] } } }, required: ['snapshot_id', 'items'] } },
   { name: 'foundation_create_build', description: 'Create a new PoB build as a durable immutable snapshot after verifying the requested class, ascendancy and tree version survive reload. Special ascendancies require their matching tree version.', inputSchema: { type: 'object', additionalProperties: false, properties: { class_name: { type: 'string' }, ascendancy: { type: 'string' }, tree_version: { type: 'string' } }, required: ['class_name'] } },
   { name: 'foundation_import_build', description: 'Import a PoB XML document into an immutable snapshot.', inputSchema: { type: 'object', properties: { xml: { type: 'string' }, source: { type: 'string' } }, required: ['xml', 'source'] } },
@@ -84,26 +78,6 @@ export async function invokeFoundation(foundation: BuildFoundation, name: string
     case 'foundation_replace_tree':
       if (Object.keys(args).some(key => !['snapshot_id', 'tree', 'trial', 'override_policy'].includes(key))) throw new Error('Invalid complete tree replacement');
       return snapshotMetadata(await foundation.deriveTreeReplacement(stringArg('snapshot_id'), args.tree as Parameters<BuildFoundation['deriveTreeReplacement']>[1], trialArg(), (args.override_policy ?? 'reject') as 'reject' | 'preserve'));
-    case 'inspect_unpaired_legacy_xml': {
-      if (!buildsDirectory || Object.keys(args).some(key => !['build_name', 'origin', 'file'].includes(key))) throw new Error('Invalid unpaired history selection');
-      const { xml, ...selected } = await readUnpairedLegacyHistory(buildsDirectory, stringArg('build_name'), stringArg('origin'), stringArg('file'));
-      return { ...selected, sizeBytes: Buffer.byteLength(xml, 'utf8'), warnings: ['Metadata is missing or unreadable; the filename does not establish the original tag, timestamp or purpose.'] };
-    }
-    case 'import_unpaired_legacy_xml': {
-      if (!buildsDirectory || Object.keys(args).some(key => !['build_name', 'origin', 'file', 'expected_xml_sha256'].includes(key))) throw new Error('Invalid unpaired history selection');
-      const expected = stringArg('expected_xml_sha256');
-      if (!/^[a-f0-9]{64}$/.test(expected)) throw new Error('Invalid XML fingerprint');
-      const selected = await readUnpairedLegacyHistory(buildsDirectory, stringArg('build_name'), stringArg('origin'), stringArg('file'));
-      if (selected.xmlDigest !== expected) throw new Error('Unpaired XML changed since inspection; no snapshot was imported');
-      const snapshot = await foundation.importBuild(selected.xml, `legacy-unpaired:${selected.buildName}:${selected.origin}:${selected.file}`);
-      const metadata = { status: 'unpaired', originalFileName: selected.file, identifierSource: 'sha256_of_filename', metadataDigestSource: 'synthetic_recovery_metadata' };
-      const metadataDigest = createHash('sha256').update(JSON.stringify(metadata)).digest('hex');
-      const legacyId = createHash('sha256').update(selected.file).digest('hex');
-      let history;
-      try { history = await foundation.saveHistory(snapshot.id, { buildName: selected.buildName, tag: '', description: '', recordedAt: null, legacy: { id: legacyId, origin: selected.origin, metadataDigest, xmlDigest: selected.xmlDigest, metadata } }); }
-      catch (error) { throw new Error(`Snapshot ${snapshot.id} was imported, but recovery history could not be saved; retry: ${error instanceof Error ? error.message : String(error)}`); }
-      return { snapshot: snapshotMetadata(snapshot), history, warnings: ['Original XML is unchanged. Original metadata, tag, timestamp and purpose are unknown.'] };
-    }
     case 'inspect_local_build_file':
       if (!buildsDirectory || Object.keys(args).some(key => key !== 'build_name')) throw new Error('Invalid local build file inspection');
       return inspectLocalFile(buildsDirectory, stringArg('build_name'));
@@ -122,34 +96,7 @@ export async function invokeFoundation(foundation: BuildFoundation, name: string
       if (args.catalog_fingerprint !== undefined && args.catalog_fingerprint !== fingerprint) throw new Error('Snapshot history changed; restart pagination');
       if (after > records.length) throw new Error('Invalid snapshot history cursor');
       const entries = records.slice(after, after + limit);
-      return { entries, total: records.length, nextCursor: after + entries.length < records.length ? after + entries.length : null, catalogFingerprint: fingerprint, warnings: ['Legacy stats are historical values; evaluate the snapshot for current PoB calculations.'] };
-    }
-    case 'list_legacy_build_history': {
-      if (!buildsDirectory) throw new Error('Local build directory is unavailable');
-      const limit = args.limit ?? 20, after = args.after ?? 0;
-      if (Object.keys(args).some(key => !['build_name', 'tag', 'limit', 'after', 'catalog_fingerprint'].includes(key)) || typeof limit !== 'number' || !Number.isSafeInteger(limit) || limit < 1 || limit > 50 || typeof after !== 'number' || !Number.isSafeInteger(after) || after < 0 || (args.tag !== undefined && (typeof args.tag !== 'string' || args.tag.length > 1000)) || (args.catalog_fingerprint !== undefined && (typeof args.catalog_fingerprint !== 'string' || !/^[a-f0-9]{64}$/.test(args.catalog_fingerprint))) || (after > 0 && !args.catalog_fingerprint)) throw new Error('Invalid legacy history pagination');
-      const result = await listLegacyHistory(buildsDirectory, stringArg('build_name'));
-      const entries = result.entries.filter(entry => args.tag === undefined || entry.metadata.tag === args.tag);
-      const fingerprint = createHash('sha256').update(JSON.stringify({ entries: entries.map(({ origin, id, metadataDigest, xmlName }) => ({ origin, id, metadataDigest, xmlName })), issues: result.issues, tag: args.tag ?? null })).digest('hex');
-      if (args.catalog_fingerprint !== undefined && args.catalog_fingerprint !== fingerprint) throw new Error('Legacy history changed; restart pagination');
-      if (after > entries.length) throw new Error('Invalid legacy history cursor');
-      const page = entries.slice(after, after + limit).map(({ xmlName: _xmlName, ...entry }) => entry);
-      return { source: 'legacy_build_history', complete: result.complete, issues: result.issues, entries: page, totalObserved: entries.length, nextCursor: after + page.length < entries.length ? after + page.length : null, catalogFingerprint: fingerprint, warnings: ['Cached legacy stats are historical XML values, not current PoB calculations.', 'The catalog fingerprints metadata and names, not XML content; the import reports the XML digest it actually read.', 'Original files remain unchanged; the catalog may change after this read.'] };
-    }
-    case 'import_legacy_build_history': {
-      if (!buildsDirectory) throw new Error('Local build directory is unavailable');
-      if (Object.keys(args).some(key => !['build_name', 'origin', 'legacy_id', 'metadata_digest'].includes(key))) throw new Error('Invalid legacy history selection');
-      const selected = await readLegacyHistory(buildsDirectory, stringArg('build_name'), stringArg('origin'), stringArg('legacy_id'), stringArg('metadata_digest'));
-      const snapshot = await foundation.importBuild(selected.xml, `legacy-history:${selected.buildName}:${selected.origin}:${selected.id}`);
-      let history;
-      try {
-        history = await foundation.saveHistory(snapshot.id, { buildName: selected.buildName, tag: selected.metadata.tag as string,
-          description: typeof selected.metadata.description === 'string' && selected.metadata.description.length <= 10000 ? selected.metadata.description : '',
-          recordedAt: typeof selected.metadata.timestamp === 'string' && selected.metadata.timestamp.length <= 100 ? selected.metadata.timestamp : null,
-          legacy: { id: selected.id, origin: selected.origin, metadataDigest: selected.metadataDigest, xmlDigest: selected.xmlDigest, metadata: selected.metadata } });
-      } catch (error) { throw new Error(`Snapshot ${snapshot.id} was imported, but history metadata could not be saved; retry: ${error instanceof Error ? error.message : String(error)}`); }
-      const { xml: _xml, ...legacy } = selected;
-      return { snapshot: snapshotMetadata(snapshot), history, legacy, warnings: ['Legacy cached stats are historical and are not recalculated. Original files remain unchanged.'] };
+      return { entries, total: records.length, nextCursor: after + entries.length < records.length ? after + entries.length : null, catalogFingerprint: fingerprint, warnings: ['Cached stats in a history record are historical values; evaluate the snapshot for current PoB calculations.'] };
     }
     case 'foundation_derive_items': {
       if (Object.keys(args).some(key => !['snapshot_id', 'items', 'trial'].includes(key)) || !Array.isArray(args.items) || args.items.some(item => !item || typeof item !== 'object' || Array.isArray(item) || Object.keys(item).some(key => !['slot', 'item_text'].includes(key)) || typeof item.slot !== 'string' || typeof item.item_text !== 'string')) throw new Error('Invalid item changes');

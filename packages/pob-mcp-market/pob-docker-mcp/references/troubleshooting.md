@@ -15,7 +15,7 @@ Check:
 Use `list_local_build_files` before assuming a build is missing; inspect
 `complete` and `issues` because a partial scan cannot prove absence.
 
-## Lua Bridge Problems
+## Engine Problems
 
 When `inspect_pob_engine` is advertised, use it to check a disposable engine's
 actual version, identity and bridge actions without importing a build. A startup
@@ -26,16 +26,16 @@ availability. Read `identityUnknown` and warnings before comparing versions.
 
 Check:
 
-- `POB_LUA_ENABLED=true`
-- `POB_FORK_PATH=/opt/PathOfBuilding/src` inside the Docker image
+- `POB_PATH=/opt/PathOfBuilding/src` inside the Docker image
 - `POB_CMD=luajit`
 - The Docker image is current enough to include the expected PoB API actions.
 
-If Lua fails to start, pull the latest image or pin a known image tag and retry.
+If the engine fails to start, pull the latest image or pin a known image tag and
+retry.
 
-## Static Analysis Disagrees With Lua
+## Static Analysis Disagrees With PoB
 
-Prefer Lua output for:
+Prefer PoB calculation output for:
 
 - DPS
 - defenses
@@ -44,7 +44,7 @@ Prefer Lua output for:
 - selected item set and skill set
 - config-sensitive stats
 
-Use static analysis as context only when it conflicts with PoB/Lua.
+Use static analysis as context only when it conflicts with PoB.
 
 ## pobb.in Or Official Tree Mismatch
 
@@ -57,7 +57,7 @@ Compare:
 - XML `Build` and `Spec` metadata
 - `foundation_inspect` tree and build observations for the imported snapshot
 
-For alternate trees, node-level legacy ascendancy labels and static passive point counts can be misleading.
+For alternate trees, node-level ascendancy labels and static passive point counts can be misleading.
 
 ## Docker Runtime
 

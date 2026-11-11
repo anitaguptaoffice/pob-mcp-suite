@@ -8,6 +8,4 @@ export interface ToolSchema {
     required?: string[];
     additionalProperties?: boolean | Record<string, unknown>;
   };
-  /** Legacy server-side text truncation policy; never included on the wire. */
-  truncatable?: boolean;
 }

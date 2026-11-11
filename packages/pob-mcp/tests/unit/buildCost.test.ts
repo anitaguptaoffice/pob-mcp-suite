@@ -1,18 +1,15 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { estimateBuildCost, matchGem, matchUnique } from '../../src/features/buildCost/estimate.js';
 import { NinjaPrices, type PriceCategory } from '../../src/features/buildCost/ninjaPrices.js';
-import { handleEstimateBuildCost } from '../../src/features/buildCost/tool.js';
 
 const unique = { slot: 'Helmet', id: 1, rarity: 'UNIQUE', name: 'Example', baseName: 'Circlet', raw: 'Rarity: UNIQUE\nExample\nCirclet' };
 const line = { name: 'Example', baseType: 'Circlet', chaosValue: 12, listingCount: 15 };
 const source = { get: async (_league: string, category: PriceCategory) => ({ fetchedAt: '2026-01-01T00:00:00.000Z', lines: category === 'UniqueArmour' ? [line] : [] }) };
 
 describe('build cost matching', () => {
-  it('reads items and skills in one bridge snapshot', async () => {
-    const getCostSnapshot = jest.fn(async () => ({ items: [unique], skills: { groups: [] } }));
-    const result = await handleEstimateBuildCost(() => ({ getCostSnapshot } as never), async () => {}, source, { league: 'Standard' });
-    expect(getCostSnapshot).toHaveBeenCalledTimes(1);
-    expect(JSON.parse(result.content[0].text).estimatedSubtotal).toBe(12);
+  it('prices a confirmed unique from the market reference', async () => {
+    const report = await estimateBuildCost(source, 'Standard', [unique], []);
+    expect(report.estimatedSubtotal).toBe(12);
   });
 
   it('excludes disabled gems and skill groups from the subtotal', async () => {

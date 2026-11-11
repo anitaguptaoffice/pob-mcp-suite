@@ -4,14 +4,14 @@ import { createResistanceTradeTool } from '../../src/features/resistanceTrade/to
 import type { OfficialTradeSource } from '../../src/ports/officialTrade.js';
 import type { TradeQuery } from '../../src/types/tradeTypes.js';
 
-// Captured from the retired legacy recommendation engine before removal.
-const legacyQuery = JSON.parse(readFileSync(resolve('tests/fixtures/legacy-resistance-trade-query.json'), 'utf8'));
+// Expected query shape for resistance listing searches.
+const expectedQuery = JSON.parse(readFileSync(resolve('tests/fixtures/expected-resistance-trade-query.json'), 'utf8'));
 
 const at = '2026-01-01T00:00:00.000Z';
 const stats = { result: [{ entries: [{ id: 'pseudo.pseudo_total_fire_resistance', text: '+#% total to Fire Resistance', type: 'pseudo' }, { id: 'pseudo.pseudo_total_chaos_resistance', text: '+#% total to Chaos Resistance', type: 'pseudo' }] }] };
 
 describe('resistance listing workflow', () => {
-  it('matches the previous query while filtering different currencies and retaining timestamps', async () => {
+  it('matches the expected query while filtering different currencies and retaining timestamps', async () => {
     let query: TradeQuery | undefined;
     const source = {
       stats: async () => ({ source: 'official-trade', fetchedAt: at, request: { kind: 'stats' }, data: stats }),
@@ -21,7 +21,7 @@ describe('resistance listing workflow', () => {
       ] } }),
     } as unknown as OfficialTradeSource;
     const result = JSON.parse((await createResistanceTradeTool(source).invoke({ league: 'Standard', resistance_minimums: { fire: 40, chaos: 10 }, max_price_per_item: 50, total_budget: 20, slots: ['Ring 1'], per_slot_limit: 3 })).content[0].text);
-    expect(JSON.parse(JSON.stringify(query))).toEqual(legacyQuery);
+    expect(JSON.parse(JSON.stringify(query))).toEqual(expectedQuery);
     expect(result).toMatchObject({ listingScope: 'instant_buyout', effectivePerItemCap: 20, currency: 'chaos' });
     expect(result.searches[0]).toMatchObject({ status: 'ok', inexact: true, missingListingIds: ['missing'], excludedPriceCount: 1, sourceTimes: { stats: at, search: at, listings: at } });
     expect(result.searches[0].listings.map((entry: { id: string }) => entry.id)).toEqual(['a']);

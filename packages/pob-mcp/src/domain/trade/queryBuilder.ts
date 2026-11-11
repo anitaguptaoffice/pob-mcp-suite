@@ -485,7 +485,7 @@ export class TradeQueryBuilder {
    * Apply common search options
    */
   applyOptions(options: SearchOptions): this {
-    // An explicit status wins over the legacy onlineOnly convenience flag.
+    // An explicit status wins over the onlineOnly convenience flag.
     this.withOnlineStatus(options.status ?? options.onlineStatus ?? (options.onlineOnly === false ? 'any' : 'available'));
 
     // Note: We intentionally do NOT set sale_type filter here.

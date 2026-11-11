@@ -6,7 +6,7 @@ import { once } from 'node:events';
 import { startMcpServer } from './mcpClient.mjs';
 
 const dir = await mkdtemp(join(tmpdir(), 'pob-cluster-live-'));
-const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POE_TRADE_ENABLED: 'true', POE_SESSION_ID: '', POB_SNAPSHOT_DIRECTORY: dir });
+const mcp = startMcpServer({ POE_TRADE_ENABLED: 'true', POE_SESSION_ID: '', POB_SNAPSHOT_DIRECTORY: dir });
 mcp.child.stderr.on('data', () => {}); const exited = once(mcp.child, 'exit');
 try {
   await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'cluster-live', version: '1' } }); mcp.notify('notifications/initialized', {});

@@ -9,12 +9,12 @@ let child;
 try {
   const xml = await readFile(resolve('tests/fixtures/cluster-toxic-rain.xml'), 'utf8');
   await writeFile(join(dir, 'fixture.xml'), xml);
-  const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'false', POB_LEGACY_ENABLED: 'false', POB_LUA_ENABLED: 'false', POE_TRADE_ENABLED: 'false', POB_DIRECTORY: dir });
+  const mcp = startMcpServer({ POE_TRADE_ENABLED: 'false', POB_DIRECTORY: dir });
   child = mcp.child; child.stderr.on('data', () => {}); const exited = once(child, 'exit');
   await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'cluster-file-smoke', version: '1' } }); mcp.notify('notifications/initialized', {});
   const tools = await mcp.request('tools/list', {});
   assert.equal(tools.result.tools.filter(t => t.name === 'inspect_local_cluster_jewels').length, 1);
-  assert.ok(!tools.result.tools.some(t => t.name === 'foundation_import_build'));
+  assert.ok(tools.result.tools.some(t => t.name === 'foundation_import_build'));
   const response = await mcp.request('tools/call', { name: 'inspect_local_cluster_jewels', arguments: { build_name: 'fixture.xml' } });
   assert.ok(!response.result?.isError, JSON.stringify(response)); const result = JSON.parse(response.result.content[0].text);
   assert.equal(result.activeSpec, 3); assert.equal(result.treeVersion, '3_13'); assert.equal(result.jewels.length, 11);

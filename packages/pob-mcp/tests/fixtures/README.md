@@ -4,8 +4,8 @@
 
 A level 99 Occultist with a full set of gear and an allocated tree. The smoke
 tests need a geared build: `example-build.xml` in the repo root has no items, so
-it cannot exercise `find_best_anointment` or the weighted trade query, both of
-which read amulet mods.
+it cannot exercise `rank_snapshot_anointments` or the weighted trade query, both
+of which read amulet mods.
 
 Copied verbatim from [Path of Building
 Community](https://github.com/PathOfBuildingCommunity/PathOfBuilding)

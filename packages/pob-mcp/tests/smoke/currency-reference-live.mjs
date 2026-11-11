@@ -6,7 +6,7 @@ import { once } from 'node:events';
 import { startMcpServer } from './mcpClient.mjs';
 
 const dir = await mkdtemp(join(tmpdir(), 'pob-currency-live-'));
-const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_LEGACY_ENABLED: 'false', POB_SNAPSHOT_DIRECTORY: dir });
+const mcp = startMcpServer({ POB_SNAPSHOT_DIRECTORY: dir });
 mcp.child.stderr.on('data', () => {}); const exited = once(mcp.child, 'exit');
 const call = async (name, args) => {
   const response = await mcp.request('tools/call', { name, arguments: args });

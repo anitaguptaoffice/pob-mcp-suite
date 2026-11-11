@@ -4,16 +4,16 @@ import { createClusterTradeTool } from '../../src/features/clusterTrade/tool.js'
 import type { OfficialTradeSource } from '../../src/ports/officialTrade.js';
 import type { TradeQuery } from '../../src/types/tradeTypes.js';
 
-// Captured from the retired legacy route before removal; the replacement must
-// keep the same filters and additionally require an explicit sale type.
-const legacyQuery = JSON.parse(readFileSync(resolve('tests/fixtures/legacy-cluster-trade-query.json'), 'utf8'));
+// Expected query shape: the same filters as the retired route, plus an explicit
+// priced sale type.
+const expectedQuery = JSON.parse(readFileSync(resolve('tests/fixtures/expected-cluster-trade-query.json'), 'utf8'));
 
 const at = '2026-01-01T00:00:00.000Z';
 const ids = Array.from({ length: 23 }, (_, i) => `id${i}`);
 const listing = (id: string, notable: string, currency = 'chaos') => ({ id, item: { league: 'Standard', verified: true, typeLine: 'Large Cluster Jewel', enchantMods: ['Adds 8 Passive Skills', 'Added Small Passive Skills grant: 10% increased Fire Damage'], explicitMods: [`1 Added Passive Skill is ${notable}`] }, listing: { price: { type: '~b/o', amount: 5, currency }, whisper_token: 'secret' } });
 
 describe('cluster trade workflow', () => {
-  it('matches legacy search filters, checks exact notables and reports bounded, partial sample provenance', async () => {
+  it('matches the previous search filters, checks exact notables and reports bounded, partial sample provenance', async () => {
     let actual: TradeQuery | undefined;
     const source = {
       stats: async () => ({ source: 'official-trade', fetchedAt: at, request: { kind: 'stats' }, data: { result: [{ entries: [] }] } }),
@@ -21,7 +21,7 @@ describe('cluster trade workflow', () => {
       fetchListings: async (requested: string[], queryId: string) => ({ source: 'official-trade', fetchedAt: at, request: { ids: requested, queryId }, data: { missingIds: requested.filter(id => id !== 'id0' && id !== 'id1' && id !== 'id2'), listings: [listing('id0', 'Prismatic Heart'), listing('id1', 'Prismatic Heartbeat'), listing('id2', 'Prismatic Heart', 'divine')].filter(item => requested.includes(item.id)) } }),
     } as unknown as OfficialTradeSource;
     const result = JSON.parse((await createClusterTradeTool(source).invoke({ league: 'Standard', jewel_size: 'large', passive_count: 8, min_item_level: 84, max_price: 10, enchant: 'Fire Damage', notables: ['Prismatic Heart'], limit: 5 })).content[0].text);
-    const expected = JSON.parse(JSON.stringify(legacyQuery)); expected.query.filters.trade_filters.filters.sale_type = { option: 'priced' };
+    const expected = JSON.parse(JSON.stringify(expectedQuery)); expected.query.filters.trade_filters.filters.sale_type = { option: 'priced' };
     expect(actual).toEqual(expected);
     expect(JSON.stringify(actual)).not.toContain('online_only');
     expect(result).toMatchObject({ listingScope: 'instant_buyout', requestedCount: 15, fetchedCount: 3, matchedCount: 1, returnedCount: 1, inexact: true, excludedPriceCount: 1 });

@@ -20,12 +20,7 @@ import { acquireStoreLock } from './foundation/storeLock.js';
 import { JobStore } from './foundation/jobStore.js';
 import { JobRunner } from './foundation/jobRunner.js';
 import { foundationSchemas, invokeFoundation } from './foundation/mcpTools.js';
-import {
-  CallToolRequestSchema,
-  ListResourcesRequestSchema,
-  ListToolsRequestSchema,
-  ReadResourceRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 // Import services
 import { defaultBuildsDirectory } from "./utils/pobLayout.js";
 import { featureRegistry } from "./server/featureModules.js";
@@ -103,12 +98,8 @@ import { createCachedStatsTool, cachedStatsSchema } from './features/cachedStats
 import { createUpstreamTreeTool } from './features/upstreamTree/tool.js';
 import { GitHubUpstreamTree } from './adapters/upstreamTree/github.js';
 
-// Import utilities
-import type { LegacyRuntime } from './server/legacyRuntime.js';
-
 // Import server modules
 import type { ToolSchema } from "./server/toolSchema.js";
-import { wrapWithTruncation, shouldTruncate } from "./server/responseUtils.js";
 
 class PoBMCPServer {
   private server: Server;
@@ -127,17 +118,15 @@ class PoBMCPServer {
   private foundationClosing = false;
   private foundationPending = new Set<Promise<unknown>>();
 
-  private legacy: LegacyRuntime | null = null;
   private officialTrade: OfficialTradeAdapter | null = null;
 
   /**
-   * Every tool schema across all groups, regardless of runtime availability
-   * gating. Used for policy lookups (truncatable), never for advertising:
-   * what clients SEE is assembled per-state in the ListTools handler.
+   * Every registered schema across all capability groups, including groups a
+   * given runtime disables. Used only to validate unique names at startup;
+   * clients see the per-runtime subset assembled in the ListTools handler.
    */
-  private allToolSchemas(): ToolSchema[] {
-    const legacy = [
-      ...(this.legacy?.allSchemas() ?? []),
+  private registeredSchemas(): ToolSchema[] {
+    const registered = [
       ...foundationSchemas,
       snapshotCostSchema(),
       shoppingListSchema(),
@@ -197,8 +186,7 @@ class PoBMCPServer {
       timelessSearchSchema(),
       cachedStatsSchema('snapshot'),
     ];
-    featureRegistry.assertNoCollisions(legacy);
-    const all = [...legacy, ...featureRegistry.schemas()];
+    const all = [...featureRegistry.schemas(), ...registered];
     assertUniqueToolSchemas(all);
     return all;
   }
@@ -224,9 +212,8 @@ class PoBMCPServer {
     this.localConfigPresets = new LocalConfigPresetStore(this.pobDirectory);
     this.configPresetCatalog = new FeatureRegistry(createConfigPresetCatalogTools(this.localConfigPresets));
 
-    // In foundation mode both surfaces share the same source, queue and cache.
-    // The original legacy-only mode keeps its existing client unchanged.
-    if (process.env.POE_TRADE_ENABLED === 'true' && (process.env.POB_FOUNDATION_ENABLED === 'true' || !this.legacyEnabled())) {
+    // Trade features share one source, queue and cache.
+    if (process.env.POE_TRADE_ENABLED === 'true') {
       const rate = Number(process.env.POE_RATE_LIMIT_PER_SECOND ?? 4);
       const minTimeMs = Number.isFinite(rate) && rate > 0 ? Math.ceil(1000 / Math.min(rate, 4)) : 250;
       this.officialTrade = new OfficialTradeAdapter({ minTimeMs, session: () => process.env.POE_SESSION_ID || undefined });
@@ -264,7 +251,7 @@ class PoBMCPServer {
       let jobsError: unknown;
       try { await this.foundationJobs?.close(); } catch (error) { jobsError = error; }
       const results = await Promise.allSettled([
-        this.legacy?.close(), this.localBuildWatcher.stop(), this.server.close(),
+        this.localBuildWatcher.stop(), this.server.close(),
       ]);
       if (jobsError !== undefined) results.push({ status: 'rejected', reason: jobsError });
       if (this.releaseFoundationLock) {
@@ -283,84 +270,14 @@ class PoBMCPServer {
     process.stdin.once("end", () => { void shutdown(); });
   }
 
-  private legacyEnabled(): boolean {
-    // During migration, the existing default remains usable. Enabling the new
-    // foundation opts into the new surface; legacy requires explicit opt-in.
-    if (process.env.POB_LEGACY_ENABLED === 'false') return false;
-    return process.env.POB_FOUNDATION_ENABLED !== 'true' || process.env.POB_LEGACY_ENABLED === 'true';
-  }
-
   private setupHandlers() {
-    // List available resources (build files)
-    this.server.setRequestHandler(ListResourcesRequestSchema, async () => {
-      if (!this.legacy) return { resources: [] };
-      try {
-        const builds = await this.legacy.buildService.listBuilds();
-        return {
-          resources: builds.map((build) => ({
-            uri: `pob://build/${encodeURIComponent(build)}`,
-            name: build,
-            mimeType: "application/xml",
-            description: `Path of Building build: ${build}`,
-          })),
-        };
-      } catch (error) {
-        console.error("Error listing resources:", error);
-        return { resources: [] };
-      }
-    });
-
-    // Read a specific build file
-    this.server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-      if (!this.legacy) throw new Error('Legacy resources are unavailable');
-      const uri = request.params.uri;
-      const match = uri.match(/^pob:\/\/build\/(.+)$/);
-
-      if (!match) {
-        throw new Error(`Invalid URI: ${uri}`);
-      }
-
-      const buildName = decodeURIComponent(match[1]);
-
-      try {
-        const build = await this.legacy.buildService.readBuild(buildName);
-        const summary = this.legacy.buildService.generateBuildSummary(build);
-
-        return {
-          contents: [
-            {
-              uri,
-              mimeType: "text/plain",
-              text: summary,
-            },
-          ],
-        };
-      } catch (error) {
-        throw new Error(`Failed to read build: ${error}`);
-      }
-    });
-
     // List available tools
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
-      if (!this.legacy) {
-        const tools = [...(this.foundation ? [...foundationSchemas, ...featureRegistry.schemas(), ...(this.foundationFeatures?.schemas() ?? [])] : []), ...this.modifierFeatures.schemas(), ...this.upstreamTreeFeatures.schemas(), ...this.buildFileCatalog.schemas(), ...this.configPresetCatalog.schemas(), ...(this.marketFeatures?.schemas() ?? [])];
-        assertUniqueToolSchemas(tools);
-        return { tools: tools.map(({ truncatable: _truncatable, ...wire }) => wire) };
-      }
-      const tools: ToolSchema[] = this.legacy.availableSchemas(Boolean(process.env.POE_SESSION_ID));
-      featureRegistry.assertNoCollisions(tools);
-      tools.push(...featureRegistry.schemas());
-      tools.push(...this.modifierFeatures.schemas());
-      tools.push(...this.upstreamTreeFeatures.schemas());
-      tools.push(...this.buildFileCatalog.schemas());
-      tools.push(...this.configPresetCatalog.schemas());
-      tools.push(...(this.marketFeatures?.schemas() ?? []));
-      if (this.foundation) tools.push(...foundationSchemas, ...(this.foundationFeatures?.schemas() ?? []));
+      const tools = [...foundationSchemas, ...featureRegistry.schemas(), ...(this.foundationFeatures?.schemas() ?? []),
+        ...this.modifierFeatures.schemas(), ...this.upstreamTreeFeatures.schemas(), ...this.buildFileCatalog.schemas(),
+        ...this.configPresetCatalog.schemas(), ...(this.marketFeatures?.schemas() ?? [])];
       assertUniqueToolSchemas(tools);
-
-      // The truncatable flag is server-side policy, not part of the MCP wire
-      // contract - strip it from what clients see.
-      return { tools: tools.map(({ truncatable: _truncatable, ...wire }) => wire) };
+      return { tools };
     });
 
     // Handle tool calls
@@ -369,25 +286,25 @@ class PoBMCPServer {
 
       try {
         const modifierFeature = this.modifierFeatures.get(name);
-        if (modifierFeature) return await modifierFeature.invoke(args ?? {});
+        if (modifierFeature) return await modifierFeature.invoke(args ?? {}) as any;
         const upstreamTreeFeature = this.upstreamTreeFeatures.get(name);
         if (upstreamTreeFeature) {
           if (this.foundationClosing) throw new Error('Upstream tree source is unavailable during shutdown');
-          const pending = Promise.resolve().then(() => upstreamTreeFeature.invoke(args ?? {}));
+          const pending = Promise.resolve().then(() => upstreamTreeFeature.invoke(args ?? {})) as Promise<any>;
           this.foundationPending.add(pending);
           try { return await pending; } finally { this.foundationPending.delete(pending); }
         }
         const catalogFeature = this.buildFileCatalog.get(name) ?? this.configPresetCatalog.get(name);
         if (catalogFeature) {
           if (this.foundationClosing) throw new Error('Build catalog is unavailable during shutdown');
-          const pending = Promise.resolve().then(() => catalogFeature.invoke(args ?? {}));
+          const pending = Promise.resolve().then(() => catalogFeature.invoke(args ?? {})) as Promise<any>;
           this.foundationPending.add(pending);
           try { return await pending; } finally { this.foundationPending.delete(pending); }
         }
         const marketFeature = this.marketFeatures?.get(name);
         if (marketFeature) {
           if (this.foundationClosing) throw new Error('Market tools are unavailable during shutdown');
-          const pending = Promise.resolve().then(() => marketFeature.invoke(args ?? {}));
+          const pending = Promise.resolve().then(() => marketFeature.invoke(args ?? {})) as Promise<any>;
           this.foundationPending.add(pending);
           try { return await pending; } finally { this.foundationPending.delete(pending); }
         }
@@ -400,31 +317,16 @@ class PoBMCPServer {
             return { content: [{ type: 'text' as const, text: JSON.stringify(result) }] };
           } finally { this.foundationPending.delete(pending); }
         }
-        // Migrated, stateless feature modules are independent of the legacy
-        // mutable build and are available through the new surface as well.
+        // Stateless feature modules read a snapshot or the official Trade API.
         const feature = this.foundationFeatures?.get(name) ?? featureRegistry.get(name);
         if (feature && this.foundation) {
           if (this.foundationClosing) throw new Error('Foundation tools are unavailable');
-          const pending = Promise.resolve().then(() => feature.invoke(args ?? {}));
+          const pending = Promise.resolve().then(() => feature.invoke(args ?? {})) as Promise<any>;
           this.foundationPending.add(pending);
           try { return await pending; }
           finally { this.foundationPending.delete(pending); }
         }
-        if (!this.legacy || this.foundationClosing) throw new Error('Legacy tools are unavailable');
-        const pending = this.legacy.route(name, args);
-        this.foundationPending.add(pending);
-        let result;
-        try { result = await pending; } finally { this.foundationPending.delete(pending); }
-
-        // Apply truncation for tools that opt in via their schema flag
-        // (ToolSchema.truncatable). The old hand-maintained name list here
-        // rotted - five unbounded-output tools had silently fallen outside
-        // it, while new tools could never learn to opt in.
-        if (shouldTruncate(name, this.allToolSchemas())) {
-          return wrapWithTruncation(result);
-        }
-
-        return result;
+        throw new Error(`Unknown tool: ${name}`);
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
         // Log full stack trace for debugging
@@ -449,68 +351,68 @@ class PoBMCPServer {
    * Initialize async components
    */
   private async initialize() {
-    if (this.legacyEnabled()) {
-      const { LegacyRuntime } = await import('./server/legacyRuntime.js');
-      this.legacy = new LegacyRuntime(this.pobDirectory, process.env.POB_LUA_ENABLED === 'true', process.env.POE_TRADE_ENABLED === 'true', this.officialTrade ?? undefined);
-    }
-    this.allToolSchemas(); // Validate all names for the active runtime, including disabled capability groups.
+    this.registeredSchemas(); // Validate every registered name, including disabled capability groups.
     const economy = new PoeNinjaAdapter();
     const market = [...createCurrencyReferenceTools(economy), createCurrencySpreadTool(economy), createStaticStatMappingTool(new StaticStatCatalog())];
     const trade = this.officialTrade;
     if (trade) market.push(createSourceComparableTool(trade), createTradeSearchTool(trade), createTradeItemPriceTool(trade), createTradeListingComparisonTool(trade), createResistanceTradeTool(trade), createClusterTradeTool(trade), ...createTradeMetadataTools(trade));
     this.marketFeatures = new FeatureRegistry(market);
-    if (process.env.POB_FOUNDATION_ENABLED === 'true') {
-      const directory = process.env.POB_SNAPSHOT_DIRECTORY || path.join(this.pobDirectory, '.pob-snapshots');
-      this.releaseFoundationLock = await acquireStoreLock(directory);
-      const jobs = new JobStore(path.join(directory, 'jobs'));
-      await jobs.markInterrupted();
-      const store = new SnapshotStore(directory);
-      let protectedIds: Set<string> | undefined;
-      try { protectedIds = await jobs.protectedSnapshotIds(); }
-      catch (error) { console.error('[Snapshot retention] Collection skipped because job references are unavailable:', error); }
-      if (protectedIds) await store.collectExpired(protectedIds);
-      const adapterPath = process.env.POB_ADAPTER_PATH || path.join(process.env.POB_REPO_ROOT!, 'lua', 'vanilla_stdio_bridge.lua');
-      const openEngine = () => openPoBEngine({
-        cwd: process.env.POB_PATH || process.env.POB_FORK_PATH, command: process.env.POB_CMD,
-        adapterPath, timeoutMs: process.env.POB_TIMEOUT_MS ? Number(process.env.POB_TIMEOUT_MS) : undefined,
-      });
-      const engineLimiter = new EngineLimiter(openEngine);
-      this.foundation = new BuildFoundation(store, openEngine, engineLimiter);
-      const foundation = this.foundation;
-      this.foundationJobs = new JobRunner(jobs, input => foundation.evaluate(input.snapshotId, input.fields, input.options), 2,
-        input => rankMasteryEffects(foundation, { snapshot_id: input.snapshotId, node_id: input.nodeId, effect_ids: [input.effectId], metric: input.metric, direction: input.direction }),
-        async input => {
-          const candidate = await foundation.deriveGemSetup(input.snapshotId, input.groupIndex, input.gems, true);
-          try { return await compareSnapshotGemSetups(foundation, { snapshot_id: input.snapshotId, group_index: input.groupIndex, candidate_snapshot_ids: [candidate.id] }); }
-          catch (error) { return { setupError: error instanceof Error ? error.message : String(error), candidateSnapshotId: candidate.id }; }
-        }, input => evaluatePassive(foundation, input), async (input, onDerived) => {
-          const response = await createJewelComparisonTool(foundation, onDerived).invoke({ snapshot_id: input.snapshotId, socket_node_id: input.socketNodeId, fields: input.fields, candidates: [{ name: input.name, item_text: input.itemText }] });
-          return JSON.parse(response.content[0].text);
-        });
-      const migrated = [createSnapshotCostTool(foundation, economy), createShoppingListTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), createSnapshotBuildComparisonTool(foundation), createSnapshotGemComparisonTool(foundation), ...createGemSetupJobTools(foundation, this.foundationJobs), createSnapshotSupportRankingTool(foundation), createDiscoveredSupportRankingTool(foundation), ...createTreePathTools(foundation), createBuildIssuesTool(foundation), createBossReadinessTool(foundation), createMasteryRankingTool(foundation), createMasteryDiscoveryTool(foundation), ...createMasteryJobTools(foundation, this.foundationJobs), ...createPassiveRankingTools(foundation, this.foundationJobs), createAnointmentTool(foundation), createSnapshotSummaryTool(foundation), createSkillInspectionTool(foundation), createEnemyConfigTool(foundation), ...createSnapshotConfigPresetTools(foundation, this.localConfigPresets), createTimelessSearchTool(foundation)];
-      migrated.push(createSnapshotTreeTransplantTool(foundation));
-      migrated.push(createSupportContributionsTool(foundation));
-      migrated.push(createCachedStatsTool('snapshot', id => foundation.exportBuild(id)));
-      migrated.push(createPassiveSuggestionsTool(foundation));
-      migrated.push(createGemUpgradeTool(foundation));
-      migrated.push(createSnapshotAilmentsTool(foundation));
-      migrated.push(createSnapshotDefensesTool(foundation));
-      migrated.push(createCraftingContextTool(foundation, new PoedbBaseReference()));
-      migrated.push(createItemAffixWeightTool(new PoBItemDataAdapter(engineLimiter)));
-      migrated.push(createEngineStatusTool(new PoBEngineStatusAdapter(engineLimiter)));
-      migrated.push(createClusterAnalysisTool(foundation));
-      migrated.push(createOfficialTreeTool(foundation, decodeOfficialTreeCode));
-      migrated.push(createWatchersEyeTool(foundation, new PoBWatchersEyeSource()));
-      migrated.push(createJewelComparisonTool(foundation));
-      migrated.push(...createJewelJobTools(foundation, this.foundationJobs));
-      migrated.push(...createWeightedTradeTools(foundation, trade ?? undefined, () => Boolean(process.env.POE_SESSION_ID)));
-      migrated.push(createStatCategoriesTool(foundation));
-      migrated.push(createEquipmentAnalysisTool(foundation));
-      migrated.push(createLevelingTool(foundation));
-      if (trade) migrated.push(createTradePreviewTool(foundation, trade));
-      if (trade) migrated.push(createBudgetCandidatesTool(foundation, trade), createBudgetBundleTool(foundation, trade));
-      this.foundationFeatures = new FeatureRegistry(migrated);
+    const directory = process.env.POB_SNAPSHOT_DIRECTORY || path.join(this.pobDirectory, '.pob-snapshots');
+    this.releaseFoundationLock = await acquireStoreLock(directory);
+    const jobs = new JobStore(path.join(directory, 'jobs'));
+    await jobs.markInterrupted();
+    const store = new SnapshotStore(directory);
+    let protectedIds: Set<string> | undefined;
+    try { protectedIds = await jobs.protectedSnapshotIds(); }
+    catch (error) { console.error('[Snapshot retention] Collection skipped because job references are unavailable:', error); }
+    if (protectedIds) await store.collectExpired(protectedIds);
+    const adapterPath = process.env.POB_ADAPTER_PATH || path.join(process.env.POB_REPO_ROOT!, 'lua', 'vanilla_stdio_bridge.lua');
+    const openEngine = () => openPoBEngine({
+      cwd: process.env.POB_PATH, command: process.env.POB_CMD,
+      adapterPath, timeoutMs: process.env.POB_TIMEOUT_MS ? Number(process.env.POB_TIMEOUT_MS) : undefined,
+    });
+    const probe = await openEngine();
+    try {
+      console.error(`[PoB] engine verified: ${probe.identity.engineVersion ?? 'unknown engine version'}`);
+    } finally {
+      await probe.close();
     }
+    const engineLimiter = new EngineLimiter(openEngine);
+    this.foundation = new BuildFoundation(store, openEngine, engineLimiter);
+    const foundation = this.foundation;
+    this.foundationJobs = new JobRunner(jobs, input => foundation.evaluate(input.snapshotId, input.fields, input.options), 2,
+      input => rankMasteryEffects(foundation, { snapshot_id: input.snapshotId, node_id: input.nodeId, effect_ids: [input.effectId], metric: input.metric, direction: input.direction }),
+      async input => {
+        const candidate = await foundation.deriveGemSetup(input.snapshotId, input.groupIndex, input.gems, true);
+        try { return await compareSnapshotGemSetups(foundation, { snapshot_id: input.snapshotId, group_index: input.groupIndex, candidate_snapshot_ids: [candidate.id] }); }
+        catch (error) { return { setupError: error instanceof Error ? error.message : String(error), candidateSnapshotId: candidate.id }; }
+      }, input => evaluatePassive(foundation, input), async (input, onDerived) => {
+        const response = await createJewelComparisonTool(foundation, onDerived).invoke({ snapshot_id: input.snapshotId, socket_node_id: input.socketNodeId, fields: input.fields, candidates: [{ name: input.name, item_text: input.itemText }] });
+        return JSON.parse(response.content[0].text);
+      });
+    const migrated = [createSnapshotCostTool(foundation, economy), createShoppingListTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), createSnapshotBuildComparisonTool(foundation), createSnapshotGemComparisonTool(foundation), ...createGemSetupJobTools(foundation, this.foundationJobs), createSnapshotSupportRankingTool(foundation), createDiscoveredSupportRankingTool(foundation), ...createTreePathTools(foundation), createBuildIssuesTool(foundation), createBossReadinessTool(foundation), createMasteryRankingTool(foundation), createMasteryDiscoveryTool(foundation), ...createMasteryJobTools(foundation, this.foundationJobs), ...createPassiveRankingTools(foundation, this.foundationJobs), createAnointmentTool(foundation), createSnapshotSummaryTool(foundation), createSkillInspectionTool(foundation), createEnemyConfigTool(foundation), ...createSnapshotConfigPresetTools(foundation, this.localConfigPresets), createTimelessSearchTool(foundation)];
+    migrated.push(createSnapshotTreeTransplantTool(foundation));
+    migrated.push(createSupportContributionsTool(foundation));
+    migrated.push(createCachedStatsTool('snapshot', id => foundation.exportBuild(id)));
+    migrated.push(createPassiveSuggestionsTool(foundation));
+    migrated.push(createGemUpgradeTool(foundation));
+    migrated.push(createSnapshotAilmentsTool(foundation));
+    migrated.push(createSnapshotDefensesTool(foundation));
+    migrated.push(createCraftingContextTool(foundation, new PoedbBaseReference()));
+    migrated.push(createItemAffixWeightTool(new PoBItemDataAdapter(engineLimiter)));
+    migrated.push(createEngineStatusTool(new PoBEngineStatusAdapter(engineLimiter)));
+    migrated.push(createClusterAnalysisTool(foundation));
+    migrated.push(createOfficialTreeTool(foundation, decodeOfficialTreeCode));
+    migrated.push(createWatchersEyeTool(foundation, new PoBWatchersEyeSource()));
+    migrated.push(createJewelComparisonTool(foundation));
+    migrated.push(...createJewelJobTools(foundation, this.foundationJobs));
+    migrated.push(...createWeightedTradeTools(foundation, trade ?? undefined, () => Boolean(process.env.POE_SESSION_ID)));
+    migrated.push(createStatCategoriesTool(foundation));
+    migrated.push(createEquipmentAnalysisTool(foundation));
+    migrated.push(createLevelingTool(foundation));
+    if (trade) migrated.push(createTradePreviewTool(foundation, trade));
+    if (trade) migrated.push(createBudgetCandidatesTool(foundation, trade), createBudgetBundleTool(foundation, trade));
+    this.foundationFeatures = new FeatureRegistry(migrated);
     // StatMapper is intentionally static-only: the trade API /stats dump keys
     // everything by hashed ID (no PoB names), so swapping it in at startup used
     // to erase the curated aliases that search_stats matches against. Official
@@ -522,7 +424,7 @@ class PoBMCPServer {
     const transport = new StdioServerTransport();
     try { await this.initialize(); await this.server.connect(transport); }
     catch (error) {
-      const cleanup = await Promise.allSettled([this.legacy?.close(), this.releaseFoundationLock?.()]);
+      const cleanup = await Promise.allSettled([this.releaseFoundationLock?.()]);
       for (const result of cleanup) if (result.status === 'rejected') console.error('[Startup Cleanup Error]', result.reason);
       throw error;
     }

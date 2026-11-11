@@ -11,12 +11,12 @@ const exec = promisify(execFile);
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const wrapper = join(root, 'packages/pob-mcp-market/pob-docker-mcp/scripts/pob-mcp-docker.sh');
 const image = process.env.POB_DOCKER_IMAGE;
-if (!image) throw new Error('Set POB_DOCKER_IMAGE to a locally built foundation image');
+if (!image) throw new Error('Set POB_DOCKER_IMAGE to a locally built image');
 const executable = process.env.MCPORTER_BIN || 'mcporter';
 if (typeof process.getuid !== 'function' || typeof process.getgid !== 'function') throw new Error('This smoke test requires a numeric host UID and GID');
 const dockerUser = `${process.getuid()}:${process.getgid()}`;
 const directory = await mkdtemp(join(tmpdir(), 'pob-mcporter-smoke-'));
-const common = ['--stdio', wrapper, '--name', 'pob-foundation-smoke', '--env', `POB_BUILDS_DIR=${directory}`, '--env', `POB_DOCKER_IMAGE=${image}`, '--env', `POB_DOCKER_USER=${dockerUser}`, '--env', 'POB_FOUNDATION_ENABLED=true', '--env', 'POB_LEGACY_ENABLED=false', '--env', 'POE_TRADE_ENABLED=false'];
+const common = ['--stdio', wrapper, '--name', 'pob-wrapper-smoke', '--env', `POB_BUILDS_DIR=${directory}`, '--env', `POB_DOCKER_IMAGE=${image}`, '--env', `POB_DOCKER_USER=${dockerUser}`, '--env', 'POE_TRADE_ENABLED=false'];
 const run = async args => JSON.parse((await exec(executable, args, { timeout: 150000, maxBuffer: 16 * 1024 * 1024 })).stdout);
 const call = async (name, args) => {
   // For ad-hoc stdio, --tool avoids sending a qualified selector as the tool name.

@@ -9,7 +9,7 @@ it('keeps the engine contract and migrated readers independent of the Lua bridge
   }
 });
 
-it('keeps the PoB adapter independent of legacy bridge and foundation paths', () => {
+it('keeps the PoB adapter independent of feature and foundation modules', () => {
   for (const file of ['src/adapters/pob/bridge.ts', 'src/adapters/pob/engine.ts', 'src/infrastructure/contentDigest.ts', 'src/infrastructure/executableIdentity.ts']) {
     const text = readFileSync(resolve(file), 'utf8');
     const imports = [...text.matchAll(/\b(?:from\s*|import\s*\()\s*['"]([^'"]+)['"]/g)].map(match => match[1]);

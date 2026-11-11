@@ -1,14 +1,18 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { PoBLuaApiClient } from '../build/adapters/pob/bridge.js';
-import { parseModFile } from '../build/services/modDataStore.js';
+import { parseModFile } from '../build/adapters/modifierData/modDataStore.js';
 import { firstMatchingSpawnRule } from '../build/domain/modifiers/affixQuery.js';
-import { formatLoadStats } from '../build/handlers/luaHandlers.js';
-import { handleFindItemUpgrades } from '../build/handlers/itemShoppingHandler.js';
+import { resolvePoBLayout } from '../build/utils/pobLayout.js';
+
+// Repo runs fall back to the vendored engine relative to the package root.
+process.env.POB_REPO_ROOT ??= fileURLToPath(new URL('..', import.meta.url));
+const pobSrc = resolvePoBLayout(process.env.POB_PATH).src;
 
 const client = new PoBLuaApiClient({
-  cwd: process.env.POB_FORK_PATH,
+  cwd: pobSrc,
   cmd: process.env.POB_CMD,
   timeoutMs: 60000,
 });
@@ -51,7 +55,7 @@ try {
   const ringWeight = await client.getItemAffixWeight('AddedPhysicalDamage7', 'Rarity: RARE\nWeight Test\nGold Ring\nItem Level: 86\nImplicits: 0');
   assert.equal(amuletWeight.weight, 1000, 'PoB amulet spawn weight changed');
   assert.equal(ringWeight.weight, 0, 'PoB ring zero-weight rule changed');
-  const modData = await readFile(join(process.env.POB_PATH || process.env.POB_FORK_PATH || '/opt/PathOfBuilding/src', 'Data/ModExplicit.lua'), 'utf8');
+  const modData = await readFile(join(pobSrc, 'Data/ModExplicit.lua'), 'utf8');
   const ruleMod = parseModFile(modData, 'explicit').find(mod => mod.id === 'AddedPhysicalDamage7');
   assert.ok(ruleMod, 'expected modifier missing from PoB data');
   assert.equal(firstMatchingSpawnRule(ruleMod, ['amulet', 'default'])?.weight, amuletWeight.weight, 'parsed amulet rule disagrees with PoB');
@@ -167,7 +171,7 @@ try {
   assert.ok(poisonConfig.applied.customMods, 'poison fixture configuration rejected');
   const poisonBase = await client.getStats(['MinionTotalDPS', 'MinionCombinedDPS']);
   assert.ok(poisonBase.MinionCombinedDPS > poisonBase.MinionTotalDPS, 'poison fixture must include ailment damage');
-  assert.ok(formatLoadStats(poisonBase).join('\n').includes('MinionCombinedDPS: 302.94'), 'load summary omitted poison-inclusive damage');
+  assert.ok(Math.abs(poisonBase.MinionCombinedDPS - 302.94) < 0.01, 'poison fixture changed the poison-inclusive damage baseline');
 
   const jewels = await client.findTimelessJewelSeeds({
     socketNodeId: 60735, desired: ['eternal_notable_minion_1'], seeds: [130660],
@@ -185,8 +189,8 @@ try {
     `minion simulation disagrees with allocation: ${minionSimulation.Minion.TotalDPS} vs ${actualMinion.MinionTotalDPS}`);
   assert.ok(Math.abs(actualMinion.MinionCombinedDPS - minionSimulation.Minion.CombinedDPS) < 0.01,
     `poison minion combined DPS simulation disagrees with allocation: ${minionSimulation.Minion.CombinedDPS} vs ${actualMinion.MinionCombinedDPS}`);
-  // This fixture was measured through both the pre-migration and new bridges
-  // against the same PoB revision; it is not a desktop GUI measurement.
+  // This fixture was measured with the bridge against the pinned PoB revision;
+  // it is not a desktop GUI measurement.
   const xml = await readFile(new URL('../tests/fixtures/occ-vortex.xml', import.meta.url), 'utf8');
   await client.loadBuildXml(xml, 'regression-fixture');
   const fixtureTree = await client.getTree();
@@ -227,9 +231,6 @@ try {
   const shieldEquipped = await client.getStats(['EnergyShield', 'TotalEHP']);
   for (const key of ['EnergyShield', 'TotalEHP']) assert.ok(Math.abs(shieldEquipped[key] - shieldZero.candidateStats[key]) < 0.01, `zero quality ${key} differs from actual equipment`);
   await client.loadBuildXml(xml, 'regression-fixture');
-  const shoppingContext = await handleFindItemUpgrades({ getLuaClient: () => client }, { slot: 'Amulet' });
-  assert.ok(shoppingContext.content[0].text.includes(`Life: ${fixtureStats.Life}`), 'shopping context does not match live PoB Life');
-  assert.ok(shoppingContext.content[0].text.includes('Prices and candidate items have not been checked'), 'shopping context must disclose missing price data');
   assert.equal(fixtureTree.className, 'Witch');
   assert.equal(fixtureTree.ascendClassName, 'Occultist');
   assert.equal(fixtureTree.nodes.length, 132);
@@ -264,7 +265,7 @@ try {
   assert.deepEqual(await client.getSkills(), originalSnapshotSkills, 'snapshot changed selected skills');
   assert.deepEqual(await client.getConfig(), originalSnapshotConfig, 'snapshot changed configuration');
   assert.ok(snapshot.baseline.MinionCombinedDPS > 0, 'snapshot lost selected minion skill');
-  const snapshotClient = new PoBLuaApiClient({ cwd: process.env.POB_FORK_PATH, cmd: process.env.POB_CMD, timeoutMs: 60000 });
+  const snapshotClient = new PoBLuaApiClient({ cwd: pobSrc, cmd: process.env.POB_CMD, timeoutMs: 60000 });
   try {
     await snapshotClient.start();
     await snapshotClient.loadBuildXml(snapshot.xml, 'snapshot-regression');

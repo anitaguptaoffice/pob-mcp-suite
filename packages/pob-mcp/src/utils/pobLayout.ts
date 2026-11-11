@@ -86,30 +86,40 @@ function vendoredCheckout(): string | null {
   return exists(path.join(src, 'HeadlessWrapper.lua')) ? src : null;
 }
 
+const missingEngine = (detail: string): Error => new Error(
+  `Path of Building engine not found: ${detail}\n`
+  + 'This server requires a PoB src/ checkout with HeadlessWrapper.lua and a LuaJIT interpreter. '
+  + 'Set POB_PATH to that checkout, or run from a full repository checkout that includes vendor/PathOfBuilding.',
+);
+
+const hasEngine = (src: string): boolean => exists(path.join(src, "HeadlessWrapper.lua"));
+
 /**
  * An explicit src wins, treated as a checkout unless it has no sibling runtime/ and an
  * app is installed. Otherwise prefer an installed app: no setup, and always the same
- * PoB the user runs.
+ * PoB the user runs. Resolution fails when no usable engine checkout exists.
  */
 export function resolvePoBLayout(explicitSrc?: string): PoBLayout {
   const bundle = process.platform === "darwin" ? findAppBundle() : null;
 
   if (explicitSrc) {
-    return !exists(path.join(stripSrc(explicitSrc), "runtime")) && bundle
-      ? macAppLayout(bundle, explicitSrc)
-      : checkoutLayout(explicitSrc);
+    const src = explicitSrc.replace(/[\\/]+$/, "");
+    if (!hasEngine(src)) throw missingEngine(`POB_PATH points at ${src}, which has no HeadlessWrapper.lua`);
+    return !exists(path.join(stripSrc(src), "runtime")) && bundle
+      ? macAppLayout(bundle, src)
+      : checkoutLayout(src);
   }
 
   if (bundle) {
-    const src = macAppSrcCandidates(bundle).find((s) => exists(path.join(s, "HeadlessWrapper.lua")));
+    const src = macAppSrcCandidates(bundle).find(hasEngine);
     if (src) return macAppLayout(bundle, src);
   }
 
   const installed = path.join(os.homedir(), "Projects", "PathOfBuilding", "src");
-  if (exists(path.join(installed, "HeadlessWrapper.lua"))) return checkoutLayout(installed);
+  if (hasEngine(installed)) return checkoutLayout(installed);
   const vendored = vendoredCheckout();
   if (vendored) return checkoutLayout(vendored);
-  return checkoutLayout(installed);
+  throw missingEngine('no installed app, ~/Projects/PathOfBuilding checkout or vendored engine was found');
 }
 
 /** Where the installed PoB actually writes builds. */
@@ -120,7 +130,7 @@ export function defaultBuildsDirectory(): string {
   }
   // current port uses Application Support; the older Qt port used ~/Path of Building
   const appSupport = path.join(home, "Library", "Application Support", "Path of Building", "Builds");
-  const legacy = path.join(home, "Path of Building", "Builds");
+  const qtPortBuilds = path.join(home, "Path of Building", "Builds");
   if (exists(appSupport)) return appSupport;
-  return exists(legacy) ? legacy : appSupport;
+  return exists(qtPortBuilds) ? qtPortBuilds : appSupport;
 }

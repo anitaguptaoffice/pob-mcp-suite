@@ -1,7 +1,7 @@
 type Metric = { status?: unknown; value?: unknown } | undefined;
 type Check = { metric: string; threshold: number; comparison: 'at_least' | 'above'; value: number | null; meets: boolean | null };
 
-/** Legacy-inspired thresholds are observations, not proof of survival or uptime. */
+/** Reference thresholds are observations, not proof of survival or uptime. */
 export function defenseReference(metrics: Record<string, Metric>) {
   const number = (name: string, minimum = 0, maximum = Number.POSITIVE_INFINITY): number | null => {
     const metric = metrics[name], value = metric?.value;
