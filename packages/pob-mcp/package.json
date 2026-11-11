@@ -26,6 +26,7 @@
     "test:smoke:source-comparable": "node tests/smoke/source-comparable-live.mjs",
     "test:smoke:shared-trade": "node tests/smoke/shared-trade-live.mjs",
     "test:smoke:foundation-isolation": "node tests/smoke/foundation-runtime-isolation.mjs",
+    "test:smoke:migration-registration": "node tests/smoke/migration-registration.mjs",
     "test:smoke:currency-reference": "node tests/smoke/currency-reference-live.mjs",
     "test:smoke:trade-preview": "node tests/smoke/trade-preview-live.mjs",
     "test:smoke:cluster-trade": "node tests/smoke/cluster-trade-live.mjs",

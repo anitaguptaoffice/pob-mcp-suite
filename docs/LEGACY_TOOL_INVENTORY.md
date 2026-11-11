@@ -152,8 +152,8 @@ Generated from registered schema groups in the current build. Most entries are p
 
 ## featureRegistry
 
-- `compare_craft_budget` — target: crafting and item data; replacement: item data/crafting module; status: exposed through new registry, final caller and removal audit pending; skill references: `skills/pob-crafting/SKILL.md`, `skills/pob-economy/SKILL.md`.
-- `simulate_simple_annul` — target: crafting and item data; replacement: item data/crafting module; status: exposed through new registry, final caller and removal audit pending; skill references: `skills/pob-crafting/SKILL.md`.
+- `compare_craft_budget` — target: crafting and item data; replacement: `compare_craft_budget` in the independent crafting module; status: exposed through new registry, final caller and removal audit pending; skill references: `skills/pob-crafting/SKILL.md`, `skills/pob-economy/SKILL.md`.
+- `simulate_simple_annul` — target: crafting and item data; replacement: `simulate_simple_annul` in the independent crafting module; status: exposed through new registry, final caller and removal audit pending; skill references: `skills/pob-crafting/SKILL.md`.
 
 
 ## Replacement and acceptance contracts by target

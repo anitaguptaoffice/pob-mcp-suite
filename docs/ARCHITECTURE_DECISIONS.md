@@ -262,6 +262,14 @@ only after contract and real-engine validation; do not silently drop a feature.
 The table reports evidence and limitations rather than declaring whole-layer
 acceptance for behavior outside the tested fixtures.
 
+`migration-registration.mjs` starts the new stdio surface with Trade enabled
+and checks every quoted replacement tool in the legacy inventory against actual
+MCP discovery. It covers 117 distinct replacement identifiers and explicitly
+tracks the three rows without a public replacement: internal engine startup and
+shutdown, and legacy tree-cache refresh. It runs as part of `npm run validate`.
+Discovery does not prove invocation, behavior, real-source accuracy or caller
+migration; `refresh_tree_data` has no equivalent remote-update operation.
+
 An isolated OpenCode 2.2.6 configuration and temporary managed client service
 also connected to the current local Docker build through the packaged wrapper.
 `smoke-opencode-wrapper.mjs` uses a deterministic local model stub to drive
