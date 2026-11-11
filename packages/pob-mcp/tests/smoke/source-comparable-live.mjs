@@ -54,6 +54,13 @@ try {
   assert.equal(search.sourceTimes.stats, stats.fetchedAt);
   assert.ok(search.fetchedCount > 0 && search.fetchedCount <= 3);
   assert.equal(search.sourceStatistics.sampleCount, search.fetchedCount);
+  for (const source of ['explicit', 'implicit', 'fractured', 'crafted', 'enchant']) {
+    const actual = search.listings.map(listing => listing.item?.extended?.hashes?.[source]);
+    const available = actual.filter(entries => Array.isArray(entries) && entries.every(entry => Array.isArray(entry) && typeof entry[0] === 'string' && !!entry[0].trim())).length;
+    const missing = actual.filter(entries => entries === undefined || entries === null).length;
+    const malformed = actual.length - available - missing;
+    assert.deepEqual(search.sourceStatistics.sourceCoverage[source], { availableListings: available, missingListings: missing, malformedListings: malformed, completeWithinSample: actual.length > 0 && available === actual.length });
+  }
   assert.ok(search.listings.every(listing => !('whisper_token' in listing.listing)));
   const repeat = await call('search_official_trade', searchArgs);
   assert.deepEqual(repeat.sourceTimes, search.sourceTimes);

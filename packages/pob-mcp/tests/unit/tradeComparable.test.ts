@@ -45,7 +45,7 @@ describe('comparable trade prices', () => {
     ] });
     expect(report.query.query.status?.option).toBe('securable');
     expect(report.sourceWarnings.join(' ')).toContain('fractured');
-    expect(report.sourceStatistics).toEqual({ sampleCount: 3, inspectableCount: 2, unavailableCount: 1,
+    expect(report.sourceStatistics).toMatchObject({ sampleCount: 3, inspectableCount: 2, unavailableCount: 1,
       matchingListingsBySource: { explicit: 1, implicit: 0, fractured: 0, crafted: 0, enchant: 0 },
       listingsContainingSource: { explicit: 2, implicit: 0, fractured: 1, crafted: 0, enchant: 0 },
       byRequestedStat: [{ statId: 'explicit.stat_1', hashComparable: true, matchingListingsBySource: { explicit: 1, implicit: 0, fractured: 0, crafted: 0, enchant: 0 } }] });

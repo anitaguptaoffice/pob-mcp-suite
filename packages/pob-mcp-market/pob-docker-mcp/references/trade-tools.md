@@ -27,6 +27,11 @@ an explicit snapshot ID; if a needed capability is unavailable, report that limi
    `status: securable` and `sale_type: priced`; it does not accept `online_only`.
    Check the actual returned query, `listingScope`, source times, missing IDs,
    source audit and `inexact`. A different requested status must remain explicit.
+   For each modifier source, `sourceStatistics.sourceCoverage` separates
+   inspectable, missing and malformed hash arrays within the fetched sample.
+   `completeWithinSample` says only that every fetched listing had a usable
+   array for that source; it does not cover unfetched results or establish that
+   a zero count means the source cannot occur.
 4. Use `estimate_trade_comparable` for a confirmed rare base and stat groups,
    or `sample_trade_item_price` for a confirmed item name. Both sample at most
    ten asking prices, preserve currencies separately, and default to the

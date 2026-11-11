@@ -10,6 +10,7 @@ export function collectSourceStatistics(listings: Listing[], requestedIds: Itera
   const ids = [...new Set(requestedIds)];
   const matchingListingsBySource = emptyCounts();
   const listingsContainingSource = emptyCounts();
+  const sourceCoverage = Object.fromEntries(sources.map(source => [source, { availableListings: 0, missingListings: 0, malformedListings: 0, completeWithinSample: false }])) as Record<Source, { availableListings: number; missingListings: number; malformedListings: number; completeWithinSample: boolean }>;
   const byRequestedStat = ids.map(statId => ({ statId,
     hashComparable: sources.some(source => statId.startsWith(`${source}.`)),
     matchingListingsBySource: emptyCounts() }));
@@ -17,13 +18,16 @@ export function collectSourceStatistics(listings: Listing[], requestedIds: Itera
 
   for (const listing of listings) {
     const hashes = listing.item?.extended?.hashes;
-    if (!hashes || typeof hashes !== 'object' || !sources.some(source => Array.isArray(hashes[source]))) continue;
-    inspectableCount++;
+    if (hashes && typeof hashes === 'object' && sources.some(source => Array.isArray(hashes[source]))) inspectableCount++;
     for (const source of sources) {
-      const entries = hashes[source];
-      if (!Array.isArray(entries)) continue;
-      if (entries.length) listingsContainingSource[source]++;
-      const present = new Set(entries.filter(Array.isArray).map(entry => entry[0]));
+      const entries: unknown = hashes && typeof hashes === 'object' ? hashes[source] : undefined;
+      if (entries === undefined || entries === null) { sourceCoverage[source].missingListings++; continue; }
+      if (!Array.isArray(entries)) { sourceCoverage[source].malformedListings++; continue; }
+      const valid = entries.filter(entry => Array.isArray(entry) && typeof entry[0] === 'string' && !!entry[0].trim());
+      if (valid.length !== entries.length) sourceCoverage[source].malformedListings++;
+      else sourceCoverage[source].availableListings++;
+      if (valid.length) listingsContainingSource[source]++;
+      const present = new Set(valid.map(entry => entry[0]));
       let anyMatched = false;
       for (const stat of byRequestedStat) {
         if (present.has(stat.statId)) {
@@ -34,6 +38,7 @@ export function collectSourceStatistics(listings: Listing[], requestedIds: Itera
       if (anyMatched) matchingListingsBySource[source]++;
     }
   }
+  for (const source of sources) sourceCoverage[source].completeWithinSample = listings.length > 0 && sourceCoverage[source].availableListings === listings.length;
   return { sampleCount: listings.length, inspectableCount, unavailableCount: listings.length - inspectableCount,
-    matchingListingsBySource, listingsContainingSource, byRequestedStat };
+    matchingListingsBySource, listingsContainingSource, sourceCoverage, byRequestedStat };
 }
