@@ -82,8 +82,10 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   Stop observation with `stop_local_build_watch` when no longer needed.
 - Import XML with `foundation_import_build` (`xml`, `source`), an existing local
   file with `foundation_import_file` (`build_name`), or a PoB share code with
-  `foundation_import_code` (`code`). A URL is not a share code: obtain its code
-  or XML separately. Save the returned snapshot ID.
+  `foundation_import_code` (`code`). The code must encode a compressed PoB
+  build. Official passive-tree URLs and their uncompressed codes are not PoB
+  build codes and are not supported by this import. A share URL is not itself a
+  share code: obtain its code or XML separately. Save the returned snapshot ID.
 - Call `foundation_inspect` with that `snapshot_id` and the needed `sections`
   from `build`, `tree`, `items`, `skills`, and `config`. Use its real PoB state
   to identify the active tree, equipment, selected skill and conditions.
