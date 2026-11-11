@@ -242,6 +242,12 @@ only after contract and real-engine validation; do not silently drop a feature.
 The table reports evidence and limitations rather than declaring whole-layer
 acceptance for behavior outside the tested fixtures.
 
+An isolated OpenCode 2.2.6 configuration and temporary managed client service
+also connected to the current local Docker build through the packaged wrapper.
+`smoke-opencode-wrapper.mjs` reproduces the connection check and stops its
+temporary service. This checks client discovery and connection, not an agent
+model's tool invocation, interactive skill routing or installed user settings.
+
 The expanded wrapper smoke also passed with an image built locally from the
 repository's Dockerfile and this branch, once as the image's default user and
 once as the host's numeric UID/GID. This covers the Dockerfile's dependency

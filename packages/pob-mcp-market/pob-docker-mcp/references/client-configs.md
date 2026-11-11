@@ -1,6 +1,6 @@
 # Client Configurations
 
-Use the same Docker stdio command for Claude CLI, Codex, and CodeBuddy.
+Use the same Docker stdio command for Claude CLI, Codex, CodeBuddy and OpenCode.
 
 Replace `/ABS/PATH/TO/pob-docker-mcp` with the installed plugin path.
 During migration, select a locally built image containing the snapshot service;
@@ -54,6 +54,24 @@ Use an MCP server entry equivalent to:
   }
 }
 ```
+
+## OpenCode 2
+
+From the project directory, register the local wrapper and reload the running
+OpenCode service. Replace the paths and image with your own values:
+
+```bash
+opencode mcp add --env POB_BUILDS_DIR=/ABS/PATH/TO/BUILDS --env POB_DOCKER_IMAGE=pob-mcp-suite:foundation-local --env POB_FOUNDATION_ENABLED=true --env POB_LUA_ENABLED=true pob -- /ABS/PATH/TO/pob-docker-mcp/scripts/pob-mcp-docker.sh
+opencode reload
+opencode mcp list
+```
+
+OpenCode 2 stores these entries under `mcp.servers`; see its
+[MCP configuration documentation](https://opencode.ai/docs/mcp-servers).
+The repository's `packages/pob-mcp-market/scripts/smoke-opencode-wrapper.mjs`
+checks connection with a local image and temporary configuration. A connected
+status does not itself verify model-driven tool calls or the user's installed
+configuration.
 
 ## Environment Variables
 
