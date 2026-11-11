@@ -5,11 +5,7 @@
   "main": "build/index.js",
   "type": "module",
   "scripts": {
-    "build": "tsc",
-    "generate:item-format": "node scripts/generate-item-format.mjs",
-    "generate:item-format:check": "node scripts/generate-item-format.mjs --check",
-    "generate:item-oracle": "node scripts/generate-item-oracle.mjs",
-    "generate:item-oracle:check": "node scripts/generate-item-oracle.mjs --check",
+    "build": "node -e \"require('node:fs').rmSync('build',{recursive:true,force:true})\" && tsc",
     "start": "node build/index.js",
     "dev": "tsc --watch",
     "test": "jest",
@@ -17,22 +13,25 @@
     "test:coverage": "jest --coverage",
     "test:unit": "jest tests/unit",
     "test:ci": "jest --ci --coverage --maxWorkers=2",
-    "test:smoke": "node tests/smoke/bridge.mjs && node tests/smoke/mcp.mjs",
-    "test:smoke:offline": "node tests/smoke/lua-client-race.mjs && node tests/smoke/persistence.mjs && node tests/smoke/state-truthfulness.mjs",
-    "test:smoke:full": "node tests/smoke/mcp-full.mjs",
-    "test:smoke:weighted": "POE_WEIGHTED_SMOKE=true node tests/smoke/mcp.mjs",
+    "test:smoke": "node tests/smoke/bridge.mjs && node tests/smoke/state-truthfulness.mjs",
+    "test:smoke:offline": "node tests/smoke/state-truthfulness.mjs",
     "test:smoke:trade": "node tests/smoke/trade-mcp.mjs",
-    "test:smoke:economy": "node tests/smoke/economy-mcp.mjs",
-    "test:smoke:crafting": "node tests/smoke/crafting-mcp.mjs",
-    "test:smoke:persistence": "node tests/smoke/persistence.mjs",
-    "test:smoke:race": "node tests/smoke/lua-client-race.mjs",
-    "test:smoke:truthfulness": "node tests/smoke/state-truthfulness.mjs"
+    "test:smoke:snapshot-cost": "node tests/smoke/snapshot-cost-live.mjs",
+    "test:smoke:source-comparable": "node tests/smoke/source-comparable-live.mjs",
+    "test:smoke:build-info": "luajit tests/smoke/build-info-absent-tree.lua",
+    "test:smoke:currency-reference": "node tests/smoke/currency-reference-live.mjs",
+    "test:smoke:trade-preview": "node tests/smoke/trade-preview-live.mjs",
+    "test:smoke:cluster-trade": "node tests/smoke/cluster-trade-live.mjs",
+    "test:smoke:upstream-tree": "node tests/smoke/upstream-tree-live.mjs",
+    "test:smoke:truthfulness": "node tests/smoke/state-truthfulness.mjs",
+    "test:smoke:foundation": "node scripts/smoke-suite.mjs foundation",
+    "test:smoke:requirements": "node tests/smoke/foundation-requirements.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
     "bottleneck": "^2.19.5",
     "chokidar": "^4.0.3",
-    "fast-xml-parser": "^5.10.1"
+    "fast-xml-parser": "^5.12.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",

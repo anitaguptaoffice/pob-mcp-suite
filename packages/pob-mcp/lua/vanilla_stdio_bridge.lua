@@ -13,6 +13,25 @@ if not GetVirtualScreenSize then
   function GetVirtualScreenSize() return 1920, 1080 end
 end
 
+-- PoB's launcher files (HeadlessWrapper.lua, Launch.lua) start with a "#@ ..."
+-- directive line for the SimpleGraphic host. Standard LuaJIT only skips "#!"
+-- shebangs, so loading them with dofile fails on a modern interpreter. Strip
+-- that directive line when present; the PoB checkout itself stays untouched.
+do
+  local rawDofile = dofile
+  dofile = function(filePath, ...)
+    local handle = io.open(filePath, 'rb')
+    if not handle then return rawDofile(filePath, ...) end
+    local source = handle:read('*a')
+    handle:close()
+    if source:sub(1, 2) ~= '#@' then return rawDofile(filePath, ...) end
+    source = source:gsub('^[^\r\n]*[\r\n]?', '', 1)
+    local chunk, err = loadstring(source, '@' .. filePath)
+    if not chunk then error(err, 0) end
+    return chunk(...)
+  end
+end
+
 -- The upstream wrapper initializes PoB and exposes newBuild/loadBuildFromXML plus `build`.
 dofile('HeadlessWrapper.lua')
 
@@ -85,23 +104,54 @@ local function evaluate_anoint_candidates(params)
   if slotName ~= 'Amulet' and not item.canBeAnointed then return { ok = false, error = slotName .. ' is not an anointable item slot' } end
 
   local tab, previousItem, previousEnchantSlot = build.itemsTab, build.itemsTab.displayItem, build.itemsTab.anointEnchantSlot
+  -- PoB's misc calculator can refresh item-slot UI visibility as a side effect.
+  -- Restore these flags even when a candidate fails, along with the display item.
+  local previousSlotStates = {}
+  for _, slot in pairs(tab.slots or {}) do table.insert(previousSlotStates, { slot = slot, inactive = slot.inactive }) end
   local ok, result = pcall(function()
     tab:SetDisplayItem(item)
-    tab.anointEnchantSlot = 1
+    local enchantSlot = params.enchantSlot or 1
+    if type(enchantSlot) ~= 'number' or enchantSlot ~= math.floor(enchantSlot) or enchantSlot < 1 or enchantSlot > 3 or enchantSlot > #(item.enchantModLines or {}) + 1 then error('invalid enchant slot') end
+    local selectedEnchant = item.enchantModLines and item.enchantModLines[enchantSlot] and item.enchantModLines[enchantSlot].line or nil
+    tab.anointEnchantSlot = enchantSlot
     local calc = build.calcsTab:GetMiscCalculator()
     local repSlotName = item.base and item.base.type or slotName
     local base = calc({ repSlotName = repSlotName, repItem = tab:anointItem(nil) })
-    local baseDps = tonumber(base.CombinedDPS or base.TotalDPS or 0) or 0
-    local baseEhp = tonumber(base.TotalEHP or 0) or 0
+    local focus = params.focus or 'both'
+    if focus ~= 'dps' and focus ~= 'defence' and focus ~= 'both' then error('invalid anoint focus') end
+    local function number(value)
+      value = tonumber(value)
+      if not value or value ~= value or value == math.huge or value == -math.huge then return nil end
+      return value
+    end
+    local damageStat, baseDps
+    for _, candidate in ipairs({
+      { 'CombinedDPS', base.CombinedDPS }, { 'TotalDPS', base.TotalDPS },
+      { 'MinionCombinedDPS', base.Minion and base.Minion.CombinedDPS },
+      { 'MinionTotalDPS', base.Minion and base.Minion.TotalDPS },
+    }) do
+      local value = number(candidate[2])
+      if value and value > 0 and (not params.damageMetric or params.damageMetric == candidate[1]) then damageStat, baseDps = candidate[1], value; break end
+    end
+    if params.damageMetric and params.damageMetric ~= 'CombinedDPS' and params.damageMetric ~= 'TotalDPS' and params.damageMetric ~= 'MinionCombinedDPS' and params.damageMetric ~= 'MinionTotalDPS' then error('invalid damage metric') end
+    local baseEhp = number(base.TotalEHP)
+    if focus ~= 'defence' and not baseDps then error('no positive damage baseline for anoint evaluation') end
+    if focus ~= 'dps' and (not baseEhp or baseEhp <= 0) then error('no positive effective hit pool baseline for anoint evaluation') end
+    local function damage(output)
+      if damageStat == 'MinionCombinedDPS' then return number(output.Minion and output.Minion.CombinedDPS) end
+      if damageStat == 'MinionTotalDPS' then return number(output.Minion and output.Minion.TotalDPS) end
+      return damageStat and number(output[damageStat]) or nil
+    end
     local candidates, evaluated, skipped = {}, 0, 0
     for id, node in pairs(build.spec.tree.nodes or {}) do
       if node.recipe and node.dn and node.modKey ~= '' and not build.spec.allocNodes[id] then
         local candidateOk, output = pcall(calc, { repSlotName = repSlotName, repItem = tab:anointItem(node) })
-        if candidateOk and output then
-          local dps = (tonumber(output.CombinedDPS or output.TotalDPS or 0) or 0) - baseDps
-          local ehp = (tonumber(output.TotalEHP or 0) or 0) - baseEhp
-          local focus = params.focus or 'both'
-          local score = focus == 'dps' and dps or (focus == 'defence' and ehp or (dps / math.max(baseDps, 1) + 0.5 * ehp / math.max(baseEhp, 1)))
+        local candidateDps = candidateOk and output and damage(output) or nil
+        local candidateEhp = candidateOk and output and number(output.TotalEHP) or nil
+        if candidateOk and output and (focus == 'defence' or candidateDps ~= nil) and (focus == 'dps' or candidateEhp ~= nil) then
+          local dps = candidateDps and baseDps and candidateDps - baseDps or 0
+          local ehp = candidateEhp and baseEhp and candidateEhp - baseEhp or 0
+          local score = focus == 'dps' and dps or (focus == 'defence' and ehp or (dps / baseDps + 0.5 * ehp / baseEhp))
           local recipe = {}; for _, oil in ipairs(node.recipe or {}) do table.insert(recipe, tostring(oil)) end
           table.insert(candidates, { nodeId = tonumber(id) or id, name = node.dn, dpsDelta = dps, ehpDelta = ehp, score = score, recipe = recipe })
           evaluated = evaluated + 1
@@ -111,9 +161,12 @@ local function evaluate_anoint_candidates(params)
     table.sort(candidates, function(a, b) return a.score > b.score end)
     local limit = math.min(math.max(tonumber(params.limit) or 50, 1), 500)
     while #candidates > limit do table.remove(candidates) end
-    return { ok = true, candidates = candidates, base = { CombinedDPS = baseDps, TotalEHP = baseEhp }, evaluated = evaluated, skipped = skipped, slot = slotName, baseType = item.baseName or repSlotName, focus = params.focus or 'both' }
+    return { ok = true, candidates = candidates, base = { CombinedDPS = number(base.CombinedDPS) or 0, TotalEHP = baseEhp or 0, damageStat = damageStat, damageValue = baseDps, ehpAvailable = baseEhp ~= nil }, evaluated = evaluated, skipped = skipped, slot = slotName, enchantSlot = enchantSlot, selectedEnchant = selectedEnchant, baseType = item.baseName or repSlotName, focus = focus }
   end)
-  tab:SetDisplayItem(previousItem); tab.anointEnchantSlot = previousEnchantSlot
+  local restored, restoreError = pcall(tab.SetDisplayItem, tab, previousItem)
+  tab.anointEnchantSlot = previousEnchantSlot
+  for _, state in ipairs(previousSlotStates) do state.slot.inactive = state.inactive end
+  if not restored then return { ok = false, error = 'anoint display restoration failed: ' .. tostring(restoreError) } end
   if not ok then return { ok = false, error = 'anoint evaluation failed: ' .. tostring(result) } end
   return result
 end
@@ -137,11 +190,30 @@ local function generate_weighted_trade_query(params)
   options.statWeights = options.statWeights or build.itemsTab.tradeQuery.statSortSelectionList
   if not options.statWeights or #options.statWeights == 0 then options.statWeights = { { label = 'Full DPS', stat = 'FullDPS', weightMult = 1.0 }, { label = 'Effective Hit Pool', stat = 'TotalEHP', weightMult = 0.5 } } end
   local ok, result = pcall(function()
+    local weightBaselines
+    if params.reportWeightBaselines then
+      local _, baseOutput = build.calcsTab:GetMiscCalculator()
+      if type(baseOutput) ~= 'table' then error('PoB weighted baseline unavailable') end
+      weightBaselines = setmetatable({}, { __jsontype = 'array' })
+      for _, entry in ipairs(options.statWeights) do
+        if type(entry.stat) ~= 'string' then error('invalid weighted stat') end
+        local value, method
+        if entry.stat == 'FullDPS' and baseOutput.FullDPS == nil then
+          value = data.powerStatList.GetFromOutput(baseOutput, { stat = 'TotalDPS' }, true) + data.powerStatList.GetFromOutput(baseOutput, { stat = 'TotalDotDPS' }, true) + data.powerStatList.GetFromOutput(baseOutput, { stat = 'CombinedDPS' }, true)
+          method = 'full_dps_fallback_sum'
+        else
+          value = data.powerStatList.GetFromOutput(baseOutput, entry, true)
+          method = 'pob_power_stat'
+        end
+        if type(value) ~= 'number' or value ~= value or value == math.huge or value == -math.huge or value <= 0 then error('weighted baseline unavailable or nonpositive for ' .. entry.stat) end
+        table.insert(weightBaselines, { stat = entry.stat, value = value, method = method })
+      end
+    end
     local generator = new('TradeQueryGenerator'):TradeQueryGenerator(build.itemsTab.tradeQuery)
     local query, warning
     generator.requesterCallback = function(_, generated, err) query, warning = generated, err end
     generator.requesterContext = {}
-    generator.tradeTypeIndex = 2 -- available listings, matching the MCP default
+    generator.tradeTypeIndex = 1 -- upstream currently maps index 1 to securable
     generator:StartQuery(slot, options)
     local frames = 0
     while generator.calcContext and generator.calcContext.co and frames < 100000 do generator:OnFrame(); frames = frames + 1 end
@@ -152,7 +224,7 @@ local function generate_weighted_trade_query(params)
     if type(query) == 'table' and not query.query and query.stats then
       query = { query = query, sort = { price = 'asc' } }
     end
-    return { ok = true, query = query, warning = warning, frames = frames }
+    return { ok = true, query = query, warning = warning, frames = frames, weightBaselines = weightBaselines }
   end)
   if not ok then return { ok = false, error = 'weighted trade query failed: ' .. tostring(result) } end
   return result
@@ -190,6 +262,13 @@ handlers.new_build = function(params)
     local classId = params.className and (CLASS_IDS[params.className] or CLASS_IDS[params.className:lower()]) or 0
     if params.className and not CLASS_IDS[params.className] and not CLASS_IDS[params.className:lower()] then
       return { ok = false, error = 'unknown class: ' .. tostring(params.className) }
+    end
+    if params.treeVersion then
+      if type(params.treeVersion) ~= 'string' or not params.treeVersion:match('^%d+_%d+[%w_]*$') or #params.treeVersion > 60 then
+        return { ok = false, error = 'invalid tree version' }
+      end
+      BuildOps.import_from_node_list(build.spec, classId, 0, 0, {}, {}, {}, params.treeVersion)
+      if build.spec.treeVersion ~= params.treeVersion then return { ok = false, error = 'tree version was not applied' } end
     end
     local ascendId = 0
     if params.ascendancy and params.ascendancy:lower() ~= 'none' then
@@ -234,11 +313,29 @@ handlers.set_tree = function(params)
   return { ok = true, tree = (BuildOps.get_tree()) }
 end
 
+handlers.set_tree_guarded = function(params)
+  params = params or {}
+  params.rejectIfOverrides = true
+  local ok2, err = BuildOps.set_tree(params)
+  if not ok2 then return { ok = false, error = err } end
+  return { ok = true, tree = (BuildOps.get_tree()) }
+end
+
+handlers.set_tree_preserve_overrides = function(params)
+  params = params or {}
+  params.preserveOverrides = true
+  local ok2, err = BuildOps.set_tree(params)
+  if not ok2 then return { ok = false, error = err } end
+  return { ok = true, tree = (BuildOps.get_tree()) }
+end
+handlers.get_tree_overrides = op(BuildOps.get_tree_overrides, 'overrides')
+
 handlers.update_tree_delta = function(params)
   local result, err = BuildOps.update_tree_delta(params or {})
   if not result then return { ok = false, error = err } end
   return { ok = true, tree = result.tree, droppedNodes = result.droppedNodes }
 end
+handlers.deallocate_tree_node = op(BuildOps.deallocate_tree_node, 'result')
 
 handlers.set_config = function(params)
   local result, err = BuildOps.set_config(params or {})
@@ -259,6 +356,12 @@ handlers.set_main_selection = function(params)
   return { ok = true, skills = (BuildOps.get_skills()) }
 end
 
+handlers.set_calcs_selection = function(params)
+  local ok2, err = BuildOps.set_calcs_selection(params or {})
+  if not ok2 then return { ok = false, error = err } end
+  return { ok = true, skills = (BuildOps.get_skills()) }
+end
+
 handlers.set_level = function(params)
   if not params or params.level == nil then return { ok = false, error = 'missing level' } end
   local ok2, err = BuildOps.set_level(params.level)
@@ -274,21 +377,41 @@ handlers.remove_skill = op(BuildOps.remove_skill)
 handlers.remove_gem = op(BuildOps.remove_gem)
 
 handlers.get_tree = op(BuildOps.get_tree, 'tree')
+handlers.get_cluster_jewels = op(BuildOps.get_cluster_jewels, 'result')
+handlers.inspect_item_parse = op(BuildOps.inspect_item_parse, 'result')
 handlers.get_items = op(BuildOps.get_items, 'items')
+handlers.get_item_inventory = op(BuildOps.get_item_inventory, 'items')
 handlers.get_skills = op(BuildOps.get_skills, 'skills')
+handlers.get_cost_snapshot = function()
+  local skills, skillErr = BuildOps.get_skills()
+  if not skills then return { ok = false, error = skillErr or 'skills unavailable' } end
+  local items, itemErr = BuildOps.get_items()
+  if not items then return { ok = false, error = itemErr or 'equipment unavailable' } end
+  return { ok = true, result = { items = items, skills = skills } }
+end
+handlers.get_compatible_supports = op(BuildOps.get_compatible_supports, 'result')
 handlers.get_build_info = op(BuildOps.get_build_info, 'info')
+handlers.get_build_notes = op(BuildOps.get_build_notes, 'notes')
+handlers.set_build_notes = op(BuildOps.set_build_notes)
 handlers.get_config = function()
   local cfg, err = BuildOps.get_config()
   if cfg == nil then return { ok = false, error = err or 'operation failed' } end
-  return { ok = true, config = cfg, labels = (BuildOps.get_config_labels()) }
+  return { ok = true, config = cfg, labels = (BuildOps.get_config_labels()), enemyLevelSetting = (BuildOps.get_enemy_level_setting()) }
 end
 handlers.calc_with = op(BuildOps.calc_with, 'output')
+handlers.compare_item = op(BuildOps.compare_item, 'result')
+handlers.item_comparison_snapshot = op(BuildOps.item_comparison_snapshot, 'result')
+handlers.unchanged_items_snapshot = op(BuildOps.unchanged_items_snapshot, 'result')
+handlers.get_item_affix_weight = op(BuildOps.get_item_affix_weight, 'result')
 handlers.export_build_xml = op(BuildOps.export_build_xml, 'xml')
 handlers.add_item_text = op(BuildOps.add_item_text, 'item')
 handlers.create_socket_group = op(BuildOps.create_socket_group, 'socketGroup')
 handlers.add_gem = op(BuildOps.add_gem, 'gem')
 handlers.search_nodes = op(BuildOps.search_nodes, 'results')
+handlers.query_tree_paths = op(dofile(ADAPTER_DIR .. 'tree_paths.lua'), 'result')
 handlers.get_mastery_options = op(BuildOps.get_mastery_options, 'result')
+handlers.get_mastery_node_options = op(BuildOps.get_mastery_node_options, 'result')
+handlers.refresh_tree_progress = op(BuildOps.refresh_tree_progress)
 handlers.get_ailments = op(BuildOps.get_ailments, 'result')
 handlers.save_build = op(BuildOps.save_build, 'result')
 handlers.list_specs = op(BuildOps.list_specs, 'result')
@@ -302,6 +425,11 @@ handlers.set_socket_group_enabled = op(BuildOps.set_socket_group_enabled, 'resul
 
 handlers.evaluate_anoint_candidates = evaluate_anoint_candidates
 handlers.generate_weighted_trade_query = generate_weighted_trade_query
+handlers.generate_weighted_trade_query_v2 = function(params)
+  params = params or {}
+  params.reportWeightBaselines = true
+  return generate_weighted_trade_query(params)
+end
 
 handlers.find_timeless_jewel_seeds = dofile(ADAPTER_DIR .. 'timeless_jewel.lua')
 

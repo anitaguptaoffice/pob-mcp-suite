@@ -1,0 +1,31 @@
+import { strict as assert } from 'node:assert';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { once } from 'node:events';
+import { PoBLuaApiClient } from '../../build/adapters/pob/bridge.js';
+import { gearedBuildXml, smokePoBSrc } from './pobSource.mjs';
+import { startMcpServer } from './mcpClient.mjs';
+const dir = await mkdtemp(join(tmpdir(), 'pob-crafting-context-'));
+const client = new PoBLuaApiClient({ cwd: smokePoBSrc(), cmd: process.env.POB_CMD, args: [resolve('lua/vanilla_stdio_bridge.lua')], env: { POB_API_STDIO: '0' }, timeoutMs: 60000 });
+let child;
+try {
+  const xml = await readFile(gearedBuildXml, 'utf8');
+  await client.start(); await client.loadBuildXml(xml);
+  const helmet = (await client.getItems()).find(item => item.slot === 'Helmet' && item.shown && item.id > 0 && item.baseName);
+  assert.ok(helmet, 'fixture must have an equipped visible helmet');
+  const native = await client.getStats(['Life', 'EnergyShield']); await client.stop();
+  const mcp = startMcpServer({ POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
+  child = mcp.child; child.stderr.on('data', () => {}); const exited = once(child, 'exit');
+  await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'crafting-context-smoke', version: '1' } }); mcp.notify('notifications/initialized', {});
+  const call = async (name, args) => { const response = await mcp.request('tools/call', { name, arguments: args }); assert.ok(!response.error && !response.result?.isError, JSON.stringify(response).slice(0, 1600)); return JSON.parse(response.result.content[0].text); };
+  const parent = await call('foundation_import_build', { xml, source: 'crafting-fixture' });
+  const result = await call('prepare_crafting_context', { snapshot_id: parent.id, slot: 'Helmet', desired_mods: ['life'] });
+  assert.equal(result.base, helmet.baseName); assert.equal(result.baseSource, 'equipped'); assert.equal(result.equipped.itemId, helmet.id);
+  assert.equal(result.buildStats.Life, native.Life); assert.equal(result.buildStats.EnergyShield, native.EnergyShield);
+  assert.equal(result.reference.status, 'not_requested'); assert.equal(result.itemLevel, null);
+  const explicit = await call('prepare_crafting_context', { slot: 'Helmet', base: 'Hubris Circlet', item_level: 84 });
+  assert.equal(explicit.baseSource, 'provided'); assert.equal(explicit.context, null); assert.equal(explicit.itemLevel, 84);
+  assert.equal((await call('foundation_export_build', { snapshot_id: parent.id })).xml, xml);
+  child.stdin.end(); assert.equal((await exited)[0], 0); console.log('foundation crafting context passed');
+} finally { if (child && child.exitCode === null && child.signalCode === null) child.kill('SIGTERM'); await client.stop(); await rm(dir, { recursive: true, force: true }); }

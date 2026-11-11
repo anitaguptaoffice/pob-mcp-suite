@@ -1,22 +1,16 @@
 // Shared inputs for the smoke tests: where the Lua engine is, and a geared build.
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolvePoBLayout } from '../../build/utils/pobLayout.js';
 
+// Smoke runs resolve the vendored engine relative to the package root.
+process.env.POB_REPO_ROOT ??= fileURLToPath(new URL('../../', import.meta.url));
+
 /**
- * The src/ the Lua process runs in. Resolved the same way the server resolves it,
- * so an installed PoB needs no configuration; POB_PATH still wins when set.
+ * The src/ the Lua process runs in, resolved the same way the server resolves it.
+ * POB_PATH wins when set; otherwise an installed PoB or the vendored checkout is used.
  */
 export function smokePoBSrc() {
-  const { src, kind } = resolvePoBLayout(process.env.POB_PATH || process.env.POB_FORK_PATH);
-  if (!existsSync(join(src, 'HeadlessWrapper.lua'))) {
-    throw new Error(
-      `No PoB engine at ${src} (resolved as ${kind}). Install Path of Building, ` +
-        `or set POB_PATH to the src directory of a checkout.`
-    );
-  }
-  return src;
+  return resolvePoBLayout(process.env.POB_PATH).src;
 }
 
 /** A geared build the repo owns, so no smoke test needs a PoB checkout. */

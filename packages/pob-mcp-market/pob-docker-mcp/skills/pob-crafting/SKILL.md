@@ -7,7 +7,33 @@ description: Use for Path of Exile 1 item crafting, crafting steps, success prob
 
 Use Simplified Chinese and verified Chinese game terms. The user plays the international realm. Verify the item, game version, base, level, existing modifiers, available slots, and currency mechanic before suggesting a step. Explain uncertainty and possible loss of modifiers.
 
-`suggest_crafting` gathers context; it is not a rules engine or probability simulator. Never present its suggestions or fallback prices as verified. A Scouring Orb normally removes all explicit modifiers and returns an item to normal rarity; protection and special-item rules require separate verification.
+Inspect advertised schemas first. Tools that are not advertised are unavailable;
+do not substitute a tool with a similar name or assume a build is loaded.
+
+When advertised, `prepare_crafting_context` gathers an explicitly supplied base
+or an active equipped item from a snapshot. It does not validate the target's
+item level, modifiers, special state, eligibility or crafting steps. Optional
+`verify_base: true` checks the PoEDB page title only. For an exact international
+league, obtain reference currency prices separately with
+`reference_currency_rates`; use a securable priced official Trade search for
+buyable comparisons. This tool is not a rules engine or probability simulator. A Scouring Orb
+normally removes all explicit modifiers and returns an item to normal rarity;
+protection and special-item rules require separate verification.
+
+When advertised, `classify_modifier_lines`, `query_bench_modifiers`, and
+`query_modifier_tiers` provide PoB table evidence without a loaded build. Check
+the returned data fingerprints, unknown slot counts, pagination, and warnings.
+Only supply `item_tags` with `item_tags_complete: true` after independently
+confirming the complete tag set including `default`; a broad `slot_tags` match
+does not prove eligibility. A base spawn rule is neither a crafting probability
+nor proof that a modifier can be obtained on the item. If the required interface
+is unavailable, report that limitation.
+
+When advertised, `inspect_pob_item_affix_weight` accepts a PoB modifier ID and
+complete item text without a snapshot. It uses PoB item data and reports
+item-level eligibility separately from spawn weight; neither implies crafting
+probability or actual eligibility under a specific crafting method. Inspect
+the returned identity and warnings and leave a missing item level unknown.
 
 `compare_craft_budget` is a mathematical repeated-attempt model. It requires independently verified per-attempt probability, the complete cost per attempt, and the probability's source/version. It does not derive odds from PoE data. Distinguish the expected cost from the 50% and 90% budgets, and name any omitted base, salvage, protection, or intermediate-step costs. For market listings, use the separate `pob-economy` skill.
 

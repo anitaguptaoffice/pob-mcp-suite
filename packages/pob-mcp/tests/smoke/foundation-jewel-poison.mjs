@@ -1,0 +1,35 @@
+import { strict as assert } from 'node:assert';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { once } from 'node:events';
+import { PoBLuaApiClient } from '../../build/adapters/pob/bridge.js';
+import { smokePoBSrc } from './pobSource.mjs';
+import { startMcpServer } from './mcpClient.mjs';
+const dir = await mkdtemp(join(tmpdir(), 'pob-jewel-poison-'));
+const client = new PoBLuaApiClient({ cwd: smokePoBSrc(), cmd: process.env.POB_CMD, args: [resolve('lua/vanilla_stdio_bridge.lua')], env: { POB_API_STDIO: '0' }, timeoutMs: 60000 });
+let child;
+try {
+  await client.start(); await client.loadBuildXml(await readFile(resolve('tests/fixtures/cluster-toxic-rain.xml'), 'utf8'));
+  const group = await client.createSocketGroup({ label: 'poison-minion', slot: 'Helmet' });
+  await client.addGem({ groupIndex: group.index, gemName: 'Summon Raging Spirit', level: 20 }); await client.setMainSelection({ mainSocketGroup: group.index });
+  assert.ok((await client.setConfig({ customMods: 'Minions have 100% chance to Poison on Hit' })).applied.customMods);
+  const xml = await client.exportBuildXml(), fields = ['TotalDPS', 'MinionTotalDPS', 'MinionCombinedDPS'];
+  const before = await client.getStats(fields); assert.ok(before.MinionCombinedDPS > before.MinionTotalDPS && before.MinionTotalDPS > 0);
+  const jewel = 'Rarity: RARE\nMinion Jewel\nCobalt Jewel\nImplicits: 0\nMinions deal 40% increased Damage';
+  await client.addItem(jewel, 'Jewel 34483'); const after = await client.getStats(fields);
+  assert.ok(after.MinionCombinedDPS > before.MinionCombinedDPS); await client.stop();
+  const mcp = startMcpServer({ POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
+  child = mcp.child; child.stderr.on('data', () => {}); const exited = once(child, 'exit');
+  await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'jewel-poison-smoke', version: '1' } }); mcp.notify('notifications/initialized', {});
+  const call = async (name, args) => { const response = await mcp.request('tools/call', { name, arguments: args }); assert.ok(!response.error && !response.result?.isError, JSON.stringify(response).slice(0, 1600)); return JSON.parse(response.result.content[0].text); };
+  const parent = await call('foundation_import_build', { xml, source: 'jewel-poison-fixture' });
+  const report = await call('compare_snapshot_jewels', { snapshot_id: parent.id, socket_node_id: 34483, fields, candidates: [{ name: 'minion', item_text: jewel }] });
+  const candidate = report.results[0]; assert.equal(candidate.status, 'compared', JSON.stringify(candidate));
+  const metric = candidate.comparison.metrics.MinionCombinedDPS;
+  assert.ok(Math.abs(metric.baseline.value - before.MinionCombinedDPS) < 0.01); assert.ok(Math.abs(metric.candidate.value - after.MinionCombinedDPS) < 0.01);
+  assert.ok(Math.abs(metric.delta - (after.MinionCombinedDPS - before.MinionCombinedDPS)) < 0.01);
+  assert.ok(candidate.comparison.metrics.MinionCombinedDPS.candidate.value > candidate.comparison.metrics.MinionTotalDPS.candidate.value);
+  assert.equal((await call('foundation_export_build', { snapshot_id: parent.id })).xml, xml);
+  child.stdin.end(); assert.equal((await exited)[0], 0); console.log('foundation jewel poison passed');
+} finally { if (child && child.exitCode === null && child.signalCode === null) child.kill('SIGTERM'); await client.stop(); await rm(dir, { recursive: true, force: true }); }

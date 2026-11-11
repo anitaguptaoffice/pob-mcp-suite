@@ -21,103 +21,59 @@ Default command:
 
 The command pulls the published Docker image on first run, then runs `pob-mcp-server` with:
 
-- `POB_LUA_ENABLED=true`
-- `POB_FORK_PATH=/opt/PathOfBuilding/src`
+- `POB_PATH=/opt/PathOfBuilding/src`
 - `POB_DIRECTORY=/builds`
 - host builds mounted from `POB_BUILDS_DIR`, defaulting to `~/Documents/Path of Building/Builds`
 
+Snapshot data is stored beneath the mounted build directory. See
+`../../references/client-configs.md` for local test configuration; the packaged
+plugin's default targets the published image.
+
 ## Recommended Workflow
 
-1. Confirm the user has a PoB XML file or a build in the mounted builds directory.
-2. Use `list_builds` when the user refers to a saved build by name.
-3. For pobb.in URLs, decode or import the build XML first, then place it in the mounted builds directory before using MCP tools.
-4. Load the build through Lua when possible before drawing conclusions:
-   - `lua_load_build`
-   - `lua_get_build_info`
-   - `lua_get_stats`
-   - `lua_get_tree`
-   - `lua_get_items`
-   - `lua_get_skills`
-5. Use non-Lua tools for broader static reports and file operations:
-   - `analyze_build`
-   - `compare_builds`
-   - `validate_build`
-   - `get_build_notes`
-   - `set_build_notes`
-   - `snapshot_build`
-   - `export_build`
-6. Explain changes in PoB terms: DPS, effective hit pool, resistances, ailment mitigation, tree pathing, gem links, flask uptime, and cost.
+First inspect the server's advertised tools and use the explicit snapshot workflow
+in `../../references/snapshot-workflows.md`. Build operations after import must
+name their snapshot; do not assume an implicitly loaded build. If a requested
+operation has no advertised equivalent, say it is unavailable. Explain results
+in PoB terms, including the calculation context, uncertainty and the limits of
+any price or uptime assumptions.
 
 For detailed tool selection, verification, and known edge cases, read the relevant reference:
 
 - `../../references/tool-workflows.md` for source-of-truth, build intake, mutation, and alternate tree rules.
 - `../../references/tree-optimization.md` for passive tree recommendations and reallocation.
 - `../../references/trade-tools.md` for trade searches, price checks, and gear upgrades.
-- `../../references/troubleshooting.md` for Docker, Lua bridge, pobb.in, and mismatch triage.
+- `../../references/troubleshooting.md` for Docker, engine, pobb.in, and mismatch triage.
+- For build budgets, trade estimates, and crafting costs, use the separate `pob-economy` skill in `../pob-economy/SKILL.md`.
+- For crafting rules and probability assumptions, use the separate `pob-crafting` skill in `../pob-crafting/SKILL.md`.
 - For build budgets, trade estimates, and crafting costs, use the separate `pob-economy` skill in `../pob-economy/SKILL.md`.
 - For crafting rules and probability assumptions, use the separate `pob-crafting` skill in `../pob-crafting/SKILL.md`.
 
 ## Tool Trust Model
 
-- Prefer Lua-backed tools for calculated stats, selected class, ascendancy names, tree version, item sets, skill setups, config, and mutation previews.
-- Treat XML/static analysis as useful context, not final truth, when it conflicts with Lua output.
+- Prefer PoB calculation tools for calculated stats, selected class, ascendancy names, tree version, item sets, skill setups, config, and mutation previews.
+- Treat XML/static analysis as useful context, not final truth, when it conflicts with PoB calculation output.
 - Treat trade and poe.ninja output as live external data that may be stale or disabled by environment flags.
 - Treat passive point legality from static analysis as advisory only for alternate trees.
 - When build data comes from pobb.in or an official passive tree URL, cross-check level, tree version, passive count, class, and ascendancy against the source before making claims.
 
-## Common Tool Groups
-
-Use Lua-backed tools whenever available because they use real PoB calculations:
-
-   - `lua_load_build`
-   - `lua_get_build_info`
-   - `lua_get_stats`
-   - `lua_get_tree`
-   - `lua_set_tree`
-   - `lua_update_tree_delta`
-   - `lua_get_items`
-   - `lua_get_skills`
-
-Use optimization tools only after loading or identifying the target build:
-
-   - `suggest_optimal_nodes`
-   - `optimize_tree`
-   - `get_nearby_nodes`
-   - `find_path_to_node`
-   - `allocate_nodes`
-
-Use mutation and export tools only after summarizing the intended change:
-
-   - `lua_set_tree`
-   - `lua_update_tree_delta`
-   - `add_item`
-   - `add_gem`
-   - `set_main_skill`
-   - `save_tree`
-   - `snapshot_build`
-   - `restore_snapshot`
-   - `export_build`
-
 ## Guardrails
 
-- Do not claim a DPS or defensive number unless it came from a PoB/Lua tool result or an explicitly provided build export.
-- Before suggesting tree edits, check current tree version and allocated nodes.
-- Before mutating a build, summarize the intended change and prefer snapshot/export tools when available.
+- Do not claim a DPS or defensive number unless it came from a PoB calculation result or an explicitly provided build export.
+- Before suggesting tree edits, check current tree version and allocated nodes. Use `foundation_inspect` with `tree` and derive an explicit child; see the snapshot workflow.
+- Before mutating a build, summarize the intended change; mutations create a child snapshot, so state which child you are reporting on.
 - Treat trade and poe.ninja data as live external data; if the MCP has trade disabled, state that price guidance is approximate.
-- Before building a non-unique item search, use `search_stats` with `official_sources=true`. Do not assume an `explicit.stat_*` filter also matches identically worded `Implicit`, `Fractured`, `Crafted`, or `Enchant` stats.
+- Before building a non-unique item search, use `search_trade_stats` when advertised. Do not assume an `explicit.stat_*` filter also matches identically worded `Implicit`, `Fractured`, `Crafted`, or `Enchant` stats.
 - Prefer a suitable `Pseudo` total when one exists. Otherwise put compatible source variants for one semantic requirement in one `count`/`or` group, and keep separate mandatory requirements in separate groups. Do not mechanically add every same-text source to named unique searches.
 - Use `status=securable` when the user asks for instant-buyout or immediately purchasable listings.
 - If the Docker runtime is unavailable, ask the user to start Docker and rerun the MCP command.
-- For `*_alternate` tree versions, do not infer build legality from static passive point counts alone. Use PoB/Lua or the official tree link as the source of truth.
-- If `analyze_build` and Lua disagree on class, ascendancy, tree version, or calculated stats, report the discrepancy and prefer Lua.
+- For `*_alternate` tree versions, do not infer build legality from static passive point counts alone. Use PoB calculations or the official tree link as the source of truth.
 
 ## Common Failures
 
 **Docker image missing:** the script pulls it automatically. First run can take several minutes.
 
 **Build not found:** confirm `POB_BUILDS_DIR` points to the directory containing `.xml` files.
-
-**Lua bridge not enabled:** set `POB_LUA_ENABLED=true`.
 
 **LuaJIT startup failure in container:** pull the latest image or pin a known-good tag:
 

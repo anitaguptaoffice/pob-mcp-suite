@@ -1,0 +1,52 @@
+{
+  "query": {
+    "status": {
+      "option": "securable"
+    },
+    "filters": {
+      "type_filters": {
+        "filters": {
+          "ilvl": {
+            "min": 84
+          }
+        }
+      },
+      "trade_filters": {
+        "filters": {
+          "price": {
+            "max": 10,
+            "option": "chaos"
+          }
+        }
+      }
+    },
+    "type": "Large Cluster Jewel",
+    "stats": [
+      {
+        "type": "count",
+        "value": {
+          "min": 1
+        },
+        "filters": [
+          {
+            "id": "enchant.stat_3086156145",
+            "value": {
+              "min": 8,
+              "max": 8
+            }
+          },
+          {
+            "id": "explicit.stat_3086156145",
+            "value": {
+              "min": 8,
+              "max": 8
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "sort": {
+    "price": "asc"
+  }
+}

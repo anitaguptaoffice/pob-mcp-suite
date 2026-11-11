@@ -4,7 +4,6 @@
   "description": "Monorepo for the PoB MCP server, bundled Path of Building fork, and Codex plugin marketplace package.",
   "scripts": {
     "build": "npm --prefix packages/pob-mcp run build",
-    "test:focused": "npm --prefix packages/pob-mcp test -- tests/unit/buildHandlers.test.ts tests/unit/pobLuaBridge.test.ts tests/unit/luaHandlers.test.ts tests/unit/tradeSearchHandler.test.ts --runInBand",
     "test:all": "npm --prefix packages/pob-mcp test -- --runInBand",
     "validate:market": "python3 packages/pob-mcp-market/scripts/validate_market.py",
     "validate:shell": "bash -n packages/pob-mcp-market/pob-docker-mcp/scripts/pob-mcp-docker.sh && bash -n packages/pob-mcp-market/pob-docker-mcp/scripts/smoke-test.sh",

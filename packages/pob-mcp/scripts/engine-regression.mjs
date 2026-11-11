@@ -1,9 +1,18 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { PoBLuaApiClient } from '../build/pobLuaBridge.js';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { PoBLuaApiClient } from '../build/adapters/pob/bridge.js';
+import { parseModFile } from '../build/adapters/modifierData/modDataStore.js';
+import { firstMatchingSpawnRule } from '../build/domain/modifiers/affixQuery.js';
+import { resolvePoBLayout } from '../build/utils/pobLayout.js';
+
+// Repo runs fall back to the vendored engine relative to the package root.
+process.env.POB_REPO_ROOT ??= fileURLToPath(new URL('..', import.meta.url));
+const pobSrc = resolvePoBLayout(process.env.POB_PATH).src;
 
 const client = new PoBLuaApiClient({
-  cwd: process.env.POB_FORK_PATH,
+  cwd: pobSrc,
   cmd: process.env.POB_CMD,
   timeoutMs: 60000,
 });
@@ -20,12 +29,128 @@ try {
   assert.equal(eventInfo.ascendClassName, 'Ancestral Commander', `event build metadata lost: ${JSON.stringify(eventInfo)}`);
   await client.newBuild({ className: 'Witch' });
   await client.setTree({ classId: 3, ascendClassId: 0, nodes: [], treeVersion: '3_29' });
+  const beforeBadGroup = await client.getSkills();
+  await assert.rejects(() => client.createSocketGroup({ slot: 'Not A Slot' }), /slot.*not supported/);
+  await assert.rejects(() => client.createSocketGroup({ slot: 'Flask 1' }), /slot.*not supported/);
+  assert.deepEqual(await client.getSkills(), beforeBadGroup, 'invalid slot created a skill group');
+  const unattachedGroup = await client.createSocketGroup({ label: 'unattached' });
+  assert.equal((await client.getSkills()).groups[unattachedGroup.index - 1].slot, undefined, 'unattached group gained a slot');
+  await client.removeSkill({ groupIndex: unattachedGroup.index });
+  const ringText = 'Rarity: RARE\nSlot Test\nGold Ring\nItem Level: 86\nImplicits: 0\n+30 to maximum Life';
+  const beforeInvalidAdd = await client.itemComparisonSnapshot();
+  await assert.rejects(() => client.addItem(ringText, 'Not A Slot'), /unknown slot.*not added/);
+  await assert.rejects(() => client.addItem(ringText, 'Helmet'), /incompatible.*not added/);
+  assert.equal((await client.itemComparisonSnapshot()).xml, beforeInvalidAdd.xml, 'invalid item destination changed saved inventory');
+  const ringAdded = await client.addItem(ringText, 'Ring 2');
+  const ringSlots = (await client.getItems()).filter(item => item.id === ringAdded.id);
+  assert.deepEqual(ringSlots.map(item => item.slot), ['Ring 2'], 'explicit destination auto-equipped the same item elsewhere');
+  assert.equal(ringAdded.slot, 'Ring 2');
+  const inventoryOnly = await client.addItem(ringText, undefined, true);
+  assert.equal(inventoryOnly.slot, undefined, 'inventory-only item falsely reported as equipped');
+  assert.ok(!(await client.getItems()).some(item => item.id === inventoryOnly.id), 'inventory-only item was equipped');
+  await client.newBuild({ className: 'Witch' });
+  await client.setTree({ classId: 3, ascendClassId: 0, nodes: [], treeVersion: '3_29' });
+  const ruleItemsBefore = await client.getItems();
+  const amuletWeight = await client.getItemAffixWeight('AddedPhysicalDamage7', 'Rarity: RARE\nWeight Test\nCitrine Amulet\nItem Level: 1\nImplicits: 0');
+  const ringWeight = await client.getItemAffixWeight('AddedPhysicalDamage7', 'Rarity: RARE\nWeight Test\nGold Ring\nItem Level: 86\nImplicits: 0');
+  assert.equal(amuletWeight.weight, 1000, 'PoB amulet spawn weight changed');
+  assert.equal(ringWeight.weight, 0, 'PoB ring zero-weight rule changed');
+  const modData = await readFile(join(pobSrc, 'Data/ModExplicit.lua'), 'utf8');
+  const ruleMod = parseModFile(modData, 'explicit').find(mod => mod.id === 'AddedPhysicalDamage7');
+  assert.ok(ruleMod, 'expected modifier missing from PoB data');
+  assert.equal(firstMatchingSpawnRule(ruleMod, ['amulet', 'default'])?.weight, amuletWeight.weight, 'parsed amulet rule disagrees with PoB');
+  assert.equal(firstMatchingSpawnRule(ruleMod, ['ring', 'default'])?.weight, ringWeight.weight, 'parsed ring rule disagrees with PoB');
+  const armour = 'Rarity: RARE\nWeight Test\nVaal Regalia\nItem Level: 100\nImplicits: 0';
+  const elevatedMod = 'LocalIncreaseSocketedActiveGemLevelUberMaven';
+  const noInfluence = await client.getItemAffixWeight(elevatedMod, armour);
+  const shaperInfluence = await client.getItemAffixWeight(elevatedMod, `${armour}\nShaper Item`);
+  assert.equal(noInfluence.weight, 0, 'Elevated modifier unexpectedly matched un-influenced armour');
+  assert.equal(shaperInfluence.weight, 1000, 'PoB Elevated influence override was not applied');
+  const elevatedRule = parseModFile(modData, 'explicit').find(mod => mod.id === elevatedMod);
+  assert.equal(firstMatchingSpawnRule(elevatedRule, ['body_armour_shaper', 'default'])?.weight, 0, 'fixture must demonstrate raw weight override');
+  const weapon = 'Rarity: RARE\nWeight Test\nGlass Shank\nItem Level: 86\nImplicits: 0';
+  const dagger = await client.getItemAffixWeight('LocalIncreasedPhysicalDamagePercentAndAccuracyRating1', weapon);
+  assert.equal(dagger.weight, 1000, 'PoB failed to apply the first matching attack-dagger multiplier');
+  assert.equal(amuletWeight.itemLevel, 1);
+  assert.equal(amuletWeight.requiredItemLevel, 52);
+  await assert.rejects(() => client.getItemAffixWeight('NotARealMod', 'Rarity: RARE\nTest\nCitrine Amulet'), /not found/);
+  assert.deepEqual(await client.getItems(), ruleItemsBefore, 'affix weight inspection changed live equipment');
+  await client.createSocketGroup({ label: 'active weapon', slot: 'Weapon 1' });
+  await client.addGem({ groupIndex: 1, gemName: 'Arc', level: 20 });
+  await client.createSocketGroup({ label: 'swap weapon', slot: 'Weapon 1 Swap' });
+  await client.addGem({ groupIndex: 2, gemName: 'Arc', level: 20 });
+  const costGroups = (await client.getCostSnapshot()).skills.groups;
+  assert.equal(costGroups[0].slotEnabled, true, 'active weapon skill group was not marked active');
+  assert.equal(costGroups[1].slotEnabled, false, 'swap weapon skill group was not marked inactive');
+  await client.newBuild({ className: 'Witch' });
+  await client.setTree({ classId: 3, ascendClassId: 0, nodes: [], treeVersion: '3_29' });
   const info = await client.getBuildInfo();
   assert.equal(info.className, 'Witch', `class metadata lost: ${JSON.stringify(info)}`);
+  const masterySearch = await client.searchNodes({ keyword: 'mastery', nodeType: 'mastery', maxResults: 100, includeAllocated: false });
+  assert.ok(masterySearch.nodes.length > 0, 'mastery filter returned no masteries in 3.29');
+  assert.ok(masterySearch.nodes.every(node => node.type === 'mastery' && node.isMastery === true), 'mastery filter returned a different node type');
+  const lifeMastery = await client.searchNodes({ keyword: 'Life Mastery', nodeType: 'mastery', maxResults: 100, includeAllocated: false });
+  const targetMastery = lifeMastery.nodes.find(node => node.id === 4139);
+  assert.ok(targetMastery?.pathNodes?.length, '3.29 life mastery path missing');
+  const originalTree = await client.getTree();
+  await client.setTree({ ...originalTree, nodes: [...originalTree.nodes, ...targetMastery.pathNodes], masteryEffects: { 4139: 47642 } });
+  const masteryBefore = await client.getStats(['Life']);
+  await assert.rejects(() => client.calcWith({ masteryEffects: { 4139: 999999 } }), /invalid or unallocated mastery effect/);
+  assert.equal((await client.getTree()).masteryEffects['4139'], 47642, 'invalid mastery changed the build');
+  const masterySimulated = await client.calcWith({ masteryEffects: { 4139: 31822 } });
+  const masteryRestored = await client.getTree();
+  const restoredStats = await client.getStats(['Life']);
+  assert.equal(masteryRestored.masteryEffects['4139'], 47642, 'mastery selection changed after simulation');
+  assert.equal(restoredStats.Life, masteryBefore.Life, 'mastery stats changed after simulation');
+  await client.setTree({ ...masteryRestored, masteryEffects: { 4139: 31822 } });
+  const masteryActual = await client.getStats(['Life']);
+  assert.notEqual(masteryActual.Life, masteryBefore.Life, 'mastery fixture must change Life');
+  assert.equal(masterySimulated.Life, masteryActual.Life, 'mastery simulation must match actual allocation');
+  await client.newBuild({ className: 'Witch' });
+  await client.setTree({ classId: 3, ascendClassId: 0, nodes: [], treeVersion: '3_29' });
   await client.createSocketGroup({ label: 'spell', slot: 'Weapon 1' });
   await client.addGem({ groupIndex: 1, gemName: 'Arc', level: 20 });
   await client.setMainSelection({ mainSocketGroup: 1 });
+  const beforeBadToggles = await client.getSkills();
+  await assert.rejects(() => client.setSocketGroupEnabled({ groupIndex: 1, enabled: 'false' }), /boolean/);
+  await assert.rejects(() => client.setGemEnabled({ groupIndex: 1, gemIndex: 1, enabled: 'false' }), /boolean/);
+  assert.deepEqual(await client.getSkills(), beforeBadToggles, 'invalid enable flag changed skills');
+  await client.setGemEnabled({ groupIndex: 1, gemIndex: 1, enabled: false });
+  assert.equal((await client.getSkills()).groups[0].gems[0].enabled, false);
+  await client.setGemEnabled({ groupIndex: 1, gemIndex: 1, enabled: true });
+  await client.setSocketGroupEnabled({ groupIndex: 1, enabled: false });
+  assert.equal((await client.getSkills()).groups[0].enabled, false);
+  await client.setSocketGroupEnabled({ groupIndex: 1, enabled: true });
+  const flaskBeforeInvalid = await client.getItems();
+  await assert.rejects(() => client.setFlaskActive(1, 'false'), /boolean/);
+  await assert.rejects(() => client.setFlaskActive(1.5, true), /invalid flask index/);
+  assert.deepEqual(await client.getItems(), flaskBeforeInvalid, 'invalid flask input changed equipment');
+  await client.setFlaskActive(1, true);
+  assert.equal((await client.getItems()).find(item => item.slot === 'Flask 1')?.active, true);
+  await client.setFlaskActive(1, false);
+  assert.equal((await client.getItems()).find(item => item.slot === 'Flask 1')?.active, false);
+  const beforeInvalidGems = await client.getSkills();
+  for (const invalid of [{ level: 0 }, { level: 1.5 }, { quality: -1 }, { quality: 100 }, { count: 0 }]) {
+    await assert.rejects(() => client.addGem({ groupIndex: 1, gemName: 'Arc', ...invalid }), /invalid/);
+  }
+  await assert.rejects(() => client.setGemLevel({ groupIndex: 1, gemIndex: 1, level: 1.5 }), /invalid level/);
+  await assert.rejects(() => client.setGemQuality({ groupIndex: 1, gemIndex: 1, quality: 0.5 }), /invalid quality/);
+  await assert.rejects(() => client.addGem({ groupIndex: 1, gemName: 'Arc', qualityId: 'Anomalous' }), /unsupported quality type/);
+  await assert.rejects(() => client.setGemQuality({ groupIndex: 1, gemIndex: 1, quality: 30, qualityId: 'Divergent' }), /unsupported quality type/);
+  assert.deepEqual(await client.getSkills(), beforeInvalidGems, 'invalid gem parameters changed skill state');
+  await client.setGemQuality({ groupIndex: 1, gemIndex: 1, quality: 30 });
+  assert.equal((await client.getSkills()).groups[0].gems[0].quality, 30, 'PoB simulation quality was not retained');
+  await client.setGemQuality({ groupIndex: 1, gemIndex: 1, quality: 0 });
+  const thirtyQuality = await client.addGem({ groupIndex: 1, gemName: 'Efficacy', quality: 30 });
+  assert.equal((await client.getSkills()).groups[0].gems[thirtyQuality.gemIndex - 1].quality, 30, 'added gem quality was not retained');
+  await client.removeGem({ groupIndex: 1, gemIndex: thirtyQuality.gemIndex });
   const spell = await client.getStats();
+  const selectionBefore = await client.getSkills();
+  for (const invalid of [{ mainSocketGroup: 999 }, { mainSocketGroup: 1, mainActiveSkill: 999 }, { mainSocketGroup: 1, skillPart: 999 }, { mainSocketGroup: 1.5 }]) {
+    await assert.rejects(() => client.setMainSelection(invalid), /invalid/);
+    assert.deepEqual(await client.getSkills(), selectionBefore, 'rejected main selection changed skill state');
+    assert.equal((await client.getStats()).TotalDPS, spell.TotalDPS, 'rejected main selection changed damage');
+  }
   assert.ok(spell.TotalDPS > 0, `missing spell damage: ${JSON.stringify(spell)}`);
   // Known results from the 3.29 tree and PoB revision a69391d. A later engine
   // update may legitimately change them; investigate before updating fixtures.
@@ -42,6 +167,11 @@ try {
     `missing minion damage: ${JSON.stringify(minion)}`);
   assert.ok(Math.abs(minion.MinionTotalDPS - 246.18201754386) < 0.001,
     `minion baseline changed: ${minion.MinionTotalDPS}`);
+  const poisonConfig = await client.setConfig({ customMods: 'Minions have 100% chance to Poison on Hit' });
+  assert.ok(poisonConfig.applied.customMods, 'poison fixture configuration rejected');
+  const poisonBase = await client.getStats(['MinionTotalDPS', 'MinionCombinedDPS']);
+  assert.ok(poisonBase.MinionCombinedDPS > poisonBase.MinionTotalDPS, 'poison fixture must include ailment damage');
+  assert.ok(Math.abs(poisonBase.MinionCombinedDPS - 302.94) < 0.01, 'poison fixture changed the poison-inclusive damage baseline');
 
   const jewels = await client.findTimelessJewelSeeds({
     socketNodeId: 60735, desired: ['eternal_notable_minion_1'], seeds: [130660],
@@ -54,15 +184,53 @@ try {
   const minionSimulation = await client.calcWith({ addNodes: minionTarget.pathNodes });
   assert.ok(minionSimulation.Minion?.TotalDPS > 0, 'minion simulation must expose minion damage');
   await client.setTree({ ...minionTree, nodes: [...minionTree.nodes, ...minionTarget.pathNodes] });
-  const actualMinion = await client.getStats(['MinionTotalDPS']);
+  const actualMinion = await client.getStats(['MinionTotalDPS', 'MinionCombinedDPS']);
   assert.ok(Math.abs(actualMinion.MinionTotalDPS - minionSimulation.Minion.TotalDPS) < 0.01,
     `minion simulation disagrees with allocation: ${minionSimulation.Minion.TotalDPS} vs ${actualMinion.MinionTotalDPS}`);
-  // This fixture was measured through both the pre-migration and new bridges
-  // against the same PoB revision; it is not a desktop GUI measurement.
+  assert.ok(Math.abs(actualMinion.MinionCombinedDPS - minionSimulation.Minion.CombinedDPS) < 0.01,
+    `poison minion combined DPS simulation disagrees with allocation: ${minionSimulation.Minion.CombinedDPS} vs ${actualMinion.MinionCombinedDPS}`);
+  // This fixture was measured with the bridge against the pinned PoB revision;
+  // it is not a desktop GUI measurement.
   const xml = await readFile(new URL('../tests/fixtures/occ-vortex.xml', import.meta.url), 'utf8');
   await client.loadBuildXml(xml, 'regression-fixture');
   const fixtureTree = await client.getTree();
   const fixtureStats = await client.getStats(['Life', 'EnergyShield', 'TotalDPS', 'CombinedDPS', 'TotalEHP']);
+  const costSnapshot = await client.getCostSnapshot();
+  assert.deepEqual(costSnapshot.items, await client.getItems(), 'cost snapshot equipment differs from live build');
+  assert.deepEqual(costSnapshot.skills, await client.getSkills(), 'cost snapshot skills differ from live build');
+  const beforeItems = await client.getItems();
+  const amuletText = xml.match(/<Item id="2">([\s\S]*?)<\/Item>/)?.[1]?.trim();
+  assert.ok(amuletText?.includes('+46 to maximum Life'), 'amulet fixture changed');
+  const candidateText = amuletText.replace('+46 to maximum Life', '+96 to maximum Life');
+  const itemPreview = await client.compareItem('Amulet', candidateText);
+  const unknownLine = '+123 to Imaginary Unicorn Protection';
+  const diagnosticPreview = await client.compareItem('Amulet', `${candidateText}\n${unknownLine}`);
+  assert.equal(diagnosticPreview.parseDiagnostics?.candidate.available, true, 'candidate parser diagnostics unavailable');
+  assert.ok(diagnosticPreview.parseDiagnostics.candidate.unparsed.some(entry => entry.line === unknownLine && entry.group === 'explicit'), 'unsupported item mod was not reported');
+  assert.ok(!diagnosticPreview.parseDiagnostics.candidate.unparsed.some(entry => entry.line === '+96 to maximum Life'), 'supported life mod was falsely reported as unsupported');
+  assert.ok(itemPreview.candidateStats.Life > itemPreview.baseline.Life, 'item preview did not change life');
+  assert.deepEqual(await client.getItems(), beforeItems, 'item preview changed equipped items');
+  assert.deepEqual(await client.getStats(['Life', 'EnergyShield', 'TotalDPS', 'CombinedDPS', 'TotalEHP']), fixtureStats, 'item preview changed live stats');
+  await assert.rejects(() => client.compareItem('Helmet', candidateText), /incompatible/);
+  assert.deepEqual(await client.getItems(), beforeItems, 'rejected item preview changed equipped items');
+  await client.addItem(candidateText, 'Amulet');
+  const itemEquipped = await client.getStats(['Life', 'EnergyShield', 'TotalDPS', 'CombinedDPS', 'TotalEHP']);
+  for (const key of ['Life', 'EnergyShield', 'TotalDPS', 'CombinedDPS', 'TotalEHP']) {
+    assert.ok(Math.abs(itemEquipped[key] - itemPreview.candidateStats[key]) < 0.01, `item preview ${key} disagrees with actual equipment`);
+  }
+  await client.loadBuildXml(xml, 'regression-fixture');
+  const shieldText = xml.match(/<Item id="1">([\s\S]*?)<\/Item>/)?.[1]?.trim();
+  assert.ok(shieldText?.includes('Quality: 0'), 'shield quality fixture changed');
+  const shieldWithoutId = shieldText.replace(/^Unique ID:.*\r?\n/m, '');
+  const shieldZero = await client.compareItem('Weapon 2', shieldWithoutId);
+  const shieldTwenty = await client.compareItem('Weapon 2', shieldWithoutId.replace('Quality: 0', 'Quality: 20'));
+  assert.equal(shieldZero.candidate.quality, 0, 'preview raised the actual quality');
+  assert.equal(shieldTwenty.candidate.quality, 20);
+  assert.ok(shieldTwenty.candidateStats.EnergyShield > shieldZero.candidateStats.EnergyShield, 'quality fixture must affect energy shield');
+  await client.addItem(shieldWithoutId, 'Weapon 2');
+  const shieldEquipped = await client.getStats(['EnergyShield', 'TotalEHP']);
+  for (const key of ['EnergyShield', 'TotalEHP']) assert.ok(Math.abs(shieldEquipped[key] - shieldZero.candidateStats[key]) < 0.01, `zero quality ${key} differs from actual equipment`);
+  await client.loadBuildXml(xml, 'regression-fixture');
   assert.equal(fixtureTree.className, 'Witch');
   assert.equal(fixtureTree.ascendClassName, 'Occultist');
   assert.equal(fixtureTree.nodes.length, 132);
@@ -79,6 +247,60 @@ try {
   for (const key of ['Life', 'TotalDPS', 'CombinedDPS']) {
     assert.ok(Math.abs(actual[key] - simulated[key]) < 0.01, `path simulation ${key} disagrees with allocation: ${simulated[key]} vs ${actual[key]}`);
   }
+  await client.loadBuildXml(xml, 'poison-anoint-fixture');
+  const group = await client.createSocketGroup({ label: 'poison-minion', slot: 'Helmet' });
+  await client.addGem({ groupIndex: group.index, gemName: 'Summon Raging Spirit', level: 20 });
+  await client.setMainSelection({ mainSocketGroup: group.index });
+  await client.setConfig({ customMods: 'Minions have 100% chance to Poison on Hit' });
+  const itemIdentity = items => items.filter(item => item.id > 0).map(({ slot, id, raw }) => ({ slot, id, raw }));
+  const originalItems = itemIdentity(await client.getItems());
+  const originalAnointStats = await client.getStats(['Life', 'MinionTotalDPS', 'MinionCombinedDPS']);
+  const originalAnointTree = await client.getTree();
+  const originalSnapshotSkills = await client.getSkills();
+  const originalSnapshotConfig = await client.getConfig();
+  const snapshot = await client.itemComparisonSnapshot();
+  assert.deepEqual(itemIdentity(await client.getItems()), originalItems, 'snapshot changed equipped items');
+  assert.deepEqual(await client.getStats(['Life', 'MinionTotalDPS', 'MinionCombinedDPS']), originalAnointStats, 'snapshot changed live stats');
+  assert.deepEqual(await client.getTree(), originalAnointTree, 'snapshot changed passive tree');
+  assert.deepEqual(await client.getSkills(), originalSnapshotSkills, 'snapshot changed selected skills');
+  assert.deepEqual(await client.getConfig(), originalSnapshotConfig, 'snapshot changed configuration');
+  assert.ok(snapshot.baseline.MinionCombinedDPS > 0, 'snapshot lost selected minion skill');
+  const snapshotClient = new PoBLuaApiClient({ cwd: pobSrc, cmd: process.env.POB_CMD, timeoutMs: 60000 });
+  try {
+    await snapshotClient.start();
+    await snapshotClient.loadBuildXml(snapshot.xml, 'snapshot-regression');
+    const isolatedPreview = await snapshotClient.compareItem('Amulet', candidateText);
+    for (const key of Object.keys(snapshot.baseline)) {
+      assert.ok(Math.abs(snapshot.baseline[key] - isolatedPreview.baseline[key]) < 0.01, `snapshot baseline ${key} disagrees after reload`);
+    }
+  } finally { await snapshotClient.stop(); }
+  const anoint = await client.evaluateAnointCandidates({ slot: 'Amulet', focus: 'dps', limit: 5 });
+  assert.equal(anoint.base.damageStat, 'MinionCombinedDPS', 'anoint ranking must score poison-inclusive minion damage');
+  assert.ok(anoint.base.damageValue > 0 && anoint.candidates.some(candidate => candidate.dpsDelta > 0), 'poison anoint fixture must have meaningful damage gains');
+  assert.deepEqual(itemIdentity(await client.getItems()), originalItems, 'anoint simulation changed equipped items');
+  const afterAnointStats = await client.getStats(['Life', 'MinionTotalDPS', 'MinionCombinedDPS']);
+  assert.deepEqual(afterAnointStats, originalAnointStats, 'anoint simulation changed calculated stats');
+  assert.deepEqual(await client.getTree(), originalAnointTree, 'anoint simulation changed passive tree');
+  const minionItemText = `${amuletText}\nMinions deal 40% increased Damage`;
+  const minionPreview = await client.compareItem('Amulet', minionItemText);
+  assert.ok(minionPreview.baseline.MinionCombinedDPS > 0 && minionPreview.candidateStats.MinionCombinedDPS > minionPreview.baseline.MinionCombinedDPS, 'item preview must include poison-inclusive minion damage');
+  assert.deepEqual(itemIdentity(await client.getItems()), originalItems, 'minion item preview changed equipped items');
+  await client.addItem(minionItemText, 'Amulet');
+  const actualMinionItem = await client.getStats(['MinionTotalDPS', 'MinionCombinedDPS']);
+  for (const key of ['MinionTotalDPS', 'MinionCombinedDPS']) {
+    assert.ok(Math.abs(actualMinionItem[key] - minionPreview.candidateStats[key]) < 0.01, `minion item preview ${key} disagrees with actual equipment`);
+  }
+  await client.newBuild({ className: 'Witch' });
+  await client.createSocketGroup({ label: 'multipart', slot: 'Helmet' });
+  await client.addGem({ groupIndex: 1, gemName: 'Arc', level: 20 });
+  await client.addGem({ groupIndex: 1, gemName: 'Ball Lightning', level: 20 });
+  await client.setMainSelection({ mainSocketGroup: 1, mainActiveSkill: 2, skillPart: 1 });
+  const singleBolt = (await client.getStats()).TotalDPS;
+  await client.setMainSelection({ mainSocketGroup: 1, mainActiveSkill: 2, skillPart: 2 });
+  const allBolts = (await client.getStats()).TotalDPS;
+  assert.ok(singleBolt > 0 && allBolts > singleBolt, 'valid multipart skill selection did not change DPS');
+  await assert.rejects(() => client.setMainSelection({ mainSocketGroup: 1, mainActiveSkill: 2, skillPart: 3 }), /invalid skillPart/);
+  assert.equal((await client.getStats()).TotalDPS, allBolts, 'invalid part changed the selected multipart skill');
   console.log(JSON.stringify({ spellDps: spell.TotalDPS, minionDps: minion.MinionTotalDPS, jewels: jewels.length }));
 } finally {
   await client.stop();

@@ -1,0 +1,88 @@
+import { strict as assert } from 'node:assert';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { once } from 'node:events';
+import { BuildFoundation } from '../../build/foundation/buildFoundation.js';
+import { SnapshotStore } from '../../build/foundation/snapshotStore.js';
+import { openPoBEngine } from '../../build/adapters/pob/engine.js';
+import { gearedBuildXml, smokePoBSrc } from './pobSource.mjs';
+import { startMcpServer } from './mcpClient.mjs';
+
+const dir = await mkdtemp(join(tmpdir(), 'pob-item-sets-'));
+const options = { cwd: smokePoBSrc(), command: process.env.POB_CMD, adapterPath: resolve('lua/vanilla_stdio_bridge.lua'), timeoutMs: 60000 };
+try {
+  const fixture = await readFile(gearedBuildXml, 'utf8');
+  const first = fixture.match(/<ItemSet\b[^>]*\bid="1"[^>]*>[\s\S]*?<\/ItemSet>/)?.[0];
+  assert.ok(first);
+  const second = first.replace('id="1"', 'id="7" title="Alternative"').replace('useSecondWeaponSet="false"', 'useSecondWeaponSet="true"').replace('<Slot name="Ring 1" itemId="5"/>', '<Slot name="Ring 1" itemId="0"/>').replace('<Slot name="Weapon 1" itemId="3"/>', '<Slot name="Weapon 1" itemId="0"/>');
+  assert.notEqual(first, second); assert.ok(second.includes('name="Ring 1" itemId="0"'));
+  const xml = fixture.replace(first, `${first}\n${second}`);
+  const foundation = new BuildFoundation(new SnapshotStore(dir), () => openPoBEngine(options));
+  const parent = await foundation.importBuild(xml, 'item-sets-fixture');
+  const catalog = await foundation.itemSets(parent.id);
+  assert.equal(catalog.activeItemSetId, 1); assert.deepEqual(catalog.itemSets.map(set => set.id), [1, 7]);
+  const base = await foundation.evaluate(parent.id, ['Life']);
+  const child = await foundation.deriveItemSet(parent.id, 7);
+  assert.equal(child.parentId, parent.id);
+  assert.equal((await foundation.itemSets(child.id)).activeItemSetId, 7);
+  const target = await foundation.inspect(child.id, ['items']);
+  assert.equal(target.data.items.find(item => item.slot === 'Ring 1').id, 0);
+  assert.equal(target.data.items.find(item => item.slot === 'Weapon 1').id, 0);
+  assert.equal(target.data.items.find(item => item.slot === 'Weapon 1').shown, false);
+  const alternative = await foundation.evaluate(child.id, ['Life']);
+  assert.ok(base.stats.Life > alternative.stats.Life);
+  assert.equal((await foundation.itemSets(parent.id)).activeItemSetId, 1);
+  const back = await foundation.deriveItemSet(child.id, 1);
+  assert.equal((await foundation.inspect(back.id, ['items'])).data.items.find(item => item.slot === 'Ring 1').id, 5);
+  assert.equal((await foundation.evaluate(back.id, ['Life'])).stats.Life, base.stats.Life);
+  await assert.rejects(foundation.deriveItemSet(parent.id, 999), /Item set not found/);
+  const mcp = startMcpServer({ POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
+  mcp.child.stderr.on('data', () => {}); const exited = once(mcp.child, 'exit');
+  try {
+    await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'item-set-smoke', version: '1' } });
+    mcp.notify('notifications/initialized', {});
+    const listing = await mcp.request('tools/call', { name: 'foundation_item_sets', arguments: { snapshot_id: parent.id } });
+    assert.ok(!listing.error && !listing.result?.isError, JSON.stringify(listing));
+    assert.equal(JSON.parse(listing.result.content[0].text).itemSets.length, 2);
+    const shopping = await mcp.request('tools/call', { name: 'list_snapshot_equipment', arguments: { snapshot_id: child.id, league: 'Standard' } });
+    assert.ok(!shopping.error && !shopping.result?.isError, JSON.stringify(shopping));
+    const equipment = JSON.parse(shopping.result.content[0].text);
+    assert.equal(equipment.activeItemSet.id, 7);
+    assert.equal(equipment.activeItemSet.useSecondWeaponSet, true);
+    assert.equal(equipment.slots.find(slot => slot.slot === 'Weapon 1').weaponSetActive, false);
+    assert.equal(equipment.slots.find(slot => slot.slot === 'Weapon 1 Swap').weaponSetActive, true);
+    assert.equal(equipment.slots.find(slot => slot.slot === 'Ring 1').state, 'empty');
+    assert.equal(equipment.reference, null);
+    assert.ok(equipment.slots.every(slot => slot.purchaseStatus === 'not_checked'));
+    const issuesCall = await mcp.request('tools/call', { name: 'check_snapshot_issues', arguments: { snapshot_id: child.id } });
+    assert.ok(!issuesCall.error && !issuesCall.result?.isError, JSON.stringify(issuesCall));
+    const issues = JSON.parse(issuesCall.result.content[0].text);
+    assert.ok(issues.issues.some(issue => issue.code === 'empty_gear_slot' && issue.evidence.slot === 'Ring 1'));
+    assert.ok(!issues.issues.some(issue => issue.code === 'empty_gear_slot' && issue.evidence.slot === 'Weapon 1'));
+    const swap = equipment.slots.find(slot => slot.slot === 'Weapon 1 Swap');
+    assert.equal(swap.state, 'empty'); assert.equal(swap.inUse, true);
+    assert.ok(issues.issues.some(issue => issue.code === 'empty_gear_slot' && issue.evidence.slot === 'Weapon 1 Swap'));
+    const analysisCall = await mcp.request('tools/call', { name: 'analyze_snapshot_equipment', arguments: { snapshot_id: child.id, include_item_text: true } });
+    assert.ok(!analysisCall.error && !analysisCall.result?.isError, JSON.stringify(analysisCall));
+    const analysis = JSON.parse(analysisCall.result.content[0].text);
+    assert.equal(analysis.activeItemSet.id, 7); assert.equal(analysis.heuristic.status, 'unverified');
+    assert.equal(analysis.metrics.Life.value, alternative.stats.Life);
+    for (const slot of equipment.slots) {
+      const observed = analysis.slots.find(row => row.slot === slot.slot);
+      assert.equal(observed.state, slot.state); assert.equal(observed.inUse, slot.inUse); assert.equal(observed.itemId, slot.itemId);
+    }
+    assert.equal(analysis.slots.find(slot => slot.slot === 'Ring 1').state, 'empty');
+    assert.ok(analysis.heuristic.excludedSlots.some(slot => slot.slot === 'Weapon 1'));
+    const activeWeapon = analysis.slots.find(slot => slot.slot === 'Weapon 1 Swap');
+    if (activeWeapon.inUse && activeWeapon.state !== 'unresolved') assert.ok(analysis.heuristic.result.slotAnalysis.some(slot => slot.slot === 'Weapon 1 Swap'));
+    const originalShopping = await mcp.request('tools/call', { name: 'list_snapshot_equipment', arguments: { snapshot_id: parent.id, league: 'Standard' } });
+    assert.ok(!originalShopping.error && !originalShopping.result?.isError, JSON.stringify(originalShopping));
+    assert.equal(JSON.parse(originalShopping.result.content[0].text).slots.find(slot => slot.slot === 'Ring 1').itemId, 5);
+    const response = await mcp.request('tools/call', { name: 'foundation_derive_item_set', arguments: { snapshot_id: parent.id, item_set_id: 7, trial: true } });
+    assert.ok(!response.error && !response.result?.isError, JSON.stringify(response));
+    const trial = JSON.parse(response.result.content[0].text); assert.equal(trial.parentId, parent.id); assert.equal(trial.retention.kind, 'trial');
+    mcp.child.stdin.end(); assert.equal((await exited)[0], 0);
+  } finally { if (mcp.child.exitCode === null && mcp.child.signalCode === null) { mcp.child.kill('SIGTERM'); await exited; } }
+  console.log('foundation item sets passed');
+} finally { await rm(dir, { recursive: true, force: true }); }

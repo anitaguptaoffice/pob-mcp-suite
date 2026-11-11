@@ -1,0 +1,52 @@
+{
+  "query": {
+    "status": {
+      "option": "securable"
+    },
+    "filters": {
+      "type_filters": {
+        "filters": {
+          "rarity": {
+            "option": "rare"
+          }
+        }
+      },
+      "misc_filters": {
+        "filters": {
+          "corrupted": {
+            "option": "false"
+          },
+          "identified": {
+            "option": "true"
+          }
+        }
+      },
+      "trade_filters": {
+        "filters": {
+          "price": {
+            "min": 2,
+            "max": 10,
+            "option": "chaos"
+          }
+        }
+      }
+    },
+    "type": "Gold Ring",
+    "stats": [
+      {
+        "type": "and",
+        "filters": [
+          {
+            "id": "explicit.life",
+            "value": {
+              "min": 40
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "sort": {
+    "price": "desc"
+  }
+}

@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
-import { resolveAffixes, statTemplate, statValues } from '../../src/services/affixMatcher.js';
-import { parseModFile } from '../../src/services/modDataStore.js';
+import { resolveAffixes, statTemplate, statValues } from '../../src/domain/modifiers/affixMatcher.js';
+import { parseModFile } from '../../src/adapters/modifierData/modDataStore.js';
 import { MOD_EXPLICIT_EXCERPT, MOD_MASTER_EXCERPT } from '../fixtures/modDataExcerpt.js';
 
 const entries = [
@@ -31,6 +31,17 @@ describe('statValues', () => {
 });
 
 describe('resolveAffixes', () => {
+  it('treats same-group prefix and suffix readings as ambiguous', () => {
+    const fixture = `return {
+      ["One"] = { type = "Prefix", affix = "First", "+(1-5) to Strength", statOrder = { 1 }, level = 1, group = "Shared", weightKey = { "default" }, weightVal = { 100 } },
+      ["Two"] = { type = "Suffix", affix = "Second", "+(1-5) to Strength", statOrder = { 1 }, level = 1, group = "Shared", weightKey = { "default" }, weightVal = { 100 } },
+    }`;
+    const result = resolveAffixes(['+3 to Strength'], parseModFile(fixture, 'explicit'));
+    expect(result.affixes[0].alternatives).toHaveLength(1);
+    expect(result.openPrefixes).toBeNull();
+    expect(result.openSuffixes).toBeNull();
+  });
+
   it('counts a hybrid as one prefix rather than a prefix and a suffix', () => {
     const result = resolveAffixes(
       ['9% increased Energy Shield', '6% increased Stun and Block Recovery'],
@@ -91,6 +102,9 @@ describe('resolveAffixes', () => {
     const result = resolveAffixes(['+99% to Chaos Resistance'], entries);
 
     expect(result.affixes[0].minItemLevel).toBeNull();
+    expect(result.openPrefixes).toBeNull();
+    expect(result.openSuffixes).toBeNull();
+    expect(result.warnings.join(' ')).toContain('Wording-only matches');
   });
 
   it('makes open slots unknown when an explicit line has no matching affix', () => {

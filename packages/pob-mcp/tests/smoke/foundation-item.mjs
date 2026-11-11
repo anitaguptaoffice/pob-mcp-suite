@@ -1,0 +1,82 @@
+import { strict as assert } from 'node:assert';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { PoBLuaApiClient } from '../../build/adapters/pob/bridge.js';
+import { BuildFoundation } from '../../build/foundation/buildFoundation.js';
+import { SnapshotStore } from '../../build/foundation/snapshotStore.js';
+import { openPoBEngine } from '../../build/adapters/pob/engine.js';
+import { smokePoBSrc } from './pobSource.mjs';
+import { startMcpServer } from './mcpClient.mjs';
+import { once } from 'node:events';
+
+const dir = await mkdtemp(join(tmpdir(), 'pob-item-'));
+const options = { cwd: smokePoBSrc(), command: process.env.POB_CMD, adapterPath: resolve('lua/vanilla_stdio_bridge.lua'), timeoutMs: 60000 };
+const client = new PoBLuaApiClient({ cwd: options.cwd, cmd: options.command, args: [options.adapterPath], env: { POB_API_STDIO: '0' }, timeoutMs: 60000 });
+const ring = 'Rarity: RARE\nSlot Test\nGold Ring\nItem Level: 86\nImplicits: 0\n+30 to maximum Life';
+try {
+  await client.start();
+  await client.newBuild({ className: 'Witch' });
+  await client.setLevel(90);
+  const xml = await client.exportBuildXml();
+  await client.stop();
+  const foundation = new BuildFoundation(new SnapshotStore(dir), () => openPoBEngine(options));
+  const parent = await foundation.importBuild(xml, 'item-fixture');
+  const before = await foundation.evaluate(parent.id, ['Life']);
+  const autoFirst = await foundation.deriveAutoItem(parent.id, ring, true);
+  assert.equal(autoFirst.slot, 'Ring 1'); assert.equal(autoFirst.snapshot.parentId, parent.id);
+  const autoSecond = await foundation.deriveAutoItem(autoFirst.snapshot.id, ring, true);
+  assert.equal(autoSecond.slot, 'Ring 2');
+  const both = (await foundation.inspect(autoSecond.snapshot.id, ['items'])).data.items;
+  assert.equal(both.find(item => item.slot === 'Ring 1').id, autoFirst.itemId);
+  assert.equal(both.find(item => item.slot === 'Ring 2').id, autoSecond.itemId);
+  const afterAuto = await foundation.listSnapshots();
+  await assert.rejects(foundation.deriveAutoItem(autoSecond.snapshot.id, ring), /did not auto-equip/);
+  assert.deepEqual(await foundation.listSnapshots(), afterAuto);
+  const child = await foundation.deriveItem(parent.id, 'Ring 1', ring);
+  assert.equal(child.parentId, parent.id);
+  const after = await foundation.evaluate(child.id, ['Life']);
+  assert.ok(after.stats.Life > before.stats.Life);
+  const equipped = await foundation.inspect(child.id, ['items']);
+  assert.match(equipped.data.items.find(item => item.slot === 'Ring 1').raw, /\+30 to maximum Life/);
+  assert.equal(await foundation.exportBuild(parent.id), xml);
+  await assert.rejects(foundation.deriveItem(parent.id, 'Helmet', ring), /incompatible/);
+  const mcp = startMcpServer({ POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
+  mcp.child.stderr.on('data', () => {});
+  const exited = once(mcp.child, 'exit');
+  try {
+    await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'item-smoke', version: '1' } });
+    mcp.notify('notifications/initialized', {});
+    const auto = await mcp.request('tools/call', { name: 'foundation_derive_auto_item', arguments: { snapshot_id: parent.id, item_text: ring, trial: true } });
+    assert.ok(!auto.error && !auto.result?.isError, JSON.stringify(auto));
+    assert.equal(JSON.parse(auto.result.content[0].text).slot, 'Ring 1');
+    const response = await mcp.request('tools/call', { name: 'foundation_derive_item', arguments: { snapshot_id: parent.id, slot: 'Ring 1', item_text: ring } });
+    assert.ok(!response.error && !response.result?.isError, JSON.stringify(response));
+    assert.equal(JSON.parse(response.result.content[0].text).id, child.id);
+    const trialResponse = await mcp.request('tools/call', { name: 'foundation_derive_item', arguments: { snapshot_id: parent.id, slot: 'Ring 1', item_text: ring, trial: true } });
+    assert.ok(!trialResponse.error && !trialResponse.result?.isError, JSON.stringify(trialResponse));
+    const trial = JSON.parse(trialResponse.result.content[0].text);
+    assert.equal(trial.retention.kind, 'trial');
+    assert.notEqual(trial.id, child.id);
+    const multi = await mcp.request('tools/call', { name: 'foundation_derive_items', arguments: { snapshot_id: parent.id, items: [{ slot: 'Ring 1', item_text: ring }, { slot: 'Ring 2', item_text: ring }], trial: true } });
+    assert.ok(!multi.error && !multi.result?.isError, JSON.stringify(multi));
+    const multiChild = JSON.parse(multi.result.content[0].text);
+    assert.equal(multiChild.parentId, parent.id); assert.equal(multiChild.retention.kind, 'trial');
+    const equippedBoth = (await foundation.inspect(multiChild.id, ['items'])).data.items;
+    for (const slot of ['Ring 1', 'Ring 2']) assert.match(equippedBoth.find(item => item.slot === slot).raw, /\+30 to maximum Life/);
+    assert.ok((await foundation.evaluate(multiChild.id, ['Life'])).stats.Life > after.stats.Life);
+    const existing = await foundation.listSnapshots();
+    const invalid = await mcp.request('tools/call', { name: 'foundation_derive_items', arguments: { snapshot_id: parent.id, items: [{ slot: 'Ring 1', item_text: ring }, { slot: 'Helmet', item_text: ring }] } });
+    assert.ok(invalid.error || invalid.result?.isError, JSON.stringify(invalid));
+    assert.deepEqual(await foundation.listSnapshots(), existing);
+    assert.equal(await foundation.exportBuild(parent.id), xml);
+    const keep = await mcp.request('tools/call', { name: 'foundation_retain_snapshot', arguments: { snapshot_id: trial.id } });
+    assert.ok(!keep.error && !keep.result?.isError, JSON.stringify(keep));
+    assert.equal(JSON.parse(keep.result.content[0].text).snapshotId, trial.id);
+    mcp.child.stdin.end();
+    assert.equal((await exited)[0], 0);
+  } finally {
+    if (mcp.child.exitCode === null && mcp.child.signalCode === null) { mcp.child.kill('SIGTERM'); await exited; }
+  }
+  console.log('foundation item roundtrip passed');
+} finally { await client.stop(); await rm(dir, { recursive: true, force: true }); }

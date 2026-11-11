@@ -5,16 +5,20 @@
  */
 
 import { describe, it, expect } from '@jest/globals';
-import { loadAllMods, loadExplicitMods, ModDataUnavailableError } from '../../src/services/modDataStore.js';
-import { resolveAffixes } from '../../src/services/affixMatcher.js';
-import { findAffixTiers, findCraftableMods } from '../../src/services/affixQuery.js';
+import { loadAllMods, loadExplicitMods, loadMasterMods, ModDataUnavailableError } from '../../src/adapters/modifierData/modDataStore.js';
+import { resolveAffixes } from '../../src/domain/modifiers/affixMatcher.js';
+import { findAffixTiers as queryTiers, findCraftableMods as queryBench } from '../../src/domain/modifiers/affixQuery.js';
+
+const findAffixTiers = (query: Parameters<typeof queryTiers>[0]) => queryTiers(query, loadExplicitMods());
+const findCraftableMods = (query: Parameters<typeof queryBench>[0]) => queryBench(query, loadMasterMods());
 
 const installed = ((): boolean => {
   try {
     loadExplicitMods();
     return true;
   } catch (error) {
-    if (error instanceof ModDataUnavailableError) return false;
+    const message = error instanceof Error ? error.message : String(error);
+    if (error instanceof ModDataUnavailableError || message.includes('Path of Building engine not found')) return false;
     throw error;
   }
 })();
@@ -50,6 +54,13 @@ withPoB('the installed ModExplicit.lua', () => {
     expect(affixes).not.toContain('of Bameth');
   });
 
+  it('retains a zero-base-weight Elevated modifier for a matching influence candidate', () => {
+    const result = findAffixTiers({ search: '+1 to Level of Socketed Skill Gems',
+      itemTags: ['body_armour_shaper', 'body_armour', 'default'], limit: 500 });
+    expect(result.groups.flatMap(group => group.tiers.map(tier => tier.id)))
+      .toContain('LocalIncreaseSocketedActiveGemLevelUberMaven');
+  });
+
   it('hides mods no base can roll unless they are asked for', () => {
     const hidden = findAffixTiers({ search: 'LocalBaseArmourEvasionRatingAndLife', limit: 5 });
     const shown = findAffixTiers({ search: 'LocalBaseArmourEvasionRatingAndLife', includeUnobtainable: true, limit: 5 });
@@ -68,7 +79,7 @@ withPoB('classifying against the installed data', () => {
 
     expect(result.affixes.find((affix) => affix.affix === "Pixie's")!.lines).toHaveLength(2);
     expect(result.affixes).toHaveLength(3);
-    // Legacy tables also contain a fire-resistance prefix. Without base tags
+    // Older tables also contain a fire-resistance prefix. Without base tags
     // these readings are ambiguous, so no remaining-slot count is justified.
     if (result.affixes.some(affix => affix.alternatives.length > 0)) {
       expect(result.openPrefixes).toBeNull();

@@ -3,7 +3,7 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import zlib from 'node:zlib';
-import { PoBLuaApiClient } from '../../build/pobLuaBridge.js';
+import { PoBLuaApiClient } from '../../build/adapters/pob/bridge.js';
 import { gearedBuildXml, smokePoBSrc } from './pobSource.mjs';
 
 const cwd = smokePoBSrc();
@@ -19,7 +19,7 @@ try {
   await client.start();
   if (!await client.ping()) throw new Error('adapter did not respond to ping');
   const capabilities = await client.getCapabilities();
-  for (const action of ['get_capabilities', 'get_items', 'get_skills', 'set_tree', 'generate_weighted_trade_query',
+  for (const action of ['get_capabilities', 'get_items', 'get_skills', 'get_cost_snapshot', 'set_tree', 'generate_weighted_trade_query',
     'add_gem', 'set_config', 'save_build', 'search_nodes', 'get_mastery_options', 'calc_with',
     'create_spec', 'delete_spec', 'rename_spec', 'set_socket_group_enabled', 'set_gem_enabled',
     'get_ailments']) {
@@ -103,12 +103,12 @@ try {
     throw new Error(`configured shock should be credited: ${JSON.stringify(configured)}`);
   }
 
-  // enemyIsBoss: legacy names must land on the current list values exactly as
+  // enemyIsBoss: older names must land on the current list values exactly as
   // PoB's own XML import maps them; an unknown list value must be REJECTED
   // per key, never silently stored (it would match no branch in the engine).
   const bossAlias = await client.setConfig({ enemyIsBoss: 'Shaper' });
   if (bossAlias?.rejected?.enemyIsBoss || bossAlias?.applied?.enemyIsBoss !== 'Pinnacle') {
-    throw new Error(`legacy boss name 'Shaper' should apply as 'Pinnacle': ${JSON.stringify(bossAlias)}`);
+    throw new Error(`older boss name 'Shaper' should apply as 'Pinnacle': ${JSON.stringify(bossAlias)}`);
   }
   const bossBogus = await client.setConfig({ enemyIsBoss: 'NotABoss' });
   if (!bossBogus?.rejected?.enemyIsBoss) {
@@ -135,22 +135,21 @@ try {
   }
 
   // add_item: an unknown equip slot must fail loudly and disclose the
-  // half-applied state (item added, not equipped) - it used to "succeed"
-  // while echoing the bogus slot back.
+  // Reject invalid destinations before adding the item to the build.
   let slotErr = null;
   try {
     await client.addItem("Rarity: Unique\nKaom's Sign\nIron Ring\n--------\nItem Level: 83\n", 'Not A Slot');
   } catch (e) {
     slotErr = e;
   }
-  if (!slotErr || !/unknown slot/i.test(slotErr.message) || !/NOT equipped/i.test(slotErr.message)) {
+  if (!slotErr || !/unknown slot/i.test(slotErr.message) || !/not added/i.test(slotErr.message)) {
     throw new Error(`unknown equip slot must fail loudly, got: ${slotErr ? slotErr.message : 'no error'}`);
   }
 
   await client.loadBuildXml(await readFile(gearedBuildXml, 'utf8'), 'weighted-query-smoke');
   const weighted = await client.generateWeightedTradeQuery('Amulet');
   const query = weighted.query;
-  if (!query || typeof query !== 'object' || query.query?.status?.option !== 'available' || query.query?.filters?.type_filters?.filters?.category?.option !== 'accessory.amulet' || !Array.isArray(query.query?.stats?.[0]?.filters) || query.query.stats[0].filters.length === 0) {
+  if (!query || typeof query !== 'object' || query.query?.status?.option !== 'securable' || query.query?.filters?.type_filters?.filters?.category?.option !== 'accessory.amulet' || !Array.isArray(query.query?.stats?.[0]?.filters) || query.query.stats[0].filters.length === 0) {
     throw new Error(`unexpected upstream weighted trade query: ${JSON.stringify(query)}`);
   }
   console.log(`adapter bridge passed: ${info.className}/${info.ascendClassName}, ${tree.nodes.length} nodes, ${items.length} item slots, ${skillSetup.groups.length} skill groups`);

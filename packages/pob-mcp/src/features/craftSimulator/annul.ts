@@ -24,10 +24,10 @@ export function simulateSimpleAnnul(input: AnnulInput) {
     desiredRemovalProbability: unwanted / count,
     undesiredRemovalProbability: (count - unwanted) / count,
     outcomes: input.affixes.map(affix => ({ removedAffix: affix.name, disposition: affix.disposition, probability: 1 / count })),
-    assumptions: ['每条列出的外显词缀等概率被移除；一条复合词缀即使显示多行，也只能算一条。',
-      '调用方确认清单完整，物品未腐化或复制，且没有分裂词缀、保护词缀、催化剂品质或其他特殊规则。'],
-    warnings: ['仅模拟使用一次剥离石；结果会改变物品，不能直接当成可以重复尝试的固定概率。',
-      '本工具不识别物品或核实用户输入。清单或前提有误时，不应使用该概率。'],
+    assumptions: ['Each listed explicit modifier is equally likely to be removed; a hybrid modifier counts once even if displayed on multiple lines.',
+      'The caller confirms the list is complete, the item is neither corrupted nor mirrored, and there are no fractured modifiers, protections, catalyst quality, or other special rules.'],
+    warnings: ['This models one use of an Orb of Annulment; the item changes, so the probability cannot be assumed to remain fixed across repeated attempts.',
+      'This tool does not identify the item or verify the input. Do not use these probabilities if the list or assumptions are incorrect.'],
     source: 'https://poedb.tw/cn/Orb_of_Annulment',
   };
 }

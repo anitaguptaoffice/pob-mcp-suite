@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { TradeQueryBuilder } from '../../src/services/tradeQueryBuilder';
+import { TradeQueryBuilder } from '../../src/domain/trade/queryBuilder';
 
 describe('TradeQueryBuilder', () => {
   it('preserves the requested price currency in a Trade API price filter', () => {

@@ -1,4 +1,4 @@
-import type { ToolSchema } from '../../server/toolSchemas.js';
+import type { ToolSchema } from '../../server/toolSchema.js';
 import { simulateSimpleAnnul, type AnnulAffix } from './annul.js';
 
 export function craftSimulatorSchemas(): ToolSchema[] {

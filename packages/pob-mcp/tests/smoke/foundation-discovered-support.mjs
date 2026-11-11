@@ -1,0 +1,38 @@
+import { strict as assert } from 'node:assert';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { once } from 'node:events';
+import { PoBLuaApiClient } from '../../build/adapters/pob/bridge.js';
+import { smokePoBSrc } from './pobSource.mjs';
+import { startMcpServer } from './mcpClient.mjs';
+const dir = await mkdtemp(join(tmpdir(), 'pob-discovered-support-'));
+const client = new PoBLuaApiClient({ cwd: smokePoBSrc(), cmd: process.env.POB_CMD, args: [resolve('lua/vanilla_stdio_bridge.lua')], env: { POB_API_STDIO: '0' }, timeoutMs: 60000 });
+let child;
+try {
+  await client.start(); await client.newBuild({ className: 'Witch' });
+  const group = await client.createSocketGroup({ label: 'poison-minion', slot: 'Helmet' });
+  await client.addGem({ groupIndex: group.index, gemName: 'Summon Raging Spirit', level: 20 });
+  await client.addGem({ groupIndex: group.index, gemName: 'Minion Damage Support', level: 20 });
+  await client.setMainSelection({ mainSocketGroup: group.index });
+  await client.setConfig({ customMods: 'Minions have 100% chance to Poison on Hit' });
+  const baseline = await client.getStats(['MinionTotalDPS', 'MinionCombinedDPS']);
+  assert.ok(baseline.MinionCombinedDPS > baseline.MinionTotalDPS && baseline.MinionTotalDPS > 0);
+  const xml = await client.exportBuildXml(); await client.stop();
+  const mcp = startMcpServer({ POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: resolve('lua/vanilla_stdio_bridge.lua') });
+  child = mcp.child; child.stderr.on('data', () => {}); const exited = once(child, 'exit');
+  await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'discovered-support', version: '1' } }); mcp.notify('notifications/initialized', {});
+  const call = async (name, args) => { const r = await mcp.request('tools/call', { name, arguments: args }); assert.ok(!r.error && !r.result?.isError, JSON.stringify(r)); return JSON.parse(r.result.content[0].text); };
+  const parent = await call('foundation_import_build', { xml, source: 'discovered-support-fixture' });
+  const report = await call('rank_discovered_snapshot_supports', { snapshot_id: parent.id, group_index: group.index, gem_index: 2, metric: 'MinionCombinedDPS', query: 'Minion Speed', limit: 1 });
+  assert.equal(report.status, 'evaluated', JSON.stringify(report));
+  assert.equal(report.discovery.selected.length, 1);
+  assert.equal(report.ranking.baseline.value, baseline.MinionCombinedDPS);
+  const candidate = report.ranking.results[0]; assert.equal(candidate.status, 'ok');
+  assert.equal(candidate.gem.appliedToSelectedSkill, true);
+  const direct = await call('foundation_evaluate', { snapshot_id: candidate.snapshotId, fields: ['MinionCombinedDPS'] });
+  assert.equal(candidate.value, direct.metrics.MinionCombinedDPS.value);
+  assert.equal((await call('foundation_export_build', { snapshot_id: parent.id })).xml, xml);
+  child.stdin.end(); assert.equal((await exited)[0], 0);
+  console.log('discovered support poison-minion comparison passed');
+} finally { if (child && child.exitCode === null && child.signalCode === null) child.kill('SIGTERM'); await client.stop(); await rm(dir, { recursive: true, force: true }); }

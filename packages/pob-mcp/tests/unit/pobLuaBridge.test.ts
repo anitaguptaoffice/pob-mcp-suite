@@ -15,8 +15,18 @@ jest.mock('child_process', () => ({
   spawn: mockSpawn,
 }));
 
+// The bridge resolves the engine layout before spawning. These tests drive a mock
+// process, so the layout is a fixed checkout rather than a real filesystem lookup.
+jest.mock('../../src/utils/pobLayout.js', () => ({
+  resolvePoBLayout: (src?: string) => ({
+    kind: 'checkout', src: src ?? '/test/path',
+    luaPath: ['/test/path/runtime/lua/?.lua'], luaCPath: ['/test/path/runtime/?.so'],
+  }),
+  defaultBuildsDirectory: () => '/test/path',
+}));
+
 // Now import after mocking
-import { PoBLuaApiClient } from '../../src/pobLuaBridge.js';
+import { PoBLuaApiClient } from '../../src/adapters/pob/bridge.js';
 
 describe('PoBLuaApiClient', () => {
   let client: PoBLuaApiClient;

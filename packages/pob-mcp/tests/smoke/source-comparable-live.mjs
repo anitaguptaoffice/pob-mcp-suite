@@ -1,0 +1,97 @@
+// Opt-in read-only integration with official international Trade.
+import { strict as assert } from 'node:assert';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { once } from 'node:events';
+import { startMcpServer } from './mcpClient.mjs';
+
+const dir = await mkdtemp(join(tmpdir(), 'pob-trade-live-'));
+const mcp = startMcpServer({ POE_TRADE_ENABLED: 'true', POE_SESSION_ID: '', POB_SNAPSHOT_DIRECTORY: dir });
+mcp.child.stderr.on('data', () => {});
+const exited = once(mcp.child, 'exit');
+const call = async (name = 'estimate_trade_comparable', args = { league: 'Standard', base_type: 'Hubris Circlet', stat_groups: [{ type: 'and', filters: [{ stat_id: 'explicit.stat_3299347043', min: 40 }] }], limit: 3 }) => {
+  const response = await mcp.request('tools/call', { name, arguments: args });
+  assert.ok(!response.error && !response.result?.isError, JSON.stringify(response));
+  return JSON.parse(response.result.content[0].text);
+};
+try {
+  await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'trade-source-live', version: '1' } });
+  mcp.notify('notifications/initialized', {});
+  const tools = await mcp.request('tools/list', {});
+  assert.ok(tools.result.tools.some(tool => tool.name === 'estimate_trade_comparable'));
+  const reference = await call('reference_currency_rates', { league: 'Standard' });
+  assert.equal(reference.source, 'poe.ninja'); assert.ok(Number.isFinite(Date.parse(reference.fetchedAt))); assert.ok(reference.rates.length > 0);
+  assert.equal((await call('reference_currency_rates', { league: 'Standard' })).fetchedAt, reference.fetchedAt);
+  const leagues = await call('list_trade_leagues', {});
+  assert.ok(leagues.leagues.some(league => league.id === 'Standard'));
+  const stats = await call('search_trade_stats', { query: 'maximum life', limit: 50 });
+  assert.ok(stats.results.some(group => group.sources.some(source => source.id === 'explicit.stat_3299347043')));
+  const report = await call();
+  assert.equal(report.source, 'official-trade');
+  assert.equal(decodeURIComponent(new URL(report.searchUrl).pathname.split('/').at(-1)), report.searchId);
+  assert.equal(report.league, 'Standard');
+  assert.equal(report.query.query.status.option, 'securable');
+  assert.equal(report.query.query.filters.trade_filters.filters.sale_type.option, 'priced');
+  assert.equal(report.listingScope, 'instant_buyout');
+  assert.ok(Number.isFinite(Date.parse(report.sourceTimes.search)));
+  assert.ok(Number.isFinite(Date.parse(report.sourceTimes.stats)));
+  assert.equal(report.sourceTimes.stats, stats.fetchedAt);
+  assert.ok(report.totalMatches > 0 && report.fetchedCount > 0);
+  assert.ok(Number.isFinite(Date.parse(report.sourceTimes.listings)));
+  assert.equal(report.sourceStatistics.sampleCount, report.fetchedCount);
+  const cached = await call();
+  assert.deepEqual(cached.sourceTimes, report.sourceTimes);
+  const searchArgs = { league: 'Standard', item_type: 'Gold Ring', mods: [{ stat_id: 'explicit.stat_3299347043', min: 40 }], limit: 3 };
+  const search = await call('search_official_trade', searchArgs);
+  assert.equal(search.listingScope, 'instant_buyout');
+  assert.equal(decodeURIComponent(new URL(search.searchUrl).pathname.split('/').at(-1)), search.searchId);
+  assert.equal(search.query.query.status.option, 'securable');
+  assert.equal(search.query.query.filters.trade_filters.filters.sale_type.option, 'priced');
+  assert.equal(search.sourceAudit, 'completed');
+  assert.equal(search.sourceTimes.stats, stats.fetchedAt);
+  assert.ok(search.fetchedCount > 0 && search.fetchedCount <= 3);
+  assert.equal(search.sourceStatistics.sampleCount, search.fetchedCount);
+  assert.equal(Object.values(search.priceEvidenceCounts).reduce((sum, count) => sum + count, 0), search.fetchedCount);
+  for (const listing of search.listings) assert.ok(Object.hasOwn(search.priceEvidenceCounts, listing.priceEvidence));
+  for (const source of ['explicit', 'implicit', 'fractured', 'crafted', 'enchant']) {
+    const actual = search.listings.map(listing => listing.item?.extended?.hashes?.[source]);
+    const available = actual.filter(entries => Array.isArray(entries) && entries.every(entry => Array.isArray(entry) && typeof entry[0] === 'string' && !!entry[0].trim())).length;
+    const missing = actual.filter(entries => entries === undefined || entries === null).length;
+    const malformed = actual.length - available - missing;
+    assert.deepEqual(search.sourceStatistics.sourceCoverage[source], { availableListings: available, missingListings: missing, malformedListings: malformed, completeWithinSample: actual.length > 0 && available === actual.length });
+  }
+  assert.ok(search.listings.every(listing => !('whisper_token' in listing.listing)));
+  const repeat = await call('search_official_trade', searchArgs);
+  assert.deepEqual(repeat.sourceTimes, search.sourceTimes);
+  const priceArgs = { league: 'Standard', item_name: 'Goldrim', rarity: 'unique', limit: 3 };
+  const price = await call('sample_trade_item_price', priceArgs);
+  const priceListings = await call('search_official_trade', { league: 'Standard', item_name: 'Goldrim', item_rarity: 'unique', limit: 3 });
+  assert.equal(decodeURIComponent(new URL(price.searchUrl).pathname.split('/').at(-1)), price.searchId);
+  assert.equal(price.query.query.status.option, 'securable');
+  assert.equal(price.query.query.filters.trade_filters.filters.sale_type.option, 'priced');
+  assert.ok(price.pricedCount > 0 && price.pricedCount <= 3);
+  const buyouts = priceListings.listings.filter(listing => listing.item?.verified === true && listing.item?.league === 'Standard' && listing.listing?.price?.type === '~b/o' && typeof listing.listing.price.amount === 'number' && Number.isFinite(listing.listing.price.amount) && listing.listing.price.amount > 0 && typeof listing.listing.price.currency === 'string' && listing.listing.price.currency.trim() === listing.listing.price.currency && !!listing.listing.price.currency);
+  assert.equal(price.priceEvidenceCounts.explicit_buyout, buyouts.length);
+  assert.equal(price.pricedCount, buyouts.length);
+  assert.equal(Object.values(price.priceEvidenceCounts).reduce((sum, count) => sum + count, 0), price.fetchedCount);
+  assert.equal(price.byCurrency.reduce((sum, group) => sum + group.sampleCount, 0), price.pricedCount);
+  assert.equal(new Set(price.byCurrency.map(group => group.currency)).size, price.byCurrency.length);
+  assert.ok(Number.isFinite(Date.parse(price.sourceTimes.search)));
+  assert.deepEqual((await call('sample_trade_item_price', priceArgs)).sourceTimes, price.sourceTimes);
+  const resistance = await call('search_resistance_listings', { league: 'Standard', resistance_minimums: { fire: 20, cold: 10 }, max_price_per_item: 100, total_budget: 30, currency: 'chaos', slots: ['Ring 1'], per_slot_limit: 3 });
+  assert.equal(resistance.listingScope, 'instant_buyout'); assert.equal(resistance.effectivePerItemCap, 30);
+  const resistanceSearch = resistance.searches[0]; assert.equal(resistanceSearch.status, 'ok', JSON.stringify(resistanceSearch));
+  assert.equal(resistanceSearch.query.query.status.option, 'securable');
+  assert.equal(resistanceSearch.query.query.filters.trade_filters.filters.sale_type.option, 'priced');
+  assert.equal(resistanceSearch.query.query.filters.trade_filters.filters.price.max, 30);
+  assert.ok(resistanceSearch.listings.every(item => item.listing.price.currency === 'chaos' && item.listing.price.amount <= 30));
+  assert.ok(resistanceSearch.listings.every(item => item.listing.price.type === '~b/o' && item.item.verified === true && item.item.league === 'Standard'));
+  assert.equal(Object.values(resistanceSearch.priceEvidenceCounts).reduce((sum, count) => sum + count, 0), resistanceSearch.fetchedCount);
+  assert.ok(resistanceSearch.query.query.stats.flatMap(group => group.filters).some(filter => filter.id === 'pseudo.pseudo_total_fire_resistance' && filter.value.min === 20));
+  mcp.child.stdin.end(); assert.equal((await exited)[0], 0);
+  console.log('source-backed comparable live integration passed');
+} finally {
+  if (mcp.child.exitCode === null && mcp.child.signalCode === null) { mcp.child.kill('SIGTERM'); await exited; }
+  await rm(dir, { recursive: true, force: true });
+}
