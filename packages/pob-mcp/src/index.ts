@@ -65,6 +65,7 @@ import { createSnapshotBuildComparisonTool, snapshotBuildComparisonSchema } from
 import { createSnapshotGemComparisonTool, snapshotGemComparisonSchema, compareSnapshotGemSetups } from './features/snapshotGemComparison/tool.js';
 import { createGemSetupJobTools, gemSetupJobSchemas } from './features/snapshotGemComparison/jobTools.js';
 import { createSnapshotSupportRankingTool, supportRankingSchema } from './features/snapshotSupportRanking/tool.js';
+import { createDiscoveredSupportRankingTool, discoveredSupportRankingSchema } from './features/snapshotSupportRanking/discovered.js';
 import { createTreePathTools, treePathSchemas } from './features/treePaths/tool.js';
 import { buildIssuesSchema, createBuildIssuesTool } from './features/buildIssues/tool.js';
 import { bossReadinessSchema, createBossReadinessTool } from './features/bossReadiness/tool.js';
@@ -180,6 +181,7 @@ class PoBMCPServer {
       snapshotGemComparisonSchema(),
       ...gemSetupJobSchemas(),
       supportRankingSchema(),
+      discoveredSupportRankingSchema(),
       ...treePathSchemas(),
       buildIssuesSchema(),
       bossReadinessSchema(),
@@ -607,7 +609,7 @@ class PoBMCPServer {
           const response = await createJewelComparisonTool(foundation, onDerived).invoke({ snapshot_id: input.snapshotId, socket_node_id: input.socketNodeId, fields: input.fields, candidates: [{ name: input.name, item_text: input.itemText }] });
           return JSON.parse(response.content[0].text);
         });
-      const migrated = [createSnapshotCostTool(foundation, economy), createShoppingListTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), createSnapshotBuildComparisonTool(foundation), createSnapshotGemComparisonTool(foundation), ...createGemSetupJobTools(foundation, this.foundationJobs), createSnapshotSupportRankingTool(foundation), ...createTreePathTools(foundation), createBuildIssuesTool(foundation), createBossReadinessTool(foundation), createMasteryRankingTool(foundation), createMasteryDiscoveryTool(foundation), ...createMasteryJobTools(foundation, this.foundationJobs), ...createPassiveRankingTools(foundation, this.foundationJobs), createAnointmentTool(foundation), createSnapshotSummaryTool(foundation), createSkillInspectionTool(foundation), createEnemyConfigTool(foundation), ...createSnapshotConfigPresetTools(foundation, this.localConfigPresets), createTimelessSearchTool(foundation)];
+      const migrated = [createSnapshotCostTool(foundation, economy), createShoppingListTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), createSnapshotBuildComparisonTool(foundation), createSnapshotGemComparisonTool(foundation), ...createGemSetupJobTools(foundation, this.foundationJobs), createSnapshotSupportRankingTool(foundation), createDiscoveredSupportRankingTool(foundation), ...createTreePathTools(foundation), createBuildIssuesTool(foundation), createBossReadinessTool(foundation), createMasteryRankingTool(foundation), createMasteryDiscoveryTool(foundation), ...createMasteryJobTools(foundation, this.foundationJobs), ...createPassiveRankingTools(foundation, this.foundationJobs), createAnointmentTool(foundation), createSnapshotSummaryTool(foundation), createSkillInspectionTool(foundation), createEnemyConfigTool(foundation), ...createSnapshotConfigPresetTools(foundation, this.localConfigPresets), createTimelessSearchTool(foundation)];
       migrated.push(createSnapshotTreeTransplantTool(foundation));
       migrated.push(createSnapshotAilmentsTool(foundation));
       migrated.push(createSnapshotDefensesTool(foundation));

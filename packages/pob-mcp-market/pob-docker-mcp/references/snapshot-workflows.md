@@ -284,6 +284,19 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   requirements or in-game legality. Inspect and evaluate the selected trial,
   then retain or save it explicitly if the user wants to keep it.
 
+## Discover and compare supports
+
+- Use `rank_discovered_snapshot_supports` with the saved main `group_index`,
+  the enabled support `gem_index` to replace and an explicit metric such as
+  `MinionCombinedDPS` for poison-inclusive minion damage. PoB finds compatible
+  candidates; at most four unsocketed, deduplicated candidates are then tried in
+  separate trial snapshots. Discovery is alphabetically ordered and bounded,
+  not an exhaustive optimizer; use a query or explicit candidate comparisons
+  to explore other gems.
+- Review discovery failures, identity warnings and every candidate's status.
+  Only supports confirmed applied by PoB are ranked. Gem availability, socket
+  colours, mana sustain and prices are not established.
+
 ## Rank nearby passive paths
 
 - Submit `submit_snapshot_passive_ranking` with `snapshot_id` and one or two

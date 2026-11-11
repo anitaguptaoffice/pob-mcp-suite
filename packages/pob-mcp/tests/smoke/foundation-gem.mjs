@@ -144,6 +144,13 @@ try {
     assert.equal(ranking.results[1].status, 'error');
     const directRanked = await foundation.evaluate(ranking.results[0].snapshotId, ['CombinedDPS']);
     assert.equal(ranking.results[0].value, directRanked.metrics.CombinedDPS.value);
+    const discoveredResponse = await mcp.request('tools/call', { name: 'rank_discovered_snapshot_supports', arguments: { snapshot_id: parent.id, group_index: 1, gem_index: 2, metric: 'CombinedDPS', query: 'Controlled Destruction', limit: 1 } });
+    assert.ok(!discoveredResponse.error && !discoveredResponse.result?.isError, JSON.stringify(discoveredResponse));
+    const discovered = JSON.parse(discoveredResponse.result.content[0].text);
+    assert.equal(discovered.status, 'evaluated');
+    assert.equal(discovered.discovery.selected.length, 1);
+    assert.equal(discovered.ranking.results[0].gem.appliedToSelectedSkill, true);
+    assert.equal(discovered.ranking.results[0].value, directRanked.metrics.CombinedDPS.value);
     const fullBatch = await mcp.request('tools/call', { name: 'rank_snapshot_supports', arguments: { snapshot_id: parent.id, group_index: 1, gem_index: 2, metric: 'CombinedDPS', candidates: [{ gem_name: 'Controlled Destruction Support' }, { gem_name: 'Added Lightning Damage Support' }, { gem_name: 'Faster Casting Support' }, { gem_name: 'Spell Echo Support' }] } });
     assert.ok(!fullBatch.error && !fullBatch.result?.isError, JSON.stringify(fullBatch));
     assert.equal(JSON.parse(fullBatch.result.content[0].text).results.length, 4);
