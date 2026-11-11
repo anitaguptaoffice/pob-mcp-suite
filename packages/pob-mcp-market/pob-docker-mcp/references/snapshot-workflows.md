@@ -244,8 +244,10 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   `fields` to compare. It creates separate seven-day trial children and reports
   PoB parse diagnostics for the equipped and candidate jewels. Inspect unparsed
   lines, missing metrics, changed contexts and candidate errors before interpreting
-  deltas; a child ID can be returned even if its later comparison failed. Retain
-  a desired child explicitly. Cluster and unsupported jewel bases are excluded;
+  deltas; PoB can reorder generated skill groups during serialization, causing
+  the strict context comparison to withhold a delta despite available numbers.
+  Do not assume those numbers are comparable. A child ID can be returned even
+  if its later comparison failed. Retain a desired child explicitly. Cluster and unsupported jewel bases are excluded;
   legality, aura uptime and item prices are not established.
 - For longer comparisons, `submit_snapshot_jewels` queues up to ten candidates;
   poll `summarize_snapshot_jewels` and inspect each result. Cancellation takes
