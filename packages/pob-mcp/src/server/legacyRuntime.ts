@@ -13,6 +13,9 @@ import { ContextBuilder } from '../utils/contextBuilder.js';
 import type { OfficialTradeSource } from '../ports/officialTrade.js';
 import { LuaClientManager } from './luaClientManager.js';
 import { routeToolCall } from './toolRouter.js';
+import { getToolSchemas, getLuaToolSchemas, getOptimizationToolSchemas, getConfigToolSchemas, getValidationToolSchemas, getExportToolSchemas, getSkillGemToolSchemas, getTradeToolSchemas, getPoeNinjaToolSchemas, getBuildGoalsToolSchemas } from './toolSchemas.js';
+import { buildCostSchemas } from '../features/buildCost/tool.js';
+import { comparableToolSchemas } from '../features/tradeComparable/tool.js';
 
 /** Transitional legacy runtime; never constructed by the snapshot-only server. */
 export class LegacyRuntime {
@@ -58,6 +61,19 @@ export class LegacyRuntime {
 
   get luaEnabled(): boolean { return this.lua.isEnabled(); }
   get tradeEnabled(): boolean { return this.tradeClient !== null; }
+  allSchemas() {
+    return [...getToolSchemas(), ...getLuaToolSchemas(), ...buildCostSchemas(), ...getOptimizationToolSchemas(), ...getConfigToolSchemas(), ...getValidationToolSchemas(), ...getExportToolSchemas(), ...getSkillGemToolSchemas(), ...getTradeToolSchemas(), ...comparableToolSchemas(), ...getPoeNinjaToolSchemas(), ...getBuildGoalsToolSchemas()];
+  }
+  availableSchemas(authenticated: boolean) {
+    const tools = getToolSchemas();
+    if (this.luaEnabled) tools.push(...getLuaToolSchemas(), ...buildCostSchemas(), ...getConfigToolSchemas(), ...getBuildGoalsToolSchemas());
+    tools.push(...getOptimizationToolSchemas(), ...getValidationToolSchemas(), ...getExportToolSchemas(), ...getSkillGemToolSchemas());
+    if (this.tradeEnabled) {
+      tools.push(...getTradeToolSchemas().filter(tool => tool.name !== 'find_weighted_trade_items' || (authenticated && this.luaEnabled)), ...comparableToolSchemas());
+    }
+    tools.push(...getPoeNinjaToolSchemas());
+    return tools;
+  }
   route(name: string, args: Record<string, unknown> | undefined) {
     return routeToolCall(name, args, {
       contextBuilder: this.contextBuilder, tradeClient: this.tradeClient, statMapper: this.statMapper,

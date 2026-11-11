@@ -1,4 +1,4 @@
-import type { ToolSchema } from './toolSchemas.js';
+import type { ToolSchema } from './toolSchema.js';
 
 export interface FeatureResponse {
   content: Array<{ type: 'text'; text: string }>;

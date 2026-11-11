@@ -1,4 +1,4 @@
-import type { ToolSchema } from '../../server/toolSchemas.js';
+import type { ToolSchema } from '../../server/toolSchema.js';
 
 export function comparableQuerySchema(name: string, description: string): ToolSchema {
   return { name, description, inputSchema: { type: 'object', additionalProperties: false, properties: {

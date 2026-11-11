@@ -1,4 +1,4 @@
-import type { ToolSchema } from '../../server/toolSchemas.js';
+import type { ToolSchema } from '../../server/toolSchema.js';
 import type { PoBLuaApiClient } from '../../pobLuaBridge.js';
 import { estimateBuildCost, type PriceSource } from './estimate.js';
 

@@ -1,4 +1,4 @@
-import type { ToolSchema } from '../server/toolSchemas.js';
+import type { ToolSchema } from '../server/toolSchema.js';
 import type { BuildFoundation, EvaluationOptions } from './buildFoundation.js';
 import type { EvaluationInput, JobRunner } from './jobRunner.js';
 import { snapshotMetadata } from './snapshotStore.js';

@@ -28,8 +28,6 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 // Import services
 import { defaultBuildsDirectory } from "./utils/pobLayout.js";
-import { buildCostSchemas } from "./features/buildCost/tool.js";
-import { comparableToolSchemas } from "./features/tradeComparable/tool.js";
 import { featureRegistry } from "./server/featureModules.js";
 import { assertUniqueToolSchemas, FeatureRegistry } from "./server/featureRegistry.js";
 import { PoeNinjaAdapter } from './adapters/poeNinja/poeNinjaAdapter.js';
@@ -103,8 +101,7 @@ import { createTimelessSearchTool, timelessSearchSchema } from './features/timel
 import type { LegacyRuntime } from './server/legacyRuntime.js';
 
 // Import server modules
-import type { ToolSchema } from "./server/toolSchemas.js";
-import { getToolSchemas, getLuaToolSchemas, getOptimizationToolSchemas, getConfigToolSchemas, getValidationToolSchemas, getExportToolSchemas, getSkillGemToolSchemas, getTradeToolSchemas, getPoeNinjaToolSchemas, getBuildGoalsToolSchemas } from "./server/toolSchemas.js";
+import type { ToolSchema } from "./server/toolSchema.js";
 import { wrapWithTruncation, shouldTruncate } from "./server/responseUtils.js";
 
 class PoBMCPServer {
@@ -133,7 +130,7 @@ class PoBMCPServer {
    */
   private allToolSchemas(): ToolSchema[] {
     const legacy = [
-      ...getToolSchemas(),
+      ...(this.legacy?.allSchemas() ?? []),
       ...foundationSchemas,
       snapshotCostSchema(),
       shoppingListSchema(),
@@ -188,17 +185,6 @@ class PoBMCPServer {
       resistanceTradeSchema(),
       clusterTradeSchema(),
       timelessSearchSchema(),
-      ...getLuaToolSchemas(),
-      ...buildCostSchemas(),
-      ...getOptimizationToolSchemas(),
-      ...getConfigToolSchemas(),
-      ...getValidationToolSchemas(),
-      ...getExportToolSchemas(),
-      ...getSkillGemToolSchemas(),
-      ...getTradeToolSchemas(),
-      ...comparableToolSchemas(),
-      ...getPoeNinjaToolSchemas(),
-      ...getBuildGoalsToolSchemas(),
     ];
     featureRegistry.assertNoCollisions(legacy);
     const all = [...legacy, ...featureRegistry.schemas()];
@@ -234,7 +220,6 @@ class PoBMCPServer {
       const minTimeMs = Number.isFinite(rate) && rate > 0 ? Math.ceil(1000 / Math.min(rate, 4)) : 250;
       this.officialTrade = new OfficialTradeAdapter({ minTimeMs, session: () => process.env.POE_SESSION_ID || undefined });
     }
-    this.allToolSchemas(); // Validate all names, including currently disabled capability groups.
     this.setupHandlers();
 
     // Error handling
@@ -351,42 +336,7 @@ class PoBMCPServer {
         assertUniqueToolSchemas(tools);
         return { tools: tools.map(({ truncatable: _truncatable, ...wire }) => wire) };
       }
-      // Get base tools
-      const tools: ToolSchema[] = getToolSchemas();
-
-      // Add Lua tools if enabled — the repo-owned stdio adapter drives a stock
-      // PoB checkout and supports the full action set
-      if (this.legacy.luaEnabled) {
-        tools.push(...getLuaToolSchemas());
-        tools.push(...buildCostSchemas());
-        tools.push(...getConfigToolSchemas()); // Phase 9: Config tools (require Lua)
-        tools.push(...getBuildGoalsToolSchemas()); // Build diagnostics (require Lua)
-      }
-
-      // Add optimization tools
-      tools.push(...getOptimizationToolSchemas());
-
-      // Add validation tools
-      tools.push(...getValidationToolSchemas());
-
-      // Add export and persistence tools
-      tools.push(...getExportToolSchemas());
-
-      // Add skill gem analysis tools
-      tools.push(...getSkillGemToolSchemas());
-
-      // Add Trade API tools if enabled
-      if (this.legacy.tradeEnabled) {
-        // Weighted search needs the Lua bridge (query generation) and an
-        // authenticated session (the Trade API rejects anonymous weighted sums)
-        const weightedAvailable = Boolean(process.env.POE_SESSION_ID)
-          && this.legacy.luaEnabled;
-        tools.push(...getTradeToolSchemas().filter((tool) => tool.name !== 'find_weighted_trade_items' || weightedAvailable));
-        tools.push(...comparableToolSchemas());
-      }
-
-      // Add poe.ninja API tools (always available)
-      tools.push(...getPoeNinjaToolSchemas());
+      const tools: ToolSchema[] = this.legacy.availableSchemas(Boolean(process.env.POE_SESSION_ID));
       featureRegistry.assertNoCollisions(tools);
       tools.push(...featureRegistry.schemas());
       tools.push(...this.modifierFeatures.schemas());
@@ -484,6 +434,7 @@ class PoBMCPServer {
       const { LegacyRuntime } = await import('./server/legacyRuntime.js');
       this.legacy = new LegacyRuntime(this.pobDirectory, process.env.POB_LUA_ENABLED === 'true', process.env.POE_TRADE_ENABLED === 'true', this.officialTrade ?? undefined);
     }
+    this.allToolSchemas(); // Validate all names for the active runtime, including disabled capability groups.
     const economy = new PoeNinjaAdapter();
     const market = [...createCurrencyReferenceTools(economy), createCurrencySpreadTool(economy), createStaticStatMappingTool(new StaticStatCatalog())];
     const trade = this.officialTrade;

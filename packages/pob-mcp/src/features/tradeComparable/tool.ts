@@ -1,4 +1,4 @@
-import type { ToolSchema } from '../../server/toolSchemas.js';
+import type { ToolSchema } from '../../server/toolSchema.js';
 import { comparableQuerySchema } from './querySchema.js';
 export { estimateComparable } from './pricingPolicy.js';
 

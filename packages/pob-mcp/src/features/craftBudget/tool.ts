@@ -1,4 +1,4 @@
-import type { ToolSchema } from '../../server/toolSchemas.js';
+import type { ToolSchema } from '../../server/toolSchema.js';
 import { compareCraftBudget, type CraftScenario } from './model.js';
 
 export function craftBudgetSchemas(): ToolSchema[] {

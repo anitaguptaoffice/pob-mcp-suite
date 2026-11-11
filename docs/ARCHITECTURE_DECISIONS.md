@@ -24,13 +24,16 @@ infrastructure. Shared numeric conversion is independent of the Lua client.
 direct bridge dependencies. Legacy feature implementations and compatibility
 exports remain until their callers are migrated and the legacy router is removed.
 
-The legacy build services, mutable Lua manager and legacy router are grouped in
-`server/legacyRuntime.ts` and loaded only when legacy mode is enabled. In
-snapshot-only mode the server does not instantiate that runtime. The
-`foundation-runtime-isolation.mjs` smoke test blocks its module import and checks
-that snapshot mode starts while legacy mode fails the same import guard; this
-does not establish that every old helper or schema has been removed. Legacy
-requests are drained before shutdown closes the runtime.
+The legacy build services, mutable Lua manager, router and tool definitions are
+grouped behind `server/legacyRuntime.ts` and loaded only when legacy mode is
+enabled. The shared tool-schema type lives separately in `server/toolSchema.ts`.
+The `foundation-runtime-isolation.mjs` smoke test blocks imports of the legacy
+runtime, services, handlers, bridge, router and old tool-definition modules;
+snapshot mode starts while legacy mode fails that guard. Optional checks exercise
+real PoB import and Life calculation, poe.ninja currency rates, and official
+`securable`/`priced` Trade search under the same guard. Other historical helpers
+and compatibility exports still exist. Legacy requests are drained before
+shutdown closes the runtime.
 
 ## Independent data-source foundations
 

@@ -5,30 +5,8 @@
  * These schemas describe the available tools, their parameters, and documentation.
  */
 
-/**
- * One MCP tool advertisement. `inputSchema.properties` values are JSON Schema
- * objects (arbitrary nesting — some properties carry `properties`,
- * `additionalProperties`, or no `type` at all); the values reach the MCP SDK
- * unchanged, so this is the wire contract, not a local invention.
- */
-export interface ToolSchema {
-  name: string;
-  description: string;
-  inputSchema: {
-    type: "object";
-    properties?: Record<string, Record<string, unknown>> & { type?: string };
-    required?: string[];
-    additionalProperties?: boolean | Record<string, unknown>;
-  };
-  /**
-   * Server-side policy flag: large text responses from this tool are
-   * truncated to keep token use bounded. Declared per tool next to its
-   * definition (the previous hand-maintained name list in index.ts rotted -
-   * five unbounded-output tools had silently fallen outside it). Never sent
-   * over the wire; stripped in ListTools.
-   */
-  truncatable?: boolean;
-}
+import type { ToolSchema } from './toolSchema.js';
+export type { ToolSchema } from './toolSchema.js';
 
 /**
  * Get all tool schemas for registration with the MCP server
