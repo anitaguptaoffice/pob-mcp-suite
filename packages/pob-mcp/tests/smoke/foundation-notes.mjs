@@ -41,9 +41,12 @@ try {
   const comparison = await call('compare_snapshot_builds', { baseline_snapshot_id: parent.id, candidate_snapshot_id: derived.id, fields: ['Life'] });
   assert.equal(comparison.metrics.Life.delta, 0);
   assert.equal(comparison.comparability.configDifferent, false);
-  const saved = await call('foundation_save_file', { snapshot_id: appended.id, build_name: 'notes-workflow' });
+  const saved = await call('foundation_save_file', { snapshot_id: appended.id, build_name: '.pob-mcp/exports/new/notes-workflow', create_directories: true });
   assert.equal(saved.retained, true);
-  const fileImport = await call('foundation_import_file', { build_name: 'notes-workflow' });
+  assert.equal(saved.directoriesAllowed, true);
+  const duplicate = await mcp.request('tools/call', { name: 'foundation_save_file', arguments: { snapshot_id: appended.id, build_name: '.pob-mcp/exports/new/notes-workflow', create_directories: true } });
+  assert.equal(duplicate.result.isError, true);
+  const fileImport = await call('foundation_import_file', { build_name: '.pob-mcp/exports/new/notes-workflow' });
   assert.equal((await call('foundation_read_notes', { snapshot_id: fileImport.id })).notes, appendedText);
   const exported = (await call('foundation_export_build', { snapshot_id: derived.id })).xml;
   const reimported = await call('foundation_import_build', { xml: exported, source: 'notes-reloaded' });

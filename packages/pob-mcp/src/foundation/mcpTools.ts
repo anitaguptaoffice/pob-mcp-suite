@@ -27,7 +27,7 @@ export const foundationSchemas: ToolSchema[] = [
   { name: 'foundation_create_build', description: 'Create a new PoB build as a durable immutable snapshot after verifying the requested class, ascendancy and tree version survive reload. Special ascendancies require their matching tree version.', inputSchema: { type: 'object', additionalProperties: false, properties: { class_name: { type: 'string' }, ascendancy: { type: 'string' }, tree_version: { type: 'string' } }, required: ['class_name'] } },
   { name: 'foundation_import_build', description: 'Import a PoB XML document into an immutable snapshot.', inputSchema: { type: 'object', properties: { xml: { type: 'string' }, source: { type: 'string' } }, required: ['xml', 'source'] } },
   { name: 'foundation_import_file', description: 'Import an XML build from the configured local build directory.', inputSchema: { type: 'object', properties: { build_name: { type: 'string' } }, required: ['build_name'] } },
-  { name: 'foundation_save_file', description: 'Retain the snapshot and save it to the local build directory; overwrite is false by default. Retention can succeed even if the file write fails.', inputSchema: { type: 'object', properties: { snapshot_id: { type: 'string' }, build_name: { type: 'string' }, overwrite: { type: 'boolean' } }, required: ['snapshot_id', 'build_name'] } },
+  { name: 'foundation_save_file', description: 'Retain the snapshot and save it to the local build directory; overwrite is false by default. Optional secure directory creation requires Linux /proc/self/fd. Retention or directory creation can succeed even if the file write fails.', inputSchema: { type: 'object', additionalProperties: false, properties: { snapshot_id: { type: 'string' }, build_name: { type: 'string' }, overwrite: { type: 'boolean' }, create_directories: { type: 'boolean' } }, required: ['snapshot_id', 'build_name'] } },
   { name: 'foundation_import_code', description: 'Import a PoB share code into an immutable snapshot.', inputSchema: { type: 'object', properties: { code: { type: 'string' } }, required: ['code'] } },
   { name: 'foundation_read_snapshot', description: 'Read snapshot metadata without XML.', inputSchema: { type: 'object', properties: { snapshot_id: { type: 'string' } }, required: ['snapshot_id'] } },
   { name: 'foundation_retain_snapshot', description: 'Permanently retain a snapshot and its ancestors without changing its ID.', inputSchema: { type: 'object', properties: { snapshot_id: { type: 'string' } }, required: ['snapshot_id'] } },
@@ -190,13 +190,13 @@ export async function invokeFoundation(foundation: BuildFoundation, name: string
     }
     case 'foundation_save_file': {
       if (!buildsDirectory) throw new Error('Local build directory is unavailable');
-      if (args.overwrite !== undefined && typeof args.overwrite !== 'boolean') throw new Error('overwrite must be a boolean');
+      if (Object.keys(args).some(key => !['snapshot_id', 'build_name', 'overwrite', 'create_directories'].includes(key)) || (args.overwrite !== undefined && typeof args.overwrite !== 'boolean') || (args.create_directories !== undefined && typeof args.create_directories !== 'boolean')) throw new Error('Invalid local build save options');
       const id = stringArg('snapshot_id');
       const name = stringArg('build_name');
       const xml = await foundation.exportBuild(id);
       await foundation.retainSnapshot(id);
-      await saveLocalBuild(buildsDirectory, name, xml, args.overwrite === true);
-      return { snapshotId: id, buildName: name, overwriteAllowed: args.overwrite === true, retained: true };
+      await saveLocalBuild(buildsDirectory, name, xml, args.overwrite === true, args.create_directories === true);
+      return { snapshotId: id, buildName: name, overwriteAllowed: args.overwrite === true, directoriesAllowed: args.create_directories === true, retained: true };
     }
     case 'foundation_import_file': {
       if (!buildsDirectory) throw new Error('Local build directory is unavailable');

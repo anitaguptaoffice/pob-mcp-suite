@@ -48,4 +48,21 @@ describe('local build import', () => {
       }
     } finally { await rm(dir, { recursive: true, force: true }); }
   });
+  it('creates explicitly requested directories without following symlinks or overwriting files', async () => {
+    if (process.platform !== 'linux') return;
+    const dir = await mkdtemp(path.join(tmpdir(), 'pob-local-mkdir-'));
+    try {
+      const root = path.join(dir, 'builds'); await mkdir(root);
+      await expect(saveLocalBuild(root, 'new/league/build', '<first/>')).rejects.toMatchObject({ code: 'ENOENT' });
+      await saveLocalBuild(root, 'new/league/build', '<first/>', false, true);
+      expect(await readLocalBuild(root, 'new/league/build')).toBe('<first/>');
+      await expect(saveLocalBuild(root, 'new/league/build', '<second/>', false, true)).rejects.toMatchObject({ code: 'EEXIST' });
+      await saveLocalBuild(root, 'new/league/build', '<second/>', true, true);
+      expect(await readLocalBuild(root, 'new/league/build')).toBe('<second/>');
+      await symlink(dir, path.join(root, 'escape'));
+      await expect(saveLocalBuild(root, 'escape/created/build', '<outside/>', false, true)).rejects.toThrow('symlink or non-directory');
+      await expect(saveLocalBuild(root, '../escape', '<outside/>', false, true)).rejects.toThrow('traversal');
+      await expect(readLocalBuild(dir, 'created/build')).rejects.toMatchObject({ code: 'ENOENT' });
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
 });

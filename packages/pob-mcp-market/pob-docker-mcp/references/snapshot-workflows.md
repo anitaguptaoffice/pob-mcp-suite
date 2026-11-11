@@ -170,7 +170,11 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   neither the parent nor an existing file is changed. Read the child notes back.
   If a local file should be updated, explicitly call `foundation_save_file` for
   the child, specifying `build_name` and `overwrite: true` only when replacing
-  an existing file is intended. Re-import the file to verify persisted notes.
+  an existing file is intended. `create_directories: true` explicitly creates
+  missing parent directories under the configured build root; it requires Linux
+  `/proc/self/fd`, refuses symlink components and defaults to false. Retention
+  or directory creation may succeed even if the file write fails. Re-import the
+  file to verify persisted notes.
   Retention and file-write results must be checked separately.
 
 ## Isolated changes and export
