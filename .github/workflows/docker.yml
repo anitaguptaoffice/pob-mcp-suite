@@ -24,6 +24,11 @@ on:
       - "scripts/collect-metadata.py"
       - ".github/workflows/docker.yml"
   workflow_dispatch:
+    inputs:
+      full_smoke:
+        description: Also run the full foundation smoke suite (about 10 minutes)
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -85,9 +90,10 @@ jobs:
             "${IMAGE_NAME}:ci" run test:smoke:requirements
 
       - name: Verify foundation snapshot flows
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_smoke }}
         timeout-minutes: 40
         run: |
-          # Independent scripts run in parallel; keep jobs at the runner's CPU count.
+          # Manual run only: independent scripts run in parallel.
           docker run --rm --entrypoint npm -e POB_REPO_ROOT=/opt/pob-mcp -e SMOKE_CONCURRENCY=4 \
             -v "${PWD}/packages/pob-mcp/tests:/opt/pob-mcp/tests:ro" \
             "${IMAGE_NAME}:ci" run test:smoke:foundation

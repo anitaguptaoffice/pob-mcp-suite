@@ -344,6 +344,8 @@ Engine-dependent smoke suites:
 The foundation suite runs its scripts in parallel (`SMOKE_CONCURRENCY`, default
 `min(4, CPUs)`); rerun a subset with
 `node scripts/smoke-suite.mjs foundation <filter> [--jobs=N] [--skip=a,b]`.
+It is on demand: pull-request CI runs the build, Jest, the engine regression
+baseline and the fast smokes only.
 
 `npm run validate` at the repository root runs the build, the full Jest suite,
 market metadata validation and shell syntax checks.

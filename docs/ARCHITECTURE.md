@@ -125,7 +125,7 @@ another calculation or the user's open character.
 
 `npm run validate` builds, runs every Jest suite, validates market metadata and
 checks shell syntax. Engine behaviour is covered by `tests/smoke/*` against a
-real PoB process; `scripts/smoke-suite.mjs` runs those scripts in parallel, and
-fixed numerical baselines live in `scripts/engine-regression.mjs`. Passing those
-layers does not prove every build, mechanic or market result; each result keeps
-its own limitations.
+real PoB process. `scripts/smoke-suite.mjs` runs the whole set in parallel on
+demand; fixed numerical baselines live in `scripts/engine-regression.mjs`.
+Passing those layers does not prove every build, mechanic or market result; each
+result keeps its own limitations.

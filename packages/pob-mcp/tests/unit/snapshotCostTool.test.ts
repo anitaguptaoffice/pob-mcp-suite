@@ -3,7 +3,6 @@ import { estimateBuildCost } from '../../src/features/buildCost/estimate.js';
 import type { BuildFoundation } from '../../src/foundation/buildFoundation.js';
 import type { EconomyQuery, EconomySource } from '../../src/ports/economySource.js';
 import { PoeNinjaAdapter } from '../../src/adapters/poeNinja/poeNinjaAdapter.js';
-import { NinjaPrices } from '../../src/features/buildCost/ninjaPrices.js';
 
 const id = 'a'.repeat(64);
 const fetchedAt = '2026-01-01T00:00:00.000Z';
@@ -28,11 +27,11 @@ describe('snapshot build cost feature', () => {
     expect(result.sources.every((source: { fetchedAt: string; league: string }) => source.fetchedAt === fetchedAt && source.league === 'Standard')).toBe(true);
   });
 
-  it('matches the direct adapter path against the same source response', async () => {
+  it('matches the direct estimate path against the same source response', async () => {
     const fetcher = (async (url: string) => new Response(JSON.stringify({ lines: lines(new URL(url).searchParams.get('type') ?? '') }), { status: 200 })) as unknown as typeof fetch;
     const current = createSnapshotCostTool(foundation, new PoeNinjaAdapter(fetcher, () => 0));
     const actual = JSON.parse((await current.invoke({ snapshot_id: id, league: 'Standard' })).content[0].text);
-    const direct = await estimateBuildCost(new NinjaPrices(fetcher, () => 0), 'Standard', [item, rare], groups);
+    const direct = await estimateBuildCost({ get: async (_league, category) => ({ fetchedAt: new Date(0).toISOString(), lines: lines(category) }) }, 'Standard', [item, rare], groups);
     expect(actual).toMatchObject(JSON.parse(JSON.stringify(direct)));
   });
 

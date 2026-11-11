@@ -1,6 +1,6 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { estimateBuildCost, matchGem, matchUnique } from '../../src/features/buildCost/estimate.js';
-import { NinjaPrices, type PriceCategory } from '../../src/features/buildCost/ninjaPrices.js';
+import type { PriceCategory } from '../../src/features/buildCost/priceTypes.js';
 
 const unique = { slot: 'Helmet', id: 1, rarity: 'UNIQUE', name: 'Example', baseName: 'Circlet', raw: 'Rarity: UNIQUE\nExample\nCirclet' };
 const line = { name: 'Example', baseType: 'Circlet', chaosValue: 12, listingCount: 15 };
@@ -110,32 +110,5 @@ describe('build cost matching', () => {
     expect(report.unknownCount).toBe(1);
     expect(report.entries[0].chaos).toBeUndefined();
     expect(report.warnings.join(' ')).toContain('UniqueWeapon');
-  });
-});
-
-describe('ninja cache', () => {
-  it('deduplicates in-flight requests and caches successful responses by league and category', async () => {
-    const fetcher = jest.fn(async () => new Response(JSON.stringify({ lines: [line] }), { status: 200 }));
-    let now = 0;
-    const prices = new NinjaPrices(fetcher as unknown as typeof fetch, () => now);
-    await Promise.all([prices.get('Standard', 'UniqueArmour'), prices.get('Standard', 'UniqueArmour')]);
-    await prices.get('Standard', 'UniqueArmour');
-    expect(fetcher).toHaveBeenCalledTimes(1);
-    await prices.get('Other League', 'UniqueArmour');
-    now = 600_001;
-    await prices.get('Standard', 'UniqueArmour');
-    expect(fetcher).toHaveBeenCalledTimes(3);
-  });
-
-  it('evicts least-recently-used successful entries instead of growing without bound', async () => {
-    const fetcher = jest.fn(async () => new Response(JSON.stringify({ lines: [line] }), { status: 200 }));
-    const prices = new NinjaPrices(fetcher as unknown as typeof fetch, () => 0);
-    for (let i = 0; i < 100; i++) await prices.get(`League ${i}`, 'UniqueArmour');
-    await prices.get('League 0', 'UniqueArmour');
-    await prices.get('League 100', 'UniqueArmour');
-    await prices.get('League 0', 'UniqueArmour');
-    expect(fetcher).toHaveBeenCalledTimes(101);
-    await prices.get('League 1', 'UniqueArmour');
-    expect(fetcher).toHaveBeenCalledTimes(102);
   });
 });

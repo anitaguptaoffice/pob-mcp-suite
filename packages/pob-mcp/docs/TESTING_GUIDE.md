@@ -74,13 +74,17 @@ node scripts/smoke-suite.mjs foundation --jobs=6   # more cores on a local machi
 SMOKE_CONCURRENCY=4 npm run test:smoke:foundation  # CI setting
 ```
 
+It is an on-demand layer, not part of every change: a pull request runs the
+build, Jest, the engine regression baseline and the three fast smokes, and the
+full suite runs locally when the change needs it or through
+`workflow_dispatch` with `full_smoke` enabled. The weekly PoB vendor sync runs
+it only when the vendored engine actually changed.
+
 The runner prints one `ok` or `FAIL` line per script, buffers each script's
 output and prints it only on failure, and applies `SMOKE_TIMEOUT_MS` per script
 (15 minutes by default). On CI, set `SMOKE_CONCURRENCY` to the container's CPU
 count (4 on a standard GitHub runner); memory is the limiting factor, not the
-number of scripts. Both CI workflows run the suite this way, so a full run costs
-one parallel pass instead of a per-script pass. Use filters or `--skip` to rerun
-part of the suite:
+number of scripts. Use filters or `--skip` to rerun part of the suite:
 
 ```bash
 node scripts/smoke-suite.mjs foundation gem masteries

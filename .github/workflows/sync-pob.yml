@@ -111,6 +111,8 @@ jobs:
           docker run --rm --entrypoint npm -e POB_REPO_ROOT=/opt/pob-mcp -e SMOKE_CONCURRENCY=4 \
             -v "${PWD}/packages/pob-mcp/tests:/opt/pob-mcp/tests:ro" \
             pob-mcp-sync-check run test:smoke:foundation
+          # Runs only when the vendored engine changed, which is exactly the case
+          # this gate exists for; the pull-request workflow leaves it to manual runs.
 
       - name: Push changes
         if: ${{ steps.changes.outputs.changed == 'true' && (github.event_name == 'schedule' || inputs.dry_run == false) }}
