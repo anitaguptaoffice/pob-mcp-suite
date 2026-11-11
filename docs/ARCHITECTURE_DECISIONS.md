@@ -288,6 +288,15 @@ to `get_currency_rates` for Standard succeeded. This proves that one current
 client route, not interactive skill selection, all clients, trading correctness,
 or the future installed snapshot configuration.
 
+`smoke-mcporter-wrapper.mjs` additionally uses the installed mcporter binary
+with an ad-hoc repository wrapper, a locally built current-branch image and a
+temporary build directory. It verifies snapshot-only discovery, import,
+calculation, derived level, save and reload across fresh client processes. It
+uses the host UID/GID for temporary files and leaves the installed mcporter
+configuration unchanged. The currently installed standalone wrapper does not
+forward the foundation flags; replacing or updating it remains part of the
+final cutover and must be checked against the actual installed configuration.
+
 The first delivery is foundation plus the vertical slice. Only after it passes
 can feature teams migrate independently. Shared contracts, adapter and final
 integration have one owner. Local stdio remains the only transport.

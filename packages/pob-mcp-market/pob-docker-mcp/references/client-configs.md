@@ -75,6 +75,14 @@ tool selection or the user's installed configuration.
 
 ## Environment Variables
 
+For an isolated installed `mcporter` client check, build a local image and run
+`POB_DOCKER_IMAGE=pob-mcp-suite:foundation-local MCPORTER_BIN=/path/to/mcporter node packages/pob-mcp-market/scripts/smoke-mcporter-wrapper.mjs`
+from the repository root. It uses an ad-hoc server, an isolated build directory
+and a fresh client process for each tool call; it does not change the installed
+`pob` configuration or switch the running service. It runs the container with
+the current numeric UID/GID so temporary files can be removed. With an ad-hoc stdio server,
+use `mcporter call --tool NAME` rather than a qualified `server.NAME` selector.
+
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `POB_DOCKER_IMAGE` | `ghcr.io/anitaguptaoffice/pob-mcp-suite:latest` | Docker image tag to run |
