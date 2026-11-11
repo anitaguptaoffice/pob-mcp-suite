@@ -25,7 +25,7 @@ try {
   const names = new Set(listed.result.tools.map((tool) => tool.name));
   const rejected = await request('tools/call', { name: 'not_a_real_tool', arguments: {} });
   if (rejected.result?.isError !== true) throw new Error(`MCP errors must set isError: ${JSON.stringify(rejected)}`);
-  const invalidChain = await request('tools/call', { name: 'calculate_trading_profit', arguments: { league: 'Standard', currency_chain: ['Chaos Orb'] } });
+  const invalidChain = await request('tools/call', { name: 'simulate_reference_currency_chain', arguments: { league: 'Standard', currency_chain: ['Chaos Orb'] } });
   if (invalidChain.result?.isError !== true) throw new Error(`handler errors must set isError: ${JSON.stringify(invalidChain)}`);
   if (!names.has('lua_get_ailments')) throw new Error('missing MCP tool: lua_get_ailments');
   // The stock-checkout adapter supports the full tool surface

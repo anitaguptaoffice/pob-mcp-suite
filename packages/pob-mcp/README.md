@@ -512,16 +512,21 @@ Lua bridge build.
 
 **Note**: `export_build` copies from the XML file, not from the Lua bridge. Use `lua_save_build` first if you want to export in-memory changes.
 
-### Currency & Market Data (poe.ninja)
+### Currency Reference & Market Data (poe.ninja)
 
 | Tool | Description |
 |---|---|
-| `get_currency_rates` | Live exchange rates for all currencies (Chaos Orb equivalent) |
-| `find_arbitrage` | Detect profitable currency trading loops |
-| `calculate_trading_profit` | Evaluate a specific trading chain |
+| `reference_currency_rates` | Reference values in Chaos Orbs for one exact international league |
+| `screen_currency_spreads` | Screen bounded theoretical currency loops from stash-side aggregate quotes |
+| `simulate_reference_currency_chain` | Convert a currency chain with one reference snapshot |
 
-Rates are fetched on demand and cached for 5 minutes. Pass the **exact** league
-name returned by `get_leagues` when Trade is enabled, or use `Standard` explicitly.
+These tools read poe.ninja reference data, not executable trade offers; spreads,
+fees and availability are never inferred. Rates are fetched on demand and cached
+for 5 minutes. Pass the **exact** league name returned by `get_leagues` when Trade
+is enabled, or use `Standard` explicitly. `screen_currency_spreads` evaluates
+two-currency loops across every usable currency, limits three-currency loops to
+the first 20 names in alphabetical order, rejects sources above 1000 currencies,
+and returns at most `limit` candidates (maximum 50).
 
 ### Trade API Tools (Require `POE_TRADE_ENABLED=true`)
 

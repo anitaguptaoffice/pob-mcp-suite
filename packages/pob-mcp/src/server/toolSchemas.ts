@@ -2021,63 +2021,6 @@ export function getBuildGoalsToolSchemas(): ToolSchema[] {
 export function getPoeNinjaToolSchemas(): ToolSchema[] {
   return [
     {
-      name: "get_currency_rates",
-      description: "Get current currency exchange rates from poe.ninja. Returns real-time market prices for all currencies in Chaos Orb equivalent. Updated every 5 minutes from live trading data. IMPORTANT: Use the EXACT league name the user specifies - do not substitute or guess.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          league: {
-            type: "string",
-            description: "EXACT league name as specified by user (e.g., 'Standard', 'Settlers', 'Keepers', 'Hardcore'). Do not substitute or change this value.",
-          },
-        },
-        required: ["league"],
-      },
-    },
-    {
-      name: "find_arbitrage",
-      description: "Find currency arbitrage opportunities - profitable trading loops where you can trade currencies in a circle and end up with more than you started. Uses real-time poe.ninja rates to identify market inefficiencies. Perfect for making passive income through currency trading. IMPORTANT: Use the EXACT league name the user specifies - do not substitute or guess.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          league: {
-            type: "string",
-            description: "EXACT league name as specified by user (e.g., 'Standard', 'Settlers', 'Keepers', 'Hardcore'). Do not substitute or change this value.",
-          },
-          min_profit_percent: {
-            type: "number",
-            description: "Minimum profit percentage to show (default: 1.0). Lower values find more opportunities but with smaller profits.",
-          },
-        },
-        required: ["league"],
-      },
-    },
-    {
-      name: "calculate_trading_profit",
-      description: "Calculate the profit/loss from a specific trading chain. Useful for testing your own trading strategies or validating arbitrage opportunities before executing them. Shows step-by-step conversion rates. IMPORTANT: Use the EXACT league name the user specifies - do not substitute or guess.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          league: {
-            type: "string",
-            description: "EXACT league name as specified by user (e.g., 'Standard', 'Settlers', 'Keepers', 'Hardcore'). Do not substitute or change this value.",
-          },
-          currency_chain: {
-            type: "array",
-            description: "Array of currency names in trading order (e.g., ['Divine Orb', 'Chaos Orb', 'Exalted Orb', 'Divine Orb'])",
-            items: {
-              type: "string",
-            },
-          },
-          start_amount: {
-            type: "number",
-            description: "Amount of first currency to start with (default: 1)",
-          },
-        },
-        required: ["league", "currency_chain"],
-      },
-    },
-    {
       name: "find_timeless_jewel_seeds",
       description: "Enumerate Elegant Hubris seeds with Path of Building's native lookup table for a socket in the loaded build. desired_node_ids are PoB legion node ids to score.",
       inputSchema: {

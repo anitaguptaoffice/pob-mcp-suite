@@ -31,7 +31,6 @@ import { handleValidateBuild } from "../handlers/validationHandlers.js";
 import { handleExportBuild, handleSaveTree, handleSnapshotBuild, handleListSnapshots, handleRestoreSnapshot, handleExportBuildSummary } from "../handlers/exportHandlers.js";
 import { handleAnalyzeSkillLinks, handleSuggestSupportGems, handleCompareGemSetups, handleRankSupportGems, handleValidateGemQuality, handleFindOptimalLinks, handleGemUpgradePath } from "../handlers/skillGemHandlers.js";
 import { handleSearchTradeItems, handleGetItemPrice, handleGetLeagues, handleSearchStats, handleFindResistanceGear, handleCompareTradeItems, handleFindWeightedTradeItems } from "../handlers/tradeHandlers.js";
-import { handleGetCurrencyRates, handleFindArbitrage, handleCalculateTradingProfit } from "../handlers/poeNinjaHandlers.js";
 import { handleSearchClusterJewels, handleAnalyzeClusterJewels, handleAnalyzeBuildClusterJewels } from "../handlers/clusterJewelHandlers.js";
 import { handleGenerateShoppingList } from "../handlers/shoppingListHandlers.js";
 import { handlePlanLeveling } from "../handlers/levelingHandlers.js";
@@ -732,30 +731,6 @@ export async function routeToolCall(
     // ========================================
     // poe.ninja API Tools
     // ========================================
-    case "get_currency_rates": {
-      if (!args) throw new Error("Missing arguments");
-      const ninjaContext = {
-        ninjaClient: deps.ninjaClient
-      };
-      return await handleGetCurrencyRates(ninjaContext, args as Parameters<typeof handleGetCurrencyRates>[1]);
-    }
-
-    case "find_arbitrage": {
-      if (!args) throw new Error("Missing arguments");
-      const ninjaContext = {
-        ninjaClient: deps.ninjaClient
-      };
-      return await handleFindArbitrage(ninjaContext, args as Parameters<typeof handleFindArbitrage>[1]);
-    }
-
-    case "calculate_trading_profit": {
-      if (!args) throw new Error("Missing arguments");
-      const ninjaContext = {
-        ninjaClient: deps.ninjaClient
-      };
-      return await handleCalculateTradingProfit(ninjaContext, args as Parameters<typeof handleCalculateTradingProfit>[1]);
-    }
-
     // Build Goals Tools
     case "get_build_issues": {
       const goalsContext = {

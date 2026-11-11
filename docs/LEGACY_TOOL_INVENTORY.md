@@ -2,6 +2,8 @@
 
 Generated from registered schema groups in the current build. Most entries are pending migration; individual status below records partial exposure without claiming final acceptance. Skill references below are exact-name matches in packaged skill Markdown only; clients, aliases, scripts and dynamic references still require assessment. Group names indicate current source, not final module ownership. Capability-gated tools are included.
 
+The historical baseline of this file is `packages/pob-mcp/tests/fixtures/migration-legacy-tool-names.json` (114 tools captured before the first route removal); it must not be regenerated from the current build. Tools removed from the surface are recorded as `status: retired` with their replacement, and `packages/pob-mcp/tests/fixtures/migration-retired-legacy-tools.json` maps each retirement to the replacement and its evidence. `scripts/check-legacy-tool-inventory.mjs` fails when a baseline tool disappears without such a record, or when a retired tool is still advertised.
+
 ## getBuildGoalsToolSchemas
 
 - `get_build_issues` — target: analysis and optimization; replacement: `check_snapshot_issues`; status: partially migrated (legacy callers remain; full validation is separate); skill references: no exact name found in packaged skill Markdown.
@@ -89,9 +91,9 @@ Generated from registered schema groups in the current build. Most entries are p
 
 ## getPoeNinjaToolSchemas
 
-- `get_currency_rates` — target: market and workflows; replacement: `reference_currency_rates`; status: independent source workflow live-tested, other legacy callers require migration; skill references: no exact name found in packaged skill Markdown.
-- `find_arbitrage` — target: market and workflows; replacement: `screen_currency_spreads`; status: bounded theoretical screening live-tested, instant-buyout verification and other legacy callers remain pending; skill references: no exact name found in packaged skill Markdown.
-- `calculate_trading_profit` — target: market and workflows; replacement: `simulate_reference_currency_chain`; status: reference-only workflow live-tested, executable profit and other legacy callers remain pending; skill references: no exact name found in packaged skill Markdown.
+- `get_currency_rates` — target: market and workflows; replacement: `reference_currency_rates`; status: retired (legacy route, handler and client method removed; the replacement reports poe.ninja reference values without executable listings; evidence: `currencyReference.test.ts`, `currency-reference-live.mjs`); skill references: no exact name found in packaged skill Markdown.
+- `find_arbitrage` — target: market and workflows; replacement: `screen_currency_spreads`; status: retired (legacy route removed with its reversed pay/receive interpretation; the replacement screens bounded theoretical loops over all usable two-currency quotes and the first 20 three-currency names, and rejects sources above 1000 currencies; evidence: `currencySpread.test.ts`, `currency-reference-live.mjs`); skill references: no exact name found in packaged skill Markdown.
+- `calculate_trading_profit` — target: market and workflows; replacement: `simulate_reference_currency_chain`; status: retired (legacy route removed; the replacement reports reference conversion and explicit incomplete chains with no profit verdict; evidence: `currencyReference.test.ts`, `currency-reference-live.mjs`); skill references: no exact name found in packaged skill Markdown.
 - `find_timeless_jewel_seeds` — target: timeless jewels; replacement: `search_snapshot_timeless_seeds`, independent snapshot-based feature; status: partial (Elegant Hubris notable seeds and Caspiro fixed keystone only; one seed and tree compared against native equipped-jewel transformation; other seeds, versions and legacy callers remain); skill references: no exact name found in packaged skill Markdown.
 
 ## getSkillGemToolSchemas

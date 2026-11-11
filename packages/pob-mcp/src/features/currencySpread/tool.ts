@@ -45,24 +45,28 @@ export function createCurrencySpreadTool(source: EconomySource): FeatureTool {
     }
     if (!quotes.length) throw new Error('No usable two-sided spread data; no market conclusion is available');
     quotes.sort((a, b) => a.name.localeCompare(b.name));
-    const selected = quotes.slice(0, 20), candidates = [{ name: 'Chaos Orb', sellChaos: 1, buyChaos: 1, pay: null, receive: null }, ...selected];
+    if (quotes.length > 1000) throw new Error('Spread response exceeds the supported 1000-currency screening limit');
+    const chaosQuote = { name: 'Chaos Orb', sellChaos: 1, buyChaos: 1, pay: null, receive: null };
+    const selected = quotes.slice(0, 20), pairs = [chaosQuote, ...quotes], triples = [chaosQuote, ...selected];
     const loops: Array<{ currencies: string[]; factor: number; theoreticalGainPercent: number; legs: Array<{ from: string; to: string; multiplier: number }> }> = [];
+    let totalCandidates = 0;
     const add = (sequence: Quote[]) => {
       let factor = 1;
       for (const quote of sequence) factor *= quote.sellChaos / quote.buyChaos;
       const gain = (factor - 1) * 100;
       if (!Number.isFinite(factor) || !Number.isFinite(gain) || gain < threshold) return;
+      totalCandidates++;
+      if (loops.length === limit && gain <= loops[loops.length - 1].theoreticalGainPercent) return;
       loops.push({ currencies: [...sequence.map(quote => quote.name), sequence[0].name], factor, theoreticalGainPercent: gain,
         legs: sequence.flatMap((quote, index) => [{ from: quote.name, to: 'Chaos Orb', multiplier: quote.sellChaos }, { from: 'Chaos Orb', to: sequence[(index + 1) % sequence.length].name, multiplier: 1 / sequence[(index + 1) % sequence.length].buyChaos }]).filter(leg => leg.from !== leg.to) });
+      loops.sort((a, b) => b.theoreticalGainPercent - a.theoreticalGainPercent);
+      if (loops.length > limit) loops.pop();
     };
-    for (let i = 0; i < candidates.length; i++) for (let j = i + 1; j < candidates.length; j++) {
-      add([candidates[i], candidates[j]]);
-      for (let k = j + 1; k < candidates.length; k++) add([candidates[i], candidates[j], candidates[k]]);
-    }
-    loops.sort((a, b) => b.theoreticalGainPercent - a.theoreticalGainPercent);
+    for (let i = 0; i < pairs.length; i++) for (let j = i + 1; j < pairs.length; j++) add([pairs[i], pairs[j]]);
+    for (let i = 0; i < triples.length; i++) for (let j = i + 1; j < triples.length; j++) for (let k = j + 1; k < triples.length; k++) add([triples[i], triples[j], triples[k]]);
     return { content: [{ type: 'text', text: JSON.stringify({ source: snapshot.source, league, fetchedAt: snapshot.fetchedAt, listingScope: 'stash_aggregate_unverified',
       availableCurrencies: quotes.length, selectedCurrencies: selected.map(quote => quote.name), omittedCurrencies: Math.max(0, quotes.length - selected.length), incompleteLines: incomplete,
-      minGainPercent: threshold, totalCandidates: loops.length, returnedCount: Math.min(limit, loops.length), quotes: selected, candidates: loops.slice(0, limit),
-      warnings: ['Stash-side aggregate quotes are not verified instant-buyout offers; they may include secondary estimates and stale or unavailable listings.', 'Screening is limited to the first 20 currencies in alphabetical order, with two- and three-currency loops through Chaos Orb; fees and execution constraints are excluded.'] }) }] };
+      minGainPercent: threshold, totalCandidates, returnedCount: loops.length, quotes, candidates: loops,
+      warnings: ['Stash-side aggregate quotes are not verified instant-buyout offers; they may include secondary estimates and stale or unavailable listings.', 'Two-currency loops cover all usable currencies; three-currency loops are limited to the first 20 in alphabetical order. Fees and execution constraints are excluded.'] }) }] };
   } };
 }

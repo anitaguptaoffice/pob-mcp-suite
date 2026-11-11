@@ -131,7 +131,7 @@ export async function handleSuggestWatchersEye(context: JewelAdvisorContext) {
     output += '\n';
   }
 
-  output += `_Use \`get_currency_rates\` to estimate current market prices for specific mods._\n`;
+  output += `_Use \`reference_currency_rates\` to read reference prices for specific mods; they are not executable listings._\n`;
 
   return { content: [{ type: 'text' as const, text: output }] };
   });

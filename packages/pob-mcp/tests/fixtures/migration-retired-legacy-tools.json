@@ -1,0 +1,17 @@
+{
+  "get_currency_rates": {
+    "replacement": "reference_currency_rates",
+    "evidence": ["unit/currencyReference.test.ts", "smoke/currency-reference-live.mjs"],
+    "note": "Legacy poe.ninja route removed; reference rates stay an independent economy feature and are not executable listings."
+  },
+  "find_arbitrage": {
+    "replacement": "screen_currency_spreads",
+    "evidence": ["unit/currencySpread.test.ts", "smoke/currency-reference-live.mjs"],
+    "note": "Legacy route with the reversed pay/receive interpretation removed; bounded screening covers all two-currency loops and keeps three-currency loops on the first 20 names."
+  },
+  "calculate_trading_profit": {
+    "replacement": "simulate_reference_currency_chain",
+    "evidence": ["unit/currencyReference.test.ts", "smoke/currency-reference-live.mjs"],
+    "note": "Legacy profit verdict removed; chain simulation reports reference conversion and incomplete chains without claiming executable profit."
+  }
+}
