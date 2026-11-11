@@ -5,22 +5,25 @@ import { BuildFoundation, type BuildEngine } from '../../src/foundation/buildFou
 import { SnapshotStore } from '../../src/foundation/snapshotStore.js';
 
 describe('BuildFoundation isolation', () => {
-  it('never publishes an inventory item that equips itself or disappears on reload', async () => {
-    for (const failure of ['equipped', 'lost'] as const) {
+  it('never publishes an inventory item that equips itself, alters an inactive set or spec, or disappears on reload', async () => {
+    for (const failure of ['equipped', 'inactive', 'spec', 'lost'] as const) {
       const dir = await mkdtemp(path.join(tmpdir(), 'pob-inventory-reject-'));
       try {
         const store = new SnapshotStore(dir);
         const parent = await store.create({ xml: '<build/>', source: 'fixture', parentId: null, engineVersion: null, dataVersion: null, adapterVersion: null });
-        let loads = 0, items = [{ id: 1, raw: 'existing' }];
+        let loads = 0, items = [{ id: 1, raw: 'existing' }], currentSet = 1, currentSpec = 1;
         const engine = { identity: { engineVersion: null, dataVersion: null, adapterVersion: null },
           loadBuildXml: async () => { loads++; if (loads > 1 && failure === 'lost') items = [{ id: 1, raw: 'existing' }]; },
           getItemInventory: async () => [...items],
           addItem: async (_text: string, _slot: undefined, noAutoEquip: boolean) => { expect(noAutoEquip).toBe(true); items = [...items, { id: 2, raw: 'new' }]; return { id: 2, ...(failure === 'equipped' ? { slot: 'Ring 1' } : {}) }; },
-          getBuildInfo: async () => ({}), getTree: async () => ({}), getItems: async () => [], getSkills: async () => ({}), getConfig: async () => ({}), getStats: async () => ({}),
+          listSpecs: async () => ({ activeSpec: currentSpec, specs: [1, 2].map(index => ({ index, title: `Spec ${index}`, active: index === currentSpec, nodeCount: 1 })) }), selectSpec: async (index: number) => { currentSpec = index; },
+          listItemSets: async () => ({ activeItemSetId: currentSet, itemSets: [1, 2].map(id => ({ id, title: `Set ${id}`, active: id === currentSet, useSecondWeaponSet: false })) }),
+          selectItemSet: async (id: number) => { currentSet = id; },
+          getBuildInfo: async () => ({}), getTree: async () => ({ nodes: currentSpec === 2 && failure === 'spec' && items.length === 2 ? [2] : [1] }), getItems: async () => currentSet === 2 && failure === 'inactive' && items.length === 2 ? [{ slot: 'Ring 1', id: 2 }] : [], getSkills: async () => ({}), getConfig: async () => ({}), getStats: async () => ({}),
           captureSnapshot: async () => ({ xml: '<changed/>' }), verifyIdentity: async () => {}, close: async () => {},
         } as unknown as BuildEngine;
         const foundation = new BuildFoundation(store, async () => engine);
-        await expect(foundation.deriveInventoryItem(parent.id, 'item')).rejects.toThrow(failure === 'equipped' ? 'unequipped' : 'survive serialization');
+        await expect(foundation.deriveInventoryItem(parent.id, 'item')).rejects.toThrow(failure === 'equipped' ? 'unequipped' : failure === 'inactive' ? 'equipment set' : failure === 'spec' ? 'passive spec' : 'survive serialization');
         expect(await readdir(dir)).toEqual([`${parent.id}.json`]);
       } finally { await rm(dir, { recursive: true, force: true }); }
     }

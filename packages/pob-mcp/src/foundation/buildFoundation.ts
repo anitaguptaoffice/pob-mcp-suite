@@ -687,16 +687,31 @@ export class BuildFoundation {
   async deriveInventoryItem(id: string, itemText: string, trial = false): Promise<SnapshotRecord> {
     if (typeof itemText !== 'string' || !itemText.trim() || Buffer.byteLength(itemText, 'utf8') > 10240) throw new Error('Invalid item text');
     let expected: Array<{ id: number; raw: string }> = [];
+    let specCatalog: Awaited<ReturnType<BuildFoundation['readSpecCatalog']>>;
+    let itemCatalog: Awaited<ReturnType<BuildFoundation['readItemSetCatalog']>>;
+    let specsBefore: Awaited<ReturnType<BuildFoundation['inspectSpecs']>>;
+    let setsBefore: Awaited<ReturnType<BuildFoundation['inspectItemSets']>>;
+    const verifyOtherSets = async (engine: BuildEngine) => {
+      const specs = await this.readSpecCatalog(engine), sets = await this.readItemSetCatalog(engine);
+      if (!isDeepStrictEqual(specs, specCatalog) || !isDeepStrictEqual(sets, itemCatalog)) throw new Error('Adding an inventory item changed a spec or item-set catalog');
+      if (!isDeepStrictEqual(await this.inspectSpecs(engine, specs, specs.activeSpec), specsBefore)) throw new Error('Adding an inventory item changed a passive spec or its equipment');
+      if (!isDeepStrictEqual(await this.inspectItemSets(engine, sets, sets.activeItemSetId), setsBefore)) throw new Error('Adding an inventory item changed an equipment set');
+    };
     return this.derive(id, 'derived:inventory-item', async engine => {
       const inventory = await this.readItemInventory(engine);
       const before = normalizeObservation({ tree: await engine.getTree(), items: await engine.getItems(), skills: await engine.getSkills(), config: await engine.getConfig() });
+      specCatalog = await this.readSpecCatalog(engine); itemCatalog = await this.readItemSetCatalog(engine);
+      specsBefore = await this.inspectSpecs(engine, specCatalog, specCatalog.activeSpec);
+      setsBefore = await this.inspectItemSets(engine, itemCatalog, itemCatalog.activeItemSetId);
       const added = await engine.addItem(itemText, undefined, true);
       expected = await this.readItemInventory(engine);
       if (!Number.isSafeInteger(added.id) || added.id < 1 || added.slot != null || inventory.some(item => item.id === added.id) || expected.filter(item => item.id === added.id).length !== 1 || !isDeepStrictEqual(inventory, expected.filter(item => item.id !== added.id))) throw new Error('PoB did not add exactly one unequipped item');
       const after = normalizeObservation({ tree: await engine.getTree(), items: await engine.getItems(), skills: await engine.getSkills(), config: await engine.getConfig() });
       if (!isDeepStrictEqual(before, after)) throw new Error('Adding an inventory item changed the build');
+      await verifyOtherSets(engine);
     }, trial, async engine => {
       if (!isDeepStrictEqual(expected, await this.readItemInventory(engine))) throw new Error('Item inventory did not survive serialization');
+      await verifyOtherSets(engine);
     });
   }
 
@@ -745,6 +760,20 @@ export class BuildFoundation {
         result.itemSets.some(set => !Number.isSafeInteger(set.id) || set.id < 1 || typeof set.title !== 'string' || typeof set.active !== 'boolean' || typeof set.useSecondWeaponSet !== 'boolean') ||
         new Set(result.itemSets.map(set => set.id)).size !== result.itemSets.length || result.itemSets.filter(set => set.active).length !== 1 || !result.itemSets.some(set => set.id === result.activeItemSetId && set.active)) throw new Error('PoB returned invalid item set catalog');
     return result;
+  }
+
+  private async inspectItemSets(engine: BuildEngine, catalog: Awaited<ReturnType<BuildFoundation['readItemSetCatalog']>>, restoreId: number) {
+    const results = [];
+    for (const itemSet of catalog.itemSets) {
+      await engine.selectItemSet(itemSet.id);
+      if ((await this.readItemSetCatalog(engine)).activeItemSetId !== itemSet.id) throw new Error('PoB did not confirm item set selection');
+      const items = normalizeObservation({ items: await engine.getItems() }).items;
+      if (!Array.isArray(items)) throw new Error('PoB returned invalid equipment');
+      results.push({ id: itemSet.id, items });
+    }
+    await engine.selectItemSet(restoreId);
+    if ((await this.readItemSetCatalog(engine)).activeItemSetId !== restoreId) throw new Error('PoB did not restore selected item set');
+    return results;
   }
 
   async itemSets(id: string) {

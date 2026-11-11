@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { once } from 'node:events';
 import { BuildFoundation } from '../../build/foundation/buildFoundation.js';
+import { PoBLuaApiClient } from '../../build/pobLuaBridge.js';
 import { SnapshotStore } from '../../build/foundation/snapshotStore.js';
 import { openPoBEngine } from '../../build/foundation/pobEngineAdapter.js';
 import { normalizeObservation } from '../../build/foundation/observation.js';
@@ -16,8 +17,21 @@ const ring = 'Rarity: RARE\nInventory Test\nGold Ring\nItem Level: 86\nImplicits
 let child;
 try {
   const foundation = new BuildFoundation(new SnapshotStore(dir), () => openPoBEngine(options));
-  const xml = await readFile(gearedBuildXml, 'utf8');
+  const fixture = await readFile(gearedBuildXml, 'utf8');
+  const firstSet = fixture.match(/<ItemSet\b[^>]*\bid="1"[^>]*>[\s\S]*?<\/ItemSet>/)?.[0];
+  assert.ok(firstSet);
+  const secondSet = firstSet.replace('id="1"', 'id="7" title="Alternative"').replace('<Slot name="Ring 1" itemId="5"/>', '<Slot name="Ring 1" itemId="0"/>');
+  assert.ok(secondSet.includes('name="Ring 1" itemId="0"'));
+  const bridge = new PoBLuaApiClient({ cwd: options.cwd, cmd: options.command, args: [options.adapterPath], env: { POB_API_STDIO: '0' }, timeoutMs: 60000 });
+  let xml;
+  try {
+    await bridge.start(); await bridge.loadBuildXml(fixture.replace(firstSet, `${firstSet}\n${secondSet}`));
+    await bridge.createSpec({ title: 'Alternative', copyFrom: 1, activate: false });
+    xml = await bridge.exportBuildXml();
+  } finally { await bridge.stop(); }
   const parent = await foundation.importBuild(xml, 'inventory-fixture');
+  assert.equal((await foundation.specs(parent.id)).specs.length, 2);
+  assert.equal((await foundation.itemSets(parent.id)).itemSets.length, 2);
   const before = await foundation.itemInventory(parent.id, 100);
   const equipment = await foundation.inspect(parent.id, ['items']);
   const life = await foundation.evaluate(parent.id, ['Life']);
@@ -28,6 +42,10 @@ try {
   assert.equal(added.length, 1); assert.match(added[0].raw, /\+30 to maximum Life/);
   assert.deepEqual(normalizeObservation({ items: (await foundation.inspect(derived.id, ['items'])).data.items }).items, normalizeObservation({ items: equipment.data.items }).items);
   assert.equal((await foundation.evaluate(derived.id, ['Life'])).stats.Life, life.stats.Life);
+  const alternateSet = await foundation.deriveItemSet(derived.id, 7, true);
+  assert.equal((await foundation.inspect(alternateSet.id, ['items'])).data.items.find(item => item.slot === 'Ring 1').id, 0);
+  const alternateSpec = await foundation.deriveSpec(derived.id, 2, true);
+  assert.equal((await foundation.specs(alternateSpec.id)).activeSpec, 2);
   assert.equal(await foundation.exportBuild(parent.id), xml);
   const imported = await foundation.importBuild(await foundation.exportBuild(derived.id), 'inventory-reload');
   assert.deepEqual((await foundation.itemInventory(imported.id, 100)).items, after.items);
