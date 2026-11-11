@@ -58,6 +58,7 @@ try {
   assert.ok(!tools.result.tools.some(t => t.name === 'estimate_snapshot_cost'));
   assert.ok(!tools.result.tools.some(t => t.name === 'list_snapshot_equipment'));
   assert.ok(!tools.result.tools.some(t => t.name === 'compare_snapshot_trees'));
+  assert.ok(!tools.result.tools.some(t => t.name === 'transplant_snapshot_tree'));
   assert.ok(!tools.result.tools.some(t => t.name === 'compare_snapshot_builds'));
   assert.ok(!tools.result.tools.some(t => t.name === 'submit_snapshot_passive_ranking' || t.name === 'summarize_snapshot_passive_ranking'));
   assert.ok(!tools.result.tools.some(t => t.name === 'rank_snapshot_anointments'));
@@ -163,6 +164,7 @@ try {
   assert.ok(!foundationOnly.result.tools.some(t => t.name === 'screen_snapshot_budget_candidates'));
   assert.ok(!foundationOnly.result.tools.some(t => t.name === 'assemble_snapshot_budget_bundle'));
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'compare_snapshot_trees').length, 1);
+  assert.equal(foundationOnly.result.tools.filter(t => t.name === 'transplant_snapshot_tree').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'compare_snapshot_builds').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'submit_snapshot_passive_ranking').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'rank_snapshot_anointments').length, 1);

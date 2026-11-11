@@ -293,6 +293,21 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   Verify point availability, legality and build mechanics before applying a path.
   Results are seven-day trial snapshots; retain or save a chosen child explicitly.
 
+## Transplant a passive tree
+
+- Call `transplant_snapshot_tree` with explicit `source_snapshot_id` and
+  `target_snapshot_id`. It derives a child of the target, copying the source's
+  active class, ascendancy, node and mastery selections. The default is a
+  seven-day trial. Source and target node overrides are rejected; source jewel
+  assignments and other source build data are not copied. Point availability
+  and in-game legality are not established.
+- Review the resulting snapshot. The target's equipment, skills, configuration
+  and inactive specs are checked, but other serialized metadata is not fully
+  compared. No build file changes during the transplant. If an existing local
+  build must be replaced, call `inspect_local_build_file`, then explicitly call
+  `restore_snapshot_file` with the returned current fingerprint. A durable
+  backup is saved by default; an external writer can still race the replacement.
+
 ## Compare anointments
 
 - Call `rank_snapshot_anointments` with a `snapshot_id`, equipped `slot`, and

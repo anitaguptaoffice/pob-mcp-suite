@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { PoBLuaApiClient } from '../../build/pobLuaBridge.js';
@@ -95,7 +95,7 @@ try {
   assert.equal(inspected.data.tree.masteryEffects['4139'], 31822);
   assert.equal((await foundation.inspect(parent.id, ['tree'])).data.tree.masteryEffects['4139'], 47642);
   await assert.rejects(foundation.deriveMasteries(parent.id, { 4139: 999999 }), /Invalid or unallocated mastery effect/);
-  const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_SNAPSHOT_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
+  const mcp = startMcpServer({ POB_FOUNDATION_ENABLED: 'true', POB_SNAPSHOT_DIRECTORY: dir, POB_DIRECTORY: dir, POB_ADAPTER_PATH: options.adapterPath });
   mcp.child.stderr.on('data', () => {});
   const exited = once(mcp.child, 'exit');
   try {
@@ -106,6 +106,26 @@ try {
       assert.ok(!response.error && !response.result?.isError, JSON.stringify(response));
       return JSON.parse(response.result.content[0].text);
     };
+    const targetWithNotes = await foundation.deriveNotes(twoSpecs.id, 'TARGET_KEEP');
+    const targetXml = await foundation.exportBuild(targetWithNotes.id);
+    await writeFile(join(dir, 'target.xml'), targetXml);
+    const transplanted = await call('transplant_snapshot_tree', { source_snapshot_id: allocated.id, target_snapshot_id: targetWithNotes.id });
+    assert.equal(transplanted.snapshot.parentId, targetWithNotes.id);
+    assert.equal((await foundation.inspect(transplanted.snapshot.id, ['tree'])).data.tree.masteryEffects['4139'], 47642);
+    assert.deepEqual((await foundation.inspect(transplanted.snapshot.id, ['tree'])).data.tree, allocatedTree.data.tree);
+    assert.equal((await foundation.notes(transplanted.snapshot.id)).notes, 'TARGET_KEEP');
+    const inactiveTransplant = await foundation.deriveSpec(transplanted.snapshot.id, 2);
+    assert.deepEqual((await foundation.inspect(inactiveTransplant.id, ['tree'])).data.tree, (await foundation.inspect(unallocated.id, ['tree'])).data.tree);
+    assert.equal(await readFile(join(dir, 'target.xml'), 'utf8'), targetXml);
+    const fingerprint = await call('inspect_local_build_file', { build_name: 'target.xml' });
+    const restored = await call('restore_snapshot_file', { snapshot_id: transplanted.snapshot.id, build_name: 'target.xml', expected_current_sha256: fingerprint.sha256 });
+    assert.equal(await foundation.exportBuild(restored.backupSnapshotId), targetXml);
+    const reloaded = await foundation.importBuild(await readFile(join(dir, 'target.xml'), 'utf8'), 'transplant-reload');
+    assert.deepEqual((await foundation.inspect(reloaded.id, ['tree'])).data.tree, allocatedTree.data.tree);
+    assert.equal((await foundation.notes(reloaded.id)).notes, 'TARGET_KEEP');
+    const badSource = await mcp.request('tools/call', { name: 'transplant_snapshot_tree', arguments: { source_snapshot_id: tattooParent.id, target_snapshot_id: targetWithNotes.id } });
+    assert.equal(badSource.result.isError, true);
+    assert.match(badSource.result.content[0].text, /overrides/);
     const unallocatedOptions = await call('foundation_mastery_node_options', { snapshot_id: unallocated.id, node_id: 4139 });
     assert.equal(unallocatedOptions.allocated, false);
     const emptyDiscovery = await call('discover_snapshot_mastery_effects', { snapshot_id: unallocated.id });

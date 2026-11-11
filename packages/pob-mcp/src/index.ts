@@ -60,6 +60,7 @@ import { StatMapper as StaticStatCatalog } from './adapters/staticStats/catalog.
 import { createTradeSearchTool, tradeSearchSchema } from './features/tradeSearch/tool.js';
 import { createTradeItemPriceTool, tradeItemPriceSchema } from './features/tradePrice/tool.js';
 import { createSnapshotTreeComparisonTool, snapshotTreeComparisonSchema } from './features/treeComparison/tool.js';
+import { createSnapshotTreeTransplantTool, snapshotTreeTransplantSchema } from './features/treeTransplant/tool.js';
 import { createSnapshotBuildComparisonTool, snapshotBuildComparisonSchema } from './features/buildComparison/tool.js';
 import { createSnapshotGemComparisonTool, snapshotGemComparisonSchema, compareSnapshotGemSetups } from './features/snapshotGemComparison/tool.js';
 import { createGemSetupJobTools, gemSetupJobSchemas } from './features/snapshotGemComparison/jobTools.js';
@@ -174,6 +175,7 @@ class PoBMCPServer {
       tradeSearchSchema(),
       tradeItemPriceSchema(),
       snapshotTreeComparisonSchema(),
+      snapshotTreeTransplantSchema(),
       snapshotBuildComparisonSchema(),
       snapshotGemComparisonSchema(),
       ...gemSetupJobSchemas(),
@@ -606,6 +608,7 @@ class PoBMCPServer {
           return JSON.parse(response.content[0].text);
         });
       const migrated = [createSnapshotCostTool(foundation, economy), createShoppingListTool(foundation, economy), createSnapshotTreeComparisonTool(foundation), createSnapshotBuildComparisonTool(foundation), createSnapshotGemComparisonTool(foundation), ...createGemSetupJobTools(foundation, this.foundationJobs), createSnapshotSupportRankingTool(foundation), ...createTreePathTools(foundation), createBuildIssuesTool(foundation), createBossReadinessTool(foundation), createMasteryRankingTool(foundation), createMasteryDiscoveryTool(foundation), ...createMasteryJobTools(foundation, this.foundationJobs), ...createPassiveRankingTools(foundation, this.foundationJobs), createAnointmentTool(foundation), createSnapshotSummaryTool(foundation), createSkillInspectionTool(foundation), createEnemyConfigTool(foundation), ...createSnapshotConfigPresetTools(foundation, this.localConfigPresets), createTimelessSearchTool(foundation)];
+      migrated.push(createSnapshotTreeTransplantTool(foundation));
       migrated.push(createSnapshotAilmentsTool(foundation));
       migrated.push(createSnapshotDefensesTool(foundation));
       migrated.push(createCraftingContextTool(foundation, new PoedbBaseReference()));

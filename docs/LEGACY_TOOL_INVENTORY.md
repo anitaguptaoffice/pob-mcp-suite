@@ -26,7 +26,7 @@ Generated from registered schema groups in the current build. Most entries are p
 ## getExportToolSchemas
 
 - `export_build` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: no exact name found in packaged skill Markdown.
-- `save_tree` — target: tree and versioned data; replacement: versioned tree query or typed tree/spec change; status: not migrated; skill references: no exact name found in packaged skill Markdown.
+- `save_tree` — target: tree and versioned data; replacement: `foundation_replace_tree` or `transplant_snapshot_tree`, then explicit fingerprint-checked `restore_snapshot_file`; status: partial, node overrides and legacy callers remain; skill references: no exact name found in packaged skill Markdown.
 - `snapshot_build` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: no exact name found in packaged skill Markdown.
 - `list_snapshots` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: no exact name found in packaged skill Markdown.
 - `restore_snapshot` — target: build lifecycle / snapshot; replacement: snapshot import/read/list/export or typed derived version; status: not migrated; skill references: no exact name found in packaged skill Markdown.
