@@ -14,18 +14,18 @@ PoB 引擎和 MCP 适配层分别维护。本仓库保留军团珠宝种子搜�
 
 ## 工作方式
 
-服务只有一个工具面：每个构筑状态保存为不可变快照，修改生成子快照，计算在独立、短生命周期的无界面 PoB 进程中完成。快照 ID 可以复现当时的 XML、引擎版本和限制。PoB、poe.ninja 和官方国际服交易分别作为独立数据源接入。
+服务只有一个工具面：每个构筑状态保存为不可变快照，修改生成子快照，计算在独立、短生命周期的无界面 PoB 进程中完成。快照保存构筑 XML 和创建来源；每次计算返回实际使用的引擎、配置和限制，比较时双方重新计算。PoB、poe.ninja 和官方国际服交易分别作为独立数据源接入。
 
 - 缺失的属性保持 `unknown`，不会被写成 0。
 - poe.ninja 价格是带赛季和时间戳的参考价，不是可成交价格。
 - 交易搜索默认使用 `securable` 和明确标价，区分一口价、要价和未知。
 - 启发式建议标注为未验证；有界采样说明上限。
 
-设计取舍见[架构说明](docs/ARCHITECTURE.md)、[架构决策](docs/ARCHITECTURE_DECISIONS.md)和[中文摘要](docs/ARCHITECTURE.zh-CN.md)。
+设计取舍见[架构说明](docs/ARCHITECTURE.md)、[架构决策](docs/ARCHITECTURE_DECISIONS.md)和[中文摘要](docs/ARCHITECTURE.zh-CN.md)，各项能力和测试见[功能验收矩阵](docs/FEATURE_ACCEPTANCE.md)。
 
 ## 快速开始
 
-需要 Node.js 20 或更高版本，以及能解析所用 PoB 版本的 LuaJIT。
+需要 Node.js 20 或更高版本，以及能解析所用 PoB 版本的 LuaJIT。本机直接安装还需要 Python、make 和 C++ 编译器来构建原生文件锁依赖；Docker 镜像已包含所需环境。
 
 ```bash
 npm --prefix packages/pob-mcp ci

@@ -19,7 +19,11 @@ Default command:
 ./scripts/pob-mcp-docker.sh
 ```
 
-The command pulls the published Docker image on first run, then runs `pob-mcp-server` with:
+The command refreshes registry image tags at startup and falls back to an
+existing local image with a warning if the update fails. Digest references stay
+pinned; unnamespaced local development tags are not refreshed. Initial downloads
+have a separate timeout budget. See `../../references/client-configs.md` for
+these settings. The command runs `pob-mcp-server` with:
 
 - `POB_PATH=/opt/PathOfBuilding/src`
 - `POB_DIRECTORY=/builds`
@@ -44,8 +48,6 @@ For detailed tool selection, verification, and known edge cases, read the releva
 - `../../references/tree-optimization.md` for passive tree recommendations and reallocation.
 - `../../references/trade-tools.md` for trade searches, price checks, and gear upgrades.
 - `../../references/troubleshooting.md` for Docker, engine, pobb.in, and mismatch triage.
-- For build budgets, trade estimates, and crafting costs, use the separate `pob-economy` skill in `../pob-economy/SKILL.md`.
-- For crafting rules and probability assumptions, use the separate `pob-crafting` skill in `../pob-crafting/SKILL.md`.
 - For build budgets, trade estimates, and crafting costs, use the separate `pob-economy` skill in `../pob-economy/SKILL.md`.
 - For crafting rules and probability assumptions, use the separate `pob-crafting` skill in `../pob-crafting/SKILL.md`.
 
