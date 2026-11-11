@@ -26,6 +26,7 @@ try {
   assert.ok(!tools.result.tools.some(t => t.name === 'save_snapshot_config_preset' || t.name === 'apply_snapshot_config_preset'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_import_build'));
   assert.ok(!tools.result.tools.some(t => t.name === 'evaluate_snapshot_stat_category'));
+  assert.ok(!tools.result.tools.some(t => t.name === 'analyze_snapshot_equipment'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_read_notes' || t.name === 'foundation_derive_notes'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_derive_selection'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_derive_gem'));
@@ -150,6 +151,7 @@ try {
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'estimate_snapshot_cost').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'list_snapshot_equipment').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'evaluate_snapshot_stat_category').length, 1);
+  assert.equal(foundationOnly.result.tools.filter(t => t.name === 'analyze_snapshot_equipment').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'generate_snapshot_weighted_trade').length, 1);
   assert.ok(!foundationOnly.result.tools.some(t => t.name === 'search_snapshot_weighted_trade'));
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'compare_snapshot_trees').length, 1);

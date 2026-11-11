@@ -53,6 +53,19 @@ try {
     assert.equal(equipment.slots.find(slot => slot.slot === 'Ring 1').state, 'empty');
     assert.equal(equipment.reference, null);
     assert.ok(equipment.slots.every(slot => slot.purchaseStatus === 'not_checked'));
+    const analysisCall = await mcp.request('tools/call', { name: 'analyze_snapshot_equipment', arguments: { snapshot_id: child.id, include_item_text: true } });
+    assert.ok(!analysisCall.error && !analysisCall.result?.isError, JSON.stringify(analysisCall));
+    const analysis = JSON.parse(analysisCall.result.content[0].text);
+    assert.equal(analysis.activeItemSet.id, 7); assert.equal(analysis.heuristic.status, 'unverified');
+    assert.equal(analysis.metrics.Life.value, alternative.stats.Life);
+    for (const slot of equipment.slots) {
+      const observed = analysis.slots.find(row => row.slot === slot.slot);
+      assert.equal(observed.state, slot.state); assert.equal(observed.inUse, slot.inUse); assert.equal(observed.itemId, slot.itemId);
+    }
+    assert.equal(analysis.slots.find(slot => slot.slot === 'Ring 1').state, 'empty');
+    assert.ok(analysis.heuristic.excludedSlots.some(slot => slot.slot === 'Weapon 1'));
+    const activeWeapon = analysis.slots.find(slot => slot.slot === 'Weapon 1 Swap');
+    if (activeWeapon.inUse && activeWeapon.state !== 'unresolved') assert.ok(analysis.heuristic.result.slotAnalysis.some(slot => slot.slot === 'Weapon 1 Swap'));
     const originalShopping = await mcp.request('tools/call', { name: 'list_snapshot_equipment', arguments: { snapshot_id: parent.id, league: 'Standard' } });
     assert.ok(!originalShopping.error && !originalShopping.result?.isError, JSON.stringify(originalShopping));
     assert.equal(JSON.parse(originalShopping.result.content[0].text).slots.find(slot => slot.slot === 'Ring 1').itemId, 5);

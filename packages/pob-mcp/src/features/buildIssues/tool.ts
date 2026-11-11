@@ -1,7 +1,7 @@
 import type { BuildFoundation } from '../../foundation/buildFoundation.js';
 import type { FeatureTool } from '../../server/featureRegistry.js';
 import { toFiniteNumber } from '../../pobLuaBridge.js';
-import { isEquippableGearSlot, isGearSlotVisible } from '../../itemAnalyzer.js';
+import { isEquippableGearSlot, isGearSlotVisible } from '../../domain/itemAnalysis.js';
 
 export const issueFields = ['Life', 'LifeUnreserved', 'EnergyShield', 'Mana', 'ManaUnreserved', 'FireResist', 'ColdResist', 'LightningResist', 'ChaosResist', 'MissingFireResist', 'MissingColdResist', 'MissingLightningResist', 'FireResistOverCap', 'ColdResistOverCap', 'LightningResistOverCap', 'SpellSuppressionChance', 'EffectiveSpellSuppressionChance', 'TotalDPS', 'CombinedDPS', 'FullDPS', 'MinionTotalDPS', 'MinionCombinedDPS', 'TotalEHP'];
 type Issue = { code: string; severity: 'error' | 'warning' | 'info'; category: string; message: string; evidence: Record<string, unknown>; heuristic?: boolean };
