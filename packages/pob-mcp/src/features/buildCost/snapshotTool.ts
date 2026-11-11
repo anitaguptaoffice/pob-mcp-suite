@@ -3,9 +3,10 @@ import type { EconomySource } from '../../ports/economySource.js';
 import type { FeatureTool } from '../../server/featureRegistry.js';
 import { estimateBuildCost, type CostGroup, type CostItem, type PriceSource } from './estimate.js';
 import type { PriceCategory, PriceLine } from './priceTypes.js';
+import { normalizeEquipment } from '../../domain/equipment.js';
 
 export function snapshotCostSchema(): FeatureTool['schema'] {
-  return { name: 'estimate_snapshot_cost', description: 'Estimate an incomplete poe.ninja reference subtotal for one immutable PoB snapshot and explicit international league. These are not purchasable listings.',
+  return { name: 'estimate_snapshot_cost', description: 'Estimate an incomplete poe.ninja reference subtotal for the active equipment and skill setup of one immutable PoB snapshot and explicit international league. Inactive or visibility-unknown items are excluded; these are not purchasable listings.',
     inputSchema: { type: 'object', properties: { snapshot_id: { type: 'string' }, league: { type: 'string' } }, required: ['snapshot_id', 'league'] } };
 }
 
@@ -28,10 +29,14 @@ function priceLines(value: unknown): PriceLine[] {
   return value as PriceLine[];
 }
 
-export async function estimateObservedCost(economy: EconomySource, league: string, items: unknown, skills: { groups?: unknown } | undefined) {
+export async function estimateObservedCost(economy: EconomySource, league: string, sets: unknown, items: unknown, skills: { groups?: unknown } | undefined) {
     if (!Array.isArray(items) || !Array.isArray(skills?.groups) || skills.groups.some(group => !group || !Array.isArray(group.gems))) {
       throw new Error('Snapshot did not provide complete item and skill-group data');
     }
+    const { activeSet, slots } = normalizeEquipment(sets as Parameters<typeof normalizeEquipment>[0], items as Parameters<typeof normalizeEquipment>[1]);
+    const inUse = new Set(slots.filter(slot => slot.inUse === true && slot.state !== 'empty').map(slot => slot.slot));
+    const unknownVisibility = slots.filter(slot => slot.inUse === null && slot.state !== 'empty');
+    const excludedItems = slots.filter(slot => slot.inUse === false && slot.state !== 'empty').map(slot => ({ slot: slot.slot, itemId: slot.itemId, reason: 'inactive_or_hidden' }));
     const sources: Array<{ source: string; league: string; category: PriceCategory; fetchedAt: string }> = [];
     const failures: Array<{ category: PriceCategory; message: string; code?: string; httpStatus?: number }> = [];
     const prices: PriceSource = { get: async (requestedLeague, category) => {
@@ -48,20 +53,22 @@ export async function estimateObservedCost(economy: EconomySource, league: strin
         throw error;
       }
     } };
-    const report = await estimateBuildCost(prices, league, items as CostItem[], skills.groups as CostGroup[]);
+    const report = await estimateBuildCost(prices, league, (items as CostItem[]).filter(item => inUse.has(item.slot)), skills.groups as CostGroup[]);
+    for (const slot of unknownVisibility) report.entries.push({ kind: 'item', slot: slot.slot, name: slot.item?.name || slot.item?.baseName || 'Unnamed item', status: 'unknown', note: 'Equipment visibility is unknown; this item is excluded from the subtotal.' });
+    report.unknownCount += unknownVisibility.length;
     sources.sort((a, b) => a.category.localeCompare(b.category));
     failures.sort((a, b) => a.category.localeCompare(b.category));
-    return { ...report, sources, failures };
+    return { ...report, activeItemSet: activeSet, excludedItems, sources, failures };
 }
 export type ObservedCostResult = Awaited<ReturnType<typeof estimateObservedCost>>;
 
-export function createSnapshotCostTool(foundation: Pick<BuildFoundation, 'inspect'>, economy: EconomySource): FeatureTool {
+export function createSnapshotCostTool(foundation: Pick<BuildFoundation, 'runReadOnlySnapshot'>, economy: EconomySource): FeatureTool {
   return { schema: snapshotCostSchema(), invoke: async args => {
     const snapshotId = typeof args.snapshot_id === 'string' ? args.snapshot_id : '';
     const league = typeof args.league === 'string' ? args.league.trim() : '';
     if (!/^[a-f0-9]{64}$/.test(snapshotId) || !league || league.length > 100) throw new Error('snapshot_id and exact international league are required');
-    const inspected = await foundation.inspect(snapshotId, ['items', 'skills']);
-    const report = await estimateObservedCost(economy, league, inspected.data.items, inspected.data.skills as { groups?: unknown } | undefined);
-    return { content: [{ type: 'text', text: JSON.stringify({ snapshotId, identity: inspected.identity, snapshotWarnings: inspected.warnings, ...report }) }] };
+    const { result, ...context } = await foundation.runReadOnlySnapshot(snapshotId, async engine => ({ sets: await engine.listItemSets(), items: await engine.getItems(), skills: await engine.getSkills() }));
+    const report = await estimateObservedCost(economy, league, result.sets, result.items, result.skills as { groups?: unknown } | undefined);
+    return { content: [{ type: 'text', text: JSON.stringify({ snapshotId, identity: context.identity, snapshotWarnings: context.warnings, ...report }) }] };
   } };
 }

@@ -4,11 +4,12 @@ import type { EconomySource } from '../../src/ports/economySource.js';
 const snapshot = 'a'.repeat(64);
 const sets = { activeItemSetId: 2, itemSets: [{ id: 1, title: 'old', active: false, useSecondWeaponSet: false }, { id: 2, title: 'current', active: true, useSecondWeaponSet: true }] };
 const items = [
-  { slot: 'Weapon 1', id: 1, shown: false, name: 'Old Sword', baseName: 'Sword', raw: 'old' },
+  { slot: 'Weapon 1', id: 1, shown: true, name: 'Goldrim', baseName: 'Leather Cap', raw: 'Rarity: UNIQUE\nGoldrim\nLeather Cap', rarity: 'UNIQUE' },
   { slot: 'Weapon 1 Swap', id: 2, shown: true, name: 'Current Sword', baseName: 'Sword', raw: 'current', rarity: 'RARE' },
   { slot: 'Helmet', id: 3, shown: true, name: 'Goldrim', baseName: 'Leather Cap', raw: 'Rarity: UNIQUE\nGoldrim\nLeather Cap', rarity: 'UNIQUE' },
   { slot: 'Ring 1', id: 0, shown: true }, { slot: 'Ring 3', id: 0, shown: false }, { slot: 'Gloves', id: 4, shown: true },
   { slot: 'Flask 1', id: 0, shown: true }, { slot: 'Jewel 1', id: 0, shown: true },
+  { slot: 'Belt', id: 5, name: 'Goldrim', baseName: 'Leather Cap', raw: 'Rarity: UNIQUE\nGoldrim\nLeather Cap', rarity: 'UNIQUE' },
 ];
 function setup() {
   const engine = { listItemSets: jest.fn().mockResolvedValue(sets), getItems: jest.fn().mockResolvedValue(items), getSkills: jest.fn().mockResolvedValue({ groups: [] }) } as unknown as BuildEngine;
@@ -30,6 +31,9 @@ describe('snapshot equipment shopping list', () => {
   it('separates optional reference prices from buyable listings and leaves rare gear unpriced', async () => {
     const test = setup(); const result = JSON.parse((await test.tool.invoke({ snapshot_id: snapshot, league: 'Standard', include_reference: true })).content[0].text);
     expect(result.reference.complete).toBe(false);
+    expect(result.reference.estimatedSubtotal).toBe(10);
+    expect(result.reference.excludedItems).toEqual([{ slot: 'Weapon 1', itemId: 1, reason: 'inactive_or_hidden' }]);
+    expect(result.reference.entries.find((entry: { slot: string }) => entry.slot === 'Belt')).toMatchObject({ status: 'unknown', note: expect.stringContaining('visibility is unknown') });
     expect(result.slots.find((slot: { slot: string }) => slot.slot === 'Helmet')).toMatchObject({ purchaseStatus: 'not_checked', reference: { status: 'reference', chaos: 10 } });
     expect(result.slots.find((slot: { slot: string }) => slot.slot === 'Weapon 1 Swap')).toMatchObject({ purchaseStatus: 'not_checked', reference: { status: 'unknown' } });
     expect(result.slots.find((slot: { slot: string }) => slot.slot === 'Ring 1').reference).toBeNull();

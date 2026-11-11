@@ -7,12 +7,13 @@ import { NinjaPrices } from '../../src/features/buildCost/ninjaPrices.js';
 
 const id = 'a'.repeat(64);
 const fetchedAt = '2026-01-01T00:00:00.000Z';
-const item = { slot: 'Helmet', id: 1, name: 'Example', baseName: 'Circlet', rarity: 'UNIQUE', raw: 'Rarity: UNIQUE\nExample\nCirclet' };
-const rare = { slot: 'Boots', id: 2, name: 'Rare', rarity: 'RARE' };
+const item = { slot: 'Helmet', id: 1, shown: true, name: 'Example', baseName: 'Circlet', rarity: 'UNIQUE', raw: 'Rarity: UNIQUE\nExample\nCirclet' };
+const rare = { slot: 'Boots', id: 2, shown: true, name: 'Rare', rarity: 'RARE' };
 const groups = [{ index: 1, slotEnabled: true, gems: [{ name: 'Vortex', level: 20, quality: 0, enabled: true }] }];
+const sets = { activeItemSetId: 1, itemSets: [{ id: 1, title: 'Default', active: true, useSecondWeaponSet: false }] };
 const lines = (category: string) => category === 'UniqueArmour' ? [{ name: 'Example', baseType: 'Circlet', chaosValue: 12, listingCount: 15 }]
   : category === 'SkillGem' ? [{ name: 'Vortex', gemLevel: 20, gemQuality: 0, chaosValue: 5 }] : [];
-const foundation = { inspect: async () => ({ data: { items: [item, rare], skills: { groups } }, identity: { engineVersion: 'test' }, warnings: [] }) } as unknown as Pick<BuildFoundation, 'inspect'>;
+const foundation = { runReadOnlySnapshot: async (snapshotId: string, fn: (engine: unknown) => Promise<unknown>) => ({ snapshotId, result: await fn({ listItemSets: async () => sets, getItems: async () => [item, rare], getSkills: async () => ({ groups }) }), identity: { engineVersion: 'test' }, warnings: [] }) } as unknown as Pick<BuildFoundation, 'runReadOnlySnapshot'>;
 
 describe('snapshot build cost feature', () => {
   it('matches the existing price policy while retaining snapshot and source provenance', async () => {
@@ -57,5 +58,25 @@ describe('snapshot build cost feature', () => {
     expect(wrong.failures).toHaveLength(6);
     expect(wrong.failures[0].message).toContain('mismatched provenance');
     await expect(createSnapshotCostTool(foundation, source).invoke({ snapshot_id: id, league: '' })).rejects.toThrow('league');
+  });
+  it('excludes inactive weapons and marks unknown visibility instead of adding uncertain prices', async () => {
+    const activeSets = { activeItemSetId: 1, itemSets: [{ ...sets.itemSets[0], useSecondWeaponSet: true }] };
+    const rows = [
+      { ...item, slot: 'Weapon 1', id: 10, shown: true },
+      { ...item, slot: 'Weapon 1 Swap', id: 11, shown: true },
+      { ...item, slot: 'Helmet', id: 12, shown: undefined },
+      { ...item, slot: 'Weapon 1 Abyssal Socket 1', id: 13, shown: true },
+      { ...item, slot: 'Weapon 1Swap Abyssal Socket 1', id: 14, shown: true },
+    ];
+    const testFoundation = { runReadOnlySnapshot: async (snapshotId: string, fn: (engine: unknown) => Promise<unknown>) => ({ snapshotId, result: await fn({ listItemSets: async () => activeSets, getItems: async () => rows, getSkills: async () => ({ groups: [] }) }), identity: {}, warnings: [] }) } as unknown as Pick<BuildFoundation, 'runReadOnlySnapshot'>;
+    const source: EconomySource = { read: async query => ({ source: 'poe.ninja', query, fetchedAt, payload: { lines: lines(query.kind === 'items' ? query.category : '') } }) };
+    const result = JSON.parse((await createSnapshotCostTool(testFoundation, source).invoke({ snapshot_id: id, league: 'Standard' })).content[0].text);
+    expect(result.estimatedSubtotal).toBe(24);
+    expect(result.activeItemSet.useSecondWeaponSet).toBe(true);
+    expect(result.excludedItems).toEqual([{ slot: 'Weapon 1', itemId: 10, reason: 'inactive_or_hidden' }, { slot: 'Weapon 1 Abyssal Socket 1', itemId: 13, reason: 'inactive_or_hidden' }]);
+    expect(result.entries).toEqual(expect.arrayContaining([expect.objectContaining({ slot: 'Weapon 1 Swap', status: 'reference' }), expect.objectContaining({ slot: 'Helmet', status: 'unknown', note: expect.stringContaining('visibility is unknown') })]));
+    expect(result.unknownCount).toBe(1);
+    expect(result.entries.some((entry: { slot: string }) => entry.slot === 'Weapon 1')).toBe(false);
+    expect(result.entries.some((entry: { slot: string }) => entry.slot === 'Weapon 1Swap Abyssal Socket 1')).toBe(true);
   });
 });

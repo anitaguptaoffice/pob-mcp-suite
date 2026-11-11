@@ -16,7 +16,7 @@ export function createShoppingListTool(foundation: Pick<BuildFoundation, 'runRea
     const { result, ...context } = await foundation.runReadOnlySnapshot(args.snapshot_id, async engine => ({ sets: await engine.listItemSets(), items: await engine.getItems(), ...(includeReference ? { skills: await engine.getSkills() } : {}) }));
     const { activeSet, slots: normalized } = normalizeEquipment(result.sets, result.items as Row[]);
     let reference: ObservedCostResult | null = null;
-    if (includeReference) reference = await estimateObservedCost(economy, league, result.items, result.skills as { groups?: unknown } | undefined);
+    if (includeReference) reference = await estimateObservedCost(economy, league, result.sets, result.items, result.skills as { groups?: unknown } | undefined);
     const prices = new Map((reference?.entries ?? []).filter(entry => entry.kind === 'item').map(entry => [entry.slot, entry]));
     const slots = normalized.map(item => ({ ...item, reference: item.inUse === true ? prices.get(item.slot) ?? null : null, purchaseStatus: 'not_checked' }));
     return { content: [{ type: 'text', text: JSON.stringify({ ...context, league, activeItemSet: activeSet, slots, reference,

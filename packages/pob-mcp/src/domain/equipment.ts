@@ -8,7 +8,9 @@ export function normalizeEquipment(sets: ItemSets, items: Row[]) {
   if (!Array.isArray(items) || items.some(item => !item || typeof item !== 'object' || Array.isArray(item) || typeof item.slot !== 'string' || !item.slot.trim() || !Number.isSafeInteger(item.id) || item.id < 0 || (item.shown !== undefined && typeof item.shown !== 'boolean') || [item.name, item.baseName, item.rarity, item.raw].some(value => value !== undefined && typeof value !== 'string')) || new Set(items.map(item => item.slot)).size !== items.length) throw new Error('PoB returned invalid equipment slots');
   const activeSet = sets.itemSets.find(set => set.active)!;
   const slots = items.map(item => {
-    const weapon = /^Weapon [12]( Swap)?$/i.exec(item.slot);
+    // PoB names abyss sockets without a space before "Swap", while the
+    // parent weapon slot uses "Weapon 1 Swap".
+    const weapon = /^Weapon [12](?: ?(Swap))?(?: Abyssal Socket \d+)?$/i.exec(item.slot);
     const weaponSetActive = weapon ? Boolean(weapon[1]) === activeSet.useSecondWeaponSet : null;
     const visibility = item.shown === undefined ? null : item.shown;
     const inUse = weaponSetActive === false || visibility === false ? false : visibility === null ? null : true;
