@@ -93,54 +93,57 @@ try {
 
   // PassiveSpec:ImportFromNodeList silently refuses a Mastery with no effect
   // chosen, so update_tree_delta must both report the drop and offer a way to
-  // supply the effect.
-  const tree = await client.getTree();
-  const masteryId = await findAllocatableMastery(client, tree);
-  if (masteryId == null) {
-    console.log('skip  mastery checks (no adjacent mastery node in example build)');
+  // supply the effect. A Mastery is never adjacent on its own: it hangs off
+  // the notable in its cluster, so the route has to be allocated with it.
+  const mastery = await findMastery(client);
+  if (mastery == null) {
+    console.log('skip  mastery checks (no reachable mastery node in example build)');
   } else {
-    const withoutEffect = await client.updateTreeDelta({ addNodes: [masteryId] });
+    const route = mastery.pathNodes.map(Number).filter((id) => id !== mastery.id && Number.isFinite(id));
+    const addNodes = [...route, mastery.id];
+
+    const withoutEffect = await client.updateTreeDelta({ addNodes });
     check('mastery without an effect is reported as dropped',
-      (withoutEffect.droppedNodes ?? []).includes(masteryId),
+      (withoutEffect.droppedNodes ?? []).includes(mastery.id),
       `dropped=${JSON.stringify(withoutEffect.droppedNodes)}`);
 
-    // set_tree passed masterySelections straight through with no fallback, so
-    // any call that didn't re-specify every mastery's effect silently wiped
-    // it — ImportFromNodeList only requires masterySelections[id] be truthy,
-    // not a real effect id, so an arbitrary one is enough to allocate here.
-    const withEffect = await client.updateTreeDelta({ addNodes: [masteryId], masteryEffects: { [masteryId]: 1 } });
-    check('mastery with an effect is allocated',
-      Object.prototype.hasOwnProperty.call(withEffect.tree?.masteryEffects ?? {}, masteryId),
-      `masteryEffects=${JSON.stringify(withEffect.tree?.masteryEffects)}`);
-
-    // get_mastery_options iterated node.masteryEffects (an array of
-    // { effect, stats }) with pairs() and read a nonexistent `.sd` field, so
-    // every option silently degraded to its array position (1, 2, 3...)
-    // instead of the real stat text. A foreign-ascendancy mastery has no real
-    // options for this character, so this needs a native one specifically.
-    const nativeMasteryId = await findAllocatableMastery(client, tree, { ownAscendancyOnly: true });
-    if (nativeMasteryId == null) {
-      console.log('skip  mastery options check (no native mastery node in example build)');
+    // The effect id is PoB's real option id (a five-digit number), not an
+    // index into the option list. Read it from the engine rather than guessing.
+    const options = await client.getMasteryNodeOptions(mastery.id);
+    const effectId = options?.availableEffects?.[0]?.effectId;
+    if (effectId == null) {
+      console.log('skip  mastery effect checks (node reports no options)');
     } else {
-      await client.updateTreeDelta({ addNodes: [nativeMasteryId], masteryEffects: { [nativeMasteryId]: 1 } });
-      const options = await client.getMasteryOptions();
-      const thisMastery = (options?.masteries ?? []).find((m) => m.nodeId === nativeMasteryId);
+      // set_tree passed masterySelections straight through with no fallback,
+      // so any call that didn't re-specify every mastery's effect silently
+      // wiped it.
+      const withEffect = await client.updateTreeDelta({ addNodes, masteryEffects: { [mastery.id]: effectId } });
+      check('mastery with an effect is allocated',
+        Object.prototype.hasOwnProperty.call(withEffect.tree?.masteryEffects ?? {}, mastery.id),
+        `masteryEffects=${JSON.stringify(withEffect.tree?.masteryEffects)}`);
+
+      // get_mastery_options iterated node.masteryEffects (an array of
+      // { effect, stats }) with pairs() and read a nonexistent `.sd` field, so
+      // every option silently degraded to its array position (1, 2, 3...)
+      // instead of the real stat text.
+      const allocated = await client.getMasteryOptions();
+      const thisMastery = (allocated?.masteries ?? []).find((m) => m.nodeId === mastery.id);
       const optionStats = (thisMastery?.availableEffects ?? []).map((e) => e.stat);
       check('mastery options report real stat text, not array-index placeholders',
         optionStats.length > 0 && optionStats.every((s) => /[a-zA-Z]/.test(String(s))),
         `stats=${JSON.stringify(optionStats)}`);
-    }
 
-    const resetTree = await client.setTree({
-      classId: withEffect.tree.classId,
-      ascendClassId: withEffect.tree.ascendClassId,
-      secondaryAscendClassId: withEffect.tree.secondaryAscendClassId,
-      nodes: withEffect.tree.nodes,
-      treeVersion: withEffect.tree.treeVersion,
-    });
-    check('set_tree preserves an already-allocated mastery with no masteryEffects arg',
-      Object.prototype.hasOwnProperty.call(resetTree.masteryEffects ?? {}, masteryId),
-      `masteryEffects=${JSON.stringify(resetTree.masteryEffects)}`);
+      const resetTree = await client.setTree({
+        classId: withEffect.tree.classId,
+        ascendClassId: withEffect.tree.ascendClassId,
+        secondaryAscendClassId: withEffect.tree.secondaryAscendClassId,
+        nodes: withEffect.tree.nodes,
+        treeVersion: withEffect.tree.treeVersion,
+      });
+      check('set_tree preserves an already-allocated mastery with no masteryEffects arg',
+        Object.prototype.hasOwnProperty.call(resetTree.masteryEffects ?? {}, mastery.id),
+        `masteryEffects=${JSON.stringify(resetTree.masteryEffects)}`);
+    }
   }
   if (failures.length) throw new Error(`${failures.length} check(s) failed: ${failures.join(', ')}`);
   console.log('\nstate-truthfulness smoke passed');
@@ -149,22 +152,16 @@ try {
 }
 
 // The example build's tree differs from any given user's, so discover a mastery
-// node adjacent to it rather than hardcoding an ID.
-async function findAllocatableMastery(c, tree, { ownAscendancyOnly = false } = {}) {
-  const allocated = new Set(tree.nodes);
-  const ownAscendancy = ownAscendancyOnly ? (await c.getBuildInfo())?.ascendClassName ?? '' : null;
-  for (const keyword of ['mastery']) {
-    try {
-      const res = await c.searchNodes({ keyword, nodeType: 'mastery', maxResults: 30, includeAllocated: false });
-      for (const node of res?.nodes ?? []) {
-        // A mastery tagged with a foreign ascendancyName belongs to a class this
-        // character isn't, so it has no real effect options for this build —
-        // only reject those when the caller specifically needs a native one.
-        const ascendancy = node.ascendancy ?? node.ascendancyName ?? '';
-        const isForeignAscendancy = ownAscendancyOnly && ascendancy !== '' && ascendancy !== ownAscendancy;
-        if (!isForeignAscendancy && !allocated.has(Number(node.id))) return Number(node.id);
-      }
-    } catch { /* search unavailable; skip the mastery checks */ }
+// node and its route rather than hardcoding an ID. Every mastery needs a route:
+// it is attached to the notable in its cluster, never adjacent by itself.
+async function findMastery(c) {
+  try {
+    const res = await c.searchNodes({ keyword: 'mastery', nodeType: 'mastery', maxResults: 1000, includeAllocated: false });
+    return (res?.nodes ?? [])
+      .filter((node) => Array.isArray(node.pathNodes) && node.pathNodes.length > 0)
+      // Shortest route keeps the smoke fast and the allocation valid.
+      .sort((a, b) => a.pathNodes.length - b.pathNodes.length)[0] ?? null;
+  } catch {
+    return null; // search unavailable; skip the mastery checks
   }
-  return null;
 }

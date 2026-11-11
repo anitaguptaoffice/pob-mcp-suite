@@ -558,9 +558,15 @@ function M.update_tree_delta(params)
   for _, id in ipairs(after and after.nodes or {}) do allocated[id] = true end
   local dropped = {}
   if params and type(params.addNodes) == 'table' then
+    local reported = {}
     for _, id in ipairs(params.addNodes) do
       local n = tonumber(id)
-      if n and not allocated[n] then table.insert(dropped, n) end
+      -- A route often names the target itself, so the same node can be
+      -- requested twice; report each dropped node once.
+      if n and not allocated[n] and not reported[n] then
+        reported[n] = true
+        table.insert(dropped, n)
+      end
     end
   end
   return { tree = after, droppedNodes = dropped }
