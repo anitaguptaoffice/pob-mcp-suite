@@ -390,11 +390,12 @@ export class BuildFoundation {
     }, trial);
   }
 
-  async deriveGem(id: string, groupIndex: number, gemIndex: number, changes: { level?: number; quality?: number; enabled?: boolean }, trial = false): Promise<SnapshotRecord> {
+  async deriveGem(id: string, groupIndex: number, gemIndex: number, changes: { level?: number; quality?: number; qualityId?: 'Default'; enabled?: boolean }, trial = false): Promise<SnapshotRecord> {
     if (!Number.isSafeInteger(groupIndex) || groupIndex < 1 || !Number.isSafeInteger(gemIndex) || gemIndex < 1 || !changes || typeof changes !== 'object' || Array.isArray(changes) ||
-        !Object.keys(changes).length || Object.keys(changes).some(key => !['level', 'quality', 'enabled'].includes(key)) ||
+        !Object.keys(changes).length || Object.keys(changes).some(key => !['level', 'quality', 'qualityId', 'enabled'].includes(key)) ||
         (changes.level !== undefined && (!Number.isInteger(changes.level) || changes.level < 1 || changes.level > 40)) ||
         (changes.quality !== undefined && (!Number.isInteger(changes.quality) || changes.quality < 0 || changes.quality > 99)) ||
+        (changes.qualityId !== undefined && changes.qualityId !== 'Default') ||
         (changes.enabled !== undefined && typeof changes.enabled !== 'boolean') || Object.values(changes).some(value => value === undefined)) throw new Error('Invalid gem change');
     return this.derive(id, 'derived:gem', async engine => {
       const before = normalizeObservation({ tree: await engine.getTree(), items: await engine.getItems(), config: await engine.getConfig(), skills: await engine.getSkills() });
@@ -409,7 +410,11 @@ export class BuildFoundation {
       const target = original.find(group => group.index === groupIndex)?.gems?.find(gem => gem.index === gemIndex);
       if (!target) throw new Error('Gem not found in requested group');
       if (changes.level !== undefined) await engine.setGemLevel({ groupIndex, gemIndex, level: changes.level });
-      if (changes.quality !== undefined) await engine.setGemQuality({ groupIndex, gemIndex, quality: changes.quality });
+      if (changes.quality !== undefined || changes.qualityId !== undefined) {
+        const quality = changes.quality ?? target.quality;
+        if (typeof quality !== 'number' || !Number.isInteger(quality) || quality < 0 || quality > 99) throw new Error('Existing gem quality is unavailable');
+        await engine.setGemQuality({ groupIndex, gemIndex, quality, ...(changes.qualityId === undefined ? {} : { qualityId: changes.qualityId }) });
+      }
       if (changes.enabled !== undefined) await engine.setGemEnabled({ groupIndex, gemIndex, enabled: changes.enabled });
       const after = normalizeObservation({ tree: await engine.getTree(), items: await engine.getItems(), config: await engine.getConfig(), skills: await engine.getSkills() });
       for (const section of ['tree', 'items', 'config'] as const) if (!isDeepStrictEqual(before[section], after[section])) throw new Error(`Gem change modified unrelated ${section}`);

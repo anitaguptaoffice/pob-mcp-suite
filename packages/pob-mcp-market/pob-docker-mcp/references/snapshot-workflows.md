@@ -179,8 +179,10 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   candidates. `foundation_derive_item` equips an explicit slot. Config and
   character level have dedicated derivations. `foundation_derive_gem` changes
   an existing gem's level, quality or enabled state using explicit one-based
-  group and gem indices; its existing quality type is retained. Changing a
-  quality type is not yet available in this mode. Use
+  group and gem indices. `qualityId: Default` is the only explicit quality type
+  accepted. The tested PoB version reports a legacy alternate `qualityId` as
+  Default after import; preserving that old XML field during mutations is not
+  established. The original imported snapshot retains its source XML. Use
   `foundation_derive_gem_list` to add a uniquely resolved gem or remove an
   existing one by index; it does not verify socket legality or game availability.
 - Use `foundation_derive_skill_group` to create a new group and its ordered gems

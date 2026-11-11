@@ -26,6 +26,17 @@ try {
   const foundation = new BuildFoundation(new SnapshotStore(dir), () => openPoBEngine(options));
   const parent = await foundation.importBuild(xml, 'gem-fixture');
   const before = await foundation.inspect(parent.id, ['skills']);
+  const legacyXml = xml.replace('<Gem ', '<Gem qualityId="Anomalous" ');
+  assert.notEqual(legacyXml, xml);
+  const legacyParent = await foundation.importBuild(legacyXml, 'legacy-quality-fixture');
+  assert.equal((await foundation.inspect(legacyParent.id, ['skills'])).data.skills.groups[0].gems[0].qualityId, 'Default');
+  assert.equal(await foundation.exportBuild(legacyParent.id), legacyXml);
+  const defaultQuality = await foundation.deriveGem(parent.id, 1, 1, { qualityId: 'Default', quality: 12 });
+  const defaultGem = (await foundation.inspect(defaultQuality.id, ['skills'])).data.skills.groups[0].gems[0];
+  assert.equal(defaultGem.qualityId, 'Default');
+  assert.equal(defaultGem.quality, 12);
+  assert.equal((await foundation.inspect(parent.id, ['skills'])).data.skills.groups[0].gems[0].quality, before.data.skills.groups[0].gems[0].quality);
+  await assert.rejects(foundation.deriveGem(parent.id, 1, 1, { qualityId: 'Divergent' }), /Invalid gem change/);
   const child = await foundation.deriveGem(parent.id, 1, 2, { level: 15, quality: 12, enabled: false });
   assert.equal(child.parentId, parent.id);
   const after = await foundation.inspect(child.id, ['skills']);
@@ -101,6 +112,10 @@ try {
     const trial = JSON.parse(response.result.content[0].text);
     assert.equal(trial.parentId, parent.id);
     assert.equal(trial.retention.kind, 'trial');
+    const qualityResponse = await mcp.request('tools/call', { name: 'foundation_derive_gem', arguments: { snapshot_id: parent.id, group_index: 1, gem_index: 1, changes: { qualityId: 'Default', quality: 12 }, trial: true } });
+    assert.ok(!qualityResponse.error && !qualityResponse.result?.isError, JSON.stringify(qualityResponse));
+    const qualityTrial = JSON.parse(qualityResponse.result.content[0].text);
+    assert.equal((await foundation.inspect(qualityTrial.id, ['skills'])).data.skills.groups[0].gems[0].quality, 12);
     const replaceResponse = await mcp.request('tools/call', { name: 'foundation_replace_support', arguments: { snapshot_id: parent.id, group_index: 1, gem_index: 2, replacement: { gemName: 'Controlled Destruction Support' }, trial: true } });
     assert.ok(!replaceResponse.error && !replaceResponse.result?.isError, JSON.stringify(replaceResponse));
     const replacementTrial = JSON.parse(replaceResponse.result.content[0].text);
