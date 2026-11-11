@@ -41,6 +41,8 @@ try {
   const actual = await foundation.evaluate(parent.id, fields);
   assert.equal(actual.stats._meta.treeVersion, tree.treeVersion);
   assert.equal(actual.stats._meta.targetVersion, expected._meta.targetVersion);
+  assert.equal(actual.context.build.treeVersion, tree.treeVersion);
+  assert.equal(actual.context.build.targetVersion, expected._meta.targetVersion);
   for (const key of fields) assert.ok(Math.abs(actual.stats[key] - expected[key]) < 0.01, `${key}: ${actual.stats[key]} vs ${expected[key]}`);
   assert.ok(actual.metrics.MinionCombinedDPS.value > actual.metrics.MinionTotalDPS.value);
   assert.equal(actual.context.skills.mainSocketGroup, group.index);

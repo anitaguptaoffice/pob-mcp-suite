@@ -37,7 +37,7 @@ export interface BuildEngine {
   setMainSelection(selection: { mainSocketGroup?: number; mainActiveSkill?: number; skillPart?: number }): Promise<void>;
   setCalcsSelection(groupIndex: number): Promise<void>;
   setConfig(config: Record<string, string | number | boolean>): Promise<{ rejected: Record<string, string>; applied?: Record<string, unknown> }>;
-  getBuildInfo(): Promise<{ level?: number }>;
+  getBuildInfo(): Promise<{ level?: number; treeVersion?: string; targetVersion?: string }>;
   captureSnapshot(): Promise<{ xml: string }>;
   getTree(): Promise<unknown>;
   refreshTreeProgress(): Promise<void>;

@@ -30,6 +30,7 @@ export interface BuildInfo {
   className?: string;
   ascendClassName?: string;
   treeVersion?: string;
+  targetVersion?: string;
 }
 
 /** get_tree / set_tree / update_tree_delta .tree */

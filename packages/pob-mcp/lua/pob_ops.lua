@@ -480,7 +480,8 @@ function M.get_build_info()
     className = (tree and tree.className) or build.buildClassName or (build.spec and build.spec.curClassName) or nil,
     ascendClassName = (tree and tree.ascendClassName) or build.buildAscendName or (build.spec and build.spec.curAscendClassName) or nil,
     secondaryAscendClassName = tree and tree.secondaryAscendClassName or nil,
-    treeVersion = (tree and tree.treeVersion) or build.targetVersion or nil,
+    treeVersion = tree and tree.treeVersion or nil,
+    targetVersion = build.targetVersion or nil,
   }
   return info
 end
