@@ -283,7 +283,11 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   explicit higher-is-better PoB `metrics`, for example `MinionCombinedDPS`
   for poison-inclusive minion damage when available and `TotalEHP` for the
   chosen defensive comparison. Set `max_distance`, `limit`, and optional
-  `filter` to control discovery. Confirm metric meanings and baseline values
+  `filter` to control discovery. `excluded_node_ids` rejects any discovered
+  path containing one of those IDs, including intermediate nodes; exclusions
+  apply to new allocations, not nodes already allocated. Exclusions are applied
+  after the discovery limit, and alternative paths are not sought.
+  Confirm metric meanings and baseline values
   for the build; player and minion damage are separate and must not be added.
 - Poll `summarize_snapshot_passive_ranking` with the returned `job_id`. The score
   sums relative changes in the specified metrics and divides by path point cost;

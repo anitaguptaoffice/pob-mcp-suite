@@ -44,6 +44,29 @@ describe('passive ranking', () => {
     expect(report).toMatchObject({ submitted: 1, excludedBlighted: 1, excludedAscendancy: 1 });
     expect(submitPassives.mock.calls[0][0].map((entry: PassiveEvaluationInput) => entry.nodeId)).toEqual([1]);
   });
+  it('excludes protected targets and intermediate nodes before submitting, and persists the constraint', async () => {
+    const node = (id: number, pathNodes: number[]) => ({ id, name: `node ${id}`, type: 'notable', stats: [], allocated: false, isBlighted: false, status: 'reachable', pathNodes, pointCost: pathNodes.length });
+    const queryTreePaths = jest.fn().mockResolvedValue({ mode: 'nearby', treeVersion: '3_29', maxDistance: 3, total: 3, nodes: [node(2, [1, 2]), node(3, [3]), node(4, [4])] });
+    const runReadOnlySnapshot = jest.fn(async (_id, callback) => ({ snapshotId: parent, identity, warnings: [], result: await callback({ queryTreePaths }) }));
+    const submitPassives = jest.fn().mockResolvedValue({ id: 'job', status: 'queued' });
+    const [submit] = createPassiveRankingTools({ runReadOnlySnapshot } as unknown as Pick<BuildFoundation, 'runReadOnlySnapshot'>, { submitPassives } as unknown as Pick<JobRunner, 'submitPassives' | 'get'>);
+    const report = JSON.parse((await submit.invoke({ snapshot_id: parent, metrics: ['Life'], excluded_node_ids: [1, 3] })).content[0].text);
+    expect(report).toMatchObject({ submitted: 1, excludedPaths: 2, excludedNodeIds: [1, 3] });
+    expect(submitPassives.mock.calls[0][0]).toMatchObject([{ nodeId: 4, pathNodes: [4], excludedNodeIds: [1, 3] }]);
+    const none = JSON.parse((await submit.invoke({ snapshot_id: parent, metrics: ['Life'], excluded_node_ids: [1, 3, 4] })).content[0].text);
+    expect(none).toMatchObject({ status: 'no_candidates', jobId: null, excludedPaths: 3 });
+    expect(submitPassives).toHaveBeenCalledTimes(1);
+    await expect(submit.invoke({ snapshot_id: parent, metrics: ['Life'], excluded_node_ids: [1, 1] })).rejects.toThrow('Invalid passive ranking options');
+  });
+  it('rejects persisted jobs whose paths conflict with their exclusions', async () => {
+    const test = setup();
+    test.get.mockResolvedValue({ id: 'job', status: 'completed', items: [{ status: 'completed', input: { ...input(2, [1, 2]), excludedNodeIds: [1] }, result: result(110) }] });
+    await expect(decode(test.summary)).rejects.toThrow('Invalid passive ranking inputs');
+    test.get.mockResolvedValue({ id: 'job', status: 'completed', items: [{ status: 'completed', input: { ...input(2, [1, 2]), excludedNodeIds: [9] }, result: result(110) }] });
+    expect((await decode(test.summary)).excludedNodeIds).toEqual([9]);
+    test.get.mockResolvedValue({ id: 'job', status: 'completed', items: [{ status: 'completed', input: { ...input(2, [1, 2]), excludedNodeIds: 'invalid' }, result: result(110) }] });
+    await expect(decode(test.summary)).rejects.toThrow('Invalid passive ranking inputs');
+  });
   it('retains a child ID if the post-change calculation fails', async () => {
     const evaluate = jest.fn().mockResolvedValueOnce(observation(parent, 100)).mockRejectedValueOnce(new Error('calculation failed'));
     const deriveTree = jest.fn().mockResolvedValue({ id: child });

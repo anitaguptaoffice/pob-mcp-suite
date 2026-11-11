@@ -32,6 +32,8 @@ describe('JobRunner', () => {
       const runner = new JobRunner(store, async () => { throw new Error('wrong dispatcher'); }, 1, undefined, undefined, evaluate);
       const candidate = { kind: 'passive' as const, snapshotId: input.snapshotId, nodeId: 2, nodeName: 'test', pathNodes: [1, 2], metrics: ['Life'], treeVersion: '3_29', discoveryIdentity: { engineVersion: 'a', adapterVersion: 'b', dataVersion: 'c' } };
       await expect(runner.submitPassives([{ ...candidate, pathNodes: [1, 1, 2] }])).rejects.toThrow('Invalid passive');
+      await expect(runner.submitPassives([{ ...candidate, excludedNodeIds: [1] }])).rejects.toThrow('Invalid passive node exclusions');
+      await expect(runner.submitPassives([{ ...candidate, excludedNodeIds: [9] }, { ...candidate, nodeId: 3, pathNodes: [3], excludedNodeIds: [8] }])).rejects.toThrow('Invalid passive node exclusions');
       const job = await runner.submitPassives([candidate, { ...candidate, nodeId: 3, pathNodes: [3] }]);
       await entered.promise; expect(await store.protectedSnapshotIds()).toEqual(new Set([input.snapshotId]));
       expect((await runner.cancel(job.id)).status).toBe('cancel_requested'); gate.resolve(); await runner.close();
