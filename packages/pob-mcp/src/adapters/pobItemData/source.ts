@@ -1,4 +1,4 @@
-import type { BuildEngine } from '../../foundation/buildFoundation.js';
+import type { BuildEngine } from '../../ports/pobEngine.js';
 import type { EngineLimiter } from '../../foundation/engineLimiter.js';
 import type { PoBItemDataSource } from '../../ports/pobItemDataSource.js';
 

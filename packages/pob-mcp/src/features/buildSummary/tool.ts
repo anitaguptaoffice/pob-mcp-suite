@@ -1,6 +1,6 @@
 import type { BuildEngine, BuildFoundation } from '../../foundation/buildFoundation.js';
 import type { FeatureTool } from '../../server/featureRegistry.js';
-import { toFiniteNumber } from '../../pobLuaBridge.js';
+import { toFiniteNumber } from '../../utils/numbers.js';
 
 const defaultFields = ['Life', 'EnergyShield', 'Mana', 'ManaUnreserved', 'TotalDPS', 'CombinedDPS', 'FullDPS', 'MinionTotalDPS', 'MinionCombinedDPS', 'FireResist', 'ColdResist', 'LightningResist', 'ChaosResist', 'Armour', 'Evasion', 'TotalEHP', 'LifeRegen', 'SpellSuppressionChance', 'BlockChance'];
 type Section = { status: 'available'; value: unknown } | { status: 'unavailable'; reason: string };

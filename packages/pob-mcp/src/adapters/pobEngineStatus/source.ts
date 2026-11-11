@@ -1,5 +1,5 @@
 import type { EngineLimiter } from '../../foundation/engineLimiter.js';
-import type { BuildEngine } from '../../foundation/buildFoundation.js';
+import type { BuildEngine } from '../../ports/pobEngine.js';
 import type { PoBEngineStatusSource } from '../../ports/pobEngineStatus.js';
 
 export class PoBEngineStatusAdapter implements PoBEngineStatusSource {

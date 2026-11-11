@@ -16,6 +16,13 @@ PoB. Timeless search is a separate feature. Ascendancy and tree version fixes
 belong in the adapter. Machine interfaces and internal diagnostics use English;
 user explanations use Simplified Chinese.
 
+The snapshot foundation now depends on `ports/pobEngine.ts`, which owns the
+engine contract and its result types; the Lua client implements it through the
+existing adapter. Shared numeric conversion is independent of that client.
+`pobEngineBoundary.test.ts` guards the migrated foundation and readers against
+direct bridge dependencies. Legacy feature implementations and compatibility
+exports remain until their callers are migrated and the legacy router is removed.
+
 ## Independent data-source foundations
 
 The following are separate internal adapters in the same local service. None is

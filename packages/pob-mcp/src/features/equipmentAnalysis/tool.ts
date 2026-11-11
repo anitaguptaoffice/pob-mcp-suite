@@ -1,7 +1,7 @@
 import { normalizeEquipment } from '../../domain/equipment.js';
 import { analyzeEquippedItems, isEquippableGearSlot, type BuildStats } from '../../domain/itemAnalysis.js';
 import type { BuildFoundation } from '../../foundation/buildFoundation.js';
-import { toFiniteNumber } from '../../pobLuaBridge.js';
+import { toFiniteNumber } from '../../utils/numbers.js';
 import type { FeatureTool } from '../../server/featureRegistry.js';
 
 const fields = ['Life', 'EnergyShield', 'Evasion', 'Armour', 'TotalDPS', 'CombinedDPS', 'FullDPS', 'MinionTotalDPS', 'MinionCombinedDPS', 'FireResist', 'ColdResist', 'LightningResist', 'ChaosResist'];

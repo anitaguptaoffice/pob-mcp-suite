@@ -1,6 +1,6 @@
 import type { BuildFoundation } from '../../foundation/buildFoundation.js';
 import type { FeatureTool } from '../../server/featureRegistry.js';
-import type { AilmentReport } from '../../pobLuaBridge.js';
+import type { AilmentReport } from '../../ports/pobEngine.js';
 
 export function snapshotAilmentsSchema(): FeatureTool['schema'] {
   return { name: 'inspect_snapshot_ailments', description: 'Inspect non-damaging ailments for the saved skill and enemy configuration, distinguishing effects credited by PoB from estimated effects on the configured enemy.', inputSchema: { type: 'object', additionalProperties: false, properties: { snapshot_id: { type: 'string' } }, required: ['snapshot_id'] } };

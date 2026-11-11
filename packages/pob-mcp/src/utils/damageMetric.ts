@@ -1,4 +1,4 @@
-import { toFiniteNumber } from '../pobLuaBridge.js';
+import { toFiniteNumber } from './numbers.js';
 
 export const DAMAGE_METRICS = ['CombinedDPS', 'TotalDPS', 'MinionCombinedDPS', 'MinionTotalDPS'] as const;
 export type DamageMetric = typeof DAMAGE_METRICS[number];

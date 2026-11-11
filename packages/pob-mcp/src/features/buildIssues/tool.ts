@@ -1,6 +1,6 @@
 import type { BuildFoundation } from '../../foundation/buildFoundation.js';
 import type { FeatureTool } from '../../server/featureRegistry.js';
-import { toFiniteNumber } from '../../pobLuaBridge.js';
+import { toFiniteNumber } from '../../utils/numbers.js';
 import { isEquippableGearSlot, isGearSlotVisible } from '../../domain/itemAnalysis.js';
 
 export const issueFields = ['Life', 'LifeUnreserved', 'EnergyShield', 'Mana', 'ManaUnreserved', 'ManaRegen', 'ManaRegenRecovery', 'ManaCost', 'ManaCostPayablePool', 'ManaPerSecondCost', 'HitChance', 'Accuracy', 'FireResist', 'ColdResist', 'LightningResist', 'ChaosResist', 'MissingFireResist', 'MissingColdResist', 'MissingLightningResist', 'FireResistOverCap', 'ColdResistOverCap', 'LightningResistOverCap', 'SpellSuppressionChance', 'EffectiveSpellSuppressionChance', 'TotalDPS', 'CombinedDPS', 'FullDPS', 'MinionTotalDPS', 'MinionCombinedDPS', 'TotalEHP'];

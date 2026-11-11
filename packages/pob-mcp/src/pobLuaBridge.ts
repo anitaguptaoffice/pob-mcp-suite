@@ -1,3 +1,4 @@
+import type { AilmentReport, BridgeCapabilities, ItemParseDiagnostics } from './ports/pobEngine.js';
 import { spawn, ChildProcessWithoutNullStreams } from "child_process";
 import { noteIgnoredError } from './utils/errorHandling.js';
 import { EventEmitter } from "events";
@@ -65,17 +66,7 @@ interface StatsMeta {
  */
 export type StatsExport = { [stat: string]: number | string | undefined } & { _meta?: StatsMeta };
 
-/**
- * Coerce a PoB stat to a finite number. PoB's output table is stringly typed
- * in a handful of fields and the JSON round-trip can widen/shape values, so
- * every numeric consumer must narrow through this helper (or Number()) rather
- * than assume the wire type. NaN/undefined => not reported by PoB.
- */
-export function toFiniteNumber(v: unknown): number | undefined {
-  if (v === null || v === undefined || v === '') return undefined;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : undefined;
-}
+export { toFiniteNumber } from './utils/numbers.js';
 
 /**
  * calc_with raw PoB output: numeric stats plus the nested Minion table and
@@ -86,10 +77,6 @@ type CalcOutput = { [stat: string]: number | undefined } & {
   _meta?: StatsMeta;
 };
 
-interface ItemParseDiagnostics {
-  available: boolean;
-  unparsed: Array<{ group: string; line: string; extra: string; active?: boolean }>;
-}
 
 /** get_items entry (M.get_items) */
 interface EquippedItem {
@@ -209,13 +196,6 @@ export interface ConfigValues {
 }
 
 /** get_capabilities (plus the offline fallback shape) */
-interface BridgeCapabilities {
-  mode?: string;
-  adapter?: string;
-  actions?: string[];
-  /** set only by the offline fallback (no bridge answered) */
-  capabilitiesReported?: boolean;
-}
 
 /** add_item_text */
 interface AddedItem {
@@ -297,36 +277,7 @@ interface PoBLuaApiOptions {
 /** Constructor input with every defaulted field resolved — what the client stores. */
 type ResolvedOptions = Required<Omit<PoBLuaApiOptions, 'cwd'>> & { cwd?: string };
 
-/**
- * A non-damaging ailment as the engine sees it. `appliedEffect` is what the
- * DPS calculation is actually crediting; `calculatedEffect` is what the skill
- * would inflict on the configured enemy. They differ whenever the ailment is
- * chance-based, because PoB only applies guaranteed or hand-configured ones.
- */
-export interface AilmentReport {
-  name: string;
-  chanceOnHit: number;
-  chanceOnCrit: number;
-  effectMod?: number;
-  duration?: number;
-  /** Below this the ailment does not land at all. */
-  minimumEffect?: number;
-  maximumEffect?: number;
-  appliedEffect: number;
-  calculatedEffect?: number;
-  landsOnConfiguredEnemy?: boolean;
-  creditedInCalc: boolean;
-  /** PoB's own config var names, derived from its option list rather than guessed. */
-  effectConfigVar?: string;
-  enabledConfigVar?: string;
-  enabledOnEnemy?: boolean;
-  thresholdTable?: Array<{
-    ailmentThreshold: number;
-    effect: number;
-    note?: string;
-    isConfiguredEnemy?: boolean;
-  }>;
-}
+export type { AilmentReport } from './ports/pobEngine.js';
 
 export class PoBLuaApiClient {
   private loadedFilePath?: string;

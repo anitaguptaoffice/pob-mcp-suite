@@ -4,7 +4,7 @@ import { promises as fs } from 'node:fs';
 import { resolvePoBLayout } from '../utils/pobLayout.js';
 import { digestDirectory } from './contentDigest.js';
 import { digestExecutable, resolveExecutable } from './executableIdentity.js';
-import type { BuildEngine } from './buildFoundation.js';
+import type { BuildEngine } from '../ports/pobEngine.js';
 
 export interface PoBEngineOptions {
   cwd?: string;
