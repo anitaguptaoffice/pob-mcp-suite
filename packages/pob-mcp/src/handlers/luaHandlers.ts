@@ -6,6 +6,7 @@ import fs from "fs/promises";
 import { wrapHandler } from "../utils/errorHandling.js";
 import { buildFileName, resolveBuildFile } from "../utils/pathSanitizer.js";
 import type { BuildService } from "../services/buildService.js";
+import { LEGACY_DEFENSE_FIELDS, LEGACY_OFFENSE_FIELDS } from '../domain/statCategories.js';
 
 export interface LuaHandlerContext {
   buildService?: Pick<BuildService, 'invalidateBuild'>;
@@ -269,29 +270,9 @@ export async function handleLuaGetStats(context: LuaHandlerContext, category?: s
     // Map category to specific fields
     let fields: string[] | undefined;
     if (category === 'offense') {
-      fields = [
-        'TotalDPS', 'CombinedDPS', 'TotalDot', 'TotalDotDPS', 'WithBleedDPS', 'WithIgniteDPS',
-        'WithPoisonDPS', 'IgniteDPS', 'BleedDPS', 'PoisonDPS', 'AverageDamage', 'AverageBurstDamage',
-        'Speed', 'HitChance', 'CritChance', 'CritMultiplier', 'PreEffectiveCritChance',
-        'EffectiveCritChance', 'MainHandAccuracy', 'OffHandAccuracy', 'ManaCost', 'ManaPerSecondCost',
-        'LifeCost', 'LifePerSecondCost', 'ESCost', 'ESPerSecondCost', 'RageCost',
-        // Minion stats (populated for summoner builds)
-        'MinionTotalDPS', 'MinionCombinedDPS', 'MinionAverageDamage', 'MinionSpeed',
-        'MinionLife', 'MinionArmour', 'MinionEnergyShield',
-        'MinionFireResist', 'MinionColdResist', 'MinionLightningResist', 'MinionChaosResist',
-      ];
+      fields = [...LEGACY_OFFENSE_FIELDS];
     } else if (category === 'defense') {
-      fields = [
-        'Life', 'LifeRegen', 'LifeRegenRecovery', 'LifeLeechGainRate', 'LifeUnreserved',
-        'Mana', 'ManaRegen', 'ManaRegenRecovery', 'ManaLeechGainRate', 'ManaUnreserved',
-        'EnergyShield', 'EnergyShieldRegen', 'EnergyShieldRegenRecovery', 'EnergyShieldLeechGainRate',
-        'Ward', 'Armour', 'Evasion', 'EvasionChance', 'PhysicalDamageReduction',
-        'BlockChance', 'SpellBlockChance', 'AttackDodgeChance', 'SpellDodgeChance',
-        'FireResist', 'ColdResist', 'LightningResist', 'ChaosResist',
-        'FireResistOverCap', 'ColdResistOverCap', 'LightningResistOverCap', 'ChaosResistOverCap',
-        'TotalEHP', 'PhysicalMaximumHitTaken', 'FireMaximumHitTaken', 'ColdMaximumHitTaken',
-        'LightningMaximumHitTaken', 'ChaosMaximumHitTaken', 'EffectiveSpellSuppressionChance'
-      ];
+      fields = [...LEGACY_DEFENSE_FIELDS];
     }
     // If category is 'all' or undefined, get all stats (fields = undefined)
 

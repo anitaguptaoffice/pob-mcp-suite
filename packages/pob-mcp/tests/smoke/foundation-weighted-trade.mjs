@@ -16,7 +16,7 @@ try {
   await client.addGem({ groupIndex: group.index, gemName: 'Summon Raging Spirit', level: 20 });
   await client.setMainSelection({ mainSocketGroup: group.index });
   assert.ok((await client.setConfig({ customMods: 'Minions have 100% chance to Poison on Hit' })).applied.customMods);
-  const stats = await client.getStats(['MinionTotalDPS', 'MinionCombinedDPS']);
+  const stats = await client.getStats(['MinionTotalDPS', 'MinionCombinedDPS', 'Life', 'CombinedDPS', 'FullDPS', 'ChaosResist']);
   assert.ok(stats.MinionCombinedDPS > stats.MinionTotalDPS && stats.MinionTotalDPS > 0);
   const nativeOptions = stat => ({ statWeights: [{ label: stat, stat, weightMult: 1 }], includeCorrupted: true, includeMirrored: false, includeEldritch: false, includeScourge: false, maxPrice: 30, maxPriceType: 'chaos' });
   const nativePoison = await client.generateWeightedTradeQueryV2('Amulet', nativeOptions('MinionCombinedDPS'));
@@ -27,6 +27,13 @@ try {
   await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'weighted-trade-smoke', version: '1' } }); mcp.notify('notifications/initialized', {});
   const call = async (name, args) => { const response = await mcp.request('tools/call', { name, arguments: args }); assert.ok(!response.error && !response.result?.isError, JSON.stringify(response).slice(0, 1600)); return JSON.parse(response.result.content[0].text); };
   const parent = await call('foundation_import_build', { xml, source: 'poison-weighted-fixture' });
+  const category = await call('evaluate_snapshot_stat_category', { snapshot_id: parent.id, category: 'all' });
+  for (const name of ['Life', 'CombinedDPS', 'FullDPS', 'MinionCombinedDPS', 'ChaosResist']) {
+    if (typeof stats[name] === 'number' && Number.isFinite(stats[name])) {
+      assert.equal(category.metrics[name].status, 'available'); assert.ok(Math.abs(category.metrics[name].value - stats[name]) < 0.01);
+    } else assert.equal(category.metrics[name].status, 'unknown');
+  }
+  assert.ok(category.metrics.MinionCombinedDPS.value > category.metrics.MinionTotalDPS.value);
   const result = await call('generate_snapshot_weighted_trade', { snapshot_id: parent.id, slot: 'Amulet', weights: [{ stat: 'MinionCombinedDPS', weight: 1 }], max_price: 30, price_currency: 'chaos' });
   assert.equal(result.snapshotId, parent.id); assert.equal(result.weightBaselines[0].stat, 'MinionCombinedDPS');
   assert.ok(Math.abs(result.weightBaselines[0].value - stats.MinionCombinedDPS) < 0.01);
@@ -35,8 +42,9 @@ try {
   assert.ok(result.query.query.stats.some(group => group.type === 'weight' && group.filters.length > 0));
   const hitOnly = await call('generate_snapshot_weighted_trade', { snapshot_id: parent.id, slot: 'Amulet', weights: [{ stat: 'MinionTotalDPS', weight: 1 }], max_price: 30, price_currency: 'chaos' });
   assert.ok(Math.abs(hitOnly.weightBaselines[0].value - stats.MinionTotalDPS) < 0.01);
-  assert.deepEqual(result.query.query.stats, nativePoison.query.query.stats);
-  assert.deepEqual(hitOnly.query.query.stats, nativeHit.query.query.stats);
+  const canonicalGroups = groups => groups.map(group => ({ ...group, filters: [...group.filters].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))) }));
+  assert.deepEqual(canonicalGroups(result.query.query.stats), canonicalGroups(nativePoison.query.query.stats));
+  assert.deepEqual(canonicalGroups(hitOnly.query.query.stats), canonicalGroups(nativeHit.query.query.stats));
   const combined = await call('generate_snapshot_weighted_trade', { snapshot_id: parent.id, slot: 'Amulet', weights: [{ stat: 'CombinedDPS', weight: 1 }] });
   assert.ok(combined.weightBaselines[0].value >= stats.MinionCombinedDPS);
   assert.notEqual(combined.weightBaselines[0].value, combined.observedStats.CombinedDPS);

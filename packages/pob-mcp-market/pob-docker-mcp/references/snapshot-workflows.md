@@ -72,6 +72,11 @@ by server configuration. Never assume legacy tools are exposed alongside it.
   or inactive slots are included; set `include_item_text: true` only when full
   equipment text is needed. Explain results to users in Simplified Chinese.
 - Call `foundation_evaluate` with the same `snapshot_id` and explicit `fields`.
+- For a broader predefined set, `evaluate_snapshot_stat_category` accepts
+  `offense`, `defense` or `all`; `all` is the bounded union of those categories,
+  not every available PoB stat. Inspect the selected skill and configuration,
+  and distinguish true zero from unknown. Player, minion and full damage may
+  overlap and must not be added mechanically.
   Include the returned configuration and skill selection when interpreting
   results. Read `metrics` status and report unknown values as unknown, not zero.
   Treat player, minion, combined and full damage as distinct metrics; do not add
