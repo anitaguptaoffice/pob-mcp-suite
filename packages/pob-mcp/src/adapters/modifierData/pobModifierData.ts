@@ -1,5 +1,5 @@
 import type { ModifierDataSource } from '../../ports/modifierData.js';
-import { loadModData } from '../../services/modDataStore.js';
+import { loadModData } from './modDataStore.js';
 
 /** Reads PoB's static modifier tables without starting the PoB calculation engine. */
 export class PoBModifierData implements ModifierDataSource {

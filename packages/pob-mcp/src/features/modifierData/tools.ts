@@ -1,7 +1,7 @@
 import type { ModifierDataFile, ModifierDataSource, AffixSlot } from '../../ports/modifierData.js';
 import type { FeatureTool } from '../../server/featureRegistry.js';
-import { resolveAffixes } from '../../services/affixMatcher.js';
-import { findAffixTiers, findCraftableMods, firstMatchingSpawnRule } from '../../services/affixQuery.js';
+import { resolveAffixes } from '../../domain/modifiers/affixMatcher.js';
+import { findAffixTiers, findCraftableMods, firstMatchingSpawnRule } from '../../domain/modifiers/affixQuery.js';
 
 const info = (file: ModifierDataFile) => ({ source: 'pob_modifier_table', fileName: file.fileName, sha256: file.sha256 });
 const json = (value: unknown) => ({ content: [{ type: 'text' as const, text: JSON.stringify(value) }] });

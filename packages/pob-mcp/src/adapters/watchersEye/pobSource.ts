@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import type { WatchersEyeSource } from '../../ports/watchersEyeSource.js';
 import { resolvePoBLayout } from '../../utils/pobLayout.js';
-import { parseWatchersEyeFile } from '../../services/modDataStore.js';
+import { parseWatchersEyeFile } from '../modifierData/modDataStore.js';
 
 export class PoBWatchersEyeSource implements WatchersEyeSource {
   read() {
