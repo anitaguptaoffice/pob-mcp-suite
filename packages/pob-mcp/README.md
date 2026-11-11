@@ -629,6 +629,22 @@ The interpreter cannot parse the chosen PoB source. Increasing the timeout or
 installing a Lua module will not add syntax support. Use a compatible interpreter
 and verify it with the compile-only command in the setup section.
 
+**`unexpected symbol near '#'` in `HeadlessWrapper.lua` or `Launch.lua`**
+These PoB files begin with a `#@ ...` directive line for the SimpleGraphic host.
+The shipped adapter strips that line at load time, so this error means an older
+adapter or a different launcher is in use. Do not edit the PoB checkout; update
+the adapter (`lua/vanilla_stdio_bridge.lua`) or use the image bundled with this
+suite.
+
+**`module 'lua-utf8' not found`**
+The pinned repository engine at `vendor/PathOfBuilding` needs a LuaJIT-compatible
+native module that its Windows runtime cannot provide on Linux:
+```bash
+luarocks --local --lua-version=5.1 install luautf8 LUA_INCDIR=/usr/include/luajit-2.1
+```
+Smoke tests fall back to `vendor/PathOfBuilding/src` when no engine is configured
+or installed; set `POB_PATH` to override that choice.
+
 **`Failed to find valid ready banner`**
 `POB_PATH` must point to the directory containing `HeadlessWrapper.lua`:
 ```bash

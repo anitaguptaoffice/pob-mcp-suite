@@ -13,6 +13,25 @@ if not GetVirtualScreenSize then
   function GetVirtualScreenSize() return 1920, 1080 end
 end
 
+-- PoB's launcher files (HeadlessWrapper.lua, Launch.lua) start with a "#@ ..."
+-- directive line for the SimpleGraphic host. Standard LuaJIT only skips "#!"
+-- shebangs, so loading them with dofile fails on a modern interpreter. Strip
+-- that directive line when present; the PoB checkout itself stays untouched.
+do
+  local rawDofile = dofile
+  dofile = function(filePath, ...)
+    local handle = io.open(filePath, 'rb')
+    if not handle then return rawDofile(filePath, ...) end
+    local source = handle:read('*a')
+    handle:close()
+    if source:sub(1, 2) ~= '#@' then return rawDofile(filePath, ...) end
+    source = source:gsub('^[^\r\n]*[\r\n]?', '', 1)
+    local chunk, err = loadstring(source, '@' .. filePath)
+    if not chunk then error(err, 0) end
+    return chunk(...)
+  end
+end
+
 -- The upstream wrapper initializes PoB and exposes newBuild/loadBuildFromXML plus `build`.
 dofile('HeadlessWrapper.lua')
 

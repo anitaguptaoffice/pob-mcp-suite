@@ -43,8 +43,10 @@ function macAppSrcCandidates(bundle: string): string[] {
   ];
 }
 
-const stripSrc = (p: string): string =>
-  p.endsWith(`${path.sep}src`) || p.endsWith("/src") ? p.slice(0, -4) : p;
+const stripSrc = (p: string): string => {
+  const trimmed = p.replace(/[\\/]+$/, "");
+  return /[\\/]src$/.test(trimmed) ? trimmed.slice(0, -4) : trimmed;
+};
 
 function checkoutLayout(src: string): PoBLayout {
   const base = stripSrc(src);
@@ -76,6 +78,14 @@ function macAppLayout(bundle: string, src: string): PoBLayout {
   };
 }
 
+/** The PoB source tree pinned inside this repository, when it is available. */
+function vendoredCheckout(): string | null {
+  const packageRoot = process.env.POB_REPO_ROOT;
+  if (!packageRoot) return null;
+  const src = path.resolve(packageRoot, '..', '..', 'vendor', 'PathOfBuilding', 'src');
+  return exists(path.join(src, 'HeadlessWrapper.lua')) ? src : null;
+}
+
 /**
  * An explicit src wins, treated as a checkout unless it has no sibling runtime/ and an
  * app is installed. Otherwise prefer an installed app: no setup, and always the same
@@ -95,7 +105,11 @@ export function resolvePoBLayout(explicitSrc?: string): PoBLayout {
     if (src) return macAppLayout(bundle, src);
   }
 
-  return checkoutLayout(path.join(os.homedir(), "Projects", "PathOfBuilding", "src"));
+  const installed = path.join(os.homedir(), "Projects", "PathOfBuilding", "src");
+  if (exists(path.join(installed, "HeadlessWrapper.lua"))) return checkoutLayout(installed);
+  const vendored = vendoredCheckout();
+  if (vendored) return checkoutLayout(vendored);
+  return checkoutLayout(installed);
 }
 
 /** Where the installed PoB actually writes builds. */

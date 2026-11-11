@@ -16,6 +16,7 @@ jest.mock('fs', () => ({
 import { resolvePoBLayout, defaultBuildsDirectory } from '../../src/utils/pobLayout.js';
 
 const realPlatform = process.platform;
+const realRepoRoot = process.env.POB_REPO_ROOT;
 function setPlatform(value: string): void {
   Object.defineProperty(process, 'platform', { value, configurable: true });
 }
@@ -23,10 +24,13 @@ function setPlatform(value: string): void {
 beforeEach(() => {
   present.clear();
   setPlatform(realPlatform);
+  delete process.env.POB_REPO_ROOT;
 });
 
 afterAll(() => {
   setPlatform(realPlatform);
+  if (realRepoRoot === undefined) delete process.env.POB_REPO_ROOT;
+  else process.env.POB_REPO_ROOT = realRepoRoot;
 });
 
 const BUNDLE = '/Applications/Path of Building.app';
@@ -95,6 +99,17 @@ describe('resolvePoBLayout', () => {
     const layout = resolvePoBLayout('/repo/src');
 
     expect(layout.kind).toBe('checkout');
+  });
+
+  it('should fall back to the pinned repository engine when no checkout is installed', () => {
+    setPlatform('linux');
+    process.env.POB_REPO_ROOT = path.join('/repo', 'packages', 'pob-mcp');
+    present.add(path.join('/repo', 'vendor', 'PathOfBuilding', 'src', 'HeadlessWrapper.lua'));
+
+    const layout = resolvePoBLayout();
+
+    expect(layout.kind).toBe('checkout');
+    expect(layout.src).toBe(path.join('/repo', 'vendor', 'PathOfBuilding', 'src'));
   });
 });
 
