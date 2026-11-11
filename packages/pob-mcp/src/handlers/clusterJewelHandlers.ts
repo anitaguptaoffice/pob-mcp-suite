@@ -6,8 +6,8 @@
 
 import { wrapHandler } from '../utils/errorHandling.js';
 import { TradeApiClient } from '../services/tradeClient.js';
-import { TradeQueryBuilder } from '../services/tradeQueryBuilder.js';
-import { StatMapper } from '../services/statMapper.js';
+import { TradeQueryBuilder } from '../domain/trade/queryBuilder.js';
+import { StatMapper } from '../adapters/staticStats/catalog.js';
 import { PoeNinjaClient } from '../services/poeNinjaClient.js';
 import { ItemListing } from '../types/tradeTypes.js';
 import type { PoBLuaApiClient } from '../pobLuaBridge.js';

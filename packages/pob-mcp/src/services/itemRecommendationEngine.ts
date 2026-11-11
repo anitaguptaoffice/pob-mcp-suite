@@ -6,7 +6,7 @@
  */
 
 import { TradeApiClient } from './tradeClient.js';
-import { TradeQueryBuilder } from './tradeQueryBuilder.js';
+import { TradeQueryBuilder } from '../domain/trade/queryBuilder.js';
 import {
   ItemListing,
   TradeItem,

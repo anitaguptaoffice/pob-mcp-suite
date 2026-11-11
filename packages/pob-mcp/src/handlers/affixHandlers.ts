@@ -7,7 +7,7 @@
 
 import type { AffixSlot } from "../services/modDataStore.js";
 import { loadAllMods } from "../services/modDataStore.js";
-import { resolveAffixes } from "../services/affixMatcher.js";
+import { resolveAffixes } from "../domain/modifiers/affixMatcher.js";
 import { findAffixTiers, findCraftableMods, firstMatchingSpawnRule } from "../services/affixQuery.js";
 import { wrapHandler } from "../utils/errorHandling.js";
 

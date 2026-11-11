@@ -5,7 +5,7 @@ import { ValidationService } from '../services/validationService.js';
 import { BuildExportService } from '../services/buildExportService.js';
 import { SkillGemService } from '../services/skillGemService.js';
 import { TradeApiClient } from '../services/tradeClient.js';
-import { StatMapper } from '../services/statMapper.js';
+import { StatMapper } from '../adapters/staticStats/catalog.js';
 import { PoeNinjaClient } from '../services/poeNinjaClient.js';
 import { ItemRecommendationEngine } from '../services/itemRecommendationEngine.js';
 import { NinjaPrices } from '../features/buildCost/ninjaPrices.js';

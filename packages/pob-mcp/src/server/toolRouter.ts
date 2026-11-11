@@ -7,7 +7,7 @@
 import type { OptimizationConstraints } from "../types/optimization.js";
 import type { ContextBuilder } from "../utils/contextBuilder.js";
 import type { TradeApiClient } from "../services/tradeClient.js";
-import type { StatMapper } from "../services/statMapper.js";
+import type { StatMapper } from "../adapters/staticStats/catalog.js";
 import type { ItemRecommendationEngine } from "../services/itemRecommendationEngine.js";
 import type { PoeNinjaClient } from "../services/poeNinjaClient.js";
 import type { PriceSource } from "../features/buildCost/estimate.js";

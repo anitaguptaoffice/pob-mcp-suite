@@ -1,7 +1,7 @@
 import { mkdtemp, mkdir, writeFile, symlink, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import { digestDirectory } from '../../src/foundation/contentDigest.js';
+import { digestDirectory } from '../../src/infrastructure/contentDigest.js';
 
 describe('digestDirectory', () => {
   it('tracks content and paths, and rejects untracked symlink targets', async () => {

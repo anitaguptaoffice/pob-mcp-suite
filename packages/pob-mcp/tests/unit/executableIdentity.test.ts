@@ -1,7 +1,7 @@
 import { mkdtemp, mkdir, writeFile, chmod, symlink, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { digestExecutable, resolveExecutable } from '../../src/foundation/executableIdentity.js';
+import { digestExecutable, resolveExecutable } from '../../src/infrastructure/executableIdentity.js';
 
 describe('PoB executable identity', () => {
   it('resolves PATH relative to child cwd and fingerprints the actual symlink target', async () => {

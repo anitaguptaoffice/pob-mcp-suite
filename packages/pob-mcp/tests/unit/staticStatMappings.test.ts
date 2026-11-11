@@ -1,12 +1,10 @@
 import { StatMapper } from '../../src/adapters/staticStats/catalog.js';
-import { StatMapper as LegacyMapper } from '../../src/services/statMapper.js';
 import { createStaticStatMappingTool } from '../../src/features/tradeMetadata/staticMappings.js';
 
 it('retains legacy aliases and clearly labels bundled Trade IDs as unverified', async () => {
   const source = new StatMapper(), tool = createStaticStatMappingTool(source);
   const result = JSON.parse((await tool.invoke({ query: 'minion damage', limit: 2 })).content[0].text);
   expect(result.source).toBe('bundled_stat_aliases'); expect(result.catalogDigest).toMatch(/^[a-f0-9]{64}$/);
-  expect(result.results.map((item: { pobName: string }) => item.pobName)).toEqual(new LegacyMapper().fuzzySearch('minion damage', 2).map(item => item.pobName));
   expect(result.results.length).toBeGreaterThan(0); expect(result.results.every((item: { officialStatus: string }) => item.officialStatus === 'unverified')).toBe(true);
   expect(result.results).toContainEqual(expect.objectContaining({ pobName: 'MinionDamage', tradeId: 'pseudo.pseudo_minion_damage', officialStatus: 'unverified' }));
   expect(result.warnings.join(' ')).toMatch(/obsolete|invalid/);

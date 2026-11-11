@@ -2,7 +2,7 @@ import { wrapHandler } from '../utils/errorHandling.js';
 import { BuildService } from '../services/buildService.js';
 import { ShoppingListService } from '../services/shoppingListService.js';
 import { TradeApiClient } from '../services/tradeClient.js';
-import { StatMapper } from '../services/statMapper.js';
+import { StatMapper } from '../adapters/staticStats/catalog.js';
 import { PoeNinjaClient } from '../services/poeNinjaClient.js';
 
 interface ShoppingListContext {

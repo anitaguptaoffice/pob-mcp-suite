@@ -75,11 +75,18 @@ migration remain pending. The independent `OfficialTradeSource` and adapter now
 back `estimate_trade_comparable`, `search_official_trade`, `sample_trade_item_price`, `search_trade_stats`
 and `list_trade_leagues`.
 The comparable policy and query/source-audit rules now live in feature/domain
-modules without a legacy-client dependency; temporary re-exports serve old
-callers until their routes are removed. Market-only tools can start without the
+modules without a legacy-client dependency. Market-only tools can start without the
 PoB snapshot or Lua engine; snapshot preview and build costs still require the
 foundation. The economy adapter instance is shared with build-cost workflows.
 Other source ports remain pending.
+
+The legacy route and its tests now import the shared query builder, source audit,
+static stat catalog and affix matcher directly; their four forwarding files have
+been removed. The unused foundation forwarding files for content and executable
+identity were also removed and their tests target infrastructure directly.
+The legacy route itself and other compatibility exports remain in place.
+The full test suite, foundation isolation smoke and live shared official Trade
+smoke exercise these changes; this does not establish complete caller migration.
 
 On 2026-11-11 a local, read-only Standard-league probe of the new adapter
 successfully fetched public skill-gem and currency snapshots. The legacy

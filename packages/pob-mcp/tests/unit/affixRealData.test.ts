@@ -6,7 +6,7 @@
 
 import { describe, it, expect } from '@jest/globals';
 import { loadAllMods, loadExplicitMods, ModDataUnavailableError } from '../../src/services/modDataStore.js';
-import { resolveAffixes } from '../../src/services/affixMatcher.js';
+import { resolveAffixes } from '../../src/domain/modifiers/affixMatcher.js';
 import { findAffixTiers, findCraftableMods } from '../../src/services/affixQuery.js';
 
 const installed = ((): boolean => {

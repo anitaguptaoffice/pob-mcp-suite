@@ -1,9 +1,9 @@
-import { auditStatSourceCoverage } from '../services/tradeSourceAudit.js';
+import { auditStatSourceCoverage } from '../domain/trade/sourceAudit.js';
 import { wrapHandler } from '../utils/errorHandling.js';
 import { TradeApiClient } from '../services/tradeClient.js';
-import { TradeQueryBuilder } from '../services/tradeQueryBuilder.js';
+import { TradeQueryBuilder } from '../domain/trade/queryBuilder.js';
 import type { TradeQuery } from '../types/tradeTypes.js';
-import { StatMapper } from '../services/statMapper.js';
+import { StatMapper } from '../adapters/staticStats/catalog.js';
 import { ItemRecommendationEngine } from '../services/itemRecommendationEngine.js';
 import {
   ItemListing,

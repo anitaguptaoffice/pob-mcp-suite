@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { StatMapper } from '../../src/services/statMapper.js';
+import { StatMapper } from '../../src/adapters/staticStats/catalog.js';
 
 describe('StatMapper static catalog', () => {
   // Regression for the old startup bootstrap: it replaced the curated catalog

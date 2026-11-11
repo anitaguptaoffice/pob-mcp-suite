@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { auditStatSourceCoverage } from '../../src/services/tradeSourceAudit.js';
+import { auditStatSourceCoverage } from '../../src/domain/trade/sourceAudit.js';
 import type { TradeApiClient } from '../../src/services/tradeClient.js';
 
 const client = { getStats: async () => ({ result: [{ entries: [

@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { resolveAffixes, statTemplate, statValues } from '../../src/services/affixMatcher.js';
+import { resolveAffixes, statTemplate, statValues } from '../../src/domain/modifiers/affixMatcher.js';
 import { parseModFile } from '../../src/services/modDataStore.js';
 import { MOD_EXPLICIT_EXCERPT, MOD_MASTER_EXCERPT } from '../fixtures/modDataExcerpt.js';
 
