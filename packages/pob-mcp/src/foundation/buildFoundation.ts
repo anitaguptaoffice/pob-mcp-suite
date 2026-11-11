@@ -1,7 +1,7 @@
 import { isDeepStrictEqual } from 'node:util';
 import { SnapshotStore, snapshotMetadata, type SnapshotRecord, type SnapshotHistoryInput } from './snapshotStore.js';
 import { EngineLimiter } from './engineLimiter.js';
-import { normalizeObservation } from './observation.js';
+import { normalizeItemRaw, normalizeObservation } from './observation.js';
 import { MAX_BUILD_BYTES, decodeShareCode } from './shareCode.js';
 import { toFiniteNumber, type PoBLuaApiClient } from '../pobLuaBridge.js';
 import type { EnemyLevelSetting } from '../ports/configPresets.js';
@@ -106,6 +106,7 @@ async function observe(engine: BuildEngine) {
     items: await engine.getItems(), skills: await engine.getSkills(), config: await engine.getConfig(),
     stats: await engine.getStats(['Life', 'EnergyShield', 'TotalEHP', 'TotalDPS', 'CombinedDPS', 'FullDPS', 'MinionTotalDPS', 'MinionCombinedDPS']) });
 }
+const canonicalInventory = (items: Array<{ id: number; raw: string }>) => items.map(item => ({ ...item, raw: normalizeItemRaw(item.raw) }));
 
 export class BuildFoundation {
   private readonly limiter: EngineLimiter<BuildEngine>;
@@ -693,7 +694,7 @@ export class BuildFoundation {
       if (!Array.isArray(after.items) || before.items.filter(item => item.slot === slot && item.id === 0).length !== 1 || after.items.filter(item => item.slot === slot && item.id === itemId).length !== 1 || !isDeepStrictEqual(before.items.filter(item => item.slot !== slot), after.items.filter(item => item.slot !== slot))) throw new Error('PoB changed equipment beyond the selected empty slot');
       for (const section of ['tree', 'skills', 'config'] as const) if (!isDeepStrictEqual(before[section], after[section])) throw new Error(`Auto-equipping changed unrelated ${section}`);
       expectedInventory = await this.readItemInventory(engine);
-      if (expectedInventory.filter(item => item.id === itemId).length !== 1 || !isDeepStrictEqual(inventory, expectedInventory.filter(item => item.id !== itemId))) throw new Error('PoB changed unrelated inventory items');
+      if (expectedInventory.filter(item => item.id === itemId).length !== 1 || !isDeepStrictEqual(canonicalInventory(inventory), canonicalInventory(expectedInventory.filter(item => item.id !== itemId)))) throw new Error('PoB changed unrelated inventory items');
       if (!isDeepStrictEqual(await this.readSpecCatalog(engine), specCatalog) || !isDeepStrictEqual(await this.readItemSetCatalog(engine), itemCatalog)) throw new Error('Auto-equipping changed a spec or item-set catalog');
       specsAfter = await this.inspectSpecs(engine, specCatalog, specCatalog.activeSpec);
       setsAfter = await this.inspectItemSets(engine, itemCatalog, itemCatalog.activeItemSetId);
@@ -708,7 +709,7 @@ export class BuildFoundation {
       }
       if (!isDeepStrictEqual(canonicalSets(setsBefore), canonicalSets(setsAfter))) throw new Error('Auto-equipping changed an inactive equipment set');
     }, trial, async engine => {
-      if (!isDeepStrictEqual(expectedInventory, await this.readItemInventory(engine))) throw new Error('Auto-equipped inventory did not survive serialization');
+      if (!isDeepStrictEqual(canonicalInventory(expectedInventory), canonicalInventory(await this.readItemInventory(engine)))) throw new Error('Auto-equipped inventory did not survive serialization');
       if (!isDeepStrictEqual(await this.readSpecCatalog(engine), specCatalog) || !isDeepStrictEqual(await this.readItemSetCatalog(engine), itemCatalog) || !isDeepStrictEqual(await this.inspectSpecs(engine, specCatalog, specCatalog.activeSpec), specsAfter) || !isDeepStrictEqual(await this.inspectItemSets(engine, itemCatalog, itemCatalog.activeItemSetId), setsAfter)) throw new Error('Auto-equipped item sets or passive specs did not survive serialization');
     });
     return { snapshot, slot, itemId };
@@ -750,12 +751,12 @@ export class BuildFoundation {
       setsBefore = await this.inspectItemSets(engine, itemCatalog, itemCatalog.activeItemSetId);
       const added = await engine.addItem(itemText, undefined, true);
       expected = await this.readItemInventory(engine);
-      if (!Number.isSafeInteger(added.id) || added.id < 1 || added.slot != null || inventory.some(item => item.id === added.id) || expected.filter(item => item.id === added.id).length !== 1 || !isDeepStrictEqual(inventory, expected.filter(item => item.id !== added.id))) throw new Error('PoB did not add exactly one unequipped item');
+      if (!Number.isSafeInteger(added.id) || added.id < 1 || added.slot != null || inventory.some(item => item.id === added.id) || expected.filter(item => item.id === added.id).length !== 1 || !isDeepStrictEqual(canonicalInventory(inventory), canonicalInventory(expected.filter(item => item.id !== added.id)))) throw new Error('PoB did not add exactly one unequipped item');
       const after = normalizeObservation({ tree: await engine.getTree(), items: await engine.getItems(), skills: await engine.getSkills(), config: await engine.getConfig() });
       if (!isDeepStrictEqual(before, after)) throw new Error('Adding an inventory item changed the build');
       await verifyOtherSets(engine);
     }, trial, async engine => {
-      if (!isDeepStrictEqual(expected, await this.readItemInventory(engine))) throw new Error('Item inventory did not survive serialization');
+      if (!isDeepStrictEqual(canonicalInventory(expected), canonicalInventory(await this.readItemInventory(engine)))) throw new Error('Item inventory did not survive serialization');
       await verifyOtherSets(engine);
     });
   }

@@ -13,7 +13,7 @@ import { startMcpServer } from './mcpClient.mjs';
 
 const dir = await mkdtemp(join(tmpdir(), 'pob-inventory-'));
 const options = { cwd: smokePoBSrc(), command: process.env.POB_CMD, adapterPath: resolve('lua/vanilla_stdio_bridge.lua'), timeoutMs: 60000 };
-const ring = 'Rarity: RARE\nInventory Test\nGold Ring\nItem Level: 86\nImplicits: 0\n+30 to maximum Life';
+const ring = ['Item Class: Rings', 'Rarity: Rare', 'Inventory Test', 'Gold Ring', '--------', 'Item Level: 86', '--------', '+30 to maximum Life', '--------', 'Note: ~b/o 1 chaos', ''].join('\r\n');
 let child;
 try {
   const foundation = new BuildFoundation(new SnapshotStore(dir), () => openPoBEngine(options));

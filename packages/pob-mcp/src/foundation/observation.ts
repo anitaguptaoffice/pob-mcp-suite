@@ -1,3 +1,8 @@
+/** PoB's XML loader strips terminal line breaks from item text. */
+export function normalizeItemRaw(value: string): string {
+  return value.replace(/(?:\r\n|\n|\r)+$/, '');
+}
+
 /** Normalize only states whose equivalence is established by PoB's accessors. */
 export function normalizeObservation<T>(value: T): T {
   const result = structuredClone(value) as any;
@@ -11,6 +16,7 @@ export function normalizeObservation<T>(value: T): T {
   }
   if (Array.isArray(result?.items)) {
     for (const item of result.items) {
+      if (typeof item.raw === 'string') item.raw = normalizeItemRaw(item.raw);
       // get_items emits active only when the slot has an activeItemSet entry.
       // For an empty slot only, absence and false both mean no active item.
       if (item.id === 0 && (item.active === undefined || item.active === null)) item.active = false;

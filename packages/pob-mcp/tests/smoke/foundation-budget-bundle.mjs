@@ -11,7 +11,10 @@ import { gearedBuildXml, smokePoBSrc } from './pobSource.mjs';
 const dir = await mkdtemp(join(tmpdir(), 'pob-bundle-'));
 const options = { cwd: smokePoBSrc(), command: process.env.POB_CMD, adapterPath: resolve('lua/vanilla_stdio_bridge.lua'), timeoutMs: 60000 };
 const ids = ['b'.repeat(64), 'c'.repeat(64)], time = '2026-01-01T00:00:00.000Z';
-const texts = ['Item Class: Rings\nRarity: RARE\nBundle One\nGold Ring\nItem Level: 86\nImplicits: 0\n+120 to maximum Life', 'Item Class: Rings\nRarity: RARE\nBundle Two\nGold Ring\nItem Level: 86\nImplicits: 0\n+140 to maximum Life'];
+const texts = [
+  ['Item Class: Rings', 'Rarity: Rare', 'Bundle One', 'Gold Ring', '--------', 'Item Level: 86', '--------', '+120 to maximum Life', '--------', 'Note: ~b/o 0.1 chaos', ''].join('\r\n'),
+  ['Item Class: Rings', 'Rarity: Rare', 'Bundle Two', 'Gold Ring', '--------', 'Item Level: 86', '--------', '+140 to maximum Life', '--------', 'Note: ~b/o 0.2 chaos', ''].join('\r\n'),
+];
 let next = 0;
 const trade = {
   search: async (league, query) => { const i = next++; return { source: 'official-trade', fetchedAt: time, request: { league, query }, data: { id: `search-${i}`, result: [ids[i]], total: 1 } }; },
