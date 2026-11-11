@@ -35,6 +35,9 @@ export class TrackedTrade {
     try {
       const result = await this.source.fetchListings(ids, queryId); this.validate(result);
       if (!isDeepStrictEqual(result.request.ids, ids) || result.request.queryId !== (queryId ?? null)) throw new Error('Official Trade returned mismatched listing provenance');
+      if (!Array.isArray(result.data?.listings) || !Array.isArray(result.data?.missingIds)) throw new Error('Official Trade returned invalid listings');
+      const byId = new Map(result.data.listings.map(listing => [listing.id, listing]));
+      if (byId.size !== result.data.listings.length || [...byId.keys()].some(id => !ids.includes(id)) || result.data.listings.some(listing => typeof listing.item?.id === 'string' && listing.item.id !== listing.id) || !isDeepStrictEqual(result.data.missingIds, ids.filter(id => !byId.has(id)))) throw new Error('Official Trade returned inconsistent listings');
       this.sourceTimes.listings = result.fetchedAt; this.missingIds = result.data.missingIds;
       return result.data.listings;
     } catch (error) { this.failure('listings', error); throw error; }

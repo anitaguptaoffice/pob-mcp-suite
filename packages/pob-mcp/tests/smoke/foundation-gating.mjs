@@ -28,6 +28,7 @@ try {
   assert.ok(!tools.result.tools.some(t => t.name === 'evaluate_snapshot_stat_category'));
   assert.ok(!tools.result.tools.some(t => t.name === 'analyze_snapshot_equipment'));
   assert.ok(!tools.result.tools.some(t => t.name === 'prepare_snapshot_leveling'));
+  assert.ok(!tools.result.tools.some(t => t.name === 'screen_snapshot_budget_candidates'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_read_notes' || t.name === 'foundation_derive_notes'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_derive_selection'));
   assert.ok(!tools.result.tools.some(t => t.name === 'foundation_derive_gem'));
@@ -156,6 +157,7 @@ try {
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'prepare_snapshot_leveling').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'generate_snapshot_weighted_trade').length, 1);
   assert.ok(!foundationOnly.result.tools.some(t => t.name === 'search_snapshot_weighted_trade'));
+  assert.ok(!foundationOnly.result.tools.some(t => t.name === 'screen_snapshot_budget_candidates'));
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'compare_snapshot_trees').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'compare_snapshot_builds').length, 1);
   assert.equal(foundationOnly.result.tools.filter(t => t.name === 'submit_snapshot_passive_ranking').length, 1);
@@ -218,6 +220,7 @@ try {
   assert.equal(tradeTools.result.tools.filter(t => t.name === 'search_trade_stats').length, 1);
   assert.equal(tradeTools.result.tools.filter(t => t.name === 'list_trade_leagues').length, 1);
   assert.equal(tradeTools.result.tools.filter(t => t.name === 'search_snapshot_weighted_trade').length, 1);
+  assert.equal(tradeTools.result.tools.filter(t => t.name === 'screen_snapshot_budget_candidates').length, 1);
   const weightedUnauthenticated = await newTrade.request('tools/call', { name: 'search_snapshot_weighted_trade', arguments: { snapshot_id: snapshot.id, slot: 'Amulet', league: 'Standard', weights: [{ stat: 'Life', weight: 1 }] } });
   assert.equal(weightedUnauthenticated.result.isError, true); assert.match(weightedUnauthenticated.result.content[0].text, /POE_SESSION_ID/);
   assert.ok(!tradeTools.result.tools.some(t => t.name === 'estimate_comparable_item'));

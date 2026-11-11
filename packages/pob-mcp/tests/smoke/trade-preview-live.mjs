@@ -14,6 +14,12 @@ try {
   await mcp.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'trade-preview-live', version: '1' } }); mcp.notify('notifications/initialized', {});
   const xml = await readFile(gearedBuildXml, 'utf8');
   const parent = await call('foundation_import_build', { xml, source: 'trade-preview-fixture' });
+  const budget = await call('screen_snapshot_budget_candidates', { snapshot_id: parent.id, league: 'Standard', budget_chaos: 100, searches: [{ slot: 'Ring 1', item_type: 'Gold Ring', limit: 2 }] });
+  assert.equal(budget.complete, false); assert.equal(budget.combinedCost, null);
+  const screened = budget.searches[0]; assert.equal(screened.status, 'searched', JSON.stringify(screened));
+  assert.equal(screened.query.query.status.option, 'securable'); assert.equal(screened.query.query.filters.trade_filters.filters.sale_type.option, 'priced');
+  assert.equal(screened.query.query.filters.trade_filters.filters.price.max, 100);
+  assert.ok(screened.candidates.some(candidate => candidate.status === 'previewed' && candidate.priceEvidence === 'explicit_buyout' && candidate.preview.snapshotId === parent.id), JSON.stringify(screened));
   const search = await call('search_official_trade', { league: 'Standard', item_type: 'Gold Ring', item_rarity: 'rare', identified: true, limit: 5 });
   assert.equal(search.listingScope, 'instant_buyout'); assert.ok(search.listings.length > 0);
   assert.equal(search.query.query.status.option, 'securable');

@@ -54,6 +54,7 @@ import { createWeightedTradeTools, weightedTradeSchemas } from './features/weigh
 import { createStatCategoriesTool, statCategoriesSchema } from './features/statCategories/tool.js';
 import { createEquipmentAnalysisTool, equipmentAnalysisSchema } from './features/equipmentAnalysis/tool.js';
 import { createLevelingTool, levelingSchema } from './features/leveling/tool.js';
+import { createBudgetCandidatesTool, budgetCandidatesSchema } from './features/budgetCandidates/tool.js';
 import { StatMapper as StaticStatCatalog } from './adapters/staticStats/catalog.js';
 import { createTradeSearchTool, tradeSearchSchema } from './features/tradeSearch/tool.js';
 import { createTradeItemPriceTool, tradeItemPriceSchema } from './features/tradePrice/tool.js';
@@ -167,6 +168,7 @@ class PoBMCPServer {
       statCategoriesSchema(),
       equipmentAnalysisSchema(),
       levelingSchema(),
+      budgetCandidatesSchema(),
       tradeSearchSchema(),
       tradeItemPriceSchema(),
       snapshotTreeComparisonSchema(),
@@ -616,6 +618,7 @@ class PoBMCPServer {
       migrated.push(createEquipmentAnalysisTool(foundation));
       migrated.push(createLevelingTool(foundation));
       if (trade) migrated.push(createTradePreviewTool(foundation, trade));
+      if (trade) migrated.push(createBudgetCandidatesTool(foundation, trade));
       this.foundationFeatures = new FeatureRegistry(migrated);
     }
     // StatMapper is intentionally static-only: the trade API /stats dump keys
