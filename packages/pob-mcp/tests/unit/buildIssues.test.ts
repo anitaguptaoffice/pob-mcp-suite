@@ -27,6 +27,19 @@ describe('snapshot issue scan', () => {
     expect(codes(zero)).toContain('zero_damage');
     expect(analyzeBuildIssues({ ...fixture, stats: { TotalDPS: 0, CombinedDPS: 0, MinionTotalDPS: 0, MinionCombinedDPS: 0 } }).checks.zeroDamage).toBe('unknown');
   });
+  it('reports observed player hit chance without asserting minion accuracy or mana sustainability', () => {
+    const result = analyzeBuildIssues({ ...fixture, stats: { HitChance: 85, Accuracy: 1400, ManaRegen: 0, ManaRegenRecovery: 25 } });
+    expect(result.checks).toMatchObject({ playerHitChanceObservation: 'checked', manaRecoveryObservation: 'checked' });
+    expect(result.issues.find(issue => issue.code === 'low_player_hit_chance')).toMatchObject({ severity: 'info', heuristic: true, evidence: { hitChance: 85, accuracy: 1400 } });
+    expect(result.issues.find(issue => issue.code === 'low_player_hit_chance')?.message).toContain('verify');
+    expect(analyzeBuildIssues({ ...fixture, stats: { HitChance: 100 } }).issues.map(issue => issue.code)).not.toContain('low_player_hit_chance');
+    for (const value of [undefined, null, -1, 101, false]) {
+      const unknown = analyzeBuildIssues({ ...fixture, stats: { HitChance: value } });
+      expect(unknown.checks.playerHitChanceObservation).toBe('unknown');
+      expect(codes(unknown)).not.toContain('low_player_hit_chance');
+    }
+    expect(analyzeBuildIssues(fixture).checks.manaRecoveryObservation).toBe('unknown');
+  });
   it('preserves slot visibility, passive estimate and clearly labels gem heuristics', () => {
     const result = analyzeBuildIssues({ stats: { ChaosResist: -40, EffectiveSpellSuppressionChance: 50 }, build: { level: 90 }, tree: { nodes: [1], treeVersion: '3_29', ascendancyPointsUsed: 0 }, items: [
       { slot: 'Ring 3', id: 0, shown: false }, { slot: 'Helmet', id: 0, shown: true }, { slot: 'Flask 1', id: 0, shown: true }, { slot: 'Jewel 1', id: 0, shown: false },

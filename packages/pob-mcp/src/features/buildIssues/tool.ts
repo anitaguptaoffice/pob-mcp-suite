@@ -3,7 +3,7 @@ import type { FeatureTool } from '../../server/featureRegistry.js';
 import { toFiniteNumber } from '../../pobLuaBridge.js';
 import { isEquippableGearSlot, isGearSlotVisible } from '../../domain/itemAnalysis.js';
 
-export const issueFields = ['Life', 'LifeUnreserved', 'EnergyShield', 'Mana', 'ManaUnreserved', 'FireResist', 'ColdResist', 'LightningResist', 'ChaosResist', 'MissingFireResist', 'MissingColdResist', 'MissingLightningResist', 'FireResistOverCap', 'ColdResistOverCap', 'LightningResistOverCap', 'SpellSuppressionChance', 'EffectiveSpellSuppressionChance', 'TotalDPS', 'CombinedDPS', 'FullDPS', 'MinionTotalDPS', 'MinionCombinedDPS', 'TotalEHP'];
+export const issueFields = ['Life', 'LifeUnreserved', 'EnergyShield', 'Mana', 'ManaUnreserved', 'ManaRegen', 'ManaRegenRecovery', 'HitChance', 'Accuracy', 'FireResist', 'ColdResist', 'LightningResist', 'ChaosResist', 'MissingFireResist', 'MissingColdResist', 'MissingLightningResist', 'FireResistOverCap', 'ColdResistOverCap', 'LightningResistOverCap', 'SpellSuppressionChance', 'EffectiveSpellSuppressionChance', 'TotalDPS', 'CombinedDPS', 'FullDPS', 'MinionTotalDPS', 'MinionCombinedDPS', 'TotalEHP'];
 type Issue = { code: string; severity: 'error' | 'warning' | 'info'; category: string; message: string; evidence: Record<string, unknown>; heuristic?: boolean };
 type Row = Record<string, unknown>;
 const record = (value: unknown): Row | undefined => value && typeof value === 'object' && !Array.isArray(value) ? value as Row : undefined;
@@ -38,6 +38,12 @@ export function analyzeBuildIssues(input: { stats: unknown; build: unknown; tree
     const value = number(key); checks[`${resource}Reservation`] = value === undefined ? 'unknown' : 'checked';
     if (value !== undefined && (resource === 'life' ? value <= 0 : value < 0)) add(`${resource}_over_reserved`, 'error', 'reservation', `Unreserved ${resource} is ${resource === 'life' ? 'zero or negative' : 'negative'}.`, { value });
   }
+  // These values describe PoB's current calculation, not the cost or accuracy
+  // requirements of every enabled skill (or those of minions).
+  const hitChance = number('HitChance');
+  checks.playerHitChanceObservation = hitChance === undefined || hitChance < 0 || hitChance > 100 ? 'unknown' : 'checked';
+  if (checks.playerHitChanceObservation === 'checked' && hitChance !== undefined && hitChance < 90) add('low_player_hit_chance', 'info', 'accuracy', 'PoB reports a player hit chance below 90%; first verify that this calculation and player accuracy apply to the damage being assessed.', { hitChance, accuracy: number('Accuracy') ?? null }, true);
+  checks.manaRecoveryObservation = number('ManaRegen') === undefined && number('ManaRegenRecovery') === undefined ? 'unknown' : 'checked';
   const suppression = number('EffectiveSpellSuppressionChance') ?? number('SpellSuppressionChance');
   checks.spellSuppression = suppression === undefined ? 'unknown' : 'checked';
   if (suppression !== undefined && suppression > 0 && suppression < 100) add('suppression_below_100', 'info', 'defence', 'Spell suppression is below 100%.', { value: suppression });
@@ -84,6 +90,6 @@ export function createBuildIssuesTool(foundation: Pick<BuildFoundation, 'runRead
   return { schema: buildIssuesSchema(), invoke: async args => {
     if (Object.keys(args).some(key => key !== 'snapshot_id') || typeof args.snapshot_id !== 'string' || !/^[a-f0-9]{64}$/.test(args.snapshot_id)) throw new Error('Invalid snapshot issue scan options');
     const { result, ...context } = await foundation.runReadOnlySnapshot(args.snapshot_id, async engine => ({ stats: await engine.getStats(issueFields), build: await engine.getBuildInfo(), tree: await engine.getTree(), items: await engine.getItems(), skills: await engine.getSkills(), config: await engine.getConfig() }));
-    return { content: [{ type: 'text', text: JSON.stringify({ ...context, ...analyzeBuildIssues(result), context: { build: result.build, treeVersion: record(result.tree)?.treeVersion ?? null, skills: result.skills, config: result.config }, warnings: [...context.warnings, 'This is a partial heuristic scan, not validation of item legality, damage assumptions, game mechanics or readiness. Unknown checks are not passes.', 'Thresholds and estimated quest points depend on progression and build mechanics; interpret them in context.'] }) }] };
+    return { content: [{ type: 'text', text: JSON.stringify({ ...context, ...analyzeBuildIssues(result), context: { build: result.build, treeVersion: record(result.tree)?.treeVersion ?? null, skills: result.skills, config: result.config }, warnings: [...context.warnings, 'This is a partial heuristic scan, not validation of item legality, damage assumptions, game mechanics or readiness. Unknown checks are not passes.', 'Thresholds and estimated quest points depend on progression and build mechanics; interpret them in context.', 'Player hit chance is not minion hit chance; check which skill PoB calculates. Mana recovery observations do not establish skill costs or sustained casting.'] }) }] };
   } };
 }

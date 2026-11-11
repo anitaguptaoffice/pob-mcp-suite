@@ -15,7 +15,7 @@ try {
   await client.addGem({ groupIndex: group.index, gemName: 'Summon Raging Spirit', level: 20 });
   await client.setMainSelection({ mainSocketGroup: group.index });
   await client.setConfig({ customMods: 'Minions have 100% chance to Poison on Hit' });
-  const expected = await client.getStats(['Life', 'EnergyShield', 'FireResist', 'MissingFireResist', 'MinionTotalDPS', 'MinionCombinedDPS']);
+  const expected = await client.getStats(['Life', 'EnergyShield', 'FireResist', 'MissingFireResist', 'MinionTotalDPS', 'MinionCombinedDPS', 'HitChance', 'Accuracy', 'ManaRegen', 'ManaRegenRecovery']);
   assert.ok(expected.MinionCombinedDPS > expected.MinionTotalDPS && expected.MinionTotalDPS > 0);
   const { xml } = await client.unchangedItemsSnapshot();
   const configured = await client.setConfig({ enemyIsBoss: 'Uber' });
@@ -34,6 +34,8 @@ try {
   assert.equal(scan.checks.fireResistance, 'checked');
   assert.equal(scan.checks.items, 'checked');
   assert.equal(scan.checks.gemCoherence, 'checked');
+  assert.equal(scan.checks.manaRecoveryObservation, 'checked');
+  if (scan.issues.some(issue => issue.code === 'low_player_hit_chance')) assert.match(scan.issues.find(issue => issue.code === 'low_player_hit_chance').message, /player accuracy apply/);
   assert.equal(scan.context.skills.mainSocketGroup, group.index);
   assert.match(scan.context.config.customMods, /100% chance to Poison/);
   assert.ok(!scan.issues.some(issue => issue.code === 'zero_damage'));

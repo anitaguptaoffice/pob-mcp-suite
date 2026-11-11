@@ -118,7 +118,7 @@ acceptance work to perform during migration, not claims of completed tests.
 | `compare_trees` | `compare_snapshot_trees` compares two explicit snapshot IDs; legacy file callers require migration. | `snapshotTreeComparison.test.ts` verifies mastery changes, missing data and version rejection; `foundation-mcp.mjs` verifies node changes against real PoB. Incompatible or unknown versions are rejected. |
 | `get_nearby_nodes` | `find_snapshot_nearby_nodes` reads PoB-native point distance for reachable, unallocated notables and keystones in the snapshot tree. | `foundation-tree-paths.mjs` checks distance, filtering, limits and empty results on PoB 3_29; old file-name callers remain. |
 | `find_path_to_node` | `find_snapshot_tree_path` reports PoB's path, already-allocated or unavailable state; derived snapshots must independently verify allocations and mastery selections. | `foundation-tree-paths.mjs` checks PoB's fixed route, allocation in a child snapshot, disconnected and absent targets, and unchanged parent. Legacy callers remain. |
-| `validate_build` | Snapshot validation workflow. | Compare selected configuration, report missing stats and preserve existing regressions. |
+| `validate_build` | `check_snapshot_issues` provides a partial snapshot scan, including observed player hit chance and mana recovery; `inspect_snapshot_defenses` gives additional PoB metrics. Full validation and legacy callers remain. | `buildIssues.test.ts` covers unknown and invalid hit chance and zero mana recovery without inferring skill applicability or sustainable casting; `foundation-issues.mjs` compares saved-context metrics with real PoB. Flask immunity, damage scaling and complete validation remain unimplemented. |
 
 ## Economy, trade and crafting
 
