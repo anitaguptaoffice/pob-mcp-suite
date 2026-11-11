@@ -27,8 +27,8 @@ describe('truncatable schema flags', () => {
   it('keeps every tool the old index.ts allowlist covered (no regressions lost in the move)', () => {
     const legacy = ['analyze_build', 'analyze_defenses', 'suggest_optimal_nodes',
       'optimize_tree', 'analyze_items', 'optimize_skill_links', 'create_budget_build',
-      'search_trade_items', 'find_item_upgrades', 'find_resistance_gear', 'compare_trade_items',
-      'search_cluster_jewels', 'generate_shopping_list', 'validate_build', 'get_passive_upgrades',
+      'search_trade_items', 'find_item_upgrades', 'compare_trade_items',
+      'generate_shopping_list', 'validate_build', 'get_passive_upgrades',
       'analyze_skill_links', 'suggest_support_gems', 'find_optimal_links', 'compare_gem_setups',
       'lua_get_stats', 'suggest_masteries'];
     const tools = allTools();

@@ -8,7 +8,6 @@ import type { OptimizationConstraints } from "../types/optimization.js";
 import type { ContextBuilder } from "../utils/contextBuilder.js";
 import type { TradeApiClient } from "../services/tradeClient.js";
 import type { StatMapper } from "../adapters/staticStats/catalog.js";
-import type { ItemRecommendationEngine } from "../services/itemRecommendationEngine.js";
 import type { PoeNinjaClient } from "../services/poeNinjaClient.js";
 import type { PriceSource } from "../features/buildCost/estimate.js";
 import { handleEstimateBuildCost } from "../features/buildCost/tool.js";
@@ -30,8 +29,8 @@ import { handleGetConfig, handleSetConfig, handleSetEnemyStats, handleSaveConfig
 import { handleValidateBuild } from "../handlers/validationHandlers.js";
 import { handleExportBuild, handleSaveTree, handleSnapshotBuild, handleListSnapshots, handleRestoreSnapshot, handleExportBuildSummary } from "../handlers/exportHandlers.js";
 import { handleAnalyzeSkillLinks, handleSuggestSupportGems, handleCompareGemSetups, handleRankSupportGems, handleValidateGemQuality, handleFindOptimalLinks, handleGemUpgradePath } from "../handlers/skillGemHandlers.js";
-import { handleSearchTradeItems, handleGetItemPrice, handleGetLeagues, handleSearchStats, handleFindResistanceGear, handleCompareTradeItems, handleFindWeightedTradeItems } from "../handlers/tradeHandlers.js";
-import { handleSearchClusterJewels, handleAnalyzeClusterJewels, handleAnalyzeBuildClusterJewels } from "../handlers/clusterJewelHandlers.js";
+import { handleSearchTradeItems, handleGetItemPrice, handleGetLeagues, handleSearchStats, handleCompareTradeItems, handleFindWeightedTradeItems } from "../handlers/tradeHandlers.js";
+import { handleAnalyzeClusterJewels, handleAnalyzeBuildClusterJewels } from "../handlers/clusterJewelHandlers.js";
 import { handleGenerateShoppingList } from "../handlers/shoppingListHandlers.js";
 import { handlePlanLeveling } from "../handlers/levelingHandlers.js";
 import { handleCheckBossReadiness } from "../handlers/bossReadinessHandlers.js";
@@ -48,7 +47,6 @@ export interface ToolRouterDependencies {
   contextBuilder: ContextBuilder;
   tradeClient: TradeApiClient | null;
   statMapper: StatMapper | null;
-  recommendationEngine: ItemRecommendationEngine | null;
   ninjaClient: PoeNinjaClient;
   buildCostPrices: PriceSource;
   getLuaClient: () => import("../adapters/pob/bridge.js").PoBLuaApiClient | null;
@@ -645,20 +643,6 @@ export async function routeToolCall(
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
     }
 
-    case "find_resistance_gear": {
-      if (!deps.tradeClient || !deps.recommendationEngine) {
-        throw new Error("Trade API is not enabled. Set POE_TRADE_ENABLED=true to enable.");
-      }
-      if (!args) throw new Error("Missing arguments");
-      const tradeContext = {
-        tradeClient: deps.tradeClient,
-        statMapper: deps.statMapper || undefined,
-        recommendationEngine: deps.recommendationEngine,
-        ninjaClient: deps.ninjaClient
-      };
-      return await handleFindResistanceGear(tradeContext, args as Parameters<typeof handleFindResistanceGear>[1]);
-    }
-
     case "compare_trade_items": {
       if (!deps.tradeClient) {
         throw new Error("Trade API is not enabled. Set POE_TRADE_ENABLED=true to enable.");
@@ -667,23 +651,9 @@ export async function routeToolCall(
       const tradeContext = {
         tradeClient: deps.tradeClient,
         statMapper: deps.statMapper || undefined,
-        recommendationEngine: deps.recommendationEngine || undefined,
         ninjaClient: deps.ninjaClient
       };
       return await handleCompareTradeItems(tradeContext, args as Parameters<typeof handleCompareTradeItems>[1]);
-    }
-
-    case "search_cluster_jewels": {
-      if (!deps.tradeClient) {
-        throw new Error("Trade API is not enabled. Set POE_TRADE_ENABLED=true to enable.");
-      }
-      if (!args) throw new Error("Missing arguments");
-      const tradeContext = {
-        tradeClient: deps.tradeClient,
-        statMapper: deps.statMapper || undefined,
-        ninjaClient: deps.ninjaClient
-      };
-      return await handleSearchClusterJewels(tradeContext, args as Parameters<typeof handleSearchClusterJewels>[1]);
     }
 
     case "analyze_cluster_jewels": {

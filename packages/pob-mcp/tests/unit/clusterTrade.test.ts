@@ -1,7 +1,12 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { createClusterTradeTool } from '../../src/features/clusterTrade/tool.js';
-import { handleSearchClusterJewels } from '../../src/handlers/clusterJewelHandlers.js';
 import type { OfficialTradeSource } from '../../src/ports/officialTrade.js';
 import type { TradeQuery } from '../../src/types/tradeTypes.js';
+
+// Captured from the retired legacy route before removal; the replacement must
+// keep the same filters and additionally require an explicit sale type.
+const legacyQuery = JSON.parse(readFileSync(resolve('tests/fixtures/legacy-cluster-trade-query.json'), 'utf8'));
 
 const at = '2026-01-01T00:00:00.000Z';
 const ids = Array.from({ length: 23 }, (_, i) => `id${i}`);
@@ -9,16 +14,16 @@ const listing = (id: string, notable: string, currency = 'chaos') => ({ id, item
 
 describe('cluster trade workflow', () => {
   it('matches legacy search filters, checks exact notables and reports bounded, partial sample provenance', async () => {
-    let previous: TradeQuery | undefined, actual: TradeQuery | undefined;
-    await handleSearchClusterJewels({ tradeClient: { searchItems: async (_league: string, query: TradeQuery) => { previous = query; return { id: 'q', total: 0, result: [] }; } } as any }, { league: 'Standard', jewel_size: 'large', passive_count: 8, min_item_level: 84, max_price: 10, notables: ['Prismatic Heart'], limit: 5 });
+    let actual: TradeQuery | undefined;
     const source = {
       stats: async () => ({ source: 'official-trade', fetchedAt: at, request: { kind: 'stats' }, data: { result: [{ entries: [] }] } }),
       search: async (league: string, query: TradeQuery) => { actual = query; return { source: 'official-trade', fetchedAt: at, request: { league, query: JSON.parse(JSON.stringify(query)) }, data: { id: 'q', total: 100, result: ids, inexact: true } }; },
       fetchListings: async (requested: string[], queryId: string) => ({ source: 'official-trade', fetchedAt: at, request: { ids: requested, queryId }, data: { missingIds: requested.filter(id => id !== 'id0' && id !== 'id1' && id !== 'id2'), listings: [listing('id0', 'Prismatic Heart'), listing('id1', 'Prismatic Heartbeat'), listing('id2', 'Prismatic Heart', 'divine')].filter(item => requested.includes(item.id)) } }),
     } as unknown as OfficialTradeSource;
     const result = JSON.parse((await createClusterTradeTool(source).invoke({ league: 'Standard', jewel_size: 'large', passive_count: 8, min_item_level: 84, max_price: 10, enchant: 'Fire Damage', notables: ['Prismatic Heart'], limit: 5 })).content[0].text);
-    const expected = JSON.parse(JSON.stringify(previous)); expected.query.filters.trade_filters.filters.sale_type = { option: 'priced' };
+    const expected = JSON.parse(JSON.stringify(legacyQuery)); expected.query.filters.trade_filters.filters.sale_type = { option: 'priced' };
     expect(actual).toEqual(expected);
+    expect(JSON.stringify(actual)).not.toContain('online_only');
     expect(result).toMatchObject({ listingScope: 'instant_buyout', requestedCount: 15, fetchedCount: 3, matchedCount: 1, returnedCount: 1, inexact: true, excludedPriceCount: 1 });
     expect(result.priceEvidenceCounts.explicit_buyout).toBe(3); expect(result.excludedBudgetCount).toBe(1);
     expect(result.fetches.map((entry: { ids: string[] }) => entry.ids.length)).toEqual([10, 5]);

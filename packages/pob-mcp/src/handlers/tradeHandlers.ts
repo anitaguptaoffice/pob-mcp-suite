@@ -4,7 +4,6 @@ import { TradeApiClient } from '../services/tradeClient.js';
 import { TradeQueryBuilder } from '../domain/trade/queryBuilder.js';
 import type { TradeQuery } from '../types/tradeTypes.js';
 import { StatMapper } from '../adapters/staticStats/catalog.js';
-import { ItemRecommendationEngine } from '../services/itemRecommendationEngine.js';
 import {
   ItemListing,
   SearchOptions,
@@ -19,7 +18,6 @@ import { PoeNinjaClient } from '../services/poeNinjaClient.js';
 interface TradeContext {
   tradeClient: TradeApiClient;
   statMapper?: StatMapper;
-  recommendationEngine?: ItemRecommendationEngine;
   ninjaClient?: PoeNinjaClient;
 }
 
@@ -583,151 +581,6 @@ export async function handleSearchStats(
 
 // Phase 3: Recommendation Engine Handlers
 
-export async function handleFindResistanceGear(
-  context: TradeContext,
-  args: {
-    league: string;
-    fire_resist_needed?: number;
-    cold_resist_needed?: number;
-    lightning_resist_needed?: number;
-    chaos_resist_needed?: number;
-    max_price_per_item?: number;
-    total_budget?: number;
-    currency?: string;
-    slots?: string[];
-    limit?: number;
-  }
-): Promise<{ content: Array<{ type: string; text: string }> }> {
-  return wrapHandler('find resistance gear', async () => {
-    const {
-      league,
-      fire_resist_needed = 0,
-      cold_resist_needed = 0,
-      lightning_resist_needed = 0,
-      chaos_resist_needed = 0,
-      max_price_per_item = 50,
-      total_budget = 200,
-      currency = 'chaos',
-      slots,
-      limit = 8,
-    } = args;
-
-    if (typeof league !== 'string' || !league.trim() || typeof currency !== 'string' || !currency.trim() ||
-        !Number.isFinite(max_price_per_item) || max_price_per_item <= 0 || !Number.isFinite(total_budget) || total_budget < 0 ||
-        ![fire_resist_needed, cold_resist_needed, lightning_resist_needed, chaos_resist_needed].every(n => Number.isFinite(n) && n >= 0) ||
-        !Number.isInteger(limit) || limit < 1 || limit > 20) throw new Error('invalid league, currency, resistance target, budget, or limit');
-    if (!context.recommendationEngine) {
-      return {
-        content: [{ type: 'text', text: 'Recommendation engine not available.' }],
-      };
-    }
-
-    const resistanceGaps: ResistanceRequirements = {
-      fire: fire_resist_needed,
-      cold: cold_resist_needed,
-      lightning: lightning_resist_needed,
-      chaos: chaos_resist_needed,
-    };
-
-    if (total_budget === 0) {
-      return { content: [{ type: 'text', text: '总预算为零，无法推荐正价挂牌。' }] };
-    }
-    const budget: BudgetConstraints = {
-      // Even an individual item cannot exceed the whole budget. Combining
-      // multiple items remains out of scope and is disclosed in the report.
-      maxPricePerItem: Math.min(max_price_per_item, total_budget),
-      totalBudget: total_budget,
-      currency: currency.trim().toLowerCase(),
-    };
-
-    const recommendations = await context.recommendationEngine.findResistanceGear(
-      resistanceGaps,
-      budget,
-      league.trim(),
-      slots
-    );
-
-    if (recommendations.length === 0) {
-      return {
-        content: [{ type: 'text', text: `本次在 ${league} 查询的样本中没有符合指定通货和单件预算的候选；不代表市场没有其他挂单。` }],
-      };
-    }
-
-    const output = formatResistanceRecommendations(recommendations.slice(0, limit), resistanceGaps, league.trim());
-    return { content: [{ type: 'text', text: output }] };
-  });
-}
-
-function formatResistanceRecommendations(
-  recommendations: ItemRecommendation[],
-  resistanceGaps: ResistanceRequirements,
-  league: string
-): string {
-  const targets = [];
-  if (resistanceGaps.fire > 0) targets.push(`${resistanceGaps.fire}% Fire`);
-  if (resistanceGaps.cold > 0) targets.push(`${resistanceGaps.cold}% Cold`);
-  if (resistanceGaps.lightning > 0) targets.push(`${resistanceGaps.lightning}% Lightning`);
-  if (resistanceGaps.chaos && resistanceGaps.chaos > 0) targets.push(`${resistanceGaps.chaos}% Chaos`);
-
-  let output = `=== Resistance Gear (${league}) ===\n`;
-  output += `Need: ${targets.join(', ')}\n`;
-  output += `${recommendations.length} found\n`;
-  output += '仅限即时购买和指定计价通货；结果可能来自缓存。以下为物品列示抗性，未扣除当前装备，不能视为替换后的净收益。\n';
-  output += '各条是独立候选，未组合配装或验证总预算；请在 PoB 中核对。\n\n';
-
-  for (const rec of recommendations) {
-    const item = rec.listing.item;
-    const price = rec.listing.listing.price;
-
-    output += `${rec.rank}. ${item.name || item.typeLine}`;
-    if (rec.priority === 'high') output += ' ⭐';
-    output += `\n`;
-
-    if (item.typeLine && item.name !== item.typeLine) {
-      output += `   Type: ${item.typeLine}\n`;
-    }
-
-    output += `   Score: ${rec.score.toFixed(1)}/100 (${rec.priority} priority)\n`;
-
-    if (price) {
-      output += `   Price: ${price.amount} ${price.currency}\n`;
-    }
-
-    if (rec.costBenefit.resistGain) {
-      const gains = [];
-      const rg = rec.costBenefit.resistGain;
-      if (rg.fire) gains.push(`${rg.fire}% Fire`);
-      if (rg.cold) gains.push(`${rg.cold}% Cold`);
-      if (rg.lightning) gains.push(`${rg.lightning}% Lightning`);
-      if (rg.chaos) gains.push(`${rg.chaos}% Chaos`);
-
-      if (gains.length > 0) {
-        output += `   Listed resistance contribution: ${gains.join(', ')}\n`;
-      }
-    }
-
-    if (rec.costBenefit.efficiency) {
-      output += `   Efficiency: ${rec.costBenefit.efficiency.toFixed(2)} resist per ${rec.costBenefit.currency}\n`;
-    }
-
-    if (rec.reasons.length > 0) {
-      output += `   Why:\n`;
-      for (const reason of rec.reasons.slice(0, 2)) {
-        output += `     - ${reason}\n`;
-      }
-    }
-
-    for (const warning of rec.warnings ?? []) output += `   ⚠️ ${warning}\n`;
-    output += `   ${rec.listing.listing.account?.online ? '🟢' : '🔴'} ${rec.listing.listing.account?.name ?? 'unknown'}\n`;
-    output += `   🔗 ${getTradeItemUrl(league, rec.searchId, rec.listing.id)}\n\n`;
-  }
-
-  return output;
-}
-
-/**
- * Compare multiple trade items side-by-side
- */
 export async function handleCompareTradeItems(
   context: TradeContext,
   args: {

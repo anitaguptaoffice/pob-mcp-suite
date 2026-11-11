@@ -1,16 +1,18 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { createResistanceTradeTool } from '../../src/features/resistanceTrade/tool.js';
-import { ItemRecommendationEngine } from '../../src/services/itemRecommendationEngine.js';
 import type { OfficialTradeSource } from '../../src/ports/officialTrade.js';
 import type { TradeQuery } from '../../src/types/tradeTypes.js';
+
+// Captured from the retired legacy recommendation engine before removal.
+const legacyQuery = JSON.parse(readFileSync(resolve('tests/fixtures/legacy-resistance-trade-query.json'), 'utf8'));
 
 const at = '2026-01-01T00:00:00.000Z';
 const stats = { result: [{ entries: [{ id: 'pseudo.pseudo_total_fire_resistance', text: '+#% total to Fire Resistance', type: 'pseudo' }, { id: 'pseudo.pseudo_total_chaos_resistance', text: '+#% total to Chaos Resistance', type: 'pseudo' }] }] };
 
 describe('resistance listing workflow', () => {
   it('matches the previous query while filtering different currencies and retaining timestamps', async () => {
-    let oldQuery: TradeQuery | undefined, query: TradeQuery | undefined;
-    const old = new ItemRecommendationEngine({ searchItems: async (_league: string, value: TradeQuery) => { oldQuery = value; return { id: 'q', result: [], total: 0 }; } } as any);
-    await old.findResistanceGear({ fire: 40, cold: 0, lightning: 0, chaos: 10 }, { maxPricePerItem: 20, totalBudget: 20, currency: 'chaos' }, 'Standard', ['Ring 1']);
+    let query: TradeQuery | undefined;
     const source = {
       stats: async () => ({ source: 'official-trade', fetchedAt: at, request: { kind: 'stats' }, data: stats }),
       search: async (league: string, value: TradeQuery) => { query = value; return { source: 'official-trade', fetchedAt: at, request: { league, query: JSON.parse(JSON.stringify(value)) }, data: { id: 'q', result: ['a', 'b', 'missing'], total: 10, inexact: true } }; },
@@ -19,7 +21,7 @@ describe('resistance listing workflow', () => {
       ] } }),
     } as unknown as OfficialTradeSource;
     const result = JSON.parse((await createResistanceTradeTool(source).invoke({ league: 'Standard', resistance_minimums: { fire: 40, chaos: 10 }, max_price_per_item: 50, total_budget: 20, slots: ['Ring 1'], per_slot_limit: 3 })).content[0].text);
-    expect(JSON.parse(JSON.stringify(query))).toEqual(JSON.parse(JSON.stringify(oldQuery)));
+    expect(JSON.parse(JSON.stringify(query))).toEqual(legacyQuery);
     expect(result).toMatchObject({ listingScope: 'instant_buyout', effectivePerItemCap: 20, currency: 'chaos' });
     expect(result.searches[0]).toMatchObject({ status: 'ok', inexact: true, missingListingIds: ['missing'], excludedPriceCount: 1, sourceTimes: { stats: at, search: at, listings: at } });
     expect(result.searches[0].listings.map((entry: { id: string }) => entry.id)).toEqual(['a']);

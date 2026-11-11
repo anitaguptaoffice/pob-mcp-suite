@@ -1,52 +1,100 @@
 {
   "get_currency_rates": {
     "replacement": "reference_currency_rates",
-    "evidence": ["unit/currencyReference.test.ts", "smoke/currency-reference-live.mjs"],
+    "evidence": [
+      "unit/currencyReference.test.ts",
+      "smoke/currency-reference-live.mjs"
+    ],
     "note": "Legacy poe.ninja route removed; reference rates stay an independent economy feature and are not executable listings."
   },
   "find_arbitrage": {
     "replacement": "screen_currency_spreads",
-    "evidence": ["unit/currencySpread.test.ts", "smoke/currency-reference-live.mjs"],
+    "evidence": [
+      "unit/currencySpread.test.ts",
+      "smoke/currency-reference-live.mjs"
+    ],
     "note": "Legacy route with the reversed pay/receive interpretation removed; bounded screening covers all two-currency loops and keeps three-currency loops on the first 20 names."
   },
   "calculate_trading_profit": {
     "replacement": "simulate_reference_currency_chain",
-    "evidence": ["unit/currencyReference.test.ts", "smoke/currency-reference-live.mjs"],
+    "evidence": [
+      "unit/currencyReference.test.ts",
+      "smoke/currency-reference-live.mjs"
+    ],
     "note": "Legacy profit verdict removed; chain simulation reports reference conversion and incomplete chains without claiming executable profit."
   },
   "start_watching": {
     "replacement": "start_local_build_watch",
-    "evidence": ["unit/localBuildWatcher.test.ts", "smoke/foundation-file-catalog.mjs", "smoke/foundation-gating.mjs"],
+    "evidence": [
+      "unit/localBuildWatcher.test.ts",
+      "smoke/foundation-file-catalog.mjs",
+      "smoke/foundation-gating.mjs"
+    ],
     "note": "Legacy auto-reloading watcher removed; the replacement observes files without importing or mutating any snapshot."
   },
   "stop_watching": {
     "replacement": "stop_local_build_watch",
-    "evidence": ["unit/localBuildWatcher.test.ts", "smoke/foundation-file-catalog.mjs"],
+    "evidence": [
+      "unit/localBuildWatcher.test.ts",
+      "smoke/foundation-file-catalog.mjs"
+    ],
     "note": "Legacy watcher control removed; the replacement stops the independent observer and keeps recorded events for this process."
   },
   "get_recent_changes": {
     "replacement": "list_local_build_changes",
-    "evidence": ["unit/localBuildWatcher.test.ts", "smoke/foundation-file-catalog.mjs"],
+    "evidence": [
+      "unit/localBuildWatcher.test.ts",
+      "smoke/foundation-file-catalog.mjs"
+    ],
     "note": "Legacy unbounded recent-change list removed; the replacement returns ordered bounded events with a session-bound cursor and overflow indicator."
   },
   "watch_status": {
     "replacement": "get_local_build_watch",
-    "evidence": ["unit/localBuildWatcher.test.ts", "smoke/foundation-gating.mjs"],
+    "evidence": [
+      "unit/localBuildWatcher.test.ts",
+      "smoke/foundation-gating.mjs"
+    ],
     "note": "Legacy status report removed; the replacement reports process-local state, directory, cursor and error."
   },
   "classify_item_affixes": {
     "replacement": "classify_modifier_lines",
-    "evidence": ["unit/modifierDataTools.test.ts", "unit/affixRealData.test.ts", "smoke/persistence.mjs"],
+    "evidence": [
+      "unit/modifierDataTools.test.ts",
+      "unit/affixRealData.test.ts",
+      "smoke/persistence.mjs"
+    ],
     "note": "Legacy text route removed; the replacement keeps hybrid and unmatched-line regressions, withholds slot counts unless confirmed, and reports matched lines that exceed rarity capacity."
   },
   "list_craftable_mods": {
     "replacement": "query_bench_modifiers",
-    "evidence": ["unit/modifierDataTools.test.ts", "unit/affixRealData.test.ts"],
+    "evidence": [
+      "unit/modifierDataTools.test.ts",
+      "unit/affixRealData.test.ts"
+    ],
     "note": "Legacy route removed; the replacement separates within-level and level-locked bench crafts and paginates them."
   },
   "find_affix_tiers": {
     "replacement": "query_modifier_tiers",
-    "evidence": ["unit/modifierDataTools.test.ts", "unit/affixRealData.test.ts"],
+    "evidence": [
+      "unit/modifierDataTools.test.ts",
+      "unit/affixRealData.test.ts"
+    ],
     "note": "Legacy route removed; the replacement keeps zero-weight and Elevated candidates, complete-tag spawn rules, item-level filtering and the base-tag vocabulary."
+  },
+  "find_resistance_gear": {
+    "replacement": "search_resistance_listings",
+    "evidence": [
+      "unit/resistanceTrade.test.ts",
+      "smoke/source-comparable-live.mjs"
+    ],
+    "note": "Legacy recommendation route and engine removed; the replacement searches securable priced listings with per-item budget and evidence counts, and deliberately does not rank net resistance gain or combined affordability."
+  },
+  "search_cluster_jewels": {
+    "replacement": "search_cluster_listings",
+    "evidence": [
+      "unit/clusterTrade.test.ts",
+      "smoke/cluster-trade-live.mjs"
+    ],
+    "note": "Legacy text route and online_only alias removed; the replacement keeps the captured legacy query, exact notable checks and bounded partial sample provenance."
   }
 }

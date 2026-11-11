@@ -539,9 +539,9 @@ and returns at most `limit` candidates (maximum 50).
 | `get_item_price` | Price statistics (min/max/median/average) for an item |
 | `get_leagues` | List available leagues |
 | `search_stats` | Look up Trade API stat IDs |
-| `find_resistance_gear` | Find affordable gear to cap specific resistances |
+| `search_resistance_listings` | Find securable, priced listings for explicit resistance targets and a per-item budget |
 | `compare_trade_items` | Compare multiple trade listings side by side |
-| `search_cluster_jewels` | Search for cluster jewels by notable |
+| `search_cluster_listings` | Search securable cluster jewels and check enchant and exact notable names locally |
 | `generate_shopping_list` | Generate a prioritized shopping list from build analysis |
 
 ---

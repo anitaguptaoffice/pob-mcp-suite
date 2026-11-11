@@ -1,0 +1,49 @@
+{
+  "query": {
+    "status": {
+      "option": "securable"
+    },
+    "filters": {
+      "type_filters": {
+        "filters": {
+          "category": {
+            "option": "accessory.ring"
+          }
+        }
+      },
+      "trade_filters": {
+        "filters": {
+          "price": {
+            "max": 20,
+            "option": "chaos"
+          },
+          "sale_type": {
+            "option": "priced"
+          }
+        }
+      }
+    },
+    "stats": [
+      {
+        "type": "and",
+        "filters": [
+          {
+            "id": "pseudo.pseudo_total_fire_resistance",
+            "value": {
+              "min": 40
+            }
+          },
+          {
+            "id": "pseudo.pseudo_total_chaos_resistance",
+            "value": {
+              "min": 10
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "sort": {
+    "price": "asc"
+  }
+}

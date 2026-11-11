@@ -7,7 +7,6 @@ import { SkillGemService } from '../services/skillGemService.js';
 import { TradeApiClient } from '../services/tradeClient.js';
 import { StatMapper } from '../adapters/staticStats/catalog.js';
 import { PoeNinjaClient } from '../services/poeNinjaClient.js';
-import { ItemRecommendationEngine } from '../services/itemRecommendationEngine.js';
 import { NinjaPrices } from '../features/buildCost/ninjaPrices.js';
 import { ContextBuilder } from '../utils/contextBuilder.js';
 import type { OfficialTradeSource } from '../ports/officialTrade.js';
@@ -25,7 +24,6 @@ export class LegacyRuntime {
   private readonly contextBuilder: ContextBuilder;
   private readonly tradeClient: TradeApiClient | null;
   private readonly statMapper: StatMapper | null;
-  private readonly recommendationEngine: ItemRecommendationEngine | null;
   private readonly ninjaClient = new PoeNinjaClient();
   private readonly buildCostPrices = new NinjaPrices();
 
@@ -40,7 +38,6 @@ export class LegacyRuntime {
       ...(source ? { source } : {}),
     }) : null;
     this.statMapper = this.tradeClient ? new StatMapper() : null;
-    this.recommendationEngine = this.tradeClient ? new ItemRecommendationEngine(this.tradeClient) : null;
     this.contextBuilder = new ContextBuilder({
       buildService: this.buildService, treeService, watchService: this.watchService,
       validationService: new ValidationService(), exportService: new BuildExportService(directory),
@@ -77,7 +74,7 @@ export class LegacyRuntime {
   route(name: string, args: Record<string, unknown> | undefined) {
     return routeToolCall(name, args, {
       contextBuilder: this.contextBuilder, tradeClient: this.tradeClient, statMapper: this.statMapper,
-      recommendationEngine: this.recommendationEngine, ninjaClient: this.ninjaClient,
+      ninjaClient: this.ninjaClient,
       buildCostPrices: this.buildCostPrices, getLuaClient: () => this.lua.getClient(),
       ensureLuaClient: () => this.lua.ensureClient(),
     });
