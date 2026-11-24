@@ -10,118 +10,142 @@ on:
         required: false
         default: "dev"
       dry_run:
-        description: "Fetch and merge-check without pushing changes"
+        description: "Validate the merge without pushing or publishing changes"
         required: false
         type: boolean
         default: true
 
 permissions:
-  actions: write
-  contents: write
+  contents: read
 
 concurrency:
-  group: sync-pathofbuilding-vendor
+  group: sync-pathofbuilding-vendor-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  sync:
+  prepare:
     runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.merge.outputs.changed }}
+      candidate: ${{ steps.merge.outputs.candidate }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Merge upstream and prepare the candidate
+        id: merge
+        env:
+          UPSTREAM_REF: ${{ inputs.upstream_ref || 'dev' }}
+          LOOKUP_TABLE: vendor/PathOfBuilding/src/Data/TimelessJewelData/ElegantHubris.zip
+        run: |
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+
+          base="$(git rev-parse HEAD)"
+          git fetch --no-tags https://github.com/PathOfBuildingCommunity/PathOfBuilding.git "${UPSTREAM_REF}"
+          upstream="$(git rev-parse FETCH_HEAD)"
+          git subtree merge --prefix=vendor/PathOfBuilding "${upstream}" -m "chore: sync PathOfBuilding ${UPSTREAM_REF}"
+
+          test -s "${LOOKUP_TABLE}"
+          python3 -c 'import os, pathlib, zlib; data = zlib.decompress(pathlib.Path(os.environ["LOOKUP_TABLE"]).read_bytes()); assert data, "empty lookup table"'
+          table_changed=false
+          if ! git diff --quiet "${base}" HEAD -- "${LOOKUP_TABLE}"; then
+            table_changed=true
+          fi
+          {
+            echo "## Path of Building vendor sync"
+            echo
+            echo "- Upstream commit: \`${upstream}\`"
+            echo "- ElegantHubris.zip SHA-256: \`$(sha256sum "${LOOKUP_TABLE}" | cut -d ' ' -f 1)\`"
+            echo "- ElegantHubris.zip changed: \`${table_changed}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+          if git diff --quiet "${base}" HEAD -- vendor/PathOfBuilding; then
+            echo "changed=false" >> "${GITHUB_OUTPUT}"
+            echo "No vendor changes detected"
+            exit 0
+          fi
+
+          # Transfer the source commits once so every shard and the publisher use the same merge.
+          mkdir -p "${RUNNER_TEMP}/pob-sync-candidate"
+          git update-ref refs/heads/pob-sync-candidate HEAD
+          git bundle create "${RUNNER_TEMP}/pob-sync-candidate/candidate.bundle" "${base}..refs/heads/pob-sync-candidate"
+          echo "changed=true" >> "${GITHUB_OUTPUT}"
+          echo "candidate=$(git rev-parse HEAD)" >> "${GITHUB_OUTPUT}"
+
+      - uses: actions/upload-artifact@v7
+        if: steps.merge.outputs.changed == 'true'
+        with:
+          name: pob-sync-candidate
+          path: ${{ runner.temp }}/pob-sync-candidate/candidate.bundle
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  verify:
+    name: Verify engine (shard ${{ matrix.shard }})
+    needs: prepare
+    if: needs.prepare.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1/3, 2/3, 3/3]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: ./.github/actions/checkout-pob-sync
+        with:
+          candidate: ${{ needs.prepare.outputs.candidate }}
+
+      - name: Build candidate image
+        run: docker build -t pob-mcp-sync-check .
+
+      - name: Verify core calculation and bridge
+        if: matrix.shard == '1/3'
+        run: |
+          docker run --rm --entrypoint node pob-mcp-sync-check /opt/pob-mcp/scripts/engine-regression.mjs
+          docker run --rm --entrypoint npm -e POB_REPO_ROOT=/opt/pob-mcp \
+            -v "${PWD}/packages/pob-mcp/tests:/opt/pob-mcp/tests:ro" \
+            -v "${PWD}/packages/pob-mcp/example-build.xml:/opt/pob-mcp/example-build.xml:ro" \
+            pob-mcp-sync-check run test:smoke
+
+      - name: Verify foundation smoke shard
+        env:
+          SMOKE_SHARD: ${{ matrix.shard }}
+        run: |
+          docker run --rm --entrypoint npm -e POB_REPO_ROOT=/opt/pob-mcp \
+            -e SMOKE_CONCURRENCY=4 -e SMOKE_MCP_TIMEOUT_MS=180000 -e SMOKE_TIMEOUT_MS=1800000 \
+            -v "${PWD}/packages/pob-mcp/tests:/opt/pob-mcp/tests:ro" \
+            -v "${PWD}/packages/pob-mcp/example-build.xml:/opt/pob-mcp/example-build.xml:ro" \
+            pob-mcp-sync-check run test:smoke:foundation -- "--shard=${SMOKE_SHARD}"
+
+  publish:
+    needs: [prepare, verify]
+    if: ${{ needs.prepare.outputs.changed == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || inputs.dry_run == false) }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: write
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           token: ${{ secrets.PATH_CHAIN_TOKEN || secrets.GITHUB_TOKEN }}
 
-      - name: Configure git
-        run: |
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git config user.name "github-actions[bot]"
-
-      - name: Add upstream PoB remote
-        run: git remote add pob-upstream https://github.com/PathOfBuildingCommunity/PathOfBuilding.git
-
-      - name: Fetch upstream PoB
-        env:
-          UPSTREAM_REF: ${{ inputs.upstream_ref || 'dev' }}
-        run: git fetch pob-upstream "${UPSTREAM_REF}"
-
-      - name: Merge upstream into vendor subtree
-        env:
-          UPSTREAM_REF: ${{ inputs.upstream_ref || 'dev' }}
-        run: |
-          git subtree pull \
-            --prefix=vendor/PathOfBuilding \
-            pob-upstream "${UPSTREAM_REF}" \
-            -m "chore: sync PathOfBuilding ${UPSTREAM_REF}"
-
-      - name: Verify Elegant Hubris lookup table
-        id: elegant_hubris
-        env:
-          LOOKUP_TABLE: vendor/PathOfBuilding/src/Data/TimelessJewelData/ElegantHubris.zip
-        run: |
-          test -s "${LOOKUP_TABLE}"
-          python3 -c 'import os, pathlib, zlib; data = zlib.decompress(pathlib.Path(os.environ["LOOKUP_TABLE"]).read_bytes()); assert data, "empty lookup table"'
-          echo "sha256=$(sha256sum "${LOOKUP_TABLE}" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
-          if git diff --quiet origin/main HEAD -- "${LOOKUP_TABLE}"; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Summarize Timeless Jewel data
-        env:
-          TABLE_SHA256: ${{ steps.elegant_hubris.outputs.sha256 }}
-          TABLE_CHANGED: ${{ steps.elegant_hubris.outputs.changed }}
-        run: |
-          {
-            echo "## Path of Building vendor sync"
-            echo
-            echo "- ElegantHubris.zip SHA-256: \`${TABLE_SHA256}\`"
-            echo "- ElegantHubris.zip changed: \`${TABLE_CHANGED}\`"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Detect vendor changes
-        id: changes
-        run: |
-          if git diff --quiet origin/main HEAD -- vendor/PathOfBuilding; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "No vendor changes detected"
-          else
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "Vendor changes detected"
-          fi
-
-      - name: Verify updated calculation engine
-        if: ${{ steps.changes.outputs.changed == 'true' }}
-        run: |
-          docker build -t pob-mcp-sync-check .
-          docker run --rm --entrypoint node pob-mcp-sync-check \
-            /opt/pob-mcp/scripts/engine-regression.mjs
-          docker run --rm --entrypoint npm -e POB_REPO_ROOT=/opt/pob-mcp \
-            -v "${PWD}/packages/pob-mcp/tests:/opt/pob-mcp/tests:ro" \
-            -v "${PWD}/packages/pob-mcp/example-build.xml:/opt/pob-mcp/example-build.xml:ro" \
-            pob-mcp-sync-check run test:smoke
-          docker run --rm --entrypoint npm -e POB_REPO_ROOT=/opt/pob-mcp \
-            -v "${PWD}/packages/pob-mcp/tests:/opt/pob-mcp/tests:ro" \
-            -v "${PWD}/packages/pob-mcp/example-build.xml:/opt/pob-mcp/example-build.xml:ro" \
-            pob-mcp-sync-check run test:smoke:offline
-          docker run --rm --entrypoint npm -e POB_REPO_ROOT=/opt/pob-mcp \
-            -v "${PWD}/packages/pob-mcp/tests:/opt/pob-mcp/tests:ro" \
-            pob-mcp-sync-check run test:smoke:requirements
-          docker run --rm --entrypoint npm -e POB_REPO_ROOT=/opt/pob-mcp \
-            -e SMOKE_CONCURRENCY=4 -e SMOKE_MCP_TIMEOUT_MS=180000 \
-            -v "${PWD}/packages/pob-mcp/tests:/opt/pob-mcp/tests:ro" \
-            -v "${PWD}/packages/pob-mcp/example-build.xml:/opt/pob-mcp/example-build.xml:ro" \
-            pob-mcp-sync-check run test:smoke:foundation
-          # Runs only when the vendored engine changed, which is exactly the case
-          # this gate exists for; the pull-request workflow leaves it to manual runs.
+      - uses: ./.github/actions/checkout-pob-sync
+        with:
+          candidate: ${{ needs.prepare.outputs.candidate }}
 
       - name: Push changes
-        if: ${{ steps.changes.outputs.changed == 'true' && (github.event_name == 'schedule' || inputs.dry_run == false) }}
         run: git push origin HEAD:main
 
       - name: Trigger Docker publish
-        if: ${{ steps.changes.outputs.changed == 'true' && (github.event_name == 'schedule' || inputs.dry_run == false) }}
         env:
           GH_TOKEN: ${{ secrets.PATH_CHAIN_TOKEN || secrets.GITHUB_TOKEN }}
         run: gh workflow run docker.yml --repo "${GITHUB_REPOSITORY}" --ref main

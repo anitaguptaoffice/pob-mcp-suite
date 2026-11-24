@@ -1,0 +1,20 @@
+name: Checkout PoB sync candidate
+description: Restore the exact prepared merge commit
+inputs:
+  candidate:
+    description: Expected merge commit SHA
+    required: true
+runs:
+  using: composite
+  steps:
+    - uses: actions/download-artifact@v8
+      with:
+        name: pob-sync-candidate
+        path: ${{ runner.temp }}/pob-sync-candidate
+    - shell: bash
+      env:
+        CANDIDATE: ${{ inputs.candidate }}
+      run: |
+        git fetch --no-tags "${RUNNER_TEMP}/pob-sync-candidate/candidate.bundle" refs/heads/pob-sync-candidate
+        test "$(git rev-parse FETCH_HEAD)" = "${CANDIDATE}"
+        git checkout --detach FETCH_HEAD

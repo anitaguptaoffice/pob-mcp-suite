@@ -16,7 +16,9 @@ try {
   const store = new SnapshotStore(dir);
   const xml = await readFile(resolve('example-build.xml'), 'utf8');
   const parent = await store.create({ xml, source: 'fault-fixture', parentId: null, engineVersion: null, adapterVersion: null, dataVersion: null });
-  const options = { cwd: smokePoBSrc(), command: resolve('tests/smoke/engine-fault-proxy.mjs'), adapterPath: resolve('lua/vanilla_stdio_bridge.lua'), timeoutMs: 5000 };
+  // The fault is injected during capture. Give the engine time to start and
+  // apply the mutation before that point on a loaded runner.
+  const options = { cwd: smokePoBSrc(), command: resolve('tests/smoke/engine-fault-proxy.mjs'), adapterPath: resolve('lua/vanilla_stdio_bridge.lua'), timeoutMs: 30000 };
   for (const mode of ['crash', 'timeout']) {
     process.env.POB_TEST_FAILURE = mode;
     process.env.POB_TEST_TRACE = join(dir, `${mode}.trace`);

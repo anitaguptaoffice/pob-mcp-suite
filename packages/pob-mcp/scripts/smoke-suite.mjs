@@ -3,7 +3,7 @@
 // Each script owns its temp directories and server process, so scripts are
 // independent. The pool keeps a CI runner busy without exhausting memory.
 //
-// Usage: node scripts/smoke-suite.mjs [suite] [filter...] [--jobs=N] [--skip=a,b]
+// Usage: node scripts/smoke-suite.mjs [suite] [filter...] [--jobs=N] [--skip=a,b] [--shard=N/COUNT]
 //   SMOKE_CONCURRENCY  default jobs (falls back to min(4, cpus))
 //   SMOKE_TIMEOUT_MS   per-script timeout (default 15 minutes)
 import { spawn } from 'node:child_process';
@@ -39,6 +39,34 @@ const suites = {
   ],
 };
 
+// Rounded timings for the longest scripts from the GitHub vendor dry run.
+// These estimates affect scheduling only. All other scripts use the same weight.
+const estimatedSeconds = new Map([
+  ['foundation-mastery', 750], ['foundation-gem', 540], ['foundation-mcp', 430],
+  ['foundation-inventory', 390], ['foundation-specs', 360], ['foundation-minion', 320],
+  ['foundation-gem-setup-job', 320], ['foundation-config-presets', 270],
+  ['foundation-group-toggle', 270], ['foundation-mastery-job', 210],
+  ['foundation-official-tree', 210], ['foundation-passive-ranking', 180],
+]);
+
+function selectShard(scripts, shard) {
+  const match = /^(\d+)\/(\d+)$/.exec(shard);
+  const index = Number(match?.[1]);
+  const count = Number(match?.[2]);
+  if (!Number.isSafeInteger(index) || !Number.isSafeInteger(count) || index < 1 || index > count || count > scripts.length) {
+    console.error('Invalid --shard: expected N/COUNT within the number of selected scripts');
+    process.exit(2);
+  }
+  const estimate = name => estimatedSeconds.get(name) ?? 80;
+  const shards = Array.from({ length: count }, () => ({ scripts: [], seconds: 0 }));
+  for (const name of [...scripts].sort((a, b) => estimate(b) - estimate(a))) {
+    const target = shards.reduce((lightest, candidate) => candidate.seconds < lightest.seconds ? candidate : lightest);
+    target.scripts.push(name);
+    target.seconds += estimate(name);
+  }
+  return shards[index - 1].scripts;
+}
+
 const args = process.argv.slice(2);
 const suiteName = args[0] && !args[0].startsWith('-') ? args[0] : 'foundation';
 const suite = suites[suiteName];
@@ -57,14 +85,16 @@ const jobs = Math.max(1, Number(option('jobs') ?? process.env.SMOKE_CONCURRENCY 
 const timeoutMs = Math.max(1_000, Number(process.env.SMOKE_TIMEOUT_MS ?? 15 * 60_000));
 const outputLimit = 64 * 1024;
 
-const selected = suite
+const matching = suite
   .filter(name => !filters.length || filters.some(filter => name.includes(filter)))
   .filter(name => !skip.has(name));
 
-if (!selected.length) {
+if (!matching.length) {
   console.error('No smoke scripts matched the requested filters');
   process.exit(2);
 }
+const shard = option('shard');
+const selected = shard === undefined ? matching : selectShard(matching, shard);
 
 const children = new Set();
 const failures = [];
