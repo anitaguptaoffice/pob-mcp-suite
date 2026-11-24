@@ -1,12 +1,12 @@
 {
   "plugin": "0.1.0+codex.20260720145127",
-  "image": "ghcr.io/anitaguptaoffice/pob-mcp-suite@sha256:3aac79cb79da1886d2a536f9e715aeb441a131b147dc1a06af2edbd675520b33",
-  "pobMcp": "2fd6cbe2aeb0507ea665ffc7251714e6f03d28a0",
+  "image": "ghcr.io/anitaguptaoffice/pob-mcp-suite@sha256:d3e72f60464fe9f271aea45e2157e88567c9d7e155b1aea96d7b282e92aaba88",
+  "pobMcp": "50a0085226fb409289272105a4f17b1c2ba4eb88",
   "pathOfBuilding": "vendor-5606cc6",
   "pobVersion": "2.69.0",
   "treeVersion": "3_30",
-  "imageDigest": "sha256:3aac79cb79da1886d2a536f9e715aeb441a131b147dc1a06af2edbd675520b33",
+  "imageDigest": "sha256:d3e72f60464fe9f271aea45e2157e88567c9d7e155b1aea96d7b282e92aaba88",
   "pathOfBuildingCommit": "5606cc64fa9f15694e69001a52b90aa968d01a86",
   "pathOfBuildingShortCommit": "5606cc6",
-  "updatedAt": "2026-11-24T15:05:48Z"
+  "updatedAt": "2026-11-24T15:27:16Z"
 }
