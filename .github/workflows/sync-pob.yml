@@ -120,7 +120,8 @@ jobs:
           SMOKE_SHARD: ${{ matrix.shard }}
         run: |
           docker run --rm --entrypoint npm -e POB_REPO_ROOT=/opt/pob-mcp \
-            -e SMOKE_CONCURRENCY=4 -e SMOKE_MCP_TIMEOUT_MS=180000 -e SMOKE_TIMEOUT_MS=1800000 \
+            -e SMOKE_CONCURRENCY=4 -e SMOKE_MCP_TIMEOUT_MS=180000 \
+            -e SMOKE_JOB_TIMEOUT_MS=600000 -e SMOKE_TIMEOUT_MS=1800000 \
             -v "${PWD}/packages/pob-mcp/tests:/opt/pob-mcp/tests:ro" \
             -v "${PWD}/packages/pob-mcp/example-build.xml:/opt/pob-mcp/example-build.xml:ro" \
             pob-mcp-sync-check run test:smoke:foundation -- "--shard=${SMOKE_SHARD}"

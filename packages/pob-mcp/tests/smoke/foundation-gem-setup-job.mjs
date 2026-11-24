@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 import { once } from 'node:events';
 import { PoBLuaApiClient } from '../../build/adapters/pob/bridge.js';
 import { gearedBuildXml, smokePoBSrc } from './pobSource.mjs';
-import { startMcpServer } from './mcpClient.mjs';
+import { smokeJobDeadline, startMcpServer } from './mcpClient.mjs';
 const dir = await mkdtemp(join(tmpdir(), 'pob-gem-job-'));
 const client = new PoBLuaApiClient({ cwd: smokePoBSrc(), cmd: process.env.POB_CMD, args: [resolve('lua/vanilla_stdio_bridge.lua')], env: { POB_API_STDIO: '0' }, timeoutMs: 60000 });
 let child;
@@ -48,7 +48,7 @@ try {
     { name: 'invalid', gems: [{ gemName: 'Summon Raging Spirit' }, { gemName: 'No Such Gem Fixture' }] },
   ] });
   assert.equal(submitted.setupCount, 3); assert.ok(submitted.jobId);
-  const deadline = Date.now() + 240000; let summary;
+  const deadline = smokeJobDeadline(); let summary;
   do { summary = await call('summarize_snapshot_gem_setups', { job_id: submitted.jobId }); if (['completed', 'failed', 'cancelled', 'interrupted'].includes(summary.jobStatus)) break; await new Promise(resolve => setTimeout(resolve, 500)); } while (Date.now() < deadline);
   assert.equal(summary.jobStatus, 'completed'); assert.equal(summary.status, 'partial');
   assert.deepEqual(summary.results.map(result => result.name), ['current', 'speed', 'invalid']);
