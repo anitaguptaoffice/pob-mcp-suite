@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 import { once } from 'node:events';
 import { PoBLuaApiClient } from '../../build/adapters/pob/bridge.js';
 import { smokePoBSrc } from './pobSource.mjs';
-import { startMcpServer } from './mcpClient.mjs';
+import { smokeJobDeadline, startMcpServer } from './mcpClient.mjs';
 
 const dir = await mkdtemp(join(tmpdir(), 'pob-passive-job-'));
 const client = new PoBLuaApiClient({ cwd: smokePoBSrc(), cmd: process.env.POB_CMD, args: [resolve('lua/vanilla_stdio_bridge.lua')], env: { POB_API_STDIO: '0' }, timeoutMs: 60000 });
@@ -42,7 +42,7 @@ try {
   const protectedId = 2147483647;
   const job = await call('submit_snapshot_passive_ranking', { snapshot_id: parent.id, metrics: ['Life', 'MinionCombinedDPS'], max_distance: 8, limit: 2, filter: 'spell damage', excluded_node_ids: [protectedId], min_life: 0, min_energy_shield: 0 });
   assert.ok(job.jobId && job.submitted > 0);
-  const deadline = Date.now() + 240000; let report;
+  const deadline = smokeJobDeadline(); let report;
   do { report = await call('summarize_snapshot_passive_ranking', { job_id: job.jobId }); if (['completed', 'failed', 'cancelled', 'interrupted'].includes(report.jobStatus)) break; await new Promise(resolve => setTimeout(resolve, 500)); } while (Date.now() < deadline);
   assert.equal(report.jobStatus, 'completed'); assert.equal(report.status, 'complete', JSON.stringify(report.results));
   assert.deepEqual(report.excludedNodeIds, [protectedId]);
@@ -59,7 +59,7 @@ try {
   assert.equal((await call('foundation_read_snapshot', { snapshot_id: candidate.snapshotId })).parentId, parent.id);
   assert.equal((await call('foundation_export_build', { snapshot_id: parent.id })).xml, xml);
   const strict = await call('submit_snapshot_passive_ranking', { snapshot_id: parent.id, metrics: ['MinionCombinedDPS'], max_distance: 8, limit: 1, filter: 'spell damage', min_life: 1000000000 });
-  const strictDeadline = Date.now() + 240000;
+  const strictDeadline = smokeJobDeadline();
   let strictReport;
   do { strictReport = await call('summarize_snapshot_passive_ranking', { job_id: strict.jobId }); if (['completed', 'failed', 'cancelled', 'interrupted'].includes(strictReport.jobStatus)) break; await new Promise(resolve => setTimeout(resolve, 500)); } while (Date.now() < strictDeadline);
   assert.equal(strictReport.jobStatus, 'completed'); assert.equal(strictReport.status, 'complete');

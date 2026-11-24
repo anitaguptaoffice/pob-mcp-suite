@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 import { once } from 'node:events';
 import { PoBLuaApiClient } from '../../build/adapters/pob/bridge.js';
 import { smokePoBSrc } from './pobSource.mjs';
-import { startMcpServer } from './mcpClient.mjs';
+import { smokeJobDeadline, startMcpServer } from './mcpClient.mjs';
 const dir = await mkdtemp(join(tmpdir(), 'pob-mastery-job-'));
 const client = new PoBLuaApiClient({ cwd: smokePoBSrc(), cmd: process.env.POB_CMD, args: [resolve('lua/vanilla_stdio_bridge.lua')], env: { POB_API_STDIO: '0' }, timeoutMs: 60000 });
 let child;
@@ -24,7 +24,7 @@ try {
   const parent = await call('foundation_import_build', { xml, source: 'mastery-job-fixture' });
   const submitted = await call('submit_snapshot_mastery_ranking', { snapshot_id: parent.id, metric: 'Life' });
   assert.ok(submitted.jobId); assert.ok(submitted.totalCandidates > 1);
-  const deadline = Date.now() + 240000;
+  const deadline = smokeJobDeadline();
   let summary;
   do {
     summary = await call('summarize_snapshot_mastery_ranking', { job_id: submitted.jobId, limit: 1 });

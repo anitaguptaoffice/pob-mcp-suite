@@ -3,6 +3,12 @@
 import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
 
+export function smokeJobDeadline(defaultTimeoutMs = 240_000) {
+  const timeoutMs = Number(process.env.SMOKE_JOB_TIMEOUT_MS ?? defaultTimeoutMs);
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1) throw new Error('SMOKE_JOB_TIMEOUT_MS must be a positive integer');
+  return Date.now() + timeoutMs;
+}
+
 /**
  * Spawn the built server and return { child, request, notify }.
  * `env` is merged over the parent environment.

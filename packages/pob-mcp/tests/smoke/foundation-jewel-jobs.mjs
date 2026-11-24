@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { once } from 'node:events';
-import { startMcpServer } from './mcpClient.mjs';
+import { smokeJobDeadline, startMcpServer } from './mcpClient.mjs';
 import { PoBLuaApiClient } from '../../build/adapters/pob/bridge.js';
 import { smokePoBSrc } from './pobSource.mjs';
 const dir = await mkdtemp(join(tmpdir(), 'pob-jewel-jobs-'));
@@ -17,7 +17,7 @@ async function start() {
   return { call, exited, close: async () => { child.stdin.end(); assert.equal((await exited)[0], 0); } };
 }
 async function poll(call, jobId, predicate) {
-  const deadline = Date.now() + 180000;
+  const deadline = smokeJobDeadline(180_000);
   while (Date.now() < deadline) {
     const result = await call('summarize_snapshot_jewels', { job_id: jobId });
     if (predicate(result)) return result;
