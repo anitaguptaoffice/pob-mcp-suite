@@ -43,4 +43,12 @@ try {
   assert.equal((await call('foundation_evaluate', { snapshot_id: reloaded.id, fields: ['Life'] })).metrics.Life.value, after.Life);
   assert.equal((await call('foundation_export_build', { snapshot_id: parent.id })).xml, xml);
   child.stdin.end(); assert.equal((await exited)[0], 0); console.log('foundation jewel comparison passed');
-} finally { if (child && child.exitCode === null && child.signalCode === null) child.kill('SIGTERM'); await client.stop(); await rm(dir, { recursive: true, force: true }); }
+} finally {
+  if (child && child.exitCode === null && child.signalCode === null) {
+    const exited = once(child, 'exit');
+    child.kill('SIGTERM');
+    await exited;
+  }
+  await client.stop();
+  await rm(dir, { recursive: true, force: true });
+}

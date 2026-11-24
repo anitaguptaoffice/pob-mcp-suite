@@ -1015,10 +1015,19 @@ export class BuildFoundation {
     let expectedSpecs: Awaited<ReturnType<BuildFoundation['inspectSpecs']>> = [];
     let expectedCatalog: Awaited<ReturnType<BuildFoundation['readSpecCatalog']>>;
     let expectedOverrides: unknown;
+    const observeNonTreeState = async (engine: BuildEngine) => {
+      const items = await engine.getItems();
+      // Tree changes can reveal, hide or add empty slots without changing any equipped item.
+      return normalizeObservation({
+        items: Array.isArray(items) ? items.filter(item => item.id !== 0) : items,
+        skills: await engine.getSkills(),
+        config: await engine.getConfig(),
+      });
+    };
     return this.derive(id, 'derived:tree-replacement', async engine => {
       const beforeCatalog = await this.readSpecCatalog(engine);
       const beforeSpecs = await this.inspectSpecs(engine, beforeCatalog, beforeCatalog.activeSpec);
-      const before = normalizeObservation({ items: await engine.getItems(), skills: await engine.getSkills(), config: await engine.getConfig() });
+      const before = await observeNonTreeState(engine);
       if (overridePolicy === 'preserve') {
         if (!engine.getTreeOverrides) throw new Error('PoB adapter lacks node override inspection');
         expectedOverrides = await engine.getTreeOverrides();
@@ -1041,7 +1050,7 @@ export class BuildFoundation {
       }
       await engine.refreshTreeProgress();
       if (!isDeepStrictEqual(await engine.getTree(), tree)) throw new Error('PoB changed the requested tree while refreshing progress');
-      const after = normalizeObservation({ items: await engine.getItems(), skills: await engine.getSkills(), config: await engine.getConfig() });
+      const after = await observeNonTreeState(engine);
       if (!isDeepStrictEqual(before, after)) throw new Error('Tree replacement changed equipment, skills or configuration');
       expectedCatalog = await this.readSpecCatalog(engine);
       if (expectedCatalog.activeSpec !== beforeCatalog.activeSpec || expectedCatalog.specs.length !== beforeCatalog.specs.length) throw new Error('Tree replacement changed passive spec selection or count');
