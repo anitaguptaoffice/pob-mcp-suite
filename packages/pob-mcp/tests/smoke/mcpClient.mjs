@@ -7,7 +7,7 @@ import { resolve } from 'node:path';
  * Spawn the built server and return { child, request, notify }.
  * `env` is merged over the parent environment.
  */
-export function startMcpServer(env = {}, timeoutMs = 60_000) {
+export function startMcpServer(env = {}, timeoutMs = Number(process.env.SMOKE_MCP_TIMEOUT_MS ?? 60_000)) {
   const child = spawn('node', [resolve('build/index.js')], {
     env: { ...process.env, ...env },
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -32,14 +32,16 @@ export function startMcpServer(env = {}, timeoutMs = 60_000) {
 
   const request = (method, params) => new Promise((resolveRequest, reject) => {
     const id = nextId++;
-    pending.set(id, resolveRequest);
-    child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n');
-    // Keep the timer handle so a resolved request does not pin the event loop
-    // for a full minute after the smoke test already passed.
+    const requestName = params?.name ? `${method} (${params.name})` : method;
     const timer = setTimeout(() => {
-      if (pending.delete(id)) reject(new Error(`timed out: ${method}`));
+      if (pending.delete(id)) reject(new Error(`timed out after ${timeoutMs} ms: ${requestName}`));
     }, timeoutMs);
     timer.unref?.();
+    pending.set(id, message => {
+      clearTimeout(timer);
+      resolveRequest(message);
+    });
+    child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n');
   });
 
   const notify = (method, params) =>

@@ -108,8 +108,10 @@ jobs:
           docker run --rm --entrypoint npm -e POB_REPO_ROOT=/opt/pob-mcp \
             -v "${PWD}/packages/pob-mcp/tests:/opt/pob-mcp/tests:ro" \
             pob-mcp-sync-check run test:smoke:requirements
-          docker run --rm --entrypoint npm -e POB_REPO_ROOT=/opt/pob-mcp -e SMOKE_CONCURRENCY=4 \
+          docker run --rm --entrypoint npm -e POB_REPO_ROOT=/opt/pob-mcp \
+            -e SMOKE_CONCURRENCY=4 -e SMOKE_MCP_TIMEOUT_MS=180000 \
             -v "${PWD}/packages/pob-mcp/tests:/opt/pob-mcp/tests:ro" \
+            -v "${PWD}/packages/pob-mcp/example-build.xml:/opt/pob-mcp/example-build.xml:ro" \
             pob-mcp-sync-check run test:smoke:foundation
           # Runs only when the vendored engine changed, which is exactly the case
           # this gate exists for; the pull-request workflow leaves it to manual runs.

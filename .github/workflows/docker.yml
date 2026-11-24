@@ -106,8 +106,10 @@ jobs:
         timeout-minutes: 40
         run: |
           # Manual run only: independent scripts run in parallel.
-          docker run --rm --entrypoint npm -e POB_REPO_ROOT=/opt/pob-mcp -e SMOKE_CONCURRENCY=4 \
+          docker run --rm --entrypoint npm -e POB_REPO_ROOT=/opt/pob-mcp \
+            -e SMOKE_CONCURRENCY=4 -e SMOKE_MCP_TIMEOUT_MS=180000 \
             -v "${PWD}/packages/pob-mcp/tests:/opt/pob-mcp/tests:ro" \
+            -v "${PWD}/packages/pob-mcp/example-build.xml:/opt/pob-mcp/example-build.xml:ro" \
             "${IMAGE_NAME}:ci" run test:smoke:foundation
 
       - name: Prepare image tags
